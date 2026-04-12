@@ -22,7 +22,8 @@ export async function checkAvailability(
   supabase: SupabaseClient,
   propertyId: string,
   checkIn: string,
-  checkOut: string
+  checkOut: string,
+  excludeBookingId?: string
 ): Promise<AvailabilityResult> {
   // 1. Check blocked dates (overlapping ranges)
   const { data: blocked } = await supabase
@@ -46,13 +47,19 @@ export async function checkAvailability(
   }
 
   // 2. Check confirmed/pending bookings
-  const { data: bookings } = await supabase
+  let bookingsQuery = supabase
     .from("bookings")
     .select("check_in_date, check_out_date, status")
     .eq("property_id", propertyId)
     .in("status", ["confirmed", "pending"])
     .lt("check_in_date", checkOut)
     .gt("check_out_date", checkIn);
+
+  if (excludeBookingId) {
+    bookingsQuery = bookingsQuery.neq("id", excludeBookingId);
+  }
+
+  const { data: bookings } = await bookingsQuery;
 
   if (bookings?.length) {
     return {

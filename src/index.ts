@@ -40,14 +40,16 @@ const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY
 
 const server = new McpServer({
   name: "federation-mcp-server",
-  version: "2.2.0",
+  version: "3.0.0",
   instructions: `This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated.
 
-Workflow: (1) search_properties to find available rentals, (2) get_canonical_quote for detailed pricing, (3) create_booking to finalize. Use check_availability for date-specific checks.
+Full booking lifecycle: search_properties (find properties) -> negotiate_offer (binding quote with quoteId) -> checkout (Stripe payment) -> get_booking_status (check details) -> reschedule_booking / cancel_booking (modify or cancel).
+
+Legacy shortcut: search_properties -> get_canonical_quote -> create_booking (no payment, pending host approval).
 
 Pricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6). Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week) are applied automatically. Federation discount (direct booking rate) is host-controlled.
 
-Dates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).`,
+Dates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).` as string,
 });
 
 // ── Tool: search_properties ────────────────────────────────────────
@@ -257,7 +259,7 @@ const app = express();
 
 // Health check
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", version: "2.2.0" });
+  res.json({ status: "ok", version: "3.0.0" });
 });
 
 // MCP endpoint
@@ -274,7 +276,7 @@ app.get("/.well-known/mcp/server-card.json", (_req, res) => {
   res.json({
     serverInfo: {
       name: "federation-mcp-server",
-      version: "2.2.0",
+      version: "3.0.0",
     },
     configSchema: {
       type: "object",
@@ -343,6 +345,82 @@ app.get("/.well-known/mcp/server-card.json", (_req, res) => {
             guestPhone: { type: "string", description: "Guest phone (optional)" },
           },
           required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"],
+        },
+      },
+      {
+        name: "negotiate_offer",
+        description:
+          "Create a binding price quote with quoteId. Stores snapshot in property_quote_snapshots. Quote expires after 15 minutes.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            propertyId: { type: "string", format: "uuid", description: "Property UUID" },
+            checkIn: { type: "string", description: "Check-in date YYYY-MM-DD" },
+            checkOut: { type: "string", description: "Check-out date YYYY-MM-DD" },
+            guests: { type: "integer", minimum: 1, description: "Number of guests" },
+          },
+          required: ["propertyId", "checkIn", "checkOut", "guests"],
+        },
+      },
+      {
+        name: "checkout",
+        description:
+          "Create a booking with Stripe payment. Supports MPP (payment_intent mode). Optionally locks price via quoteId from negotiate_offer.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            propertyId: { type: "string", format: "uuid", description: "Property UUID" },
+            checkIn: { type: "string", description: "Check-in date YYYY-MM-DD" },
+            checkOut: { type: "string", description: "Check-out date YYYY-MM-DD" },
+            guests: { type: "integer", minimum: 1, description: "Number of guests" },
+            guestName: { type: "string", description: "Guest full name" },
+            guestEmail: { type: "string", format: "email", description: "Guest email" },
+            guestPhone: { type: "string", description: "Guest phone (optional)" },
+            quoteId: { type: "string", description: "Quote ID from negotiate_offer (optional)" },
+            paymentMode: { type: "string", enum: ["checkout_session", "payment_intent"], description: "Payment mode (default: checkout_session)" },
+            channel: { type: "string", enum: ["public", "federation"], description: "Pricing channel (default: federation)" },
+          },
+          required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"],
+        },
+      },
+      {
+        name: "cancel_booking",
+        description:
+          "Cancel a booking. Delegates to Supabase Edge Function for refund calculation, Stripe refund, and notifications.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            reservationId: { type: "string", description: "Booking ID (UUID)" },
+            reason: { type: "string", description: "Cancellation reason (optional)" },
+          },
+          required: ["reservationId"],
+        },
+      },
+      {
+        name: "get_booking_status",
+        description:
+          "Get booking details, property info, and cancellation policy by reservation ID.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            reservationId: { type: "string", description: "Booking ID (UUID)" },
+          },
+          required: ["reservationId"],
+        },
+      },
+      {
+        name: "reschedule_booking",
+        description:
+          "Reschedule a booking to new dates. Checks availability, recalculates price, handles Stripe charge/refund for price delta.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            reservationId: { type: "string", description: "Booking ID (UUID)" },
+            newCheckIn: { type: "string", description: "New check-in date YYYY-MM-DD" },
+            newCheckOut: { type: "string", description: "New check-out date YYYY-MM-DD" },
+            reason: { type: "string", description: "Rescheduling reason (optional)" },
+          },
+          required: ["reservationId", "newCheckIn", "newCheckOut"],
         },
       },
     ],

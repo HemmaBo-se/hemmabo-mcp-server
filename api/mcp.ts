@@ -17,7 +17,9 @@ import { checkAvailability } from "../lib/availability.js";
 // ── Server-level instructions for AI agents ──────────────────────
 const SERVER_INSTRUCTIONS = `This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated.
 
-Workflow: (1) search_properties to find available rentals, (2) get_canonical_quote for detailed pricing, (3) create_booking to finalize. Use check_availability for date-specific checks.
+Full booking lifecycle: search_properties (find properties) -> negotiate_offer (binding quote with quoteId) -> checkout (Stripe payment) -> get_booking_status (check details) -> reschedule_booking / cancel_booking (modify or cancel).
+
+Legacy shortcut: search_properties -> get_canonical_quote -> create_booking (no payment, pending host approval).
 
 Pricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6). Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week) are applied automatically. Federation discount (direct booking rate) is host-controlled.
 
@@ -29,7 +31,7 @@ const CONFIG_SCHEMA = {
   properties: {
     region: {
       type: "string",
-      description: "Default region to search in (e.g. 'Skåne', 'Toscana'). Can be overridden per request.",
+      description: "Default region to search in (e.g. 'Skane', 'Toscana'). Can be overridden per request.",
     },
     currency: {
       type: "string",
@@ -53,7 +55,7 @@ const TOOLS = [
     inputSchema: {
       type: "object" as const,
       properties: {
-        region: { type: "string", description: "Region, area, or destination name to search within. Supports partial matching (e.g. 'Skåne', 'Toscana', 'Bavaria')." },
+        region: { type: "string", description: "Region, area, or destination name to search within. Supports partial matching (e.g. 'Skane', 'Toscana', 'Bavaria')." },
         country: { type: "string", description: "Country name to filter by (e.g. 'Sweden', 'Italy', 'Germany'). Supports partial matching." },
         guests: { type: "integer", minimum: 1, description: "Total number of guests. Determines which price tier is used and filters out properties that are too small." },
         checkIn: { type: "string", description: "Check-in date in ISO 8601 format (YYYY-MM-DD). Must be today or later." },
@@ -137,6 +139,117 @@ const TOOLS = [
       openWorldHint: false,
     },
   },
+  {
+    name: "negotiate_offer",
+    description:
+      "Create a binding price quote with a quoteId. Calculates federation pricing (with gap/package discounts) and stores an immutable snapshot in property_quote_snapshots. The quoteId can be passed to checkout to lock the price. Quote expires after 15 minutes. Returns publicTotal, federationTotal, per-night breakdown, package info, and the quoteId.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        propertyId: { type: "string", format: "uuid", description: "The unique identifier (UUID) of the property to quote." },
+        checkIn: { type: "string", description: "Check-in date in ISO 8601 format (YYYY-MM-DD)." },
+        checkOut: { type: "string", description: "Check-out date in ISO 8601 format (YYYY-MM-DD). Must be after checkIn." },
+        guests: { type: "integer", minimum: 1, description: "Total number of guests. Determines which price tier is applied." },
+      },
+      required: ["propertyId", "checkIn", "checkOut", "guests"],
+    },
+    annotations: {
+      title: "Negotiate Offer",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "checkout",
+    description:
+      "Create a booking with Stripe payment. Creates a Stripe Checkout Session and a booking record. If a quoteId from negotiate_offer is provided, the price is locked to that quote. Supports MPP (Machine Payments Protocol): set paymentMode to 'payment_intent' to receive a client_secret for programmatic payment instead of a redirect URL. Returns reservationId, paymentUrl, and MPP block with payment details.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        propertyId: { type: "string", format: "uuid", description: "The unique identifier (UUID) of the property to book." },
+        checkIn: { type: "string", description: "Check-in date in ISO 8601 format (YYYY-MM-DD)." },
+        checkOut: { type: "string", description: "Check-out date in ISO 8601 format (YYYY-MM-DD). Must be after checkIn." },
+        guests: { type: "integer", minimum: 1, description: "Total number of guests staying." },
+        guestName: { type: "string", description: "Full legal name of the primary guest." },
+        guestEmail: { type: "string", format: "email", description: "Email address of the primary guest." },
+        guestPhone: { type: "string", description: "Phone number of the primary guest (optional)." },
+        quoteId: { type: "string", description: "Quote ID from negotiate_offer. Locks the price to the snapshot. Optional — if omitted, a fresh federation price is calculated." },
+        paymentMode: { type: "string", enum: ["checkout_session", "payment_intent"], description: "Payment mode. 'checkout_session' (default) returns a Stripe redirect URL. 'payment_intent' returns a client_secret for programmatic payment (MPP)." },
+        channel: { type: "string", enum: ["public", "federation"], description: "Pricing channel. 'federation' (default) applies the direct booking discount. 'public' uses the standard rate." },
+      },
+      required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"],
+    },
+    annotations: {
+      title: "Checkout",
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "cancel_booking",
+    description:
+      "Cancel a booking. Delegates to the Supabase Edge Function cancel-booking which handles refund calculation based on the host's cancellation policy, Stripe refund processing, email notifications, and blocked date cleanup. Returns the cancellation status and refund details (amount, percentage, reason, Stripe refund ID).",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        reservationId: { type: "string", description: "The booking ID (UUID) to cancel." },
+        reason: { type: "string", description: "Reason for cancellation (optional). Stored for host records." },
+      },
+      required: ["reservationId"],
+    },
+    annotations: {
+      title: "Cancel Booking",
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "get_booking_status",
+    description:
+      "Get the current status and details of a booking. Returns booking information (dates, guests, price, status), property details (name, domain), and the applicable cancellation policy (tier and refund rules). Use this to check on a booking after creation or before attempting a reschedule or cancellation.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        reservationId: { type: "string", description: "The booking ID (UUID) to look up." },
+      },
+      required: ["reservationId"],
+    },
+    annotations: {
+      title: "Get Booking Status",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "reschedule_booking",
+    description:
+      "Reschedule a booking to new dates. Validates that the booking is in a reschedulable state (confirmed or pending), checks availability for the new dates (excluding the current booking from conflict detection), recalculates the price, and handles the Stripe charge/refund for any price delta. If the new price is higher, a new PaymentIntent with manual capture is created. If lower, a partial refund is issued on the original PaymentIntent. Returns previous and new dates, pricing details, and any Stripe action taken.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        reservationId: { type: "string", description: "The booking ID (UUID) to reschedule." },
+        newCheckIn: { type: "string", description: "New check-in date in ISO 8601 format (YYYY-MM-DD)." },
+        newCheckOut: { type: "string", description: "New check-out date in ISO 8601 format (YYYY-MM-DD). Must be after newCheckIn." },
+        reason: { type: "string", description: "Reason for rescheduling (optional). Stored for host records." },
+      },
+      required: ["reservationId", "newCheckIn", "newCheckOut"],
+    },
+    annotations: {
+      title: "Reschedule Booking",
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+  },
 ];
 
 // ── Prompts ──────────────────────────────────────────────────────
@@ -144,11 +257,11 @@ const TOOLS = [
 const PROMPTS = [
   {
     name: "plan_trip",
-    description: "Help plan a vacation rental trip. Guides the agent through searching properties, comparing prices for different dates, and creating a booking. Provide destination, dates, and guest count to get started.",
+    description: "Help plan a vacation rental trip. Guides the agent through the full booking lifecycle: searching properties, getting a binding quote, completing payment via Stripe checkout, and managing the booking (status checks, rescheduling, cancellation). Provide destination, dates, and guest count to get started.",
     arguments: [
       {
         name: "destination",
-        description: "Where the guest wants to travel (region, city, or country). Example: 'Skåne', 'Sweden', 'Toscana'.",
+        description: "Where the guest wants to travel (region, city, or country). Example: 'Skane', 'Sweden', 'Toscana'.",
         required: true,
       },
       {
@@ -178,13 +291,133 @@ function getPromptMessages(name: string, args: Record<string, string>) {
           role: "user",
           content: {
             type: "text",
-            text: `I want to plan a trip to ${args.destination || "a vacation destination"} from ${args.checkIn || "TBD"} to ${args.checkOut || "TBD"} for ${args.guests || "2"} guests. Please search for available properties, show me pricing options with both public and direct booking rates, and help me book the best match.`,
+            text: `I want to plan a trip to ${args.destination || "a vacation destination"} from ${args.checkIn || "TBD"} to ${args.checkOut || "TBD"} for ${args.guests || "2"} guests. Please: (1) search for available properties, (2) show pricing with both public and direct booking rates, (3) create a binding quote with negotiate_offer, (4) proceed to checkout with Stripe payment, and (5) confirm the booking status. If I need to change dates later, use reschedule_booking. If I need to cancel, use cancel_booking.`,
           },
         },
       ],
     };
   }
   return null;
+}
+
+// ── Stripe helpers (REST API, no SDK) ────────────────────────────
+
+function getStripeKey(): string {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error("Missing STRIPE_SECRET_KEY");
+  return key;
+}
+
+async function createCheckoutSession(params: {
+  amount: number;
+  currency: string;
+  propertyName: string;
+  checkIn: string;
+  checkOut: string;
+  guests: number;
+  guestEmail: string;
+  propertyId: string;
+  bookingId: string;
+  domain: string;
+}): Promise<{ id: string; url: string; payment_intent: string | null }> {
+  const stripeKey = getStripeKey();
+  const body = new URLSearchParams();
+  body.append("mode", "payment");
+  body.append("line_items[0][price_data][currency]", params.currency.toLowerCase());
+  body.append("line_items[0][price_data][unit_amount]", String(params.amount * 100));
+  body.append("line_items[0][price_data][product_data][name]", `${params.propertyName} — ${params.checkIn} to ${params.checkOut} (${params.guests} guests)`);
+  body.append("line_items[0][quantity]", "1");
+  body.append("customer_email", params.guestEmail);
+  body.append("metadata[property_id]", params.propertyId);
+  body.append("metadata[booking_id]", params.bookingId);
+  body.append("payment_intent_data[metadata][property_id]", params.propertyId);
+  body.append("payment_intent_data[metadata][booking_id]", params.bookingId);
+  const successUrl = params.domain ? `https://${params.domain}/booking/success?session_id={CHECKOUT_SESSION_ID}` : "https://hemmabo.se/booking/success?session_id={CHECKOUT_SESSION_ID}";
+  const cancelUrl = params.domain ? `https://${params.domain}/booking/cancelled` : "https://hemmabo.se/booking/cancelled";
+  body.append("success_url", successUrl);
+  body.append("cancel_url", cancelUrl);
+
+  const resp = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${stripeKey}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json();
+    throw new Error(`Stripe error: ${err.error?.message ?? resp.statusText}`);
+  }
+
+  const session = await resp.json();
+  return { id: session.id, url: session.url, payment_intent: session.payment_intent ?? null };
+}
+
+async function retrievePaymentIntent(paymentIntentId: string): Promise<{ id: string; client_secret: string; status: string }> {
+  const stripeKey = getStripeKey();
+  const resp = await fetch(`https://api.stripe.com/v1/payment_intents/${paymentIntentId}`, {
+    headers: { "Authorization": `Bearer ${stripeKey}` },
+  });
+  if (!resp.ok) {
+    const err = await resp.json();
+    throw new Error(`Stripe error: ${err.error?.message ?? resp.statusText}`);
+  }
+  return resp.json();
+}
+
+async function createRefund(paymentIntentId: string, amount: number): Promise<{ id: string; amount: number; status: string }> {
+  const stripeKey = getStripeKey();
+  const body = new URLSearchParams();
+  body.append("payment_intent", paymentIntentId);
+  body.append("amount", String(amount * 100));
+
+  const resp = await fetch("https://api.stripe.com/v1/refunds", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${stripeKey}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json();
+    throw new Error(`Stripe error: ${err.error?.message ?? resp.statusText}`);
+  }
+  return resp.json();
+}
+
+async function createPaymentIntent(params: {
+  amount: number;
+  currency: string;
+  captureMethod: string;
+  metadata: Record<string, string>;
+}): Promise<{ id: string; client_secret: string; status: string }> {
+  const stripeKey = getStripeKey();
+  const body = new URLSearchParams();
+  body.append("amount", String(params.amount * 100));
+  body.append("currency", params.currency.toLowerCase());
+  body.append("capture_method", params.captureMethod);
+  for (const [k, v] of Object.entries(params.metadata)) {
+    body.append(`metadata[${k}]`, v);
+  }
+
+  const resp = await fetch("https://api.stripe.com/v1/payment_intents", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${stripeKey}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json();
+    throw new Error(`Stripe error: ${err.error?.message ?? resp.statusText}`);
+  }
+  return resp.json();
 }
 
 // ── Tool execution ───────────────────────────────────────────────
@@ -299,6 +532,393 @@ async function executeTool(
       };
     }
 
+    case "negotiate_offer": {
+      const { propertyId, checkIn, checkOut, guests } = args as {
+        propertyId: string; checkIn: string; checkOut: string; guests: number;
+      };
+
+      const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
+      if ("error" in quote) return { content: [{ type: "text", text: JSON.stringify(quote) }] };
+
+      // Fetch property domain for snapshot
+      const { data: prop } = await supabase.from("properties").select("domain").eq("id", propertyId).single();
+
+      const validUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+      const { data: snapshot, error: snapErr } = await supabase
+        .from("property_quote_snapshots")
+        .insert({
+          property_id: propertyId,
+          domain: prop?.domain ?? null,
+          stay_start: checkIn,
+          stay_end: checkOut,
+          nights: quote.nights,
+          requested_guests: guests,
+          currency: quote.currency,
+          source_version: "3.0.0",
+          valid_until: validUntil,
+          public_total: quote.publicTotal,
+          ai_total: quote.federationTotal,
+          ai_discount_pct: quote.federationDiscountPercent,
+          segments_detail: quote.breakdown,
+          status: "active",
+        })
+        .select("id")
+        .single();
+
+      if (snapErr) return { content: [{ type: "text", text: JSON.stringify({ error: snapErr.message }) }] };
+
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            propertyId,
+            checkIn,
+            checkOut,
+            guests,
+            nights: quote.nights,
+            currency: quote.currency,
+            publicTotal: quote.publicTotal,
+            federationTotal: quote.federationTotal,
+            federationDiscountPercent: quote.federationDiscountPercent,
+            breakdown: quote.breakdown,
+            packageApplied: quote.packageApplied,
+            gapNight: quote.gapNight,
+            gapTotal: quote.gapTotal,
+            gapDiscountPercent: quote.gapDiscountPercent,
+            quoteId: snapshot.id,
+            validUntil,
+          }, null, 2),
+        }],
+      };
+    }
+
+    case "checkout": {
+      const {
+        propertyId, checkIn, checkOut, guests, guestName, guestEmail,
+        guestPhone, quoteId, paymentMode, channel,
+      } = args as {
+        propertyId: string; checkIn: string; checkOut: string; guests: number;
+        guestName: string; guestEmail: string; guestPhone?: string;
+        quoteId?: string; paymentMode?: string; channel?: string;
+      };
+
+      const effectivePaymentMode = paymentMode ?? "checkout_session";
+      const effectiveChannel = channel ?? "federation";
+
+      // Fetch property
+      const { data: prop, error: propErr } = await supabase
+        .from("properties")
+        .select("name, domain, host_id, currency, direct_booking_discount, cleaning_fee")
+        .eq("id", propertyId)
+        .single();
+      if (propErr || !prop) return { content: [{ type: "text", text: JSON.stringify({ error: "Property not found" }) }] };
+
+      // Check availability
+      const avail = await checkAvailability(supabase, propertyId, checkIn, checkOut);
+      if (!avail.available) return { content: [{ type: "text", text: JSON.stringify({ error: "Not available", ...avail }) }] };
+
+      let totalPrice: number;
+      let currency: string;
+      let nights: number;
+
+      if (quoteId) {
+        // Use locked quote from negotiate_offer
+        const { data: snapshot, error: snapErr } = await supabase
+          .from("property_quote_snapshots")
+          .select("*")
+          .eq("id", quoteId)
+          .single();
+        if (snapErr || !snapshot) return { content: [{ type: "text", text: JSON.stringify({ error: "Quote not found" }) }] };
+        if (new Date(snapshot.valid_until) < new Date()) {
+          return { content: [{ type: "text", text: JSON.stringify({ error: "Quote expired", quoteId, validUntil: snapshot.valid_until }) }] };
+        }
+        totalPrice = effectiveChannel === "public" ? snapshot.public_total : snapshot.ai_total;
+        currency = snapshot.currency;
+        nights = snapshot.nights;
+      } else {
+        // Calculate fresh price
+        const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
+        if ("error" in quote) return { content: [{ type: "text", text: JSON.stringify(quote) }] };
+        totalPrice = effectiveChannel === "public" ? quote.publicTotal : (quote.gapTotal ?? quote.federationTotal);
+        currency = quote.currency;
+        nights = quote.nights;
+      }
+
+      // Create Stripe Checkout Session
+      const session = await createCheckoutSession({
+        amount: totalPrice,
+        currency,
+        propertyName: prop.name,
+        checkIn,
+        checkOut,
+        guests,
+        guestEmail,
+        propertyId,
+        bookingId: "pending",
+        domain: prop.domain ?? "",
+      });
+
+      // Create booking record
+      const { data: booking, error: bookErr } = await supabase
+        .from("bookings")
+        .insert({
+          property_id: propertyId,
+          host_id: prop.host_id,
+          check_in_date: checkIn,
+          check_out_date: checkOut,
+          guests_count: guests,
+          guest_name: guestName,
+          guest_email: guestEmail,
+          guest_phone: guestPhone ?? null,
+          total_price: totalPrice,
+          currency,
+          status: "pending",
+          property_name_at_booking: prop.name,
+          stripe_session_id: session.id,
+        })
+        .select("id, status, created_at, guest_token")
+        .single();
+
+      if (bookErr) return { content: [{ type: "text", text: JSON.stringify({ error: bookErr.message }) }] };
+
+      // Build response
+      const result: Record<string, unknown> = {
+        reservationId: booking.id,
+        status: booking.status,
+        paymentUrl: session.url,
+        propertyId,
+        checkIn,
+        checkOut,
+        nights,
+        guests,
+        totalPrice,
+        currency,
+        payment_modes: ["checkout_session", "payment_intent"],
+        createdAt: booking.created_at,
+      };
+
+      // MPP enrichment: if payment_intent mode, retrieve client_secret
+      if (effectivePaymentMode === "payment_intent" && session.payment_intent) {
+        const pi = await retrievePaymentIntent(session.payment_intent);
+        result.mpp = {
+          protocol: "stripe-mpp",
+          version: "2025-03-17",
+          payment_intent_id: pi.id,
+          client_secret: pi.client_secret,
+          amount: totalPrice,
+          currency,
+          supported_payment_methods: ["card", "klarna", "swish", "link"],
+          confirmation_url: session.url,
+        };
+      }
+
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+
+    case "cancel_booking": {
+      const { reservationId, reason } = args as { reservationId: string; reason?: string };
+
+      // Fetch booking
+      const { data: booking, error: bookErr } = await supabase
+        .from("bookings")
+        .select("id, status, guest_token, check_in_date, check_out_date, total_price, currency, property_id, stripe_payment_intent_id")
+        .eq("id", reservationId)
+        .single();
+
+      if (bookErr || !booking) return { content: [{ type: "text", text: JSON.stringify({ error: "Booking not found" }) }] };
+      if (booking.status === "cancelled") return { content: [{ type: "text", text: JSON.stringify({ error: "Booking is already cancelled", reservationId }) }] };
+
+      // Delegate to Supabase Edge Function
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+      const cancelResp = await fetch(`${supabaseUrl}/functions/v1/cancel-booking`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({
+          bookingId: booking.id,
+          guestToken: booking.guest_token,
+          reason: reason ?? "Cancelled via MCP",
+        }),
+      });
+
+      if (!cancelResp.ok) {
+        const errBody = await cancelResp.text();
+        return { content: [{ type: "text", text: JSON.stringify({ error: `Cancel failed: ${errBody}` }) }] };
+      }
+
+      const cancelResult = await cancelResp.json();
+
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            reservationId: booking.id,
+            status: "cancelled",
+            refund: cancelResult.refund ?? null,
+          }, null, 2),
+        }],
+      };
+    }
+
+    case "get_booking_status": {
+      const { reservationId } = args as { reservationId: string };
+
+      // Fetch booking
+      const { data: booking, error: bookErr } = await supabase
+        .from("bookings")
+        .select("id, status, check_in_date, check_out_date, guests_count, total_price, currency, property_id, guest_name, guest_email, created_at, updated_at")
+        .eq("id", reservationId)
+        .single();
+
+      if (bookErr || !booking) return { content: [{ type: "text", text: JSON.stringify({ error: "Booking not found" }) }] };
+
+      // Fetch property
+      const { data: prop } = await supabase
+        .from("properties")
+        .select("name, domain")
+        .eq("id", booking.property_id)
+        .single();
+
+      // Fetch cancellation policy
+      const { data: policy } = await supabase
+        .from("host_policies")
+        .select("cancellation_tier, refund_rules")
+        .eq("property_id", booking.property_id)
+        .single();
+
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            reservationId: booking.id,
+            status: booking.status,
+            propertyId: booking.property_id,
+            propertyName: prop?.name ?? null,
+            propertyDomain: prop?.domain ?? null,
+            checkIn: booking.check_in_date,
+            checkOut: booking.check_out_date,
+            guests: booking.guests_count,
+            totalPrice: booking.total_price,
+            currency: booking.currency,
+            guestName: booking.guest_name,
+            guestEmail: booking.guest_email,
+            cancellationPolicy: policy ? {
+              tier: policy.cancellation_tier,
+              refundRules: policy.refund_rules,
+            } : null,
+            createdAt: booking.created_at,
+            updatedAt: booking.updated_at,
+          }, null, 2),
+        }],
+      };
+    }
+
+    case "reschedule_booking": {
+      const { reservationId, newCheckIn, newCheckOut, reason } = args as {
+        reservationId: string; newCheckIn: string; newCheckOut: string; reason?: string;
+      };
+
+      const RESCHEDULABLE_STATES = ["confirmed", "pending"];
+
+      // Fetch booking
+      const { data: booking, error: bookErr } = await supabase
+        .from("bookings")
+        .select("id, status, check_in_date, check_out_date, guests_count, total_price, currency, property_id, stripe_payment_intent_id")
+        .eq("id", reservationId)
+        .single();
+
+      if (bookErr || !booking) return { content: [{ type: "text", text: JSON.stringify({ error: "Booking not found" }) }] };
+      if (!RESCHEDULABLE_STATES.includes(booking.status)) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: `Booking status '${booking.status}' is not reschedulable. Must be: ${RESCHEDULABLE_STATES.join(", ")}` }) }] };
+      }
+
+      // Idempotency: same dates = no-op
+      if (booking.check_in_date === newCheckIn && booking.check_out_date === newCheckOut) {
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              reservationId: booking.id,
+              status: booking.status,
+              message: "No change — new dates match current dates",
+              checkIn: booking.check_in_date,
+              checkOut: booking.check_out_date,
+            }, null, 2),
+          }],
+        };
+      }
+
+      // Check availability (excluding this booking)
+      const avail = await checkAvailability(supabase, booking.property_id, newCheckIn, newCheckOut, booking.id);
+      if (!avail.available) return { content: [{ type: "text", text: JSON.stringify({ error: "New dates not available", ...avail }) }] };
+
+      // Calculate new price
+      const quote = await resolveQuote(supabase, booking.property_id, newCheckIn, newCheckOut, booking.guests_count);
+      if ("error" in quote) return { content: [{ type: "text", text: JSON.stringify(quote) }] };
+
+      const newPrice = quote.gapTotal ?? quote.federationTotal;
+      const oldPrice = booking.total_price;
+      const delta = newPrice - oldPrice;
+
+      let stripeAction: Record<string, unknown> | null = null;
+
+      if (delta > 0 && booking.stripe_payment_intent_id) {
+        // Price increased: create new PaymentIntent with manual capture
+        const pi = await createPaymentIntent({
+          amount: delta,
+          currency: booking.currency,
+          captureMethod: "manual",
+          metadata: {
+            booking_id: booking.id,
+            type: "reschedule_delta",
+            original_payment_intent: booking.stripe_payment_intent_id,
+          },
+        });
+        stripeAction = { type: "additional_charge", amount: delta, paymentIntentId: pi.id, status: pi.status };
+      } else if (delta < 0 && booking.stripe_payment_intent_id) {
+        // Price decreased: partial refund
+        const refund = await createRefund(booking.stripe_payment_intent_id, Math.abs(delta));
+        stripeAction = { type: "partial_refund", amount: Math.abs(delta), refundId: refund.id, status: refund.status };
+      }
+
+      // Update booking
+      const { error: updateErr } = await supabase
+        .from("bookings")
+        .update({
+          check_in_date: newCheckIn,
+          check_out_date: newCheckOut,
+          total_price: newPrice,
+        })
+        .eq("id", booking.id);
+
+      if (updateErr) return { content: [{ type: "text", text: JSON.stringify({ error: updateErr.message }) }] };
+
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            reservationId: booking.id,
+            status: booking.status,
+            previousDates: { checkIn: booking.check_in_date, checkOut: booking.check_out_date },
+            newDates: { checkIn: newCheckIn, checkOut: newCheckOut },
+            pricing: {
+              previousPrice: oldPrice,
+              newPrice,
+              delta,
+              currency: booking.currency,
+              stripeAction,
+            },
+            reason: reason ?? null,
+          }, null, 2),
+        }],
+      };
+    }
+
     default:
       return { content: [{ type: "text", text: JSON.stringify({ error: `Unknown tool: ${name}` }) }] };
   }
@@ -321,7 +941,7 @@ async function handleJsonRpc(
             tools: { listChanged: false },
             prompts: { listChanged: false },
           },
-          serverInfo: { name: "federation-mcp-server", version: "2.2.0" },
+          serverInfo: { name: "federation-mcp-server", version: "3.0.0" },
           instructions: SERVER_INSTRUCTIONS,
         },
       };
@@ -374,7 +994,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
 
   if (req.method === "OPTIONS") return res.status(204).end();
-  if (req.method === "GET") return res.json({ status: "ok", transport: "streamable-http", version: "2.2.0" });
+  if (req.method === "GET") return res.json({ status: "ok", transport: "streamable-http", version: "3.0.0" });
   if (req.method === "DELETE") return res.status(202).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
