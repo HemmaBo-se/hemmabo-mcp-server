@@ -3,7 +3,16 @@ startCommand:
   type: stdio
   configSchema:
     type: object
-    properties: {}
+    properties:
+      region:
+        type: string
+        description: "Default region to search in (e.g. 'Skåne', 'Toscana'). Can be overridden per request."
+      currency:
+        type: string
+        description: "Preferred display currency (e.g. 'SEK', 'EUR'). Defaults to property's native currency."
+      language:
+        type: string
+        description: "Preferred response language (e.g. 'sv', 'en', 'de', 'it'). Defaults to English."
     additionalProperties: false
   commandFunction: |
     (config) => ({

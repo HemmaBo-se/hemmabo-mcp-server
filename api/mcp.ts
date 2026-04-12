@@ -5,7 +5,7 @@
  * This file only handles JSON-RPC transport + tool dispatch.
  *
  * Endpoints:
- *   POST /mcp  — JSON-RPC (initialize, tools/list, tools/call)
+ *   POST /mcp  — JSON-RPC (initialize, tools/list, tools/call, prompts/list, prompts/get)
  *   GET  /mcp  — transport info
  */
 
@@ -13,10 +13,6 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
 import { resolveQuote } from "../lib/pricing.js";
 import { checkAvailability } from "../lib/availability.js";
-
-// ═══════════════════════════════════════════════════════════════════
-// MCP TOOL DEFINITIONS
-// ═══════════════════════════════════════════════════════════════════
 
 // ── Server-level instructions for AI agents ──────────────────────
 const SERVER_INSTRUCTIONS = `This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated.
@@ -26,6 +22,28 @@ Workflow: (1) search_properties to find available rentals, (2) get_canonical_quo
 Pricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6). Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week) are applied automatically. Federation discount (direct booking rate) is host-controlled.
 
 Dates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).`;
+
+// ── Config schema (all fields optional — Smithery "Optional config" requirement) ──
+const CONFIG_SCHEMA = {
+  type: "object",
+  properties: {
+    region: {
+      type: "string",
+      description: "Default region to search in (e.g. 'Skåne', 'Toscana'). Can be overridden per request.",
+    },
+    currency: {
+      type: "string",
+      description: "Preferred display currency (e.g. 'SEK', 'EUR'). Defaults to the property's native currency.",
+    },
+    language: {
+      type: "string",
+      description: "Preferred response language (e.g. 'sv', 'en', 'de', 'it'). Defaults to English.",
+    },
+  },
+  additionalProperties: false,
+};
+
+// ── Tools ────────────────────────────────────────────────────────
 
 const TOOLS = [
   {
@@ -121,9 +139,55 @@ const TOOLS = [
   },
 ];
 
-// ═══════════════════════════════════════════════════════════════════
-// TOOL EXECUTION
-// ═══════════════════════════════════════════════════════════════════
+// ── Prompts ──────────────────────────────────────────────────────
+
+const PROMPTS = [
+  {
+    name: "plan_trip",
+    description: "Help plan a vacation rental trip. Guides the agent through searching properties, comparing prices for different dates, and creating a booking. Provide destination, dates, and guest count to get started.",
+    arguments: [
+      {
+        name: "destination",
+        description: "Where the guest wants to travel (region, city, or country). Example: 'Skåne', 'Sweden', 'Toscana'.",
+        required: true,
+      },
+      {
+        name: "checkIn",
+        description: "Desired check-in date in YYYY-MM-DD format.",
+        required: true,
+      },
+      {
+        name: "checkOut",
+        description: "Desired check-out date in YYYY-MM-DD format.",
+        required: true,
+      },
+      {
+        name: "guests",
+        description: "Number of guests (integer, minimum 1).",
+        required: true,
+      },
+    ],
+  },
+];
+
+function getPromptMessages(name: string, args: Record<string, string>) {
+  if (name === "plan_trip") {
+    return {
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: `I want to plan a trip to ${args.destination || "a vacation destination"} from ${args.checkIn || "TBD"} to ${args.checkOut || "TBD"} for ${args.guests || "2"} guests. Please search for available properties, show me pricing options with both public and direct booking rates, and help me book the best match.`,
+          },
+        },
+      ],
+    };
+  }
+  return null;
+}
+
+// ── Tool execution ───────────────────────────────────────────────
 
 function getSupabase() {
   const url = process.env.SUPABASE_URL;
@@ -240,9 +304,7 @@ async function executeTool(
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// JSON-RPC HANDLER
-// ═══════════════════════════════════════════════════════════════════
+// ── JSON-RPC handler ─────────────────────────────────────────────
 
 async function handleJsonRpc(
   msg: { jsonrpc: string; method: string; id?: number | string; params?: Record<string, unknown> }
@@ -255,7 +317,10 @@ async function handleJsonRpc(
         jsonrpc: "2.0", id,
         result: {
           protocolVersion: "2025-03-26",
-          capabilities: { tools: { listChanged: false } },
+          capabilities: {
+            tools: { listChanged: false },
+            prompts: { listChanged: false },
+          },
           serverInfo: { name: "federation-mcp-server", version: "2.2.0" },
           instructions: SERVER_INSTRUCTIONS,
         },
@@ -279,6 +344,19 @@ async function handleJsonRpc(
       }
     }
 
+    case "prompts/list":
+      return { jsonrpc: "2.0", id, result: { prompts: PROMPTS } };
+
+    case "prompts/get": {
+      const promptName = (params as { name: string })?.name;
+      const promptArgs = (params as { arguments?: Record<string, string> })?.arguments ?? {};
+      const result = getPromptMessages(promptName, promptArgs);
+      if (!result) {
+        return { jsonrpc: "2.0", id, error: { code: -32602, message: `Unknown prompt: ${promptName}` } };
+      }
+      return { jsonrpc: "2.0", id, result };
+    }
+
     case "ping":
       return { jsonrpc: "2.0", id, result: {} };
 
@@ -286,6 +364,8 @@ async function handleJsonRpc(
       return { jsonrpc: "2.0", id, error: { code: -32601, message: `Method not found: ${method}` } };
   }
 }
+
+// ── HTTP handler ─────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
