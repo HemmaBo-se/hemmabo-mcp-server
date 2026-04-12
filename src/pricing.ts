@@ -15,7 +15,7 @@
  * - Week package = exactly 7 nights (not 8).
  * - Two-week package = exactly 14 nights.
  * - Package pricing only when ALL nights are same season type.
- * - Guest block = EXACT match only. No "next larger" fallback.
+ * - Guest block = staircase: smallest block whose guest count >= requested.
  * - Gap discount reads from property_smart_pricing.gap_night_discount_pct.
  */
 
@@ -89,9 +89,18 @@ function getSeasonForDate(date: string, seasons: Season[]): Season | null {
   return null;
 }
 
-/** Exact guest match only — no "next larger" fallback */
+/**
+ * Staircase pricing: find the smallest block whose guest count >= requested.
+ * Example: blocks [2, 6] — 2 guests → 2g, 3-6 guests → 6g, 1 guest → 2g.
+ * Returns null only if guests > all blocks (handled by max_guests check upstream).
+ */
 function findPriceBlock(guests: number, blocks: PriceBlock[]): PriceBlock | null {
-  return blocks.find((b) => b.guests === guests) || null;
+  const sorted = [...blocks].sort((a, b) => a.guests - b.guests);
+  for (const b of sorted) {
+    if (b.guests >= guests) return b;
+  }
+  // Guests exceed all blocks — shouldn't happen if max_guests is correct
+  return null;
 }
 
 function nightlyRate(block: PriceBlock, season: Season | null, weekend: boolean): number {
@@ -182,12 +191,12 @@ export async function resolveQuote(
 
   if (!blocks?.length) return { error: "No pricing configured" };
 
-  // 3. Find EXACT guest block (no fallback)
+  // 3. Find guest block (staircase: smallest block >= guests)
   const block = findPriceBlock(guests, blocks as PriceBlock[]);
   if (!block) {
     const available = (blocks as PriceBlock[]).map((b) => b.guests).sort((a, b) => a - b);
     return {
-      error: `No price block for ${guests} guests. Available tiers: ${available.join(", ")}`,
+      error: `No price block covers ${guests} guests. Max tier is ${available[available.length - 1]} guests.`,
       available_tiers: available,
     };
   }
