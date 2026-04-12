@@ -1,9 +1,30 @@
 {
   "name": "hemmabo-mcp-server",
-  "version": "2.1.0",
-  "description": "Federation MCP server — direct booking infrastructure for independent hosts",
+  "version": "2.2.0",
+  "description": "MCP server for vacation rental direct bookings. Search properties, check availability, get real-time pricing quotes, and create bookings through the federation protocol. Supports seasonal pricing, guest-count tiers, weekly/biweekly packages, gap-night discounts, and host-controlled federation discounts.",
   "main": "dist/index.js",
   "type": "module",
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "vacation-rental",
+    "direct-booking",
+    "property-management",
+    "pricing",
+    "availability",
+    "federation"
+  ],
+  "homepage": "https://hemmabo-mcp-server.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/HemmaBo-se/hemmabo-mcp-server"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "HemmaBo",
+    "url": "https://hemmabo.se"
+  },
   "scripts": {
     "build": "echo 'skip - vercel handles api/ bundling'",
     "start": "node dist/index.js",

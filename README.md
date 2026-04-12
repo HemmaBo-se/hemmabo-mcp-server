@@ -1,45 +1,54 @@
 # Federation MCP Server
 
-Direct booking infrastructure for independent hosts. Each property is its own node — source of truth for pricing, availability, and bookings.
+[![Smithery Badge](https://smithery.ai/badge/federation-mcp-server)](https://smithery.ai/server/federation-mcp-server)
 
-## Architecture
+MCP server for vacation rental direct bookings. Search properties, check availability, get real-time pricing quotes, and create bookings through the federation protocol.
 
+Supports seasonal pricing, guest-count tiers (staircase model), weekly/biweekly package discounts, gap-night discounts, and host-controlled federation discounts.
+
+## Install via Smithery
+
+```bash
+npx -y @smithery/cli install federation-mcp-server --client claude
 ```
-Host → sets prices, seasons, guest levels, federation discount
-         ↓
-    property node (Supabase)
-         ↓
-  MCP Server reads real data — never mocks, never guesses
-         ↓
-  AI agents (ChatGPT, Claude, Perplexity) → federation_total
-  Google / website visitors → public_total
-  Gap night (calendar context) → gap_total
-```
-
-## Pricing Flow
-
-| Scenario | Price | How |
-|----------|-------|-----|
-| Website visitor (Google, direct) | `public_total` | Sum of nightly rates per season/guest level/day type + cleaning fee |
-| Vera AI / federation partner (at booking) | `federation_total` | `public_total × (1 - host_discount%)` |
-| Gap night (calendar context between bookings) | `gap_total` | `federation_total × (1 - gap_campaign%)` |
-
-The host controls the federation discount via `properties.direct_booking_discount`. No hardcoded percentages anywhere.
 
 ## Tools
 
-| Tool | Description |
-|------|-------------|
-| `search_properties` | Search by region, country, guests, dates. Returns available properties with real pricing. |
-| `check_availability` | Checks blocked dates, confirmed/pending bookings, and booking locks. |
-| `get_canonical_quote` | Returns `public_total`, `federation_total`, and `gap_total` (if applicable) with full nightly breakdown. |
-| `create_booking` | Creates a booking at federation price. Validates availability first. |
+| Tool | Description | Read-only |
+|------|-------------|-----------|
+| `search_properties` | Search vacation rentals by location, dates, and guest count. Returns available properties with live pricing (public + federation rates). | Yes |
+| `check_availability` | Check if a property is available for specific dates. Verifies blocked dates, bookings, and booking locks. | Yes |
+| `get_canonical_quote` | Get detailed pricing: publicTotal (website rate), federationTotal (direct booking rate), gapTotal (gap-night discount). Per-night breakdown included. | Yes |
+| `create_booking` | Create a direct booking at federation price. Validates availability, calculates price, creates pending booking for host approval. | No |
+
+## Pricing Architecture
+
+```
+Host sets prices, seasons, guest tiers, federation discount
+         ↓
+    property node (Supabase — source of truth)
+         ↓
+  MCP Server reads live data — never cached, never estimated
+         ↓
+  AI agents → federation_total (direct booking discount)
+  Websites → public_total (standard rate)
+  Gap nights → gap_total (calendar-context discount)
+```
+
+### Price Tiers
+
+| Scenario | Price | How |
+|----------|-------|-----|
+| Website / public | `publicTotal` | Sum of nightly rates per season, guest tier, and day type |
+| Federation / direct booking | `federationTotal` | `publicTotal × (1 - host_discount%)` |
+| Gap night (between bookings) | `gapTotal` | `federationTotal × (1 - gap_discount%)` |
+
+Guest-count pricing uses a staircase model (e.g. 1-2 guests, 3-4, 5-6). The host controls all discount percentages — nothing is hardcoded.
 
 ## Setup
 
 ```bash
 npm install
-npm run build
 ```
 
 Create `.env` from `.env.example`:
@@ -49,27 +58,20 @@ cp .env.example .env
 # Fill in SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
 ```
 
-Run:
-
-```bash
-npm start
-```
-
 ## Endpoints
 
 | Path | Method | Purpose |
 |------|--------|---------|
 | `/mcp` | POST | MCP Streamable HTTP endpoint |
+| `/mcp` | GET | Transport info |
 | `/health` | GET | Health check |
-| `/.well-known/mcp/server-card.json` | GET | Smithery discovery metadata |
-
-## Deploy to Smithery
-
-1. Deploy this server with a public HTTPS URL (Vercel, Railway, Fly.io, etc.)
-2. Go to [smithery.ai/new](https://smithery.ai/new)
-3. Enter the server's URL (e.g. `https://your-domain.com/mcp`)
-4. Smithery scans and publishes automatically
+| `/.well-known/mcp.json` | GET | MCP discovery metadata |
+| `/.well-known/mcp/server-card.json` | GET | Smithery server card |
 
 ## Transport
 
-This server uses **Streamable HTTP** transport (`StreamableHTTPServerTransport`) — required for Smithery Gateway and remote MCP clients. STDIO is not supported.
+Streamable HTTP (`POST /mcp`) — required for Smithery Gateway and remote MCP clients. Stateless (no session management needed).
+
+## License
+
+MIT

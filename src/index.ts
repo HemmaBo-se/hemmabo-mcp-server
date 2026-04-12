@@ -40,14 +40,21 @@ const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY
 
 const server = new McpServer({
   name: "federation-mcp-server",
-  version: "2.1.0",
+  version: "2.2.0",
+  instructions: `This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated.
+
+Workflow: (1) search_properties to find available rentals, (2) get_canonical_quote for detailed pricing, (3) create_booking to finalize. Use check_availability for date-specific checks.
+
+Pricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6). Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week) are applied automatically. Federation discount (direct booking rate) is host-controlled.
+
+Dates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).`,
 });
 
 // ── Tool: search_properties ────────────────────────────────────────
 
 server.tool(
   "search_properties",
-  "Search for available properties by region and guest count. Returns real data from each property node.",
+  "Search vacation rental properties by location and travel dates. Returns only properties that are available for the requested period and can accommodate the guest count. Each result includes live pricing with both public rates and federation rates (direct booking discount).",
   {
     region: z.string().optional().describe("Region or destination (e.g. 'Skåne', 'Sweden')"),
     country: z.string().optional().describe("Country (e.g. 'Sweden')"),
@@ -113,7 +120,7 @@ server.tool(
 
 server.tool(
   "check_availability",
-  "Check if a specific property is available for given dates. Checks blocked dates, existing bookings, and active booking locks.",
+  "Check whether a specific property is available for the requested date range. Verifies against host-blocked dates, confirmed bookings, and active booking locks. Returns available=true/false with conflict details if unavailable.",
   {
     propertyId: z.string().uuid().describe("Property UUID"),
     checkIn: z.string().describe("Check-in date YYYY-MM-DD"),
@@ -131,7 +138,7 @@ server.tool(
 
 server.tool(
   "get_canonical_quote",
-  "Get a canonical pricing quote. Returns public_total (website rate), federation_total (direct booking rate with host-controlled discount), and gap_total if calendar context qualifies. Supports week (7 nights) and two-week (14 nights) package pricing. The host controls the discount — it is never hardcoded.",
+  "Get a detailed pricing quote for a specific property, date range, and guest count. Returns publicTotal (website rate), federationTotal (direct booking rate with host discount), and gapTotal (gap-night discount if applicable). Includes per-night breakdown, season classification, weekend detection, and package pricing (7-night week, 14-night two-week). All prices are integers in local currency.",
   {
     propertyId: z.string().uuid().describe("Property UUID"),
     checkIn: z.string().describe("Check-in date YYYY-MM-DD"),
@@ -150,7 +157,7 @@ server.tool(
 
 server.tool(
   "create_booking",
-  "Create a direct booking. Validates availability, calculates the federation price, and writes to the bookings table. Returns a booking confirmation.",
+  "Create a new direct booking for a property. Write operation: validates availability, calculates the final federation price (with gap discount if applicable), and creates a pending booking record requiring host approval. Returns booking ID, final price, and confirmation details.",
   {
     propertyId: z.string().uuid().describe("Property UUID"),
     checkIn: z.string().describe("Check-in date YYYY-MM-DD"),
@@ -250,7 +257,7 @@ const app = express();
 
 // Health check
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", version: "2.1.0" });
+  res.json({ status: "ok", version: "2.2.0" });
 });
 
 // MCP endpoint
@@ -267,7 +274,7 @@ app.get("/.well-known/mcp/server-card.json", (_req, res) => {
   res.json({
     serverInfo: {
       name: "federation-mcp-server",
-      version: "2.1.0",
+      version: "2.2.0",
     },
     configSchema: {
       type: "object",

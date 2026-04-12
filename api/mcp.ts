@@ -18,68 +18,105 @@ import { checkAvailability } from "../lib/availability.js";
 // MCP TOOL DEFINITIONS
 // ═══════════════════════════════════════════════════════════════════
 
+// ── Server-level instructions for AI agents ──────────────────────
+const SERVER_INSTRUCTIONS = `This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated.
+
+Workflow: (1) search_properties to find available rentals, (2) get_canonical_quote for detailed pricing, (3) create_booking to finalize. Use check_availability for date-specific checks.
+
+Pricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6). Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week) are applied automatically. Federation discount (direct booking rate) is host-controlled.
+
+Dates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).`;
+
 const TOOLS = [
   {
     name: "search_properties",
     description:
-      "Search for available properties by region and guest count. Returns real pricing from each property node.",
+      "Search vacation rental properties by location and travel dates. Returns only properties that are available for the requested period and can accommodate the guest count. Each result includes live pricing with both public rates (what OTA/website visitors see) and federation rates (direct booking discount). Use region or country to filter by location. Guests parameter determines which price tier applies. Results are sorted by relevance.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        region: { type: "string", description: "Region or destination" },
-        country: { type: "string", description: "Country" },
-        guests: { type: "integer", minimum: 1, description: "Number of guests" },
-        checkIn: { type: "string", description: "Check-in date YYYY-MM-DD" },
-        checkOut: { type: "string", description: "Check-out date YYYY-MM-DD" },
+        region: { type: "string", description: "Region, area, or destination name to search within. Supports partial matching (e.g. 'Skåne', 'Toscana', 'Bavaria')." },
+        country: { type: "string", description: "Country name to filter by (e.g. 'Sweden', 'Italy', 'Germany'). Supports partial matching." },
+        guests: { type: "integer", minimum: 1, description: "Total number of guests. Determines which price tier is used and filters out properties that are too small." },
+        checkIn: { type: "string", description: "Check-in date in ISO 8601 format (YYYY-MM-DD). Must be today or later." },
+        checkOut: { type: "string", description: "Check-out date in ISO 8601 format (YYYY-MM-DD). Must be after checkIn." },
       },
       required: ["guests", "checkIn", "checkOut"],
+    },
+    annotations: {
+      title: "Search Properties",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
     },
   },
   {
     name: "check_availability",
     description:
-      "Check if a property is available for given dates. Verifies blocked dates, bookings, and locks.",
+      "Check whether a specific property is available for the requested date range. Verifies against three sources: host-blocked dates, confirmed bookings, and active booking locks (temporary holds during checkout). Returns available=true/false with conflict details if unavailable. Call this before create_booking to confirm availability, or use it to check multiple date ranges for the same property.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        propertyId: { type: "string", format: "uuid", description: "Property UUID" },
-        checkIn: { type: "string", description: "Check-in date YYYY-MM-DD" },
-        checkOut: { type: "string", description: "Check-out date YYYY-MM-DD" },
+        propertyId: { type: "string", format: "uuid", description: "The unique identifier (UUID) of the property to check." },
+        checkIn: { type: "string", description: "Desired check-in date in ISO 8601 format (YYYY-MM-DD)." },
+        checkOut: { type: "string", description: "Desired check-out date in ISO 8601 format (YYYY-MM-DD). Must be after checkIn." },
       },
       required: ["propertyId", "checkIn", "checkOut"],
+    },
+    annotations: {
+      title: "Check Availability",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
     },
   },
   {
     name: "get_canonical_quote",
     description:
-      "Get canonical pricing: public_total (website), federation_total (direct booking with host discount), gap_total (calendar-context gap). Host controls the discount. Supports week (7 nights) and two-week (14 nights) package pricing.",
+      "Get a detailed pricing quote for a specific property, date range, and guest count. Returns three price points: (1) publicTotal — the rate shown on public websites, (2) federationTotal — the direct booking rate with the host's configured discount applied, (3) gapTotal — an additional discount if the dates fill a gap between existing bookings. Also returns per-night breakdown, season classification, weekend detection, and any package pricing (7-night week or 14-night two-week discounts). All prices are integers in the property's local currency. The host controls all discount percentages.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        propertyId: { type: "string", format: "uuid", description: "Property UUID" },
-        checkIn: { type: "string", description: "Check-in date YYYY-MM-DD" },
-        checkOut: { type: "string", description: "Check-out date YYYY-MM-DD" },
-        guests: { type: "integer", minimum: 1, description: "Number of guests" },
+        propertyId: { type: "string", format: "uuid", description: "The unique identifier (UUID) of the property to quote." },
+        checkIn: { type: "string", description: "Check-in date in ISO 8601 format (YYYY-MM-DD)." },
+        checkOut: { type: "string", description: "Check-out date in ISO 8601 format (YYYY-MM-DD). Must be after checkIn." },
+        guests: { type: "integer", minimum: 1, description: "Total number of guests. Determines which price tier is applied (staircase pricing by guest count)." },
       },
       required: ["propertyId", "checkIn", "checkOut", "guests"],
+    },
+    annotations: {
+      title: "Get Pricing Quote",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
     },
   },
   {
     name: "create_booking",
     description:
-      "Create a direct booking. Validates availability, calculates federation price, writes to bookings.",
+      "Create a new direct booking for a property. This is a write operation that: (1) validates the property is still available for the requested dates, (2) calculates the final federation price (with gap discount if applicable), (3) creates a pending booking record that requires host approval. Returns the booking ID, final price, and confirmation details. The booking status starts as 'pending' until the host approves. Guest contact details are required for the host to follow up.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        propertyId: { type: "string", format: "uuid", description: "Property UUID" },
-        checkIn: { type: "string", description: "Check-in date YYYY-MM-DD" },
-        checkOut: { type: "string", description: "Check-out date YYYY-MM-DD" },
-        guests: { type: "integer", minimum: 1, description: "Number of guests" },
-        guestName: { type: "string", description: "Guest full name" },
-        guestEmail: { type: "string", format: "email", description: "Guest email" },
-        guestPhone: { type: "string", description: "Guest phone (optional)" },
+        propertyId: { type: "string", format: "uuid", description: "The unique identifier (UUID) of the property to book." },
+        checkIn: { type: "string", description: "Check-in date in ISO 8601 format (YYYY-MM-DD)." },
+        checkOut: { type: "string", description: "Check-out date in ISO 8601 format (YYYY-MM-DD). Must be after checkIn." },
+        guests: { type: "integer", minimum: 1, description: "Total number of guests staying." },
+        guestName: { type: "string", description: "Full legal name of the primary guest making the booking." },
+        guestEmail: { type: "string", format: "email", description: "Email address of the primary guest. Used for booking confirmation and host communication." },
+        guestPhone: { type: "string", description: "Phone number of the primary guest (optional). Useful for check-in coordination." },
       },
       required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"],
+    },
+    annotations: {
+      title: "Create Booking",
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
     },
   },
 ];
@@ -219,7 +256,8 @@ async function handleJsonRpc(
         result: {
           protocolVersion: "2025-03-26",
           capabilities: { tools: { listChanged: false } },
-          serverInfo: { name: "federation-mcp-server", version: "2.1.0" },
+          serverInfo: { name: "federation-mcp-server", version: "2.2.0" },
+          instructions: SERVER_INSTRUCTIONS,
         },
       };
 
@@ -256,7 +294,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
 
   if (req.method === "OPTIONS") return res.status(204).end();
-  if (req.method === "GET") return res.json({ status: "ok", transport: "streamable-http", version: "2.1.0" });
+  if (req.method === "GET") return res.json({ status: "ok", transport: "streamable-http", version: "2.2.0" });
   if (req.method === "DELETE") return res.status(202).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 

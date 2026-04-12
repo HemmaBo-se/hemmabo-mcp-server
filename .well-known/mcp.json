@@ -1,7 +1,7 @@
 {
   "name": "federation-mcp-server",
-  "version": "2.1.0",
-  "description": "Direct booking infrastructure for independent hosts. Each property is its own node — source of truth for pricing, availability, and bookings.",
+  "version": "2.2.0",
+  "description": "MCP server for vacation rental direct bookings. Search properties, check availability, get real-time pricing quotes, and create bookings. Supports seasonal pricing, guest-count tiers, weekly/biweekly packages, gap-night discounts, and host-controlled federation discounts.",
   "network_id": "hemmabo_verified",
   "transport": "streamable-http",
   "endpoint": "/mcp",
