@@ -4,7 +4,12 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
   res.json({
     serverInfo: {
       name: "federation-mcp-server",
-      version: "2.0.0",
+      version: "2.1.0",
+    },
+    configSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
     },
     tools: [
       {
@@ -40,7 +45,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
       {
         name: "get_canonical_quote",
         description:
-          "Get canonical pricing: public_total (website), federation_total (direct booking with host discount), gap_total (calendar-context gap). Host controls the discount.",
+          "Get canonical pricing: public_total (website), federation_total (direct booking with host discount), gap_total (calendar-context gap). Supports week and two-week package pricing. Host controls the discount.",
         inputSchema: {
           type: "object",
           properties: {

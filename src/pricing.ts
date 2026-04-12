@@ -7,8 +7,16 @@
  * Pricing flow:
  *   public_total  = sum of nightly rates (season × guest level × day type)
  *   federation_total = public_total × (1 - direct_booking_discount / 100)
- *   gap_total     = federation_total × (1 - gap_campaign_discount / 100)
+ *   gap_total     = federation_total × (1 - gap_night_discount_pct / 100)
  *                   (only when calendar context shows a gap)
+ *
+ * RULES (synced with main repo pricing-resolver.ts):
+ * - Weekend = Friday + Saturday. Sunday is NEVER weekend.
+ * - Week package = exactly 7 nights (not 8).
+ * - Two-week package = exactly 14 nights.
+ * - Package pricing only when ALL nights are same season type.
+ * - Guest block = EXACT match only. No "next larger" fallback.
+ * - Gap discount reads from property_smart_pricing.gap_night_discount_pct.
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
@@ -21,8 +29,10 @@ export interface PriceBlock {
   low_weekend: number;
   high_weekday: number;
   high_weekend: number;
-  low_week: number;
-  high_week: number;
+  low_week: number | null;
+  high_week: number | null;
+  low_two_weeks: number | null;
+  high_two_weeks: number | null;
 }
 
 export interface Season {
@@ -46,6 +56,7 @@ export interface QuoteResult {
   publicTotal: number;
   federationTotal: number;
   federationDiscountPercent: number;
+  packageApplied: string | null; // "week" | "two_weeks" | null
   gapNight: boolean;
   gapTotal: number | null;
   gapDiscountPercent: number | null;
@@ -64,36 +75,26 @@ function addDays(dateStr: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function isWeekend(dateStr: string, sundayIsWeekend: boolean): boolean {
-  const day = new Date(dateStr).getDay(); // 0=Sun, 5=Fri, 6=Sat
-  if (day === 5 || day === 6) return true;
-  if (day === 0 && sundayIsWeekend) return true;
-  return false;
+/** Weekend = Friday (5) + Saturday (6). Sunday is NEVER weekend. */
+function isWeekend(dateStr: string): boolean {
+  const d = new Date(dateStr + "T12:00:00Z");
+  const dow = d.getUTCDay(); // 0=Sun, 5=Fri, 6=Sat
+  return dow === 5 || dow === 6;
 }
 
 function getSeasonForDate(date: string, seasons: Season[]): Season | null {
-  const d = new Date(date);
   for (const s of seasons) {
-    if (d >= new Date(s.date_from) && d <= new Date(s.date_to)) return s;
+    if (date >= s.date_from && date <= s.date_to) return s;
   }
   return null;
 }
 
-function pickPriceBlock(guests: number, blocks: PriceBlock[]): PriceBlock {
-  // Find the smallest block whose guest count covers the request
-  const sorted = [...blocks].sort((a, b) => a.guests - b.guests);
-  for (const b of sorted) {
-    if (b.guests >= guests) return b;
-  }
-  // Fallback: highest block
-  return sorted[sorted.length - 1];
+/** Exact guest match only — no "next larger" fallback */
+function findPriceBlock(guests: number, blocks: PriceBlock[]): PriceBlock | null {
+  return blocks.find((b) => b.guests === guests) || null;
 }
 
-function nightlyRate(
-  block: PriceBlock,
-  season: Season | null,
-  weekend: boolean
-): number {
+function nightlyRate(block: PriceBlock, season: Season | null, weekend: boolean): number {
   const seasonType = season?.type ?? "low";
   if (seasonType === "high") {
     return weekend ? block.high_weekend : block.high_weekday;
@@ -109,19 +110,15 @@ async function detectGap(
   checkIn: string,
   checkOut: string,
   gapFillEnabled: boolean,
-  gapFillMinNights: number
-): Promise<{ isGap: boolean; campaignDiscount: number | null }> {
-  if (!gapFillEnabled) return { isGap: false, campaignDiscount: null };
+  gapFillMinNights: number,
+  gapNightDiscountPct: number | null
+): Promise<{ isGap: boolean; discountPercent: number | null }> {
+  if (!gapFillEnabled) return { isGap: false, discountPercent: null };
 
   const nights = daysBetween(checkIn, checkOut);
   if (nights > gapFillMinNights + 1) {
-    // Too long to be a gap filler
-    return { isGap: false, campaignDiscount: null };
+    return { isGap: false, discountPercent: null };
   }
-
-  // Check for confirmed bookings immediately before and after
-  const windowBefore = addDays(checkIn, -1);
-  const windowAfter = checkOut;
 
   // Booking ending on or 1 day before check-in
   const { data: before } = await supabase
@@ -144,20 +141,10 @@ async function detectGap(
     .limit(1);
 
   const isGap = Boolean(before?.length && after?.length);
+  if (!isGap) return { isGap: false, discountPercent: null };
 
-  if (!isGap) return { isGap: false, campaignDiscount: null };
-
-  // Look for active gap_filler campaign
-  const { data: campaigns } = await supabase
-    .from("property_campaigns")
-    .select("discount_percent")
-    .eq("property_id", propertyId)
-    .eq("campaign_type", "gap_filler")
-    .eq("is_active", true)
-    .limit(1);
-
-  const campaignDiscount = campaigns?.[0]?.discount_percent ?? null;
-  return { isGap, campaignDiscount };
+  // Use gap_night_discount_pct from property_smart_pricing (NOT property_campaigns)
+  return { isGap, discountPercent: gapNightDiscountPct ?? null };
 }
 
 // ── Main Resolver ──────────────────────────────────────────────────
@@ -168,116 +155,134 @@ export async function resolveQuote(
   checkIn: string,
   checkOut: string,
   guests: number
-): Promise<QuoteResult | { error: string }> {
+): Promise<QuoteResult | { error: string; available_tiers?: number[] }> {
   // 1. Fetch property
   const { data: property, error: propErr } = await supabase
     .from("properties")
     .select(
-      "id, name, currency, max_guests, direct_booking_discount, cleaning_fee, min_nights, max_nights, sunday_is_weekend, published"
+      "id, name, currency, max_guests, direct_booking_discount, cleaning_fee, min_nights, max_nights, published"
     )
     .eq("id", propertyId)
     .single();
 
   if (propErr || !property) return { error: "Property not found" };
   if (!property.published) return { error: "Property not published" };
-  if (guests > property.max_guests)
-    return {
-      error: `Max guests is ${property.max_guests}, requested ${guests}`,
-    };
+  if (guests > property.max_guests) return { error: `Max guests is ${property.max_guests}, requested ${guests}` };
 
   const nights = daysBetween(checkIn, checkOut);
-  if (nights < (property.min_nights ?? 1))
-    return { error: `Minimum ${property.min_nights} nights required` };
-  if (property.max_nights && nights > property.max_nights)
-    return { error: `Maximum ${property.max_nights} nights` };
+  if (nights < (property.min_nights ?? 1)) return { error: `Minimum ${property.min_nights} nights required` };
+  if (property.max_nights && nights > property.max_nights) return { error: `Maximum ${property.max_nights} nights` };
 
-  // 2. Fetch price blocks
+  // 2. Fetch price blocks (including two_weeks columns)
   const { data: blocks } = await supabase
     .from("property_price_blocks")
-    .select("guests, low_weekday, low_weekend, high_weekday, high_weekend, low_week, high_week")
+    .select("guests, low_weekday, low_weekend, high_weekday, high_weekend, low_week, high_week, low_two_weeks, high_two_weeks")
     .eq("property_id", propertyId)
     .order("guests");
 
   if (!blocks?.length) return { error: "No pricing configured" };
 
-  // 3. Fetch seasons
+  // 3. Find EXACT guest block (no fallback)
+  const block = findPriceBlock(guests, blocks as PriceBlock[]);
+  if (!block) {
+    const available = (blocks as PriceBlock[]).map((b) => b.guests).sort((a, b) => a - b);
+    return {
+      error: `No price block for ${guests} guests. Available tiers: ${available.join(", ")}`,
+      available_tiers: available,
+    };
+  }
+
+  // 4. Fetch seasons
   const { data: seasons } = await supabase
     .from("property_seasons")
     .select("name, date_from, date_to, type")
     .eq("property_id", propertyId);
 
-  // 4. Fetch smart pricing (gap settings)
+  // 5. Fetch smart pricing (gap settings + gap_night_discount_pct)
   const { data: smartPricing } = await supabase
     .from("property_smart_pricing")
-    .select("gap_fill_enabled, gap_fill_min_nights")
+    .select("gap_fill_enabled, gap_fill_min_nights, gap_night_discount_pct")
     .eq("property_id", propertyId)
     .single();
 
-  // 5. Calculate nightly rates
-  const block = pickPriceBlock(guests, blocks as PriceBlock[]);
+  // 6. Calculate nightly rates
   const nightlyRates: QuoteResult["breakdown"]["nightlyRates"] = [];
+  const seasonList = (seasons ?? []) as Season[];
 
-  // Check if we should use week price
-  if (nights >= 7 && nights <= 8) {
-    // Check season
-    const midStay = addDays(checkIn, Math.floor(nights / 2));
-    const season = getSeasonForDate(midStay, (seasons ?? []) as Season[]);
-    const weekPrice = season?.type === "high" ? block.high_week : block.low_week;
-
-    if (weekPrice > 0) {
-      const perNight = Math.round(weekPrice / nights);
-      for (let i = 0; i < nights; i++) {
-        const date = addDays(checkIn, i);
-        const s = getSeasonForDate(date, (seasons ?? []) as Season[]);
-        nightlyRates.push({
-          date,
-          rate: perNight,
-          season: s?.name ?? "Standard",
-          dayType: isWeekend(date, property.sunday_is_weekend ?? true)
-            ? "weekend"
-            : "weekday",
-        });
-      }
+  // Check each night has a season
+  for (let i = 0; i < nights; i++) {
+    const date = addDays(checkIn, i);
+    const season = getSeasonForDate(date, seasonList);
+    if (!season) {
+      return { error: `No season defined for ${date} — property not bookable for this period` };
     }
+    const weekend = isWeekend(date);
+    const rate = nightlyRate(block, season, weekend);
+    nightlyRates.push({
+      date,
+      rate,
+      season: season.name,
+      dayType: weekend ? "weekend" : "weekday",
+    });
   }
 
-  // Default: night-by-night calculation
-  if (nightlyRates.length === 0) {
-    for (let i = 0; i < nights; i++) {
-      const date = addDays(checkIn, i);
-      const season = getSeasonForDate(date, (seasons ?? []) as Season[]);
-      const weekend = isWeekend(date, property.sunday_is_weekend ?? true);
-      const rate = nightlyRate(block, season, weekend);
-      nightlyRates.push({
-        date,
-        rate,
-        season: season?.name ?? "Standard",
-        dayType: weekend ? "weekend" : "weekday",
-      });
+  // 7. Check for package pricing
+  let packageApplied: string | null = null;
+  let accommodationTotal: number;
+
+  const allSameSeasonType = nightlyRates.every(
+    (n) => {
+      const s = getSeasonForDate(n.date, seasonList);
+      return s?.type === getSeasonForDate(nightlyRates[0].date, seasonList)?.type;
     }
+  );
+  const firstSeason = getSeasonForDate(nightlyRates[0].date, seasonList);
+  const seasonType = firstSeason?.type ?? "low";
+
+  if (allSameSeasonType && nights === 14) {
+    // Two-week package: exactly 14 nights, same season
+    const pkg = seasonType === "low" ? block.low_two_weeks : block.high_two_weeks;
+    if (pkg !== null && pkg > 0) {
+      accommodationTotal = pkg;
+      packageApplied = "two_weeks";
+    } else {
+      accommodationTotal = nightlyRates.reduce((sum, n) => sum + n.rate, 0);
+    }
+  } else if (allSameSeasonType && nights === 7) {
+    // Week package: exactly 7 nights, same season
+    const pkg = seasonType === "low" ? block.low_week : block.high_week;
+    if (pkg !== null && pkg > 0) {
+      accommodationTotal = pkg;
+      packageApplied = "week";
+    } else {
+      accommodationTotal = nightlyRates.reduce((sum, n) => sum + n.rate, 0);
+    }
+  } else {
+    // Night-by-night
+    accommodationTotal = nightlyRates.reduce((sum, n) => sum + n.rate, 0);
   }
 
-  const accommodationTotal = nightlyRates.reduce((sum, n) => sum + n.rate, 0);
   const cleaningFee = property.cleaning_fee ?? 0;
   const publicTotal = accommodationTotal + cleaningFee;
 
-  // 6. Federation discount (host-controlled)
+  // 8. Federation discount (host-controlled)
   const discountPct = property.direct_booking_discount ?? 0;
   const federationTotal = Math.round(publicTotal * (1 - discountPct / 100));
 
-  // 7. Gap night detection
-  const { isGap, campaignDiscount } = await detectGap(
+  // 9. Gap night detection (reads gap_night_discount_pct from smart_pricing)
+  const { isGap, discountPercent: gapDiscountPct } = await detectGap(
     supabase,
     propertyId,
     checkIn,
     checkOut,
     smartPricing?.gap_fill_enabled ?? false,
-    smartPricing?.gap_fill_min_nights ?? 2
+    smartPricing?.gap_fill_min_nights ?? 2,
+    smartPricing?.gap_night_discount_pct ?? null
   );
 
   let gapTotal: number | null = null;
-  if (isGap && campaignDiscount) {
-    gapTotal = Math.round(federationTotal * (1 - campaignDiscount / 100));
+  if (isGap && gapDiscountPct) {
+    gapTotal = Math.round(federationTotal * (1 - gapDiscountPct / 100));
   }
 
   return {
@@ -287,15 +292,13 @@ export async function resolveQuote(
     guests,
     nights,
     currency: property.currency ?? "SEK",
-    breakdown: {
-      nightlyRates,
-      cleaningFee,
-    },
+    breakdown: { nightlyRates, cleaningFee },
     publicTotal,
     federationTotal,
     federationDiscountPercent: discountPct,
+    packageApplied,
     gapNight: isGap,
     gapTotal,
-    gapDiscountPercent: isGap ? campaignDiscount : null,
+    gapDiscountPercent: isGap ? gapDiscountPct : null,
   };
 }

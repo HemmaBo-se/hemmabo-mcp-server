@@ -1,10 +1,15 @@
 {
   "name": "federation-mcp-server",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Direct booking infrastructure for independent hosts. Each property is its own node — source of truth for pricing, availability, and bookings.",
   "network_id": "hemmabo_verified",
   "transport": "streamable-http",
   "endpoint": "/mcp",
+  "configSchema": {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false
+  },
   "capabilities": {
     "tools": [
       "search_properties",

@@ -40,7 +40,7 @@ const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY
 
 const server = new McpServer({
   name: "federation-mcp-server",
-  version: "2.0.0",
+  version: "2.1.0",
 });
 
 // ── Tool: search_properties ────────────────────────────────────────
@@ -71,7 +71,6 @@ server.tool(
       return { content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }] };
     }
 
-    // For each property, check availability and get a quote
     const results = [];
     for (const prop of properties ?? []) {
       const avail = await checkAvailability(supabase, prop.id, checkIn, checkOut);
@@ -94,6 +93,7 @@ server.tool(
         publicTotal: quote.publicTotal,
         federationTotal: quote.federationTotal,
         federationDiscountPercent: quote.federationDiscountPercent,
+        packageApplied: quote.packageApplied,
         available: true,
       });
     }
@@ -131,7 +131,7 @@ server.tool(
 
 server.tool(
   "get_canonical_quote",
-  "Get a canonical pricing quote. Returns public_total (website rate), federation_total (direct booking rate with host-controlled discount), and gap_total if calendar context qualifies. The host controls the discount — it is never hardcoded.",
+  "Get a canonical pricing quote. Returns public_total (website rate), federation_total (direct booking rate with host-controlled discount), and gap_total if calendar context qualifies. Supports week (7 nights) and two-week (14 nights) package pricing. The host controls the discount — it is never hardcoded.",
   {
     propertyId: z.string().uuid().describe("Property UUID"),
     checkIn: z.string().describe("Check-in date YYYY-MM-DD"),
@@ -229,7 +229,8 @@ server.tool(
               guests,
               totalPrice,
               currency: quote.currency,
-              priceType: quote.gapTotal ? "gap_night" : "federation",
+              priceType: quote.gapTotal ? "gap_night" : (quote.packageApplied ? `package_${quote.packageApplied}` : "federation"),
+              packageApplied: quote.packageApplied,
               federationDiscountPercent: quote.federationDiscountPercent,
               gapDiscountPercent: quote.gapDiscountPercent,
               createdAt: booking.created_at,
@@ -249,7 +250,7 @@ const app = express();
 
 // Health check
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", version: "2.0.0" });
+  res.json({ status: "ok", version: "2.1.0" });
 });
 
 // MCP endpoint
@@ -266,7 +267,12 @@ app.get("/.well-known/mcp/server-card.json", (_req, res) => {
   res.json({
     serverInfo: {
       name: "federation-mcp-server",
-      version: "2.0.0",
+      version: "2.1.0",
+    },
+    configSchema: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
     },
     tools: [
       {
@@ -302,7 +308,7 @@ app.get("/.well-known/mcp/server-card.json", (_req, res) => {
       {
         name: "get_canonical_quote",
         description:
-          "Get canonical pricing: public_total (website), federation_total (direct booking with host discount), gap_total (calendar-context gap). Host controls the discount.",
+          "Get canonical pricing: public_total (website), federation_total (direct booking with host discount), gap_total (calendar-context gap). Supports week and two-week package pricing. Host controls the discount.",
         inputSchema: {
           type: "object",
           properties: {
