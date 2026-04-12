@@ -560,8 +560,13 @@ async function executeTool(
           public_total: quote.publicTotal,
           ai_total: quote.federationTotal,
           ai_discount_pct: quote.federationDiscountPercent,
-          segments_detail: quote.breakdown,
-          status: "active",
+          segments_detail: quote.breakdown.nightlyRates.map(n => ({
+            date: n.date,
+            rate: n.rate,
+            season: n.season,
+            dayType: n.dayType,
+          })),
+          status: "ok",
         })
         .select("id")
         .single();
