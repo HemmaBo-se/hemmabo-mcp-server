@@ -1,37 +1,75 @@
-# HemmaBo MCP Server
+# Federation MCP Server
 
-**Direct vacation rental booking — zero commission, AI-native, source of truth.**
+Direct booking infrastructure for independent hosts. Each property is its own node — source of truth for pricing, availability, and bookings.
 
-`network_id: hemmabo_verified`
+## Architecture
 
-HemmaBo is a white-label vacation rental platform where every host operates on their own domain. Each property is an independent node — the authoritative source of truth for its own availability, pricing and amenity data. No OTA intermediary. No commission. No platform lock-in.
+```
+Host → sets prices, seasons, guest levels, federation discount
+         ↓
+    property node (Supabase)
+         ↓
+  MCP Server reads real data — never mocks, never guesses
+         ↓
+  AI agents (ChatGPT, Claude, Perplexity) → federation_total
+  Google / website visitors → public_total
+  Gap night (calendar context) → gap_total
+```
 
-## What this MCP server does
+## Pricing Flow
 
-AI agents (ChatGPT, Claude, Gemini and others) can use this server to:
+| Scenario | Price | How |
+|----------|-------|-----|
+| Website visitor (Google, direct) | `public_total` | Sum of nightly rates per season/guest level/day type + cleaning fee |
+| Vera AI / federation partner (at booking) | `federation_total` | `public_total × (1 - host_discount%)` |
+| Gap night (calendar context between bookings) | `gap_total` | `federation_total × (1 - gap_campaign%)` |
 
-- Search available vacation rental properties by region, dates and guest count
-- Check real-time availability for a specific property
-- Get a canonical price quote including `aiTotal` (AI-agent rate) and `publicTotal`
-- Create a direct booking — confirmed instantly, zero commission to any platform
+The host controls the federation discount via `properties.direct_booking_discount`. No hardcoded percentages anywhere.
 
 ## Tools
 
 | Tool | Description |
 |------|-------------|
-| `search_properties` | Search available properties: region, checkIn, checkOut, guests |
-| `check_availability` | Verify availability for a specific property and date range |
-| `get_canonical_quote` | Get pricing breakdown: aiTotal, publicTotal, cleaningFee, nights |
-| `create_booking` | Confirm a direct booking and return bookingId |
+| `search_properties` | Search by region, country, guests, dates. Returns available properties with real pricing. |
+| `check_availability` | Checks blocked dates, confirmed/pending bookings, and booking locks. |
+| `get_canonical_quote` | Returns `public_total`, `federation_total`, and `gap_total` (if applicable) with full nightly breakdown. |
+| `create_booking` | Creates a booking at federation price. Validates availability first. |
 
-## Architecture
+## Setup
 
-- Every host = one node with its own domain (e.g. `villa-akerlyckan.hemmabo.com`)
-- `network_id: hemmabo_verified` — signals to AI agents that data is direct, complete and commission-free
-- `domain_role: source_of_truth` — no aggregator, no intermediary, no stale data
-- OAuth 2.1 + JWT scoped per property for secure booking operations
-- ANP/DID-compatible: each host domain is a verifiable decentralized identity
+```bash
+npm install
+npm run build
+```
 
-## Status
+Create `.env` from `.env.example`:
 
-MCP server under active development. Mock data returned by all tools until Supabase integration is complete.
+```bash
+cp .env.example .env
+# Fill in SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
+```
+
+Run:
+
+```bash
+npm start
+```
+
+## Endpoints
+
+| Path | Method | Purpose |
+|------|--------|---------|
+| `/mcp` | POST | MCP Streamable HTTP endpoint |
+| `/health` | GET | Health check |
+| `/.well-known/mcp/server-card.json` | GET | Smithery discovery metadata |
+
+## Deploy to Smithery
+
+1. Deploy this server with a public HTTPS URL (Vercel, Railway, Fly.io, etc.)
+2. Go to [smithery.ai/new](https://smithery.ai/new)
+3. Enter the server's URL (e.g. `https://your-domain.com/mcp`)
+4. Smithery scans and publishes automatically
+
+## Transport
+
+This server uses **Streamable HTTP** transport (`StreamableHTTPServerTransport`) — required for Smithery Gateway and remote MCP clients. STDIO is not supported.
