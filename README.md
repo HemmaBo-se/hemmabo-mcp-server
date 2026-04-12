@@ -1,6 +1,6 @@
 # Federation MCP Server
 
-[![Smithery Badge](https://smithery.ai/badge/federation-mcp-server)](https://smithery.ai/server/federation-mcp-server)
+[![Smithery Badge](https://smithery.ai/badge/@info-00wt/federation-mcp-server)](https://smithery.ai/servers/@info-00wt/federation-mcp-server)
 
 MCP server for vacation rental direct bookings. Search properties, check availability, get real-time pricing quotes, and create bookings through the federation protocol.
 
@@ -9,7 +9,7 @@ Supports seasonal pricing, guest-count tiers (staircase model), weekly/biweekly 
 ## Install via Smithery
 
 ```bash
-npx -y @smithery/cli install federation-mcp-server --client claude
+npx -y @smithery/cli install @info-00wt/federation-mcp-server --client claude
 ```
 
 ## Tools
