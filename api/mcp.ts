@@ -946,7 +946,7 @@ async function handleJsonRpc(
             tools: { listChanged: false },
             prompts: { listChanged: false },
           },
-          serverInfo: { name: "federation-mcp-server", version: "3.0.0" },
+          serverInfo: { name: "federation-mcp-server", version: "3.1.0" },
           instructions: SERVER_INSTRUCTIONS,
         },
       };

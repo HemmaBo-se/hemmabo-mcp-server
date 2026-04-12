@@ -63,12 +63,27 @@ cp .env.example .env
 # Fill in SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
 ```
 
-## Endpoints
+## Agentic Commerce Protocol (ACP)
+
+First vacation rental with [Stripe ACP](https://docs.stripe.com/agentic-commerce/protocol) support. AI agents can complete bookings with SharedPaymentTokens — no redirect, no manual payment.
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/acp/checkouts` | POST | Create checkout session |
+| `/acp/checkouts/:id` | GET | Retrieve checkout state |
+| `/acp/checkouts/:id` | PUT | Update (dates, guests, buyer) |
+| `/acp/checkouts/:id/complete` | POST | Complete with SharedPaymentToken (spt_) or PaymentMethod (pm_) |
+| `/acp/checkouts/:id/cancel` | POST | Cancel checkout + refund |
+
+Supports Stripe SharedPaymentTokens (SPT), Klarna, Swish, and card payments. Compatible with ChatGPT Instant Checkout, Google UCP, and any ACP-compliant agent.
+
+## MCP + ACP Endpoints
 
 | Path | Method | Purpose |
 |------|--------|---------|
 | `/mcp` | POST | MCP Streamable HTTP endpoint |
 | `/mcp` | GET | Transport info |
+| `/acp/checkouts` | POST/GET/PUT | ACP checkout lifecycle |
 | `/health` | GET | Health check |
 | `/.well-known/mcp.json` | GET | MCP discovery metadata |
 | `/.well-known/mcp/server-card.json` | GET | Smithery server card |
