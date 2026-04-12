@@ -1,0 +1,19 @@
+{
+  "name": "hemmabo-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for HemmaBo vacation rental direct booking",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "@types/node": "^22.15.3"
+  }
+}

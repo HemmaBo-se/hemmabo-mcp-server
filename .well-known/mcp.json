@@ -1,0 +1,17 @@
+{
+  "name": "hemmabo-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for HemmaBo vacation rental direct booking. Zero commission, AI-native direct booking.",
+  "network_id": "hemmabo_verified",
+  "capabilities": {
+    "tools": [
+      "search_properties",
+      "check_availability",
+      "get_canonical_quote",
+      "create_booking"
+    ]
+  },
+  "contact": {
+    "url": "https://hemmabo.se"
+  }
+}
