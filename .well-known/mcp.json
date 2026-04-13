@@ -7,7 +7,21 @@
   "endpoint": "/mcp",
   "configSchema": {
     "type": "object",
-    "properties": {},
+    "properties": {
+      "SUPABASE_URL": {
+        "type": "string",
+        "description": "Supabase project URL (e.g. https://xxx.supabase.co)"
+      },
+      "SUPABASE_SERVICE_ROLE_KEY": {
+        "type": "string",
+        "description": "Supabase service role key (secret, full database access)"
+      },
+      "STRIPE_SECRET_KEY": {
+        "type": "string",
+        "description": "Stripe secret key for payment processing (required for checkout/cancel/reschedule)"
+      }
+    },
+    "required": ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"],
     "additionalProperties": false
   },
   "capabilities": {

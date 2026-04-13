@@ -13,6 +13,15 @@ startCommand:
       language:
         type: string
         description: "Preferred response language (e.g. 'sv', 'en', 'de', 'it'). Defaults to English."
+      SUPABASE_URL:
+        type: string
+        description: "Supabase project URL (required)"
+      SUPABASE_SERVICE_ROLE_KEY:
+        type: string
+        description: "Supabase service role key (required)"
+      STRIPE_SECRET_KEY:
+        type: string
+        description: "Stripe secret key for payment processing (optional, enables checkout/cancel/reschedule)"
     additionalProperties: false
   commandFunction: |
     (config) => ({

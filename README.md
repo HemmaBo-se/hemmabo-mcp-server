@@ -61,7 +61,15 @@ Create `.env` from `.env.example`:
 ```bash
 cp .env.example .env
 # Fill in SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
+# Optionally add STRIPE_SECRET_KEY for checkout/cancel/reschedule tools
 ```
+
+**Required environment variables:**
+- `SUPABASE_URL` — Your Supabase project URL
+- `SUPABASE_SERVICE_ROLE_KEY` — Service role key (full database access)
+
+**Optional (enables Stripe-powered tools):**
+- `STRIPE_SECRET_KEY` — Enables `checkout`, `cancel_booking`, and `reschedule_booking` tools
 
 ## Agentic Commerce Protocol (ACP)
 
