@@ -25,31 +25,42 @@ import { checkAvailability } from "./availability.js";
 
 // ── Environment ────────────────────────────────────────────────────
 
-const SUPABASE_URL = process.env.SUPABASE_URL!;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-  console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
-  process.exit(1);
-}
+// Graceful degradation: allow server to start without DB for validation/testing
+let supabase: SupabaseClient | null = null;
 
-const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  console.warn("⚠ Running without database — tools will return errors until SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set");
+} else {
+  supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+  console.log("✓ Database connected");
+}
 
 // ── MCP Server ─────────────────────────────────────────────────────
 
+/**
+ * Server instructions (for documentation):
+ * 
+ * This MCP server provides real-time vacation rental data for independent property hosts.
+ * All data is live from the property's own database — never cached, never estimated.
+ *
+ * Full booking lifecycle: search_properties (find properties) -> negotiate_offer (binding quote with quoteId)
+ * -> checkout (Stripe payment) -> get_booking_status (check details) -> reschedule_booking / cancel_booking (modify or cancel).
+ *
+ * Legacy shortcut: search_properties -> get_canonical_quote -> create_booking (no payment, pending host approval).
+ *
+ * Pricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6).
+ * Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week)
+ * are applied automatically. Federation discount (direct booking rate) is host-controlled.
+ *
+ * Dates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).
+ */
 const server = new McpServer({
   name: "federation-mcp-server",
   version: "3.0.0",
-  instructions: `This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated.
-
-Full booking lifecycle: search_properties (find properties) -> negotiate_offer (binding quote with quoteId) -> checkout (Stripe payment) -> get_booking_status (check details) -> reschedule_booking / cancel_booking (modify or cancel).
-
-Legacy shortcut: search_properties -> get_canonical_quote -> create_booking (no payment, pending host approval).
-
-Pricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6). Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week) are applied automatically. Federation discount (direct booking rate) is host-controlled.
-
-Dates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).` as string,
 });
 
 // ── Tool: search_properties ────────────────────────────────────────
@@ -65,6 +76,12 @@ server.tool(
     checkOut: z.string().describe("Check-out date YYYY-MM-DD"),
   },
   async ({ region, country, guests, checkIn, checkOut }) => {
+    if (!supabase) {
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }],
+      };
+    }
+
     let query = supabase
       .from("properties")
       .select("id, name, domain, region, city, country, max_guests, currency, property_type, direct_booking_discount, cleaning_fee")
@@ -129,6 +146,12 @@ server.tool(
     checkOut: z.string().describe("Check-out date YYYY-MM-DD"),
   },
   async ({ propertyId, checkIn, checkOut }) => {
+    if (!supabase) {
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }],
+      };
+    }
+
     const result = await checkAvailability(supabase, propertyId, checkIn, checkOut);
     return {
       content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
@@ -148,6 +171,12 @@ server.tool(
     guests: z.number().int().min(1).describe("Number of guests"),
   },
   async ({ propertyId, checkIn, checkOut, guests }) => {
+    if (!supabase) {
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }],
+      };
+    }
+
     const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
     return {
       content: [{ type: "text" as const, text: JSON.stringify(quote, null, 2) }],
@@ -170,6 +199,12 @@ server.tool(
     guestPhone: z.string().optional().describe("Guest phone number"),
   },
   async ({ propertyId, checkIn, checkOut, guests, guestName, guestEmail, guestPhone }) => {
+    if (!supabase) {
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }],
+      };
+    }
+
     // 1. Verify availability
     const avail = await checkAvailability(supabase, propertyId, checkIn, checkOut);
     if (!avail.available) {
