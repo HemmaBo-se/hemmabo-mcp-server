@@ -1,6 +1,6 @@
 {
   "name": "federation-mcp-server",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "MCP server for vacation rental direct bookings. Full lifecycle: search, quote, Stripe checkout, status, reschedule, cancel. Supports seasonal pricing, guest-count tiers, weekly/biweekly packages, gap-night discounts, and host-controlled federation discounts.",
   "network_id": "hemmabo_verified",
   "transport": "streamable-http",
