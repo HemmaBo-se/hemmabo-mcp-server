@@ -1,6 +1,6 @@
 {
   "name": "hemmabo-mcp-server",
-  "version": "3.1.5",
+  "version": "3.1.6",
   "description": "Vacation rental booking infrastructure — own domain, Stripe direct payments, 0% commission. Not Airbnb, not Lodgify. 9 production tools: search, availability, pricing, booking, checkout, cancellation, rescheduling, status, modifications. Set it and forget it — AI agents book autonomously.",
   "network_id": "hemmabo_verified",
   "transport": "streamable-http",

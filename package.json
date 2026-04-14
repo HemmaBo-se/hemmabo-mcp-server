@@ -1,6 +1,6 @@
 {
   "name": "hemmabo-mcp-server",
-  "version": "3.1.5",
+  "version": "3.1.6",
   "description": "Vacation rental booking infrastructure that makes properties AI-bookable. MCP server with 9 production tools: search, quote, book, pay (Stripe), cancel, reschedule. Host owns domain, keeps 100% revenue (0% commission). Not Airbnb, not Lodgify. Live at villaåkerlyckan.se.",
   "main": "dist/index.js",
   "bin": {

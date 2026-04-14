@@ -60,7 +60,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
  */
 const server = new McpServer({
   name: "hemmabo-mcp-server",
-  version: "3.1.5",
+  version: "3.1.6",
 });
 
 // ── Tool: search_properties ────────────────────────────────────────
