@@ -1,6 +1,6 @@
 {
   "name": "hemmabo-mcp-server",
-  "version": "3.1.13",
+  "version": "3.1.14",
   "description": "Booking infrastructure for vacation rentals. Like Mirai for hotels — own domain, Stripe direct, 0% commission. MCP server with 9 production tools. Live at villaåkerlyckan.se.",
   "main": "dist/index.js",
   "bin": {
