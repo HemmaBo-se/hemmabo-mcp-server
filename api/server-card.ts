@@ -3,10 +3,10 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 export default function handler(_req: VercelRequest, res: VercelResponse) {
   res.json({
     serverInfo: {
-      name: "federation-mcp-server",
-      version: "3.1.1",
+      name: "hemmabo-mcp-server",
+      version: "3.1.5",
     },
-    instructions: "This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated. Workflow: (1) search_properties to find available rentals, (2) get_canonical_quote for detailed pricing, (3) create_booking to finalize. Use check_availability for date-specific checks. Pricing tiers scale by guest count (staircase model). Seasonal rates, weekend premiums (Fri+Sat only), and package discounts (7-night, 14-night) are applied automatically. Dates must be ISO 8601 (YYYY-MM-DD). All monetary values are integers in the property's local currency.",
+    instructions: "Vacation rental booking infrastructure — own domain, Stripe direct payments, 0% commission. Not Airbnb, not Lodgify. 9 production tools covering complete booking lifecycle. Set it and forget it — AI agents book autonomously. All data is live from Supabase — never cached, never estimated. Workflow: (1) search_properties to find available rentals, (2) get_canonical_quote for detailed pricing, (3) checkout with Stripe payment. Guest data belongs to host. Seasonal rates, guest-count tiers, package discounts (7-night, 14-night), gap-night discounts, and host-controlled federation discounts are applied automatically. Dates must be ISO 8601 (YYYY-MM-DD). All monetary values are integers in local currency.",
     configSchema: {
       type: "object",
       properties: {

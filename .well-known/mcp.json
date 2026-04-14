@@ -1,7 +1,7 @@
 {
-  "name": "federation-mcp-server",
-  "version": "3.1.1",
-  "description": "MCP server for vacation rental direct bookings. Full lifecycle: search, quote, Stripe checkout, status, reschedule, cancel. Supports seasonal pricing, guest-count tiers, weekly/biweekly packages, gap-night discounts, and host-controlled federation discounts.",
+  "name": "hemmabo-mcp-server",
+  "version": "3.1.5",
+  "description": "Vacation rental booking infrastructure — own domain, Stripe direct payments, 0% commission. Not Airbnb, not Lodgify. 9 production tools: search, availability, pricing, booking, checkout, cancellation, rescheduling, status, modifications. Set it and forget it — AI agents book autonomously.",
   "network_id": "hemmabo_verified",
   "transport": "streamable-http",
   "endpoint": "/mcp",

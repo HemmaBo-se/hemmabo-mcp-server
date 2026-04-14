@@ -1,4 +1,21 @@
 # Smithery configuration — https://smithery.ai/docs/config
+name: HemmaBo
+description: "Vacation rental booking infrastructure — own domain, Stripe direct payments, 0% commission. Not Airbnb, not Lodgify. 9 production tools: search, availability, pricing, booking, checkout, cancellation, rescheduling, status, modifications. Set it and forget it — AI agents book autonomously."
+keywords:
+  - vacation-rental
+  - direct-booking
+  - booking-infrastructure
+  - ai-booking
+  - autonomous-agents
+  - airbnb-alternative
+  - lodgify-alternative
+  - zero-commission
+  - own-domain
+  - stripe-payments
+  - set-it-forget-it
+homepage: https://hemmabo-mcp-server.vercel.app
+repository: https://github.com/HemmaBo-se/hemmabo-mcp-server
+
 startCommand:
   type: stdio
   configSchema:
