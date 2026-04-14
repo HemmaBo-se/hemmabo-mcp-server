@@ -1,7 +1,7 @@
 {
   "name": "hemmabo-mcp-server",
-  "version": "3.1.4",
-  "description": "World's first vacation rental MCP server. Enable AI agents (ChatGPT, Claude, Gemini) to search, book, and manage vacation rental reservations. 9 production tools: search, availability, pricing, booking, checkout (Stripe ACP), cancellation, rescheduling. Zero commission. Live at villaåkerlyckan.se.",
+  "version": "3.1.5",
+  "description": "Vacation rental booking infrastructure that makes properties AI-bookable. MCP server with 9 production tools: search, quote, book, pay (Stripe), cancel, reschedule. Host owns domain, keeps 100% revenue (0% commission). Not Airbnb, not Lodgify. Live at villaåkerlyckan.se.",
   "main": "dist/index.js",
   "bin": {
     "hemmabo-mcp-server": "dist/stdio.js"
@@ -20,6 +20,7 @@
     "model-context-protocol",
     "vacation-rental",
     "direct-booking",
+    "booking-infrastructure",
     "property-management",
     "pricing",
     "availability",
@@ -31,9 +32,15 @@
     "chatgpt",
     "claude",
     "zero-commission",
+    "no-commission",
     "vacation-home",
     "holiday-rental",
-    "airbnb-alternative"
+    "short-term-rental",
+    "booking-engine",
+    "airbnb-alternative",
+    "lodgify-alternative",
+    "own-domain",
+    "stripe-payments"
   ],
   "homepage": "https://hemmabo-mcp-server.vercel.app",
   "repository": {

@@ -3,29 +3,53 @@
 [![NPM Version](https://img.shields.io/npm/v/hemmabo-mcp-server)](https://www.npmjs.com/package/hemmabo-mcp-server)
 [![Smithery Badge](https://smithery.ai/badge/@info-00wt/federation-mcp-server)](https://smithery.ai/servers/@info-00wt/federation-mcp-server)
 
-🌍 **World's first vacation rental MCP server.** Enable AI agents (ChatGPT, Claude, Gemini, Perplexity) to search, quote, book, and manage vacation rental reservations directly — no human intervention required.
+**Vacation rental booking infrastructure for independent hosts.**  
+Your own booking system on your own domain — no Airbnb commission, no Lodgify subscription fees. AI agents (ChatGPT, Claude, Gemini) can search, quote, and book your property 24/7.
 
-**Live property:** [Villaåkerlyckan.se](https://villaåkerlyckan.se) — Sweden's first AI-bookable vacation rental.
+**HemmaBo is NOT:**
+- ❌ A marketplace (not Airbnb, not Booking.com)
+- ❌ A website builder (not Wix, not Squarespace)
+- ❌ A property management SaaS (not Lodgify, not Guesty)
+
+**HemmaBo IS:**
+- ✅ **Booking infrastructure** — complete booking engine for your vacation rental
+- ✅ **Own domain** — guests book on YourProperty.com (you control branding)
+- ✅ **Stripe direct payments** — money goes straight to your bank (0% commission to HemmaBo)
+- ✅ **AI-native** — ChatGPT, Claude, Perplexity can discover and book your property autonomously
+- ✅ **9 production tools** — search, availability, pricing, booking, checkout, cancellation, rescheduling, status, modifications
+
+**Live property:** [Villaåkerlyckan.se](https://villaåkerlyckan.se) — Sweden's first AI-bookable vacation rental (booked via ChatGPT, Claude Desktop, and Perplexity).
 
 ---
 
-## Why HemmaBo?
+## Why HemmaBo? (vs. Airbnb, Lodgify, Wix)
 
-**For hosts:** Turn your property into an autonomous booking node. AI agents can discover, price, and book your property 24/7. Zero commission — you control pricing, discounts, and availability.
+**The host IS the platform.** Guests find your property on Google and through AI assistants, book on your domain, and you keep 100% of the revenue (minus Stripe's ~2% payment processing).
 
-**For AI platforms:** 9 production-ready tools covering the complete booking lifecycle: search → availability → pricing → booking → payment → modification → cancellation. Built on Model Context Protocol (MCP) with Stripe Agentic Commerce Protocol (ACP) support.
+| Feature | HemmaBo | Airbnb | Lodgify | Wix |
+|---------|---------|--------|---------|-----|
+| **Host commission** | 0% | 3% + 12-15% guest fee | 0% (but €29-79/mo) | 0% (but $27-159/mo) |
+| **Own domain** | ✅ Yes | ❌ No (subdomain only) | ✅ Yes | ✅ Yes |
+| **AI-bookable** | ✅ ChatGPT, Claude, Gemini | ❌ No | ❌ No | ❌ No |
+| **Direct payments** | ✅ Stripe to your account | ❌ Via Airbnb (delayed) | ✅ Via Stripe/PayPal | ✅ Via payment gateway |
+| **Guest data ownership** | ✅ You own it | ❌ Airbnb controls | ✅ You own it | ✅ You own it |
+| **Model Context Protocol** | ✅ 9 tools | ❌ No | ❌ No | ❌ No |
 
-**Comparable to:** [Mirai](https://www.mirai.com/) (hotel AI bookings) — but for vacation rentals. HemmaBo is the operating system for autonomous vacation rental distribution.
+**Comparable to:** [Mirai](https://www.mirai.com/) (AI hotel bookings) — but for vacation rentals operated by independent hosts.
 
 ---
 
-## Features
+## For Hosts: What You Get
 
-- **Complete booking lifecycle:** Search, availability, pricing, booking, checkout (Stripe), cancellation, rescheduling, status checks
-- **Host-controlled pricing:** Seasonal rates, guest-count tiers, package discounts (weekly/biweekly), gap-night discounts, federation discounts (direct booking incentive)
-- **AI-native commerce:** Stripe ACP integration for programmatic payments (SharedPaymentTokens, payment_intent mode, MPP)
-- **Real-time accuracy:** Never cached prices — all data pulled live from Supabase source of truth
-- **Zero commission:** Hosts keep 100% of revenue (optional direct booking discount encourages AI channel)
+- **Autonomous booking node** — AI agents can discover, price, and book your property without human intervention
+- **Host-controlled pricing** — seasonal rates, guest-count tiers, package discounts (weekly/biweekly), gap-night discounts, federation discounts
+- **Real-time accuracy** — never cached prices, all data pulled live from your Supabase source of truth
+- **Full booking lifecycle** — search → quote → book → pay (Stripe ACP) → modify → cancel
+- **Zero platform lock-in** — open source (MIT), self-hostable, export your data anytime
+
+---
+
+## For AI Systems: Protocol Support
 
 ---
 
