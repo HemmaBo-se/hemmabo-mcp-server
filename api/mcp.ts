@@ -148,7 +148,7 @@ const TOOLS = [
   {
     name: "negotiate_offer",
     description:
-      "Create a binding price quote with a quoteId. Calculates federation pricing (with gap/package discounts) and stores an immutable snapshot in property_quote_snapshots. The quoteId can be passed to checkout to lock the price. Quote expires after 15 minutes. Returns publicTotal, federationTotal, per-night breakdown, package info, and the quoteId.",
+      "Create a binding price quote with a unique quote identifier that expires after 15 minutes. The quoted price is stored as an immutable snapshot so it cannot change during checkout. Pass the quote identifier to the checkout tool to lock the price. This protects both guest and host from price fluctuations between browsing and completing payment. Returns public and federation totals, per-night breakdown, package info, and the quote identifier.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -170,7 +170,7 @@ const TOOLS = [
   {
     name: "checkout",
     description:
-      "Create a booking with Stripe payment. Creates a Stripe Checkout Session and a booking record. If a quoteId from negotiate_offer is provided, the price is locked to that quote. Supports MPP (Machine Payments Protocol): set paymentMode to 'payment_intent' to receive a client_secret for programmatic payment instead of a redirect URL. Returns reservationId, paymentUrl, and MPP block with payment details.",
+      "Create a booking with secure online payment via Stripe. Generates a hosted payment page where the guest can pay by card, Klarna, Swish, or other supported methods. If a quote identifier from negotiate_offer is provided, the price is locked to that quote. Also supports programmatic payment for AI agents that can confirm payment directly. Returns booking ID, payment URL, and payment details.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -198,7 +198,7 @@ const TOOLS = [
   {
     name: "cancel_booking",
     description:
-      "Cancel a booking. Delegates to the Supabase Edge Function cancel-booking which handles refund calculation based on the host's cancellation policy, Stripe refund processing, email notifications, and blocked date cleanup. Returns the cancellation status and refund details (amount, percentage, reason, Stripe refund ID).",
+      "Cancel an existing booking. Calculates the refund amount based on the host's cancellation policy, processes the refund through Stripe, updates the booking status to cancelled, and sends email notifications to both guest and host. Returns the updated booking status and refund details including amount, percentage, and reason.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -832,7 +832,11 @@ async function handleJsonRpc(
             tools: { listChanged: false },
             prompts: { listChanged: false },
           },
-          serverInfo: { name: "federation-mcp-server", version: "3.1.0" },
+          serverInfo: {
+            name: "federation-mcp-server",
+            version: "3.1.0",
+            description: "MCP server for vacation rental direct bookings. Search properties, check availability, get real-time pricing quotes, and create bookings through the federation protocol. Supports seasonal pricing, guest-count tiers, weekly and biweekly package discounts, gap-night discounts, and host-controlled federation discounts. All data is live — never cached, never estimated.",
+          },
           instructions: SERVER_INSTRUCTIONS,
         },
       };
