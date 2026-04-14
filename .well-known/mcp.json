@@ -26,15 +26,15 @@
   },
   "capabilities": {
     "tools": [
-      "search_properties",
-      "check_availability",
-      "get_canonical_quote",
-      "create_booking",
-      "negotiate_offer",
-      "checkout",
-      "cancel_booking",
-      "get_booking_status",
-      "reschedule_booking"
+      "hemmabo.search",
+      "hemmabo.availability",
+      "hemmabo.quote",
+      "hemmabo.book",
+      "hemmabo.negotiate",
+      "hemmabo.checkout",
+      "hemmabo.cancel",
+      "hemmabo.status",
+      "hemmabo.reschedule"
     ]
   }
 }

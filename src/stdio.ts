@@ -41,14 +41,14 @@ const server = new McpServer(
     description: "MCP server for vacation rental direct bookings. Search properties, check availability, get real-time pricing quotes, and create bookings through the federation protocol. Supports seasonal pricing, guest-count tiers, weekly and biweekly package discounts, gap-night discounts, and host-controlled federation discounts. All data is live — never cached, never estimated.",
   },
   {
-    instructions: "This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated.\n\nFull booking lifecycle: search_properties (find properties) -> negotiate_offer (binding quote with quoteId) -> checkout (Stripe payment) -> get_booking_status (check details) -> reschedule_booking / cancel_booking (modify or cancel).\n\nLegacy shortcut: search_properties -> get_canonical_quote -> create_booking (no payment, pending host approval).\n\nPricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6). Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week) are applied automatically. Federation discount (direct booking rate) is host-controlled.\n\nDates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).",
+    instructions: "This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated.\n\nFull booking lifecycle: hemmabo.search (find properties) -> hemmabo.negotiate (binding quote with quoteId) -> checkout (Stripe payment) -> hemmabo.status (check details) -> hemmabo.reschedule / hemmabo.cancel (modify or cancel).\n\nLegacy shortcut: hemmabo.search -> hemmabo.quote -> hemmabo.book (no payment, pending host approval).\n\nPricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6). Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week) are applied automatically. Federation discount (direct booking rate) is host-controlled.\n\nDates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).",
   }
 );
 
-// ── Tool: search_properties ────────────────────────────────────────
+// ── Tool: hemmabo.search ────────────────────────────────────────
 
 server.tool(
-  "search_properties",
+  "hemmabo.search",
   "Search vacation rental properties by location and travel dates. Returns only properties that are available for the requested period and can accommodate the guest count. Each result includes live pricing with both public rates and federation rates (direct booking discount).",
   {
     region: z.string().optional().describe("Region or destination (e.g. 'Skåne', 'Sweden')"),
@@ -117,10 +117,10 @@ server.tool(
   }
 );
 
-// ── Tool: check_availability ───────────────────────────────────────
+// ── Tool: hemmabo.availability ───────────────────────────────────────
 
 server.tool(
-  "check_availability",
+  "hemmabo.availability",
   "Check whether a specific property is available for the requested date range. Verifies against host-blocked dates, confirmed bookings, and active booking locks. Returns available=true/false with conflict details if unavailable.",
   {
     propertyId: z.string().uuid().describe("Property UUID"),
@@ -141,10 +141,10 @@ server.tool(
   }
 );
 
-// ── Tool: get_canonical_quote ──────────────────────────────────────
+// ── Tool: hemmabo.quote ──────────────────────────────────────
 
 server.tool(
-  "get_canonical_quote",
+  "hemmabo.quote",
   "Get a detailed pricing quote for a specific property, date range, and guest count. Returns publicTotal (website rate), federationTotal (direct booking rate with host discount), and gapTotal (gap-night discount if applicable). Includes per-night breakdown, season classification, weekend detection, and package pricing (7-night week, 14-night two-week). All prices are integers in local currency.",
   {
     propertyId: z.string().uuid().describe("Property UUID"),
@@ -166,10 +166,10 @@ server.tool(
   }
 );
 
-// ── Tool: create_booking ───────────────────────────────────────────
+// ── Tool: hemmabo.book ───────────────────────────────────────────
 
 server.tool(
-  "create_booking",
+  "hemmabo.book",
   "Create a new direct booking for a property. Write operation: validates availability, calculates the final federation price (with gap discount if applicable), and creates a pending booking record requiring host approval. Returns booking ID, final price, and confirmation details.",
   {
     propertyId: z.string().uuid().describe("Property UUID"),
@@ -270,10 +270,10 @@ server.tool(
   }
 );
 
-// ── Tool: negotiate_offer ──────────────────────────────────────────
+// ── Tool: hemmabo.negotiate ──────────────────────────────────────────
 
 server.tool(
-  "negotiate_offer",
+  "hemmabo.negotiate",
   "Create a binding price quote with a unique quote identifier that expires after 15 minutes. The quoted price is stored as an immutable snapshot so it cannot change during checkout. Pass the quote identifier to the checkout tool to lock the price. This protects both guest and host from price fluctuations between browsing and completing payment.",
   {
     propertyId: z.string().uuid().describe("Property UUID"),
@@ -367,8 +367,8 @@ server.tool(
 // ── Tool: checkout ─────────────────────────────────────────────────
 
 server.tool(
-  "checkout",
-  "Create a booking with secure online payment via Stripe. Generates a hosted payment page where the guest can pay by card, Klarna, Swish, or other supported methods. If a quote identifier from negotiate_offer is provided, the price is locked to that quote. Also supports programmatic payment for AI agents that can confirm payment directly. Returns booking ID and payment URL.",
+  "hemmabo.checkout",
+  "Create a booking with secure online payment via Stripe. Generates a hosted payment page where the guest can pay by card, Klarna, Swish, or other supported methods. If a quote identifier from hemmabo.negotiate is provided, the price is locked to that quote. Also supports programmatic payment for AI agents that can confirm payment directly. Returns booking ID and payment URL.",
   {
     propertyId: z.string().uuid().describe("Property UUID"),
     checkIn: z.string().describe("Check-in date YYYY-MM-DD"),
@@ -377,7 +377,7 @@ server.tool(
     guestName: z.string().describe("Guest full name"),
     guestEmail: z.string().email().describe("Guest email"),
     guestPhone: z.string().optional().describe("Guest phone number"),
-    quoteId: z.string().optional().describe("Quote ID from negotiate_offer (locks price)"),
+    quoteId: z.string().optional().describe("Quote ID from hemmabo.negotiate (locks price)"),
     paymentMode: z.enum(["checkout_session", "payment_intent"]).optional().describe("Payment mode (default: checkout_session)"),
     channel: z.enum(["public", "federation"]).optional().describe("Pricing channel (default: federation)"),
   },
@@ -417,7 +417,7 @@ server.tool(
       let nights: number;
 
       if (quoteId) {
-        // Use locked quote from negotiate_offer
+        // Use locked quote from hemmabo.negotiate
         const { data: snapshot, error: snapErr } = await supabase
           .from("property_quote_snapshots")
           .select("*")
@@ -532,10 +532,10 @@ server.tool(
   }
 );
 
-// ── Tool: cancel_booking ───────────────────────────────────────────
+// ── Tool: hemmabo.cancel ───────────────────────────────────────────
 
 server.tool(
-  "cancel_booking",
+  "hemmabo.cancel",
   "Cancel an existing booking. Calculates the refund amount based on the host's cancellation policy, processes the refund through Stripe, updates the booking status to cancelled, and sends email notifications to both guest and host. Returns the updated booking status and refund details including amount and reason.",
   {
     reservationId: z.string().describe("Booking ID (UUID)"),
@@ -617,10 +617,10 @@ server.tool(
   }
 );
 
-// ── Tool: get_booking_status ───────────────────────────────────────
+// ── Tool: hemmabo.status ───────────────────────────────────────
 
 server.tool(
-  "get_booking_status",
+  "hemmabo.status",
   "Get booking details, property information, and cancellation policy by reservation ID. Returns full booking info including guest details, property info, pricing, dates, and applicable refund rules. Read-only operation.",
   {
     reservationId: z.string().describe("Booking ID (UUID)"),
@@ -695,10 +695,10 @@ server.tool(
   }
 );
 
-// ── Tool: reschedule_booking ───────────────────────────────────────
+// ── Tool: hemmabo.reschedule ───────────────────────────────────────
 
 server.tool(
-  "reschedule_booking",
+  "hemmabo.reschedule",
   "Reschedule a booking to new dates. Checks availability for new dates, recalculates price, handles Stripe charge (if price increased) or refund (if decreased) for the price delta. Updates booking record with new dates and price. Returns updated booking info and Stripe transaction details.",
   {
     reservationId: z.string().describe("Booking ID (UUID)"),

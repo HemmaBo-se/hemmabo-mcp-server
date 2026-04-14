@@ -47,10 +47,10 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
  * This MCP server provides real-time vacation rental data for independent property hosts.
  * All data is live from the property's own database — never cached, never estimated.
  *
- * Full booking lifecycle: search_properties (find properties) -> negotiate_offer (binding quote with quoteId)
- * -> checkout (Stripe payment) -> get_booking_status (check details) -> reschedule_booking / cancel_booking (modify or cancel).
+ * Full booking lifecycle: hemmabo.search (find properties) -> hemmabo.negotiate (binding quote with quoteId)
+ * -> checkout (Stripe payment) -> hemmabo.status (check details) -> hemmabo.reschedule / hemmabo.cancel (modify or cancel).
  *
- * Legacy shortcut: search_properties -> get_canonical_quote -> create_booking (no payment, pending host approval).
+ * Legacy shortcut: hemmabo.search -> hemmabo.quote -> hemmabo.book (no payment, pending host approval).
  *
  * Pricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6).
  * Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week)
@@ -65,14 +65,14 @@ const server = new McpServer(
     description: "MCP server for vacation rental direct bookings. Search properties, check availability, get real-time pricing quotes, and create bookings through the federation protocol. Supports seasonal pricing, guest-count tiers, weekly and biweekly package discounts, gap-night discounts, and host-controlled federation discounts. All data is live — never cached, never estimated.",
   },
   {
-    instructions: "This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated.\n\nFull booking lifecycle: search_properties (find properties) -> negotiate_offer (binding quote with quoteId) -> checkout (Stripe payment) -> get_booking_status (check details) -> reschedule_booking / cancel_booking (modify or cancel).\n\nLegacy shortcut: search_properties -> get_canonical_quote -> create_booking (no payment, pending host approval).\n\nPricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6). Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week) are applied automatically. Federation discount (direct booking rate) is host-controlled.\n\nDates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).",
+    instructions: "This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated.\n\nFull booking lifecycle: hemmabo.search (find properties) -> hemmabo.negotiate (binding quote with quoteId) -> checkout (Stripe payment) -> hemmabo.status (check details) -> hemmabo.reschedule / hemmabo.cancel (modify or cancel).\n\nLegacy shortcut: hemmabo.search -> hemmabo.quote -> hemmabo.book (no payment, pending host approval).\n\nPricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6). Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week) are applied automatically. Federation discount (direct booking rate) is host-controlled.\n\nDates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).",
   }
 );
 
-// ── Tool: search_properties ────────────────────────────────────────
+// ── Tool: hemmabo.search ────────────────────────────────────────
 
 server.tool(
-  "search_properties",
+  "hemmabo.search",
   "Search vacation rental properties by location and travel dates. Returns only properties that are available for the requested period and can accommodate the guest count. Each result includes live pricing with both public rates and federation rates (direct booking discount).",
   {
     region: z.string().optional().describe("Region or destination (e.g. 'Skåne', 'Sweden')"),
@@ -141,10 +141,10 @@ server.tool(
   }
 );
 
-// ── Tool: check_availability ───────────────────────────────────────
+// ── Tool: hemmabo.availability ───────────────────────────────────────
 
 server.tool(
-  "check_availability",
+  "hemmabo.availability",
   "Check whether a specific property is available for the requested date range. Verifies against host-blocked dates, confirmed bookings, and active booking locks. Returns available=true/false with conflict details if unavailable.",
   {
     propertyId: z.string().uuid().describe("Property UUID"),
@@ -165,10 +165,10 @@ server.tool(
   }
 );
 
-// ── Tool: get_canonical_quote ──────────────────────────────────────
+// ── Tool: hemmabo.quote ──────────────────────────────────────
 
 server.tool(
-  "get_canonical_quote",
+  "hemmabo.quote",
   "Get a detailed pricing quote for a specific property, date range, and guest count. Returns publicTotal (website rate), federationTotal (direct booking rate with host discount), and gapTotal (gap-night discount if applicable). Includes per-night breakdown, season classification, weekend detection, and package pricing (7-night week, 14-night two-week). All prices are integers in local currency.",
   {
     propertyId: z.string().uuid().describe("Property UUID"),
@@ -190,10 +190,10 @@ server.tool(
   }
 );
 
-// ── Tool: create_booking ───────────────────────────────────────────
+// ── Tool: hemmabo.book ───────────────────────────────────────────
 
 server.tool(
-  "create_booking",
+  "hemmabo.book",
   "Create a new direct booking for a property. Write operation: validates availability, calculates the final federation price (with gap discount if applicable), and creates a pending booking record requiring host approval. Returns booking ID, final price, and confirmation details.",
   {
     propertyId: z.string().uuid().describe("Property UUID"),
@@ -326,7 +326,7 @@ app.get("/.well-known/mcp/server-card.json", (_req, res) => {
     },
     tools: [
       {
-        name: "search_properties",
+        name: "hemmabo.search",
         description:
           "Search for available properties by region and guest count. Returns real pricing from each property node.",
         inputSchema: {
@@ -342,7 +342,7 @@ app.get("/.well-known/mcp/server-card.json", (_req, res) => {
         },
       },
       {
-        name: "check_availability",
+        name: "hemmabo.availability",
         description:
           "Check if a property is available for given dates. Verifies blocked dates, bookings, and locks.",
         inputSchema: {
@@ -356,7 +356,7 @@ app.get("/.well-known/mcp/server-card.json", (_req, res) => {
         },
       },
       {
-        name: "get_canonical_quote",
+        name: "hemmabo.quote",
         description:
           "Get canonical pricing: public_total (website), federation_total (direct booking with host discount), gap_total (calendar-context gap). Supports week and two-week package pricing. Host controls the discount.",
         inputSchema: {
@@ -371,7 +371,7 @@ app.get("/.well-known/mcp/server-card.json", (_req, res) => {
         },
       },
       {
-        name: "create_booking",
+        name: "hemmabo.book",
         description:
           "Create a direct booking. Validates availability, calculates federation price, writes to bookings.",
         inputSchema: {
@@ -389,7 +389,7 @@ app.get("/.well-known/mcp/server-card.json", (_req, res) => {
         },
       },
       {
-        name: "negotiate_offer",
+        name: "hemmabo.negotiate",
         description:
           "Create a binding price quote with quoteId. Stores snapshot in property_quote_snapshots. Quote expires after 15 minutes.",
         inputSchema: {
@@ -404,9 +404,9 @@ app.get("/.well-known/mcp/server-card.json", (_req, res) => {
         },
       },
       {
-        name: "checkout",
+        name: "hemmabo.checkout",
         description:
-          "Create a booking with Stripe payment. Supports MPP (payment_intent mode). Optionally locks price via quoteId from negotiate_offer.",
+          "Create a booking with Stripe payment. Supports MPP (payment_intent mode). Optionally locks price via quoteId from hemmabo.negotiate.",
         inputSchema: {
           type: "object",
           properties: {
@@ -417,7 +417,7 @@ app.get("/.well-known/mcp/server-card.json", (_req, res) => {
             guestName: { type: "string", description: "Guest full name" },
             guestEmail: { type: "string", format: "email", description: "Guest email" },
             guestPhone: { type: "string", description: "Guest phone (optional)" },
-            quoteId: { type: "string", description: "Quote ID from negotiate_offer (optional)" },
+            quoteId: { type: "string", description: "Quote ID from hemmabo.negotiate (optional)" },
             paymentMode: { type: "string", enum: ["checkout_session", "payment_intent"], description: "Payment mode (default: checkout_session)" },
             channel: { type: "string", enum: ["public", "federation"], description: "Pricing channel (default: federation)" },
           },
@@ -425,7 +425,7 @@ app.get("/.well-known/mcp/server-card.json", (_req, res) => {
         },
       },
       {
-        name: "cancel_booking",
+        name: "hemmabo.cancel",
         description:
           "Cancel a booking. Delegates to Supabase Edge Function for refund calculation, Stripe refund, and notifications.",
         inputSchema: {
@@ -438,7 +438,7 @@ app.get("/.well-known/mcp/server-card.json", (_req, res) => {
         },
       },
       {
-        name: "get_booking_status",
+        name: "hemmabo.status",
         description:
           "Get booking details, property info, and cancellation policy by reservation ID.",
         inputSchema: {
@@ -450,7 +450,7 @@ app.get("/.well-known/mcp/server-card.json", (_req, res) => {
         },
       },
       {
-        name: "reschedule_booking",
+        name: "hemmabo.reschedule",
         description:
           "Reschedule a booking to new dates. Checks availability, recalculates price, handles Stripe charge/refund for price delta.",
         inputSchema: {

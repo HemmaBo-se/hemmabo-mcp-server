@@ -23,9 +23,9 @@ import {
 // ── Server-level instructions for AI agents ──────────────────────
 const SERVER_INSTRUCTIONS = `This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated.
 
-Full booking lifecycle: search_properties (find properties) -> negotiate_offer (binding quote with quoteId) -> checkout (Stripe payment) -> get_booking_status (check details) -> reschedule_booking / cancel_booking (modify or cancel).
+Full booking lifecycle: hemmabo.search (find properties) -> hemmabo.negotiate (binding quote with quoteId) -> checkout (Stripe payment) -> hemmabo.status (check details) -> hemmabo.reschedule / hemmabo.cancel (modify or cancel).
 
-Legacy shortcut: search_properties -> get_canonical_quote -> create_booking (no payment, pending host approval).
+Legacy shortcut: hemmabo.search -> hemmabo.quote -> hemmabo.book (no payment, pending host approval).
 
 Pricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6). Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week) are applied automatically. Federation discount (direct booking rate) is host-controlled.
 
@@ -55,7 +55,7 @@ const CONFIG_SCHEMA = {
 
 const TOOLS = [
   {
-    name: "search_properties",
+    name: "hemmabo.search",
     description:
       "Search vacation rental properties by location and travel dates. Returns only properties that are available for the requested period and can accommodate the guest count. Each result includes live pricing with both public rates (what OTA/website visitors see) and federation rates (direct booking discount). Use region or country to filter by location. Guests parameter determines which price tier applies. Results are sorted by relevance.",
     inputSchema: {
@@ -78,9 +78,9 @@ const TOOLS = [
     },
   },
   {
-    name: "check_availability",
+    name: "hemmabo.availability",
     description:
-      "Check whether a specific property is available for the requested date range. Verifies against three sources: host-blocked dates, confirmed bookings, and active booking locks (temporary holds during checkout). Returns available=true/false with conflict details if unavailable. Call this before create_booking to confirm availability, or use it to check multiple date ranges for the same property.",
+      "Check whether a specific property is available for the requested date range. Verifies against three sources: host-blocked dates, confirmed bookings, and active booking locks (temporary holds during checkout). Returns available=true/false with conflict details if unavailable. Call this before hemmabo.book to confirm availability, or use it to check multiple date ranges for the same property.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -99,7 +99,7 @@ const TOOLS = [
     },
   },
   {
-    name: "get_canonical_quote",
+    name: "hemmabo.quote",
     description:
       "Get a detailed pricing quote for a specific property, date range, and guest count. Returns three price points: (1) publicTotal — the rate shown on public websites, (2) federationTotal — the direct booking rate with the host's configured discount applied, (3) gapTotal — an additional discount if the dates fill a gap between existing bookings. Also returns per-night breakdown, season classification, weekend detection, and any package pricing (7-night week or 14-night two-week discounts). All prices are integers in the property's local currency. The host controls all discount percentages.",
     inputSchema: {
@@ -121,7 +121,7 @@ const TOOLS = [
     },
   },
   {
-    name: "create_booking",
+    name: "hemmabo.book",
     description:
       "Create a new direct booking for a property. This is a write operation that: (1) validates the property is still available for the requested dates, (2) calculates the final federation price (with gap discount if applicable), (3) creates a pending booking record that requires host approval. Returns the booking ID, final price, and confirmation details. The booking status starts as 'pending' until the host approves. Guest contact details are required for the host to follow up.",
     inputSchema: {
@@ -146,7 +146,7 @@ const TOOLS = [
     },
   },
   {
-    name: "negotiate_offer",
+    name: "hemmabo.negotiate",
     description:
       "Create a binding price quote with a unique quote identifier that expires after 15 minutes. The quoted price is stored as an immutable snapshot so it cannot change during checkout. Pass the quote identifier to the checkout tool to lock the price. This protects both guest and host from price fluctuations between browsing and completing payment. Returns public and federation totals, per-night breakdown, package info, and the quote identifier.",
     inputSchema: {
@@ -168,9 +168,9 @@ const TOOLS = [
     },
   },
   {
-    name: "checkout",
+    name: "hemmabo.checkout",
     description:
-      "Create a booking with secure online payment via Stripe. Generates a hosted payment page where the guest can pay by card, Klarna, Swish, or other supported methods. If a quote identifier from negotiate_offer is provided, the price is locked to that quote. Also supports programmatic payment for AI agents that can confirm payment directly. Returns booking ID, payment URL, and payment details.",
+      "Create a booking with secure online payment via Stripe. Generates a hosted payment page where the guest can pay by card, Klarna, Swish, or other supported methods. If a quote identifier from hemmabo.negotiate is provided, the price is locked to that quote. Also supports programmatic payment for AI agents that can confirm payment directly. Returns booking ID, payment URL, and payment details.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -181,7 +181,7 @@ const TOOLS = [
         guestName: { type: "string", description: "Full legal name of the primary guest." },
         guestEmail: { type: "string", format: "email", description: "Email address of the primary guest." },
         guestPhone: { type: "string", description: "Phone number of the primary guest (optional)." },
-        quoteId: { type: "string", description: "Quote ID from negotiate_offer. Locks the price to the snapshot. Optional — if omitted, a fresh federation price is calculated." },
+        quoteId: { type: "string", description: "Quote ID from hemmabo.negotiate. Locks the price to the snapshot. Optional — if omitted, a fresh federation price is calculated." },
         paymentMode: { type: "string", enum: ["checkout_session", "payment_intent"], description: "Payment mode. 'checkout_session' (default) returns a Stripe redirect URL. 'payment_intent' returns a client_secret for programmatic payment (MPP)." },
         channel: { type: "string", enum: ["public", "federation"], description: "Pricing channel. 'federation' (default) applies the direct booking discount. 'public' uses the standard rate." },
       },
@@ -196,7 +196,7 @@ const TOOLS = [
     },
   },
   {
-    name: "cancel_booking",
+    name: "hemmabo.cancel",
     description:
       "Cancel an existing booking. Calculates the refund amount based on the host's cancellation policy, processes the refund through Stripe, updates the booking status to cancelled, and sends email notifications to both guest and host. Returns the updated booking status and refund details including amount, percentage, and reason.",
     inputSchema: {
@@ -216,7 +216,7 @@ const TOOLS = [
     },
   },
   {
-    name: "get_booking_status",
+    name: "hemmabo.status",
     description:
       "Get the current status and details of a booking. Returns booking information (dates, guests, price, status), property details (name, domain), and the applicable cancellation policy (tier and refund rules). Use this to check on a booking after creation or before attempting a reschedule or cancellation.",
     inputSchema: {
@@ -235,7 +235,7 @@ const TOOLS = [
     },
   },
   {
-    name: "reschedule_booking",
+    name: "hemmabo.reschedule",
     description:
       "Reschedule a booking to new dates. Validates that the booking is in a reschedulable state (confirmed or pending), checks availability for the new dates (excluding the current booking from conflict detection), recalculates the price, and handles the Stripe charge/refund for any price delta. If the new price is higher, a new PaymentIntent with manual capture is created. If lower, a partial refund is issued on the original PaymentIntent. Returns previous and new dates, pricing details, and any Stripe action taken.",
     inputSchema: {
@@ -297,7 +297,7 @@ function getPromptMessages(name: string, args: Record<string, string>) {
           role: "user",
           content: {
             type: "text",
-            text: `I want to plan a trip to ${args.destination || "a vacation destination"} from ${args.checkIn || "TBD"} to ${args.checkOut || "TBD"} for ${args.guests || "2"} guests. Please: (1) search for available properties, (2) show pricing with both public and direct booking rates, (3) create a binding quote with negotiate_offer, (4) proceed to checkout with Stripe payment, and (5) confirm the booking status. If I need to change dates later, use reschedule_booking. If I need to cancel, use cancel_booking.`,
+            text: `I want to plan a trip to ${args.destination || "a vacation destination"} from ${args.checkIn || "TBD"} to ${args.checkOut || "TBD"} for ${args.guests || "2"} guests. Please: (1) search for available properties, (2) show pricing with both public and direct booking rates, (3) create a binding quote with hemmabo.negotiate, (4) proceed to checkout with Stripe payment, and (5) confirm the booking status. If I need to change dates later, use hemmabo.reschedule. If I need to cancel, use hemmabo.cancel.`,
           },
         },
       ],
@@ -322,7 +322,7 @@ async function executeTool(
   const supabase = getSupabase();
 
   switch (name) {
-    case "search_properties": {
+    case "hemmabo.search": {
       const { region, country, guests, checkIn, checkOut } = args as {
         region?: string; country?: string; guests: number; checkIn: string; checkOut: string;
       };
@@ -359,19 +359,19 @@ async function executeTool(
       return { content: [{ type: "text", text: JSON.stringify({ checkIn, checkOut, guests, properties: results }, null, 2) }] };
     }
 
-    case "check_availability": {
+    case "hemmabo.availability": {
       const { propertyId, checkIn, checkOut } = args as { propertyId: string; checkIn: string; checkOut: string };
       const result = await checkAvailability(supabase, propertyId, checkIn, checkOut);
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     }
 
-    case "get_canonical_quote": {
+    case "hemmabo.quote": {
       const { propertyId, checkIn, checkOut, guests } = args as { propertyId: string; checkIn: string; checkOut: string; guests: number };
       const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
       return { content: [{ type: "text", text: JSON.stringify(quote, null, 2) }] };
     }
 
-    case "create_booking": {
+    case "hemmabo.book": {
       const { propertyId, checkIn, checkOut, guests, guestName, guestEmail, guestPhone } = args as {
         propertyId: string; checkIn: string; checkOut: string; guests: number;
         guestName: string; guestEmail: string; guestPhone?: string;
@@ -418,7 +418,7 @@ async function executeTool(
       };
     }
 
-    case "negotiate_offer": {
+    case "hemmabo.negotiate": {
       const { propertyId, checkIn, checkOut, guests } = args as {
         propertyId: string; checkIn: string; checkOut: string; guests: number;
       };
@@ -484,7 +484,7 @@ async function executeTool(
       };
     }
 
-    case "checkout": {
+    case "hemmabo.checkout": {
       const {
         propertyId, checkIn, checkOut, guests, guestName, guestEmail,
         guestPhone, quoteId, paymentMode, channel,
@@ -514,7 +514,7 @@ async function executeTool(
       let nights: number;
 
       if (quoteId) {
-        // Use locked quote from negotiate_offer
+        // Use locked quote from hemmabo.negotiate
         const { data: snapshot, error: snapErr } = await supabase
           .from("property_quote_snapshots")
           .select("*")
@@ -607,7 +607,7 @@ async function executeTool(
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     }
 
-    case "cancel_booking": {
+    case "hemmabo.cancel": {
       const { reservationId, reason } = args as { reservationId: string; reason?: string };
 
       // Fetch booking
@@ -656,7 +656,7 @@ async function executeTool(
       };
     }
 
-    case "get_booking_status": {
+    case "hemmabo.status": {
       const { reservationId } = args as { reservationId: string };
 
       // Fetch booking
@@ -709,7 +709,7 @@ async function executeTool(
       };
     }
 
-    case "reschedule_booking": {
+    case "hemmabo.reschedule": {
       const { reservationId, newCheckIn, newCheckOut, reason } = args as {
         reservationId: string; newCheckIn: string; newCheckOut: string; reason?: string;
       };
