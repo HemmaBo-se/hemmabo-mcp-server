@@ -35,8 +35,8 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
 // ── MCP Server ─────────────────────────────────────────────────────
 
 const server = new McpServer({
-  name: "federation-mcp-server",
-  version: "3.1.3",
+  name: "hemmabo-mcp-server",
+  version: "3.1.4",
 });
 
 // ── Tool: search_properties ────────────────────────────────────────
