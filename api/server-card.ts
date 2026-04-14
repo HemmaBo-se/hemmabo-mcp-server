@@ -41,7 +41,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
       {
         name: "search_properties",
         description:
-          "Search vacation rental properties by location and travel dates. Returns only available properties with live pricing (public + federation rates).",
+          "Search vacation rental properties by location and travel dates. Returns only properties that are available for the requested period and can accommodate the guest count. Each result includes live pricing with both public rates (what OTA/website visitors see) and federation rates (direct booking discount). Use region or country to filter by location. Guests parameter determines which price tier applies. Results are sorted by relevance.",
         inputSchema: {
           type: "object",
           properties: {
@@ -64,7 +64,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
       {
         name: "check_availability",
         description:
-          "Check whether a property is available for the requested dates. Verifies blocked dates, bookings, and locks.",
+          "Check whether a specific property is available for the requested date range. Verifies against three sources: host-blocked dates, confirmed bookings, and active booking locks (temporary holds during checkout). Returns available=true/false with conflict details if unavailable. Call this before create_booking to confirm availability, or use it to check multiple date ranges for the same property.",
         inputSchema: {
           type: "object",
           properties: {
@@ -85,7 +85,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
       {
         name: "get_canonical_quote",
         description:
-          "Get detailed pricing: publicTotal, federationTotal, gapTotal. Per-night breakdown, season info, package pricing. All integers in local currency.",
+          "Get a detailed pricing quote for a specific property, date range, and guest count. Returns three price points: (1) publicTotal — the rate shown on public websites, (2) federationTotal — the direct booking rate with the host's configured discount applied, (3) gapTotal — an additional discount if the dates fill a gap between existing bookings. Also returns per-night breakdown, season classification, weekend detection, and any package pricing (7-night week or 14-night two-week discounts). All prices are integers in the property's local currency. The host controls all discount percentages.",
         inputSchema: {
           type: "object",
           properties: {
@@ -107,7 +107,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
       {
         name: "create_booking",
         description:
-          "Create a direct booking. Validates availability, calculates federation price, creates pending booking for host approval.",
+          "Create a new direct booking for a property. This is a write operation that: (1) validates the property is still available for the requested dates, (2) calculates the final federation price (with gap discount if applicable), (3) creates a pending booking record that requires host approval. Returns the booking ID, final price, and confirmation details. The booking status starts as 'pending' until the host approves. Guest contact details are required for the host to follow up.",
         inputSchema: {
           type: "object",
           properties: {
@@ -132,7 +132,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
       {
         name: "negotiate_offer",
         description:
-          "Request a special federation quote with 15-minute expiry. Returns quoteToken, federation price, and expiry timestamp.",
+          "Create a binding price quote with a unique quote identifier that expires after 15 minutes. The quoted price is stored as an immutable snapshot so it cannot change during checkout. Pass the quote identifier to the checkout tool to lock the price. This protects both guest and host from price fluctuations between browsing and completing payment. Returns public and federation totals, per-night breakdown, package info, and the quote identifier.",
         inputSchema: {
           type: "object",
           properties: {
@@ -154,7 +154,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
       {
         name: "checkout",
         description:
-          "Complete booking payment with Stripe Checkout Session. Supports MPP (Merchant Payment Provider) for instant host payouts.",
+          "Create a booking with secure online payment via Stripe. Generates a hosted payment page where the guest can pay by card, Klarna, Swish, or other supported methods. If a quote identifier from negotiate_offer is provided, the price is locked to that quote. Also supports programmatic payment for AI agents that can confirm payment directly. Returns booking ID, payment URL, and payment details.",
         inputSchema: {
           type: "object",
           properties: {
@@ -178,7 +178,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
       {
         name: "cancel_booking",
         description:
-          "Cancel an existing booking. Delegates to Supabase Edge Function which handles refunds based on cancellation policy.",
+          "Cancel an existing booking. Calculates the refund amount based on the host's cancellation policy, processes the refund through Stripe, updates the booking status to cancelled, and sends email notifications to both guest and host. Returns the updated booking status and refund details including amount, percentage, and reason.",
         inputSchema: {
           type: "object",
           properties: {
@@ -198,7 +198,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
       {
         name: "get_booking_status",
         description:
-          "Retrieve booking details and payment status from Supabase. Shows booking state, payment intent status, and refund info.",
+          "Get the current status and details of a booking. Returns booking information (dates, guests, price, status), property details (name, domain), and the applicable cancellation policy (tier and refund rules). Use this to check on a booking after creation or before attempting a reschedule or cancellation.",
         inputSchema: {
           type: "object",
           properties: {
@@ -217,7 +217,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
       {
         name: "reschedule_booking",
         description:
-          "Move booking to new dates. Calculates price delta and creates PaymentIntent for additional charge or refund.",
+          "Reschedule a booking to new dates. Validates that the booking is in a reschedulable state (confirmed or pending), checks availability for the new dates (excluding the current booking from conflict detection), recalculates the price, and handles the Stripe charge or refund for any price difference. If the new price is higher, an additional charge is created. If lower, a partial refund is issued. Returns previous and new dates, pricing details, and any payment action taken.",
         inputSchema: {
           type: "object",
           properties: {
