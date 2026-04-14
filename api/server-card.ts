@@ -10,32 +10,25 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
     configSchema: {
       type: "object",
       properties: {
-        region: {
+        propertyDomain: {
           type: "string",
-          description: "Default region to search in (e.g. 'Skåne', 'Toscana'). Can be overridden per request.",
-        },
-        currency: {
-          type: "string",
-          description: "Preferred display currency (e.g. 'SEK', 'EUR'). Defaults to property's native currency.",
+          description: "Your vacation rental domain (e.g. villaaakerlyckan.se)",
+          default: "",
         },
         language: {
           type: "string",
-          description: "Preferred response language (e.g. 'sv', 'en', 'de', 'it'). Defaults to English.",
+          description: "Default response language",
+          default: "sv",
+          enum: ["sv", "en", "de", "fr"],
         },
-        SUPABASE_URL: {
+        currency: {
           type: "string",
-          description: "Supabase project URL (required)",
-        },
-        SUPABASE_SERVICE_ROLE_KEY: {
-          type: "string",
-          description: "Supabase service role key (required)",
-        },
-        STRIPE_SECRET_KEY: {
-          type: "string",
-          description: "Stripe secret key for payment processing (optional, enables checkout/cancel/reschedule)",
+          description: "Default currency for pricing",
+          default: "SEK",
+          enum: ["SEK", "EUR", "USD", "NOK", "DKK"],
         },
       },
-      additionalProperties: false,
+      required: [],
     },
     tools: [
       {
