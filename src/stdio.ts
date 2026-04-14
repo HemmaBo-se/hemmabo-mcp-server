@@ -49,13 +49,13 @@ const server = new McpServer(
 
 server.tool(
   "hemmabo_search_properties",
-  "Search vacation rental properties by location and travel dates. Returns only properties that are available for the requested period and can accommodate the guest count. Each result includes live pricing with both public rates and federation rates (direct booking discount).",
+  "Search available vacation rental properties by location and travel dates. Use this tool when the user wants to find or browse properties — it is the entry point for all booking flows. Do NOT use if the user already has a specific propertyId; use hemmabo_search_availability or hemmabo_booking_quote instead. Returns a list of available properties with propertyId, live pricing, and capacity info needed for subsequent tools.",
   {
-    region: z.string().optional().describe("Region or destination (e.g. 'Skåne', 'Sweden')"),
-    country: z.string().optional().describe("Country (e.g. 'Sweden')"),
-    guests: z.number().int().min(1).describe("Number of guests"),
-    checkIn: z.string().describe("Check-in date YYYY-MM-DD"),
-    checkOut: z.string().describe("Check-out date YYYY-MM-DD"),
+    region: z.string().optional().describe("Region, area, or destination name to search within. Partial match (e.g. 'Skåne', 'Toscana'). At least one of region or country should be provided."),
+    country: z.string().optional().describe("Country name to filter by (e.g. 'Sweden', 'Italy'). Partial match. At least one of region or country should be provided."),
+    guests: z.number().int().min(1).describe("Total number of guests as integer >= 1 (e.g. 4). Determines price tier and filters out properties with insufficient capacity."),
+    checkIn: z.string().describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
+    checkOut: z.string().describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
   },
   async ({ region, country, guests, checkIn, checkOut }) => {
     if (!supabase) {
@@ -121,11 +121,11 @@ server.tool(
 
 server.tool(
   "hemmabo_search_availability",
-  "Check whether a specific property is available for the requested date range. Verifies against host-blocked dates, confirmed bookings, and active booking locks. Returns available=true/false with conflict details if unavailable.",
+  "Check whether a specific property is available for the requested dates. Use this tool after the user has selected a property from hemmabo_search_properties and wants to confirm availability before getting a quote. Do NOT use for general browsing — use hemmabo_search_properties instead. Returns available=true/false with conflict details (blocked dates, existing bookings, active locks) if unavailable.",
   {
-    propertyId: z.string().uuid().describe("Property UUID"),
-    checkIn: z.string().describe("Check-in date YYYY-MM-DD"),
-    checkOut: z.string().describe("Check-out date YYYY-MM-DD"),
+    propertyId: z.string().uuid().describe("Property UUID returned by hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
+    checkIn: z.string().describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
+    checkOut: z.string().describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
   },
   async ({ propertyId, checkIn, checkOut }) => {
     if (!supabase) {
@@ -145,12 +145,12 @@ server.tool(
 
 server.tool(
   "hemmabo_booking_quote",
-  "Get a detailed pricing quote for a specific property, date range, and guest count. Returns publicTotal (website rate), federationTotal (direct booking rate with host discount), and gapTotal (gap-night discount if applicable). Includes per-night breakdown, season classification, weekend detection, and package pricing (7-night week, 14-night two-week). All prices are integers in local currency.",
+  "Get a detailed pricing quote for a specific property, dates, and guest count. Use this tool after confirming availability to show the user exact pricing before booking. Do NOT use before checking availability — the quote may be invalid if dates are unavailable. Returns publicTotal (website rate), federationTotal (direct booking discount), gapTotal (gap-night discount if applicable), per-night breakdown, and package pricing. All prices are integers in the property's local currency (e.g. SEK).",
   {
-    propertyId: z.string().uuid().describe("Property UUID"),
-    checkIn: z.string().describe("Check-in date YYYY-MM-DD"),
-    checkOut: z.string().describe("Check-out date YYYY-MM-DD"),
-    guests: z.number().int().min(1).describe("Number of guests"),
+    propertyId: z.string().uuid().describe("Property UUID from hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
+    checkIn: z.string().describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
+    checkOut: z.string().describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
+    guests: z.number().int().min(1).describe("Total number of guests as integer >= 1 (e.g. 4). Determines which price tier is applied (staircase pricing by guest count)."),
   },
   async ({ propertyId, checkIn, checkOut, guests }) => {
     if (!supabase) {
@@ -170,15 +170,15 @@ server.tool(
 
 server.tool(
   "hemmabo_booking_create",
-  "Create a new direct booking for a property. Write operation: validates availability, calculates the final federation price (with gap discount if applicable), and creates a pending booking record requiring host approval. Returns booking ID, final price, and confirmation details.",
+  "Create a direct booking without online payment (legacy flow). Use this tool when the user wants to book without Stripe payment — the booking is created with status 'pending' and requires host approval. Do NOT use for paid bookings — use hemmabo_booking_checkout instead. Do NOT retry on timeout without calling hemmabo_booking_status first to avoid duplicate bookings. Returns bookingId, final price, and confirmation details.",
   {
-    propertyId: z.string().uuid().describe("Property UUID"),
-    checkIn: z.string().describe("Check-in date YYYY-MM-DD"),
-    checkOut: z.string().describe("Check-out date YYYY-MM-DD"),
-    guests: z.number().int().min(1).describe("Number of guests"),
-    guestName: z.string().describe("Guest full name"),
-    guestEmail: z.string().email().describe("Guest email"),
-    guestPhone: z.string().optional().describe("Guest phone number"),
+    propertyId: z.string().uuid().describe("Property UUID from hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
+    checkIn: z.string().describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
+    checkOut: z.string().describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
+    guests: z.number().int().min(1).describe("Total number of guests as integer >= 1 (e.g. 4)."),
+    guestName: z.string().describe("Full name of primary guest (e.g. 'Anna Svensson')."),
+    guestEmail: z.string().email().describe("Email for booking confirmation (e.g. 'anna@example.com'). Must be a valid email address."),
+    guestPhone: z.string().optional().describe("Phone with country code (e.g. '+46701234567'). Optional but recommended for check-in coordination."),
   },
   async ({ propertyId, checkIn, checkOut, guests, guestName, guestEmail, guestPhone }) => {
     if (!supabase) {
@@ -274,12 +274,12 @@ server.tool(
 
 server.tool(
   "hemmabo_booking_negotiate",
-  "Create a binding price quote with a unique quote identifier that expires after 15 minutes. The quoted price is stored as an immutable snapshot so it cannot change during checkout. Pass the quote identifier to the hemmabo_booking_checkout tool to lock the price. This protects both guest and host from price fluctuations between browsing and completing payment.",
+  "Create a binding price quote that locks the price for 15 minutes. Use this tool before hemmabo_booking_checkout to guarantee the quoted price during payment. Do NOT skip this step if the user wants price certainty — without a quoteId, checkout calculates a fresh price that may differ. Returns quoteId (pass to hemmabo_booking_checkout), public and federation totals, per-night breakdown, and expiry timestamp.",
   {
-    propertyId: z.string().uuid().describe("Property UUID"),
-    checkIn: z.string().describe("Check-in date YYYY-MM-DD"),
-    checkOut: z.string().describe("Check-out date YYYY-MM-DD"),
-    guests: z.number().int().min(1).describe("Number of guests"),
+    propertyId: z.string().uuid().describe("Property UUID from hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
+    checkIn: z.string().describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
+    checkOut: z.string().describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
+    guests: z.number().int().min(1).describe("Total number of guests as integer >= 1 (e.g. 4). Determines which price tier is applied."),
   },
   async ({ propertyId, checkIn, checkOut, guests }) => {
     if (!supabase) {
@@ -368,18 +368,18 @@ server.tool(
 
 server.tool(
   "hemmabo_booking_checkout",
-  "Create a booking with secure online payment via Stripe. Generates a hosted payment page where the guest can pay by card, Klarna, Swish, or other supported methods. If a quote identifier from hemmabo_booking_negotiate is provided, the price is locked to that quote. Also supports programmatic payment for AI agents that can confirm payment directly. Returns booking ID and payment URL.",
+  "Create a booking with Stripe payment and return a checkout URL. Use this tool when the user is ready to pay — it creates the booking record and generates a Stripe payment page. Do NOT call twice for the same booking — check hemmabo_booking_status first to avoid double charges. Optionally pass quoteId from hemmabo_booking_negotiate to lock the price. Returns reservationId, paymentUrl (Stripe checkout page), and pricing details.",
   {
-    propertyId: z.string().uuid().describe("Property UUID"),
-    checkIn: z.string().describe("Check-in date YYYY-MM-DD"),
-    checkOut: z.string().describe("Check-out date YYYY-MM-DD"),
-    guests: z.number().int().min(1).describe("Number of guests"),
-    guestName: z.string().describe("Guest full name"),
-    guestEmail: z.string().email().describe("Guest email"),
-    guestPhone: z.string().optional().describe("Guest phone number"),
-    quoteId: z.string().optional().describe("Quote ID from hemmabo_booking_negotiate (locks price)"),
-    paymentMode: z.enum(["checkout_session", "payment_intent"]).optional().describe("Payment mode (default: checkout_session)"),
-    channel: z.enum(["public", "federation"]).optional().describe("Pricing channel (default: federation)"),
+    propertyId: z.string().uuid().describe("Property UUID from hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
+    checkIn: z.string().describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
+    checkOut: z.string().describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
+    guests: z.number().int().min(1).describe("Total number of guests as integer >= 1 (e.g. 4)."),
+    guestName: z.string().describe("Full name of primary guest (e.g. 'Anna Svensson')."),
+    guestEmail: z.string().email().describe("Email for booking confirmation (e.g. 'anna@example.com'). Must be a valid email address."),
+    guestPhone: z.string().optional().describe("Phone with country code (e.g. '+46701234567'). Optional but recommended."),
+    quoteId: z.string().optional().describe("Quote ID from hemmabo_booking_negotiate to lock the price. Optional — if omitted, a fresh federation price is calculated at checkout time."),
+    paymentMode: z.enum(["checkout_session", "payment_intent"]).optional().describe("'checkout_session' (default): returns Stripe redirect URL. 'payment_intent': returns client_secret for programmatic payment (AI agent MPP flow)."),
+    channel: z.enum(["public", "federation"]).optional().describe("'federation' (default): applies direct booking discount. 'public': uses standard website rate."),
   },
   async ({ propertyId, checkIn, checkOut, guests, guestName, guestEmail, guestPhone, quoteId, paymentMode, channel }) => {
     if (!supabase) {
@@ -536,10 +536,10 @@ server.tool(
 
 server.tool(
   "hemmabo_booking_cancel",
-  "Cancel an existing booking. Calculates the refund amount based on the host's cancellation policy, processes the refund through Stripe, updates the booking status to cancelled, and sends email notifications to both guest and host. Returns the updated booking status and refund details including amount and reason.",
+  "Cancel a confirmed booking and process the Stripe refund. Use this tool when the guest explicitly requests cancellation. Do NOT use for pending/unpaid bookings — those expire automatically. Refund amount is calculated based on the host's cancellation policy. Returns cancellation confirmation with refund amount and status.",
   {
-    reservationId: z.string().describe("Booking ID (UUID)"),
-    reason: z.string().optional().describe("Cancellation reason (optional)"),
+    reservationId: z.string().describe("Booking UUID from hemmabo_booking_checkout or hemmabo_booking_create (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
+    reason: z.string().optional().describe("Cancellation reason for host notification (e.g. 'Travel plans changed'). Optional but recommended."),
   },
   async ({ reservationId, reason }) => {
     if (!supabase) {
@@ -621,9 +621,9 @@ server.tool(
 
 server.tool(
   "hemmabo_booking_status",
-  "Get booking details, property information, and cancellation policy by reservation ID. Returns full booking info including guest details, property info, pricing, dates, and applicable refund rules. Read-only operation.",
+  "Retrieve current status and full details of an existing booking. Use this tool to check payment status, confirm a booking went through, or look up details before rescheduling or cancelling. Use after hemmabo_booking_checkout if unsure whether the booking succeeded. Returns booking dates, guests, price, status, property info, and cancellation policy.",
   {
-    reservationId: z.string().describe("Booking ID (UUID)"),
+    reservationId: z.string().describe("Booking UUID from hemmabo_booking_checkout or hemmabo_booking_create (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
   },
   async ({ reservationId }) => {
     if (!supabase) {
@@ -699,12 +699,12 @@ server.tool(
 
 server.tool(
   "hemmabo_booking_reschedule",
-  "Reschedule a booking to new dates. Checks availability for new dates, recalculates price, handles Stripe charge (if price increased) or refund (if decreased) for the price delta. Updates booking record with new dates and price. Returns updated booking info and Stripe transaction details.",
+  "Reschedule a confirmed or pending booking to new dates. Use this tool when the guest wants to change travel dates on an existing booking. Do NOT use if the booking is cancelled or completed — check hemmabo_booking_status first. Automatically recalculates price and handles Stripe charge (if price increased) or refund (if decreased). Returns previous dates, new dates, price delta, and Stripe transaction details.",
   {
-    reservationId: z.string().describe("Booking ID (UUID)"),
-    newCheckIn: z.string().describe("New check-in date YYYY-MM-DD"),
-    newCheckOut: z.string().describe("New check-out date YYYY-MM-DD"),
-    reason: z.string().optional().describe("Rescheduling reason (optional)"),
+    reservationId: z.string().describe("Booking UUID to reschedule (e.g. '550e8400-e29b-41d4-a716-446655440000'). Must be in 'confirmed' or 'pending' status."),
+    newCheckIn: z.string().describe("New arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-20'). Must be today or later."),
+    newCheckOut: z.string().describe("New departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-27'). Must be after newCheckIn."),
+    reason: z.string().optional().describe("Reason for rescheduling (e.g. 'Flight delayed'). Optional but recommended for host records."),
   },
   async ({ reservationId, newCheckIn, newCheckOut, reason }) => {
     if (!supabase) {
