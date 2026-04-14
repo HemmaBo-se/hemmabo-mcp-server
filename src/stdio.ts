@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * MCP Server — stdio transport (for Glama, Smithery, and local MCP clients)
  *
@@ -35,7 +36,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
 
 const server = new McpServer({
   name: "federation-mcp-server",
-  version: "3.1.2",
+  version: "3.1.3",
 });
 
 // ── Tool: search_properties ────────────────────────────────────────

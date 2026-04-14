@@ -1,0 +1,38 @@
+# Exclude source code (protect IP)
+src/
+lib/
+api/
+
+# Development files
+tsconfig.json
+.env*
+.vscode/
+.devcontainer/
+
+# Testing & CI
+.github/
+test/
+*.test.ts
+*.spec.ts
+
+# Source maps (can expose source code)
+**/*.map
+*.tsbuildinfo
+
+# Documentation (optional - include README.md only)
+docs/
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# Vercel config (hosting specific)
+vercel.json
+
+# Only publish:
+# - dist/*.js (compiled JS without source maps)
+# - dist/*.d.ts (TypeScript definitions)
+# - package.json
+# - README.md
+# - LICENSE
