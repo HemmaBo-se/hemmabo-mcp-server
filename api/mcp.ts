@@ -23,7 +23,7 @@ import {
 // ── Server-level instructions for AI agents ──────────────────────
 const SERVER_INSTRUCTIONS = `This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated.
 
-Full booking lifecycle: hemmabo.search (find properties) -> hemmabo.negotiate (binding quote with quoteId) -> checkout (Stripe payment) -> hemmabo.status (check details) -> hemmabo.reschedule / hemmabo.cancel (modify or cancel).
+Full booking lifecycle: hemmabo.search (find properties) -> hemmabo.negotiate (binding quote with quoteId) -> hemmabo.checkout (Stripe payment) -> hemmabo.status (check details) -> hemmabo.reschedule / hemmabo.cancel (modify or cancel).
 
 Legacy shortcut: hemmabo.search -> hemmabo.quote -> hemmabo.book (no payment, pending host approval).
 
@@ -148,7 +148,7 @@ const TOOLS = [
   {
     name: "hemmabo.negotiate",
     description:
-      "Create a binding price quote with a unique quote identifier that expires after 15 minutes. The quoted price is stored as an immutable snapshot so it cannot change during checkout. Pass the quote identifier to the checkout tool to lock the price. This protects both guest and host from price fluctuations between browsing and completing payment. Returns public and federation totals, per-night breakdown, package info, and the quote identifier.",
+      "Create a binding price quote with a unique quote identifier that expires after 15 minutes. The quoted price is stored as an immutable snapshot so it cannot change during checkout. Pass the quote identifier to the hemmabo.checkout tool to lock the price. This protects both guest and host from price fluctuations between browsing and completing payment. Returns public and federation totals, per-night breakdown, package info, and the quote identifier.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -297,7 +297,7 @@ function getPromptMessages(name: string, args: Record<string, string>) {
           role: "user",
           content: {
             type: "text",
-            text: `I want to plan a trip to ${args.destination || "a vacation destination"} from ${args.checkIn || "TBD"} to ${args.checkOut || "TBD"} for ${args.guests || "2"} guests. Please: (1) search for available properties, (2) show pricing with both public and direct booking rates, (3) create a binding quote with hemmabo.negotiate, (4) proceed to checkout with Stripe payment, and (5) confirm the booking status. If I need to change dates later, use hemmabo.reschedule. If I need to cancel, use hemmabo.cancel.`,
+            text: `I want to plan a trip to ${args.destination || "a vacation destination"} from ${args.checkIn || "TBD"} to ${args.checkOut || "TBD"} for ${args.guests || "2"} guests. Please: (1) search for available properties, (2) show pricing with both public and direct booking rates, (3) create a binding quote with hemmabo.negotiate, (4) proceed to hemmabo.checkout with Stripe payment, and (5) confirm the booking status. If I need to change dates later, use hemmabo.reschedule. If I need to cancel, use hemmabo.cancel.`,
           },
         },
       ],

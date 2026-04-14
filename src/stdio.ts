@@ -41,7 +41,7 @@ const server = new McpServer(
     description: "MCP server for vacation rental direct bookings. Search properties, check availability, get real-time pricing quotes, and create bookings through the federation protocol. Supports seasonal pricing, guest-count tiers, weekly and biweekly package discounts, gap-night discounts, and host-controlled federation discounts. All data is live — never cached, never estimated.",
   },
   {
-    instructions: "This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated.\n\nFull booking lifecycle: hemmabo.search (find properties) -> hemmabo.negotiate (binding quote with quoteId) -> checkout (Stripe payment) -> hemmabo.status (check details) -> hemmabo.reschedule / hemmabo.cancel (modify or cancel).\n\nLegacy shortcut: hemmabo.search -> hemmabo.quote -> hemmabo.book (no payment, pending host approval).\n\nPricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6). Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week) are applied automatically. Federation discount (direct booking rate) is host-controlled.\n\nDates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).",
+    instructions: "This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated.\n\nFull booking lifecycle: hemmabo.search (find properties) -> hemmabo.negotiate (binding quote with quoteId) -> hemmabo.checkout (Stripe payment) -> hemmabo.status (check details) -> hemmabo.reschedule / hemmabo.cancel (modify or cancel).\n\nLegacy shortcut: hemmabo.search -> hemmabo.quote -> hemmabo.book (no payment, pending host approval).\n\nPricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6). Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week) are applied automatically. Federation discount (direct booking rate) is host-controlled.\n\nDates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).",
   }
 );
 
@@ -274,7 +274,7 @@ server.tool(
 
 server.tool(
   "hemmabo.negotiate",
-  "Create a binding price quote with a unique quote identifier that expires after 15 minutes. The quoted price is stored as an immutable snapshot so it cannot change during checkout. Pass the quote identifier to the checkout tool to lock the price. This protects both guest and host from price fluctuations between browsing and completing payment.",
+  "Create a binding price quote with a unique quote identifier that expires after 15 minutes. The quoted price is stored as an immutable snapshot so it cannot change during checkout. Pass the quote identifier to the hemmabo.checkout tool to lock the price. This protects both guest and host from price fluctuations between browsing and completing payment.",
   {
     propertyId: z.string().uuid().describe("Property UUID"),
     checkIn: z.string().describe("Check-in date YYYY-MM-DD"),
@@ -364,7 +364,7 @@ server.tool(
   }
 );
 
-// ── Tool: checkout ─────────────────────────────────────────────────
+// ── Tool: hemmabo.checkout ─────────────────────────────────────────────────
 
 server.tool(
   "hemmabo.checkout",
