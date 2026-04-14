@@ -35,7 +35,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
 
 const server = new McpServer({
   name: "federation-mcp-server",
-  version: "3.1.1",
+  version: "3.1.2",
 });
 
 // ── Tool: search_properties ────────────────────────────────────────
