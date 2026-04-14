@@ -141,10 +141,10 @@ server.tool(
   }
 );
 
-// ── Tool: hemmabo_search_properties.availability ───────────────────────────────────────
+// ── Tool: hemmabo_search_availability ───────────────────────────────────────
 
 server.tool(
-  "hemmabo_search_properties.availability",
+  "hemmabo_search_availability",
   "Check whether a specific property is available for the requested date range. Verifies against host-blocked dates, confirmed bookings, and active booking locks. Returns available=true/false with conflict details if unavailable.",
   {
     propertyId: z.string().uuid().describe("Property UUID"),
@@ -342,7 +342,7 @@ app.get("/.well-known/mcp/server-card.json", (_req, res) => {
         },
       },
       {
-        name: "hemmabo_search_properties.availability",
+        name: "hemmabo_search_availability",
         description:
           "Check if a property is available for given dates. Verifies blocked dates, bookings, and locks.",
         inputSchema: {

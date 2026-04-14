@@ -78,7 +78,7 @@ const TOOLS = [
     },
   },
   {
-    name: "hemmabo_search_properties.availability",
+    name: "hemmabo_search_availability",
     description:
       "Check whether a specific property is available for the requested date range. Verifies against three sources: host-blocked dates, confirmed bookings, and active booking locks (temporary holds during checkout). Returns available=true/false with conflict details if unavailable. Call this before hemmabo_booking_create to confirm availability, or use it to check multiple date ranges for the same property.",
     inputSchema: {
@@ -359,7 +359,7 @@ async function executeTool(
       return { content: [{ type: "text", text: JSON.stringify({ checkIn, checkOut, guests, properties: results }, null, 2) }] };
     }
 
-    case "hemmabo_search_properties.availability": {
+    case "hemmabo_search_availability": {
       const { propertyId, checkIn, checkOut } = args as { propertyId: string; checkIn: string; checkOut: string };
       const result = await checkAvailability(supabase, propertyId, checkIn, checkOut);
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
