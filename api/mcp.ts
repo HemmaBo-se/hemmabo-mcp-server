@@ -11,7 +11,10 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
-import pkg from "../package.json";
+import { readFileSync } from "fs";
+import { join } from "path";
+
+const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"));
 import { resolveQuote } from "../lib/pricing.js";
 import { checkAvailability } from "../lib/availability.js";
 import {
