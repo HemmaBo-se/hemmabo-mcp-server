@@ -8,21 +8,25 @@
   "configSchema": {
     "type": "object",
     "properties": {
-      "SUPABASE_URL": {
+      "propertyDomain": {
         "type": "string",
-        "description": "Supabase project URL (e.g. https://xxx.supabase.co)"
+        "description": "Your vacation rental domain (e.g. villaaakerlyckan.se)",
+        "default": ""
       },
-      "SUPABASE_SERVICE_ROLE_KEY": {
+      "language": {
         "type": "string",
-        "description": "Supabase service role key (secret, full database access)"
+        "description": "Default response language",
+        "default": "sv",
+        "enum": ["sv", "en", "de", "fr"]
       },
-      "STRIPE_SECRET_KEY": {
+      "currency": {
         "type": "string",
-        "description": "Stripe secret key for payment processing (required for checkout/cancel/reschedule)"
+        "description": "Default currency for pricing",
+        "default": "SEK",
+        "enum": ["SEK", "EUR", "USD", "NOK", "DKK"]
       }
     },
-    "required": ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"],
-    "additionalProperties": false
+    "required": []
   },
   "capabilities": {
     "tools": [
