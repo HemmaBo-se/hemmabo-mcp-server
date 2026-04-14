@@ -32,13 +32,13 @@
     "tools": [
       "hemmabo.search.properties",
       "hemmabo.search.availability",
-      "hemmabo.booking.quote",
+      "hemmabo.search.quote",
       "hemmabo.booking.create",
       "hemmabo.booking.negotiate",
       "hemmabo.booking.checkout",
-      "hemmabo.booking.cancel",
-      "hemmabo.booking.status",
-      "hemmabo.booking.reschedule"
+      "hemmabo.manage.cancel",
+      "hemmabo.manage.status",
+      "hemmabo.manage.reschedule"
     ]
   }
 }

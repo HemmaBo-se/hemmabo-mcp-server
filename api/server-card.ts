@@ -6,7 +6,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
       name: "hemmabo-mcp-server",
       version: "3.1.7",
     },
-    instructions: "Booking infrastructure for vacation rentals. Like Mirai for hotels — own domain, Stripe direct, 0% commission. 9 production tools covering complete booking lifecycle. All data is live from Supabase — never cached, never estimated. Workflow: (1) hemmabo.search.properties to find available rentals, (2) hemmabo.booking.quote for detailed pricing, (3) hemmabo.booking.checkout with Stripe payment. Guest data belongs to host. Seasonal rates, guest-count tiers, package discounts (7-night, 14-night), gap-night discounts, and host-controlled federation discounts are applied automatically. Dates must be ISO 8601 (YYYY-MM-DD). All monetary values are integers in local currency.",
+    instructions: "Booking infrastructure for vacation rentals. Like Mirai for hotels — own domain, Stripe direct, 0% commission. 9 production tools covering complete booking lifecycle. All data is live from Supabase — never cached, never estimated. Workflow: (1) hemmabo.search.properties to find available rentals, (2) hemmabo.search.quote for detailed pricing, (3) hemmabo.booking.checkout with Stripe payment. Guest data belongs to host. Seasonal rates, guest-count tiers, package discounts (7-night, 14-night), gap-night discounts, and host-controlled federation discounts are applied automatically. Dates must be ISO 8601 (YYYY-MM-DD). All monetary values are integers in local currency.",
     configSchema: {
       type: "object",
       properties: {
@@ -76,7 +76,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
         },
       },
       {
-        name: "hemmabo.booking.quote",
+        name: "hemmabo.search.quote",
         description:
           "Get a detailed pricing quote for a specific property, date range, and guest count. Returns three price points: (1) publicTotal — the rate shown on public websites, (2) federationTotal — the direct booking rate with the host's configured discount applied, (3) gapTotal — an additional discount if the dates fill a gap between existing bookings. Also returns per-night breakdown, season classification, weekend detection, and any package pricing (7-night week or 14-night two-week discounts). All prices are integers in the property's local currency. The host controls all discount percentages.",
         inputSchema: {
@@ -169,7 +169,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
         },
       },
       {
-        name: "hemmabo.booking.cancel",
+        name: "hemmabo.manage.cancel",
         description:
           "Cancel an existing booking. Calculates the refund amount based on the host's cancellation policy, processes the refund through Stripe, updates the booking status to cancelled, and sends email notifications to both guest and host. Returns the updated booking status and refund details including amount, percentage, and reason.",
         inputSchema: {
@@ -189,7 +189,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
         },
       },
       {
-        name: "hemmabo.booking.status",
+        name: "hemmabo.manage.status",
         description:
           "Get the current status and details of a booking. Returns booking information (dates, guests, price, status), property details (name, domain), and the applicable cancellation policy (tier and refund rules). Use this to check on a booking after creation or before attempting a reschedule or cancellation.",
         inputSchema: {
@@ -208,7 +208,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
         },
       },
       {
-        name: "hemmabo.booking.reschedule",
+        name: "hemmabo.manage.reschedule",
         description:
           "Reschedule a booking to new dates. Validates that the booking is in a reschedulable state (confirmed or pending), checks availability for the new dates (excluding the current booking from conflict detection), recalculates the price, and handles the Stripe charge or refund for any price difference. If the new price is higher, an additional charge is created. If lower, a partial refund is issued. Returns previous and new dates, pricing details, and any payment action taken.",
         inputSchema: {
