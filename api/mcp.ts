@@ -834,7 +834,7 @@ async function handleJsonRpc(
           },
           serverInfo: {
             name: "federation-mcp-server",
-            version: "3.1.8",
+            version: "3.1.16",
             description: "MCP server for vacation rental direct bookings. Search properties, check availability, get real-time pricing quotes, and create bookings through the federation protocol. Supports seasonal pricing, guest-count tiers, weekly and biweekly package discounts, gap-night discounts, and host-controlled federation discounts. All data is live — never cached, never estimated.",
           },
           instructions: SERVER_INSTRUCTIONS,
@@ -889,7 +889,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
 
   if (req.method === "OPTIONS") return res.status(204).end();
-  if (req.method === "GET") return res.json({ status: "ok", transport: "streamable-http", version: "3.1.8" });
+  if (req.method === "GET") return res.json({ status: "ok", transport: "streamable-http", version: "3.1.16" });
   if (req.method === "DELETE") return res.status(202).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
