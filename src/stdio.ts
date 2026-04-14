@@ -34,10 +34,16 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
 
 // ── MCP Server ─────────────────────────────────────────────────────
 
-const server = new McpServer({
-  name: "hemmabo-mcp-server",
-  version: "3.1.7",
-});
+const server = new McpServer(
+  {
+    name: "hemmabo-mcp-server",
+    version: "3.1.7",
+    description: "MCP server for vacation rental direct bookings. Search properties, check availability, get real-time pricing quotes, and create bookings through the federation protocol. Supports seasonal pricing, guest-count tiers, weekly and biweekly package discounts, gap-night discounts, and host-controlled federation discounts. All data is live — never cached, never estimated.",
+  },
+  {
+    instructions: "This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated.\n\nFull booking lifecycle: search_properties (find properties) -> negotiate_offer (binding quote with quoteId) -> checkout (Stripe payment) -> get_booking_status (check details) -> reschedule_booking / cancel_booking (modify or cancel).\n\nLegacy shortcut: search_properties -> get_canonical_quote -> create_booking (no payment, pending host approval).\n\nPricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6). Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week) are applied automatically. Federation discount (direct booking rate) is host-controlled.\n\nDates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).",
+  }
+);
 
 // ── Tool: search_properties ────────────────────────────────────────
 
@@ -268,7 +274,7 @@ server.tool(
 
 server.tool(
   "negotiate_offer",
-  "Create a binding price quote with quoteId. Stores an immutable snapshot in property_quote_snapshots table that expires after 15 minutes. Pass the quoteId to checkout tool to lock the price. This protects both guest and host from price changes during checkout flow.",
+  "Create a binding price quote with a unique quote identifier that expires after 15 minutes. The quoted price is stored as an immutable snapshot so it cannot change during checkout. Pass the quote identifier to the checkout tool to lock the price. This protects both guest and host from price fluctuations between browsing and completing payment.",
   {
     propertyId: z.string().uuid().describe("Property UUID"),
     checkIn: z.string().describe("Check-in date YYYY-MM-DD"),
@@ -362,7 +368,7 @@ server.tool(
 
 server.tool(
   "checkout",
-  "Create a booking with Stripe payment. Creates a Stripe Checkout Session (or PaymentIntent for MPP mode) and a booking record. If a quoteId from negotiate_offer is provided, the price is locked to that quote. Supports payment_intent mode for programmatic payment (Machine Payments Protocol). Returns reservationId, paymentUrl, and MPP payment details.",
+  "Create a booking with secure online payment via Stripe. Generates a hosted payment page where the guest can pay by card, Klarna, Swish, or other supported methods. If a quote identifier from negotiate_offer is provided, the price is locked to that quote. Also supports programmatic payment for AI agents that can confirm payment directly. Returns booking ID and payment URL.",
   {
     propertyId: z.string().uuid().describe("Property UUID"),
     checkIn: z.string().describe("Check-in date YYYY-MM-DD"),
@@ -530,7 +536,7 @@ server.tool(
 
 server.tool(
   "cancel_booking",
-  "Cancel a booking. Handles refund calculation based on cancellation policy, processes Stripe refund, updates booking status, and sends email notifications via Supabase Edge Function. Returns updated booking status and refund details.",
+  "Cancel an existing booking. Calculates the refund amount based on the host's cancellation policy, processes the refund through Stripe, updates the booking status to cancelled, and sends email notifications to both guest and host. Returns the updated booking status and refund details including amount and reason.",
   {
     reservationId: z.string().describe("Booking ID (UUID)"),
     reason: z.string().optional().describe("Cancellation reason (optional)"),
