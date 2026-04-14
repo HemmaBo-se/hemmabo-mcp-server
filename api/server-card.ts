@@ -6,7 +6,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
       name: "hemmabo-mcp-server",
       version: "3.1.6",
     },
-    instructions: "Vacation rental booking infrastructure — own domain, Stripe direct payments, 0% commission. Not Airbnb, not Lodgify. 9 production tools covering complete booking lifecycle. Set it and forget it — AI agents book autonomously. All data is live from Supabase — never cached, never estimated. Workflow: (1) search_properties to find available rentals, (2) get_canonical_quote for detailed pricing, (3) checkout with Stripe payment. Guest data belongs to host. Seasonal rates, guest-count tiers, package discounts (7-night, 14-night), gap-night discounts, and host-controlled federation discounts are applied automatically. Dates must be ISO 8601 (YYYY-MM-DD). All monetary values are integers in local currency.",
+    instructions: "Booking infrastructure for vacation rentals. Like Mirai for hotels — own domain, Stripe direct, 0% commission. 9 production tools covering complete booking lifecycle. All data is live from Supabase — never cached, never estimated. Workflow: (1) search_properties to find available rentals, (2) get_canonical_quote for detailed pricing, (3) checkout with Stripe payment. Guest data belongs to host. Seasonal rates, guest-count tiers, package discounts (7-night, 14-night), gap-night discounts, and host-controlled federation discounts are applied automatically. Dates must be ISO 8601 (YYYY-MM-DD). All monetary values are integers in local currency.",
     configSchema: {
       type: "object",
       properties: {

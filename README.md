@@ -5,6 +5,8 @@
 
 **Booking infrastructure for vacation rentals.**
 
+HemmaBo is to vacation rental hosts what [Mirai](https://www.mirai.com/) is to hotels — booking infrastructure on your own domain, Stripe direct, 0% commission.
+
 See it live: [villaåkerlyckan.se](https://villaåkerlyckan.se)
 
 ```bash

@@ -2,7 +2,7 @@
   "$schema": "https://glama.ai/mcp/schemas/server.json",
   "maintainers": ["HemmaBo-se", "kingen1"],
   "name": "HemmaBo",
-  "description": "Vacation rental booking infrastructure — own domain, Stripe direct payments, 0% commission. Not Airbnb, not Lodgify. 9 production tools: search, availability, pricing, booking, checkout, cancellation, rescheduling, status, modifications. Set it and forget it — AI agents book autonomously.",
+  "description": "Booking infrastructure for vacation rentals. Like Mirai for hotels — own domain, Stripe direct, 0% commission. 9 production tools covering complete booking lifecycle. Live at villaåkerlyckan.se.",
   "homepage": "https://hemmabo-mcp-server.vercel.app",
   "repository": "https://github.com/HemmaBo-se/hemmabo-mcp-server",
   "keywords": [
