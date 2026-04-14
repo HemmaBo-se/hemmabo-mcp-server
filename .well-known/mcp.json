@@ -1,6 +1,6 @@
 {
   "name": "hemmabo-mcp-server",
-  "version": "3.1.7",
+  "version": "3.1.16",
   "description": "Booking infrastructure for vacation rentals. Like Mirai for hotels — own domain, Stripe direct, 0% commission. 9 production tools covering complete booking lifecycle. Live at villaåkerlyckan.se.",
   "network_id": "hemmabo_verified",
   "transport": "streamable-http",
@@ -30,15 +30,15 @@
   },
   "capabilities": {
     "tools": [
-      "search.properties",
-      "search.availability",
-      "search.quote",
-      "booking.create",
-      "booking.negotiate",
-      "booking.checkout",
-      "manage.cancel",
-      "manage.status",
-      "manage.reschedule"
+      "hemmabo_search_properties",
+      "hemmabo_search_availability",
+      "hemmabo_booking_quote",
+      "hemmabo_booking_create",
+      "hemmabo_booking_negotiate",
+      "hemmabo_booking_checkout",
+      "hemmabo_booking_cancel",
+      "hemmabo_booking_status",
+      "hemmabo_booking_reschedule"
     ]
   }
 }

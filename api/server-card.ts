@@ -4,9 +4,9 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
   res.json({
     serverInfo: {
       name: "hemmabo-mcp-server",
-      version: "3.1.7",
+      version: "3.1.16",
     },
-    instructions: "Booking infrastructure for vacation rentals. Like Mirai for hotels — own domain, Stripe direct, 0% commission. 9 production tools covering complete booking lifecycle. All data is live from Supabase — never cached, never estimated. Workflow: (1) search.properties to find available rentals, (2) search.quote for detailed pricing, (3) booking.checkout with Stripe payment. Guest data belongs to host. Seasonal rates, guest-count tiers, package discounts (7-night, 14-night), gap-night discounts, and host-controlled federation discounts are applied automatically. Dates must be ISO 8601 (YYYY-MM-DD). All monetary values are integers in local currency.",
+    instructions: "Booking infrastructure for vacation rentals. Like Mirai for hotels — own domain, Stripe direct, 0% commission. 9 production tools covering complete booking lifecycle. All data is live from Supabase — never cached, never estimated. Workflow: (1) hemmabo_search_properties to find available rentals, (2) hemmabo_booking_quote for detailed pricing, (3) hemmabo_booking_checkout with Stripe payment. Guest data belongs to host. Seasonal rates, guest-count tiers, package discounts (7-night, 14-night), gap-night discounts, and host-controlled federation discounts are applied automatically. Dates must be ISO 8601 (YYYY-MM-DD). All monetary values are integers in local currency.",
     configSchema: {
       type: "object",
       properties: {
@@ -32,17 +32,17 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
     },
     tools: [
       {
-        name: "search.properties",
+        name: "hemmabo_search_properties",
         description:
-          "Search vacation rental properties by location and travel dates. Returns only properties that are available for the requested period and can accommodate the guest count. Each result includes live pricing with both public rates (what OTA/website visitors see) and federation rates (direct booking discount). Use region or country to filter by location. Guests parameter determines which price tier applies. Results are sorted by relevance.",
+          "Search available vacation rental properties by location and travel dates. Use this tool when the user wants to find or browse properties — it is the entry point for all booking flows. Do NOT use if the user already has a specific propertyId; use hemmabo_search_availability or hemmabo_booking_quote instead. Returns a list of available properties with propertyId, live pricing (public and federation rates), and capacity info needed for subsequent tools.",
         inputSchema: {
           type: "object",
           properties: {
-            region: { type: "string", description: "Region, area, or destination name. Supports partial matching." },
-            country: { type: "string", description: "Country name to filter by. Supports partial matching." },
-            guests: { type: "integer", minimum: 1, description: "Total number of guests." },
-            checkIn: { type: "string", description: "Check-in date (YYYY-MM-DD)." },
-            checkOut: { type: "string", description: "Check-out date (YYYY-MM-DD)." },
+            region: { type: "string", description: "Region, area, or destination name to search within. Partial match (e.g. 'Skane', 'Toscana', 'Bavaria'). At least one of region or country should be provided." },
+            country: { type: "string", description: "Country name to filter by (e.g. 'Sweden', 'Italy'). Partial match. At least one of region or country should be provided." },
+            guests: { type: "integer", minimum: 1, description: "Total number of guests as integer >= 1 (e.g. 4). Determines price tier and filters out properties with insufficient capacity." },
+            checkIn: { type: "string", description: "Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later." },
+            checkOut: { type: "string", description: "Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn." },
           },
           required: ["guests", "checkIn", "checkOut"],
         },
@@ -55,15 +55,15 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
         },
       },
       {
-        name: "search.availability",
+        name: "hemmabo_search_availability",
         description:
-          "Check whether a specific property is available for the requested date range. Verifies against three sources: host-blocked dates, confirmed bookings, and active booking locks (temporary holds during checkout). Returns available=true/false with conflict details if unavailable. Call this before booking.create to confirm availability, or use it to check multiple date ranges for the same property.",
+          "Check whether a specific property is available for the requested dates. Use this tool after the user has selected a property from hemmabo_search_properties and wants to confirm availability before getting a quote. Do NOT use for general browsing — use hemmabo_search_properties instead. Returns available=true/false with conflict details (blocked dates, existing bookings, active locks) if unavailable.",
         inputSchema: {
           type: "object",
           properties: {
-            propertyId: { type: "string", format: "uuid", description: "Property UUID." },
-            checkIn: { type: "string", description: "Check-in date (YYYY-MM-DD)." },
-            checkOut: { type: "string", description: "Check-out date (YYYY-MM-DD)." },
+            propertyId: { type: "string", format: "uuid", description: "Property UUID returned by hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000')." },
+            checkIn: { type: "string", description: "Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later." },
+            checkOut: { type: "string", description: "Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn." },
           },
           required: ["propertyId", "checkIn", "checkOut"],
         },
@@ -76,16 +76,16 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
         },
       },
       {
-        name: "search.quote",
+        name: "hemmabo_booking_quote",
         description:
-          "Get a detailed pricing quote for a specific property, date range, and guest count. Returns three price points: (1) publicTotal — the rate shown on public websites, (2) federationTotal — the direct booking rate with the host's configured discount applied, (3) gapTotal — an additional discount if the dates fill a gap between existing bookings. Also returns per-night breakdown, season classification, weekend detection, and any package pricing (7-night week or 14-night two-week discounts). All prices are integers in the property's local currency. The host controls all discount percentages.",
+          "Get a detailed pricing quote for a specific property, dates, and guest count. Use this tool after confirming availability to show the user exact pricing before booking. Do NOT use before checking availability — the quote may be invalid if dates are unavailable. Returns publicTotal (website rate), federationTotal (direct booking discount), gapTotal (gap-night discount if applicable), per-night breakdown, and package pricing. All prices are integers in the property's local currency (e.g. SEK).",
         inputSchema: {
           type: "object",
           properties: {
-            propertyId: { type: "string", format: "uuid", description: "Property UUID." },
-            checkIn: { type: "string", description: "Check-in date (YYYY-MM-DD)." },
-            checkOut: { type: "string", description: "Check-out date (YYYY-MM-DD)." },
-            guests: { type: "integer", minimum: 1, description: "Total number of guests." },
+            propertyId: { type: "string", format: "uuid", description: "Property UUID from hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000')." },
+            checkIn: { type: "string", description: "Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later." },
+            checkOut: { type: "string", description: "Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn." },
+            guests: { type: "integer", minimum: 1, description: "Total number of guests as integer >= 1 (e.g. 4). Determines which price tier is applied (staircase pricing by guest count)." },
           },
           required: ["propertyId", "checkIn", "checkOut", "guests"],
         },
@@ -98,19 +98,19 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
         },
       },
       {
-        name: "booking.create",
+        name: "hemmabo_booking_create",
         description:
-          "Create a new direct booking for a property. This is a write operation that: (1) validates the property is still available for the requested dates, (2) calculates the final federation price (with gap discount if applicable), (3) creates a pending booking record that requires host approval. Returns the booking ID, final price, and confirmation details. The booking status starts as 'pending' until the host approves. Guest contact details are required for the host to follow up.",
+          "Create a direct booking without online payment (legacy flow). Use this tool when the user wants to book without Stripe payment — the booking is created with status 'pending' and requires host approval. Do NOT use for paid bookings — use hemmabo_booking_checkout instead. Do NOT retry on timeout without calling hemmabo_booking_status first to avoid duplicate bookings. Returns bookingId, final price, and confirmation details.",
         inputSchema: {
           type: "object",
           properties: {
-            propertyId: { type: "string", format: "uuid", description: "Property UUID." },
-            checkIn: { type: "string", description: "Check-in date (YYYY-MM-DD)." },
-            checkOut: { type: "string", description: "Check-out date (YYYY-MM-DD)." },
-            guests: { type: "integer", minimum: 1, description: "Total number of guests." },
-            guestName: { type: "string", description: "Full name of primary guest." },
-            guestEmail: { type: "string", format: "email", description: "Email of primary guest." },
-            guestPhone: { type: "string", description: "Phone number (optional)." },
+            propertyId: { type: "string", format: "uuid", description: "Property UUID from hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000')." },
+            checkIn: { type: "string", description: "Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later." },
+            checkOut: { type: "string", description: "Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn." },
+            guests: { type: "integer", minimum: 1, description: "Total number of guests as integer >= 1 (e.g. 4)." },
+            guestName: { type: "string", description: "Full name of primary guest (e.g. 'Anna Svensson')." },
+            guestEmail: { type: "string", format: "email", description: "Email for booking confirmation (e.g. 'anna@example.com'). Must be a valid email address." },
+            guestPhone: { type: "string", description: "Phone with country code (e.g. '+46701234567'). Optional but recommended for check-in coordination." },
           },
           required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"],
         },
@@ -123,42 +123,46 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
         },
       },
       {
-        name: "booking.negotiate",
+        name: "hemmabo_booking_negotiate",
         description:
-          "Create a binding price quote with a unique quote identifier that expires after 15 minutes. The quoted price is stored as an immutable snapshot so it cannot change during checkout. Pass the quote identifier to the booking.checkout tool to lock the price. This protects both guest and host from price fluctuations between browsing and completing payment. Returns public and federation totals, per-night breakdown, package info, and the quote identifier.",
+          "Create a binding price quote that locks the price for 15 minutes. Use this tool before hemmabo_booking_checkout to guarantee the quoted price during payment. Do NOT skip this step if the user wants price certainty — without a quoteId, checkout calculates a fresh price that may differ. Returns quoteId (pass to hemmabo_booking_checkout), public and federation totals, per-night breakdown, and expiry timestamp.",
         inputSchema: {
           type: "object",
           properties: {
-            propertyId: { type: "string", format: "uuid", description: "Property UUID." },
-            checkIn: { type: "string", description: "Check-in date (YYYY-MM-DD)." },
-            checkOut: { type: "string", description: "Check-out date (YYYY-MM-DD)." },
-            guests: { type: "integer", minimum: 1, description: "Total number of guests." },
+            propertyId: { type: "string", format: "uuid", description: "Property UUID from hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000')." },
+            checkIn: { type: "string", description: "Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later." },
+            checkOut: { type: "string", description: "Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn." },
+            guests: { type: "integer", minimum: 1, description: "Total number of guests as integer >= 1 (e.g. 4). Determines which price tier is applied." },
           },
           required: ["propertyId", "checkIn", "checkOut", "guests"],
         },
         annotations: {
           title: "Negotiate Offer",
-          readOnlyHint: false,
+          readOnlyHint: true,
           destructiveHint: false,
           idempotentHint: false,
           openWorldHint: false,
         },
       },
       {
-        name: "booking.checkout",
+        name: "hemmabo_booking_checkout",
         description:
-          "Create a booking with secure online payment via Stripe. Generates a hosted payment page where the guest can pay by card, Klarna, Swish, or other supported methods. If a quote identifier from booking.negotiate is provided, the price is locked to that quote. Also supports programmatic payment for AI agents that can confirm payment directly. Returns booking ID, payment URL, and payment details.",
+          "Create a booking with Stripe payment and return a checkout URL. Use this tool when the user is ready to pay — it creates the booking record and generates a Stripe payment page. Do NOT call twice for the same booking — check hemmabo_booking_status first to avoid double charges. Optionally pass quoteId from hemmabo_booking_negotiate to lock the price. Returns reservationId, paymentUrl (Stripe checkout page), and pricing details.",
         inputSchema: {
           type: "object",
           properties: {
-            quoteToken: { type: "string", description: "Quote token from booking.negotiate." },
-            guestName: { type: "string", description: "Full name of primary guest." },
-            guestEmail: { type: "string", format: "email", description: "Email of primary guest." },
-            guestPhone: { type: "string", description: "Phone number (optional)." },
-            successUrl: { type: "string", format: "uri", description: "Redirect URL after payment success." },
-            cancelUrl: { type: "string", format: "uri", description: "Redirect URL if payment canceled." },
+            propertyId: { type: "string", format: "uuid", description: "Property UUID from hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000')." },
+            checkIn: { type: "string", description: "Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later." },
+            checkOut: { type: "string", description: "Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn." },
+            guests: { type: "integer", minimum: 1, description: "Total number of guests as integer >= 1 (e.g. 4)." },
+            guestName: { type: "string", description: "Full name of primary guest (e.g. 'Anna Svensson')." },
+            guestEmail: { type: "string", format: "email", description: "Email for booking confirmation (e.g. 'anna@example.com'). Must be a valid email address." },
+            guestPhone: { type: "string", description: "Phone with country code (e.g. '+46701234567'). Optional but recommended." },
+            quoteId: { type: "string", description: "Quote ID from hemmabo_booking_negotiate to lock the price. Optional — if omitted, a fresh federation price is calculated at checkout time." },
+            paymentMode: { type: "string", enum: ["checkout_session", "payment_intent"], description: "'checkout_session' (default): returns Stripe redirect URL. 'payment_intent': returns client_secret for programmatic payment (AI agent MPP flow)." },
+            channel: { type: "string", enum: ["public", "federation"], description: "'federation' (default): applies direct booking discount. 'public': uses standard website rate." },
           },
-          required: ["quoteToken", "guestName", "guestEmail", "successUrl", "cancelUrl"],
+          required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"],
         },
         annotations: {
           title: "Checkout",
@@ -169,35 +173,35 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
         },
       },
       {
-        name: "manage.cancel",
+        name: "hemmabo_booking_cancel",
         description:
-          "Cancel an existing booking. Calculates the refund amount based on the host's cancellation policy, processes the refund through Stripe, updates the booking status to cancelled, and sends email notifications to both guest and host. Returns the updated booking status and refund details including amount, percentage, and reason.",
+          "Cancel a confirmed booking and process the Stripe refund. Use this tool when the guest explicitly requests cancellation. Do NOT use for pending/unpaid bookings — those expire automatically. Refund amount is calculated based on the host's cancellation policy. Returns cancellation confirmation with refund amount and status.",
         inputSchema: {
           type: "object",
           properties: {
-            bookingId: { type: "string", format: "uuid", description: "Booking UUID." },
-            reason: { type: "string", description: "Cancellation reason (optional)." },
+            reservationId: { type: "string", description: "Booking UUID from hemmabo_booking_checkout or hemmabo_booking_create (e.g. '550e8400-e29b-41d4-a716-446655440000')." },
+            reason: { type: "string", description: "Cancellation reason for host notification (e.g. 'Travel plans changed'). Optional but recommended." },
           },
-          required: ["bookingId"],
+          required: ["reservationId"],
         },
         annotations: {
           title: "Cancel Booking",
           readOnlyHint: false,
           destructiveHint: true,
-          idempotentHint: false,
+          idempotentHint: true,
           openWorldHint: false,
         },
       },
       {
-        name: "manage.status",
+        name: "hemmabo_booking_status",
         description:
-          "Get the current status and details of a booking. Returns booking information (dates, guests, price, status), property details (name, domain), and the applicable cancellation policy (tier and refund rules). Use this to check on a booking after creation or before attempting a reschedule or cancellation.",
+          "Retrieve current status and full details of an existing booking. Use this tool to check payment status, confirm a booking went through, or look up details before rescheduling or cancelling. Use after hemmabo_booking_checkout if unsure whether the booking succeeded. Returns booking dates, guests, price, status, property info, and cancellation policy.",
         inputSchema: {
           type: "object",
           properties: {
-            bookingId: { type: "string", format: "uuid", description: "Booking UUID." },
+            reservationId: { type: "string", description: "Booking UUID from hemmabo_booking_checkout or hemmabo_booking_create (e.g. '550e8400-e29b-41d4-a716-446655440000')." },
           },
-          required: ["bookingId"],
+          required: ["reservationId"],
         },
         annotations: {
           title: "Get Booking Status",
@@ -208,22 +212,23 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
         },
       },
       {
-        name: "manage.reschedule",
+        name: "hemmabo_booking_reschedule",
         description:
-          "Reschedule a booking to new dates. Validates that the booking is in a reschedulable state (confirmed or pending), checks availability for the new dates (excluding the current booking from conflict detection), recalculates the price, and handles the Stripe charge or refund for any price difference. If the new price is higher, an additional charge is created. If lower, a partial refund is issued. Returns previous and new dates, pricing details, and any payment action taken.",
+          "Reschedule a confirmed or pending booking to new dates. Use this tool when the guest wants to change travel dates on an existing booking. Do NOT use if the booking is cancelled or completed — check hemmabo_booking_status first. Automatically recalculates price and handles Stripe charge (if price increased) or refund (if decreased). Returns previous dates, new dates, price delta, and Stripe transaction details.",
         inputSchema: {
           type: "object",
           properties: {
-            bookingId: { type: "string", format: "uuid", description: "Booking UUID." },
-            newCheckIn: { type: "string", description: "New check-in date (YYYY-MM-DD)." },
-            newCheckOut: { type: "string", description: "New check-out date (YYYY-MM-DD)." },
+            reservationId: { type: "string", description: "Booking UUID to reschedule (e.g. '550e8400-e29b-41d4-a716-446655440000'). Must be in 'confirmed' or 'pending' status." },
+            newCheckIn: { type: "string", description: "New arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-20'). Must be today or later." },
+            newCheckOut: { type: "string", description: "New departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-27'). Must be after newCheckIn." },
+            reason: { type: "string", description: "Reason for rescheduling (e.g. 'Flight delayed'). Optional but recommended for host records." },
           },
-          required: ["bookingId", "newCheckIn", "newCheckOut"],
+          required: ["reservationId", "newCheckIn", "newCheckOut"],
         },
         annotations: {
           title: "Reschedule Booking",
           readOnlyHint: false,
-          destructiveHint: false,
+          destructiveHint: true,
           idempotentHint: false,
           openWorldHint: false,
         },
