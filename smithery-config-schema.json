@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "properties": {
+    "region": {
+      "type": "string",
+      "description": "Default region to search in (e.g. Skane, Toscana). Can be overridden per request.",
+      "x-from": { "query": "region" }
+    },
+    "currency": {
+      "type": "string",
+      "description": "Preferred display currency (e.g. SEK, EUR). Defaults to the property native currency.",
+      "x-from": { "query": "currency" }
+    },
+    "language": {
+      "type": "string",
+      "description": "Preferred response language (e.g. sv, en, de, it). Defaults to English.",
+      "x-from": { "query": "language" }
+    }
+  },
+  "additionalProperties": false
+}
