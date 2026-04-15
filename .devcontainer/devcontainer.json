@@ -1,14 +1,33 @@
 {
   "name": "HemmaBo MCP Server",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
-  "postStartCommand": "npm install && npm run build && nohup npm start &",
-  "forwardPorts": [3000],
+  "remoteUser": "node",
+  "postCreateCommand": "npm install",
+  "postStartCommand": "npm run build && nohup npm start &",
   "customizations": {
     "vscode": {
       "extensions": [
         "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode"
-      ]
+        "esbenp.prettier-vscode",
+        "ms-vscode.vscode-typescript-next"
+      ],
+      "settings": {
+        "typescript.tsdk": "node_modules/typescript/lib",
+        "typescript.enablePromptUseWorkspaceTsdk": true
+      }
     }
+  },
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "MCP Server",
+      "onAutoForward": "notify"
+    }
+  },
+  "remoteEnv": {
+    "NODE_ENV": "development"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {}
   }
 }
