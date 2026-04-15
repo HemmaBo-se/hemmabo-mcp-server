@@ -1,4 +1,21 @@
 # Smithery configuration — https://smithery.ai/docs/config
+name: HemmaBo
+description: "Booking infrastructure for vacation rentals. Like Mirai for hotels — own domain, Stripe direct, 0% commission. 9 production tools covering complete booking lifecycle. Live at villaåkerlyckan.se."
+keywords:
+  - vacation-rental
+  - direct-booking
+  - booking-infrastructure
+  - ai-booking
+  - autonomous-agents
+  - airbnb-alternative
+  - lodgify-alternative
+  - zero-commission
+  - own-domain
+  - stripe-payments
+  - set-it-forget-it
+homepage: https://hemmabo-mcp-server.vercel.app
+repository: https://github.com/HemmaBo-se/hemmabo-mcp-server
+
 startCommand:
   type: stdio
   configSchema:
@@ -13,11 +30,20 @@ startCommand:
       language:
         type: string
         description: "Preferred response language (e.g. 'sv', 'en', 'de', 'it'). Defaults to English."
+      SUPABASE_URL:
+        type: string
+        description: "Supabase project URL (required)"
+      SUPABASE_SERVICE_ROLE_KEY:
+        type: string
+        description: "Supabase service role key (required)"
+      STRIPE_SECRET_KEY:
+        type: string
+        description: "Stripe secret key for payment processing (optional, enables checkout/cancel/reschedule)"
     additionalProperties: false
   commandFunction: |
     (config) => ({
       command: 'node',
-      args: ['dist/index.js'],
+      args: ['dist/stdio.js'],
       env: {
         SUPABASE_URL: process.env.SUPABASE_URL,
         SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY

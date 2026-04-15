@@ -1,26 +1,44 @@
 {
-  "name": "federation-mcp-server",
-  "version": "3.0.0",
-  "description": "MCP server for vacation rental direct bookings. Full lifecycle: search, quote, Stripe checkout, status, reschedule, cancel. Supports seasonal pricing, guest-count tiers, weekly/biweekly packages, gap-night discounts, and host-controlled federation discounts.",
+  "name": "hemmabo-mcp-server",
+  "version": "3.1.16",
+  "description": "Booking infrastructure for vacation rentals. Like Mirai for hotels — own domain, Stripe direct, 0% commission. 9 production tools covering complete booking lifecycle. Live at villaåkerlyckan.se.",
   "network_id": "hemmabo_verified",
   "transport": "streamable-http",
   "endpoint": "/mcp",
   "configSchema": {
     "type": "object",
-    "properties": {},
-    "additionalProperties": false
+    "properties": {
+      "propertyDomain": {
+        "type": "string",
+        "description": "Your vacation rental domain (e.g. villaaakerlyckan.se)",
+        "default": ""
+      },
+      "language": {
+        "type": "string",
+        "description": "Default response language",
+        "default": "sv",
+        "enum": ["sv", "en", "de", "fr"]
+      },
+      "currency": {
+        "type": "string",
+        "description": "Default currency for pricing",
+        "default": "SEK",
+        "enum": ["SEK", "EUR", "USD", "NOK", "DKK"]
+      }
+    },
+    "required": []
   },
   "capabilities": {
     "tools": [
-      "search_properties",
-      "check_availability",
-      "get_canonical_quote",
-      "create_booking",
-      "negotiate_offer",
-      "checkout",
-      "cancel_booking",
-      "get_booking_status",
-      "reschedule_booking"
+      "hemmabo_search_properties",
+      "hemmabo_search_availability",
+      "hemmabo_booking_quote",
+      "hemmabo_booking_create",
+      "hemmabo_booking_negotiate",
+      "hemmabo_booking_checkout",
+      "hemmabo_booking_cancel",
+      "hemmabo_booking_status",
+      "hemmabo_booking_reschedule"
     ]
   }
 }

@@ -1,77 +1,43 @@
+#!/usr/bin/env node
 /**
- * MCP Server — Federation Protocol
+ * MCP Server — stdio transport (for Glama, Smithery, and local MCP clients)
  *
- * Infrastructure for independent hosts. Each property is its own node
- * (source of truth). This server reads real data — never mocks, never guesses.
- *
- * Transport: Streamable HTTP (required for Smithery Gateway)
- * Data: Supabase (property, pricing, availability, bookings)
- *
- * Pricing flow:
- *   Google/website visitor → public_total
- *   Vera AI / federation partner (at booking) → federation_total
- *   Gap night (calendar context) → gap_total
- *
- * The host controls the federation discount via direct_booking_discount.
+ * Same tools as index.ts but over stdin/stdout instead of HTTP.
+ * Used by mcp-proxy in Glama's Docker build.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import express from "express";
 import { z } from "zod";
 import { resolveQuote } from "./pricing.js";
 import { checkAvailability } from "./availability.js";
-import { createCheckoutSession, retrievePaymentIntent, createRefund, createPaymentIntent } from "./stripe.js";
-
-// ╔══════════════════════════════════════════════════════════════════╗
-// ║ SYNC WARNING: Tool logic is duplicated in api/mcp.ts           ║
-// ║ (Vercel HTTP transport). If you change a tool handler here,    ║
-// ║ you MUST make the same change in api/mcp.ts — and vice versa.  ║
-// ║                                                                ║
-// ║ Shared logic lives in lib/ (pricing.ts, availability.ts) and   ║
-// ║ src/stripe.ts — always prefer editing shared files.            ║
-// ╚══════════════════════════════════════════════════════════════════╝
+import {
+  createCheckoutSession,
+  retrievePaymentIntent,
+  createRefund,
+  createPaymentIntent,
+} from "./stripe.js";
 
 // ── Environment ────────────────────────────────────────────────────
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const PORT = parseInt(process.env.PORT ?? "3000", 10);
 
-// Graceful degradation: allow server to start without DB for validation/testing
 let supabase: SupabaseClient | null = null;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.warn("⚠ Running without database — tools will return errors until SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set");
 } else {
   supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-  console.log("✓ Database connected");
 }
 
 // ── MCP Server ─────────────────────────────────────────────────────
 
-/**
- * Server instructions (for documentation):
- * 
- * This MCP server provides real-time vacation rental data for independent property hosts.
- * All data is live from the property's own database — never cached, never estimated.
- *
- * Full booking lifecycle: hemmabo_search_properties (find properties) -> hemmabo_booking_negotiate (binding quote with quoteId)
- * -> hemmabo_booking_checkout (Stripe payment) -> hemmabo_booking_status (check details) -> hemmabo_booking_reschedule / hemmabo_booking_cancel (modify or cancel).
- *
- * Legacy shortcut: hemmabo_search_properties -> hemmabo_booking_quote -> hemmabo_booking_create (no payment, pending host approval).
- *
- * Pricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6).
- * Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week)
- * are applied automatically. Federation discount (direct booking rate) is host-controlled.
- *
- * Dates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).
- */
 const server = new McpServer(
   {
     name: "hemmabo-mcp-server",
-    version: "3.1.16",
+    version: "3.1.7",
     description: "MCP server for vacation rental direct bookings. Search properties, check availability, get real-time pricing quotes, and create bookings through the federation protocol. Supports seasonal pricing, guest-count tiers, weekly and biweekly package discounts, gap-night discounts, and host-controlled federation discounts. All data is live — never cached, never estimated.",
   },
   {
@@ -344,7 +310,7 @@ server.tool(
         nights: quote.nights,
         requested_guests: guests,
         currency: quote.currency,
-        source_version: "3.1.16",
+        source_version: "3.0.0",
         valid_until: validUntil,
         public_total: quote.publicTotal,
         ai_total: quote.federationTotal,
@@ -880,220 +846,7 @@ server.tool(
   }
 );
 
-// ── Prompt: plan_trip ─────────────────────────────────────────────────────
-server.prompt(
-  "plan_trip",
-  "Help plan a vacation rental trip. Guides the agent through the full booking lifecycle: searching properties, getting a binding quote, completing payment via Stripe checkout, and managing the booking (status checks, rescheduling, cancellation). Provide destination, dates, and guest count to get started.",
-  {
-    destination: z.string().describe("Where the guest wants to travel (region, city, or country). Example: 'Skane', 'Sweden', 'Toscana'."),
-    checkIn: z.string().describe("Desired check-in date in YYYY-MM-DD format."),
-    checkOut: z.string().describe("Desired check-out date in YYYY-MM-DD format."),
-    guests: z.string().describe("Number of guests (integer, minimum 1)."),
-  },
-  async ({ destination, checkIn, checkOut, guests }) => {
-    return {
-      messages: [
-        {
-          role: "user" as const,
-          content: {
-            type: "text" as const,
-            text: `I want to plan a trip to ${destination || "a vacation destination"} from ${checkIn || "TBD"} to ${checkOut || "TBD"} for ${guests || "2"} guests. Please: (1) search for available properties, (2) show pricing with both public and direct booking rates, (3) create a binding quote with hemmabo_booking_negotiate, (4) proceed to hemmabo_booking_checkout with Stripe payment, and (5) confirm the booking status. If I need to change dates later, use hemmabo_booking_reschedule. If I need to cancel, use hemmabo_booking_cancel.`,
-          },
-        },
-      ],
-    };
-  }
-);
+// ── Start stdio transport ──────────────────────────────────────────
 
-// ── HTTP Server (Streamable HTTP Transport) ────────────────────────
-
-const app = express();
-
-// Health check
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok", version: "3.1.16" });
-});
-
-// MCP endpoint
-app.all("/mcp", async (req, res) => {
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined, // stateless
-  });
-  await server.connect(transport);
-  await transport.handleRequest(req, res, req.body);
-});
-
-// Static server card for Smithery discovery
-app.get("/.well-known/mcp/server-card.json", (_req, res) => {
-  res.json({
-    serverInfo: {
-      name: "federation-mcp-server",
-      version: "3.1.16",
-    },
-    configSchema: {
-      type: "object",
-      properties: {},
-      additionalProperties: false,
-    },
-    tools: [
-      {
-        name: "hemmabo_search_properties",
-        description:
-          "Search for available properties by region and guest count. Returns real pricing from each property node.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            region: { type: "string", description: "Region or destination" },
-            country: { type: "string", description: "Country" },
-            guests: { type: "integer", minimum: 1, description: "Number of guests" },
-            checkIn: { type: "string", description: "Check-in date YYYY-MM-DD" },
-            checkOut: { type: "string", description: "Check-out date YYYY-MM-DD" },
-          },
-          required: ["guests", "checkIn", "checkOut"],
-        },
-      },
-      {
-        name: "hemmabo_search_availability",
-        description:
-          "Check if a property is available for given dates. Verifies blocked dates, bookings, and locks.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            propertyId: { type: "string", format: "uuid", description: "Property UUID" },
-            checkIn: { type: "string", description: "Check-in date YYYY-MM-DD" },
-            checkOut: { type: "string", description: "Check-out date YYYY-MM-DD" },
-          },
-          required: ["propertyId", "checkIn", "checkOut"],
-        },
-      },
-      {
-        name: "hemmabo_booking_quote",
-        description:
-          "Get canonical pricing: public_total (website), federation_total (direct booking with host discount), gap_total (calendar-context gap). Supports week and two-week package pricing. Host controls the discount.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            propertyId: { type: "string", format: "uuid", description: "Property UUID" },
-            checkIn: { type: "string", description: "Check-in date YYYY-MM-DD" },
-            checkOut: { type: "string", description: "Check-out date YYYY-MM-DD" },
-            guests: { type: "integer", minimum: 1, description: "Number of guests" },
-          },
-          required: ["propertyId", "checkIn", "checkOut", "guests"],
-        },
-      },
-      {
-        name: "hemmabo_booking_create",
-        description:
-          "Create a direct booking. Validates availability, calculates federation price, writes to bookings.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            propertyId: { type: "string", format: "uuid", description: "Property UUID" },
-            checkIn: { type: "string", description: "Check-in date YYYY-MM-DD" },
-            checkOut: { type: "string", description: "Check-out date YYYY-MM-DD" },
-            guests: { type: "integer", minimum: 1, description: "Number of guests" },
-            guestName: { type: "string", description: "Guest full name" },
-            guestEmail: { type: "string", format: "email", description: "Guest email" },
-            guestPhone: { type: "string", description: "Guest phone (optional)" },
-          },
-          required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"],
-        },
-      },
-      {
-        name: "hemmabo_booking_negotiate",
-        description:
-          "Create a binding price quote with quoteId. Stores snapshot in property_quote_snapshots. Quote expires after 15 minutes.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            propertyId: { type: "string", format: "uuid", description: "Property UUID" },
-            checkIn: { type: "string", description: "Check-in date YYYY-MM-DD" },
-            checkOut: { type: "string", description: "Check-out date YYYY-MM-DD" },
-            guests: { type: "integer", minimum: 1, description: "Number of guests" },
-          },
-          required: ["propertyId", "checkIn", "checkOut", "guests"],
-        },
-      },
-      {
-        name: "hemmabo_booking_checkout",
-        description:
-          "Create a booking with Stripe payment. Supports MPP (payment_intent mode). Optionally locks price via quoteId from hemmabo_booking_negotiate.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            propertyId: { type: "string", format: "uuid", description: "Property UUID" },
-            checkIn: { type: "string", description: "Check-in date YYYY-MM-DD" },
-            checkOut: { type: "string", description: "Check-out date YYYY-MM-DD" },
-            guests: { type: "integer", minimum: 1, description: "Number of guests" },
-            guestName: { type: "string", description: "Guest full name" },
-            guestEmail: { type: "string", format: "email", description: "Guest email" },
-            guestPhone: { type: "string", description: "Guest phone (optional)" },
-            quoteId: { type: "string", description: "Quote ID from hemmabo_booking_negotiate (optional)" },
-            paymentMode: { type: "string", enum: ["checkout_session", "payment_intent"], description: "Payment mode (default: checkout_session)" },
-            channel: { type: "string", enum: ["public", "federation"], description: "Pricing channel (default: federation)" },
-          },
-          required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"],
-        },
-      },
-      {
-        name: "hemmabo_booking_cancel",
-        description:
-          "Cancel a booking. Delegates to Supabase Edge Function for refund calculation, Stripe refund, and notifications.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            reservationId: { type: "string", description: "Booking ID (UUID)" },
-            reason: { type: "string", description: "Cancellation reason (optional)" },
-          },
-          required: ["reservationId"],
-        },
-      },
-      {
-        name: "hemmabo_booking_status",
-        description:
-          "Get booking details, property info, and cancellation policy by reservation ID.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            reservationId: { type: "string", description: "Booking ID (UUID)" },
-          },
-          required: ["reservationId"],
-        },
-      },
-      {
-        name: "hemmabo_booking_reschedule",
-        description:
-          "Reschedule a booking to new dates. Checks availability, recalculates price, handles Stripe charge/refund for price delta.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            reservationId: { type: "string", description: "Booking ID (UUID)" },
-            newCheckIn: { type: "string", description: "New check-in date YYYY-MM-DD" },
-            newCheckOut: { type: "string", description: "New check-out date YYYY-MM-DD" },
-            reason: { type: "string", description: "Rescheduling reason (optional)" },
-          },
-          required: ["reservationId", "newCheckIn", "newCheckOut"],
-        },
-      },
-    ],
-    resources: [],
-    prompts: [
-      {
-        name: "plan_trip",
-        description: "Help plan a vacation rental trip. Guides the agent through the full booking lifecycle.",
-        arguments: [
-          { name: "destination", description: "Where to travel (region, city, or country)", required: true },
-          { name: "checkIn", description: "Check-in date YYYY-MM-DD", required: true },
-          { name: "checkOut", description: "Check-out date YYYY-MM-DD", required: true },
-          { name: "guests", description: "Number of guests", required: true },
-        ],
-      },
-    ],
-  });
-});
-
-app.listen(PORT, () => {
-  console.log(`Federation MCP server listening on port ${PORT}`);
-  console.log(`MCP endpoint: http://0.0.0.0:${PORT}/mcp`);
-  console.log(`Server card:  http://0.0.0.0:${PORT}/.well-known/mcp/server-card.json`);
-});
+const transport = new StdioServerTransport();
+await server.connect(transport);

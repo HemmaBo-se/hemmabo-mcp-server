@@ -1,19 +1,46 @@
 {
   "name": "hemmabo-mcp-server",
-  "version": "3.0.0",
-  "description": "MCP server for vacation rental direct bookings. Search properties, check availability, get real-time pricing quotes, and create bookings through the federation protocol. Supports seasonal pricing, guest-count tiers, weekly/biweekly packages, gap-night discounts, and host-controlled federation discounts.",
+  "version": "3.1.16",
+  "description": "Booking infrastructure for vacation rentals. Like Mirai for hotels — own domain, Stripe direct, 0% commission. MCP server with 9 production tools. Live at villaåkerlyckan.se.",
   "main": "dist/index.js",
+  "bin": {
+    "hemmabo-mcp-server": "dist/stdio.js"
+  },
   "type": "module",
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "!dist/**/*.map",
+    "README.md",
+    "LICENSE"
+  ],
   "keywords": [
     "mcp",
     "mcp-server",
     "model-context-protocol",
     "vacation-rental",
     "direct-booking",
+    "booking-infrastructure",
     "property-management",
     "pricing",
     "availability",
-    "federation"
+    "federation",
+    "ai-booking",
+    "autonomous-agents",
+    "stripe-acp",
+    "agentic-commerce",
+    "chatgpt",
+    "claude",
+    "zero-commission",
+    "no-commission",
+    "vacation-home",
+    "holiday-rental",
+    "short-term-rental",
+    "booking-engine",
+    "airbnb-alternative",
+    "lodgify-alternative",
+    "own-domain",
+    "stripe-payments"
   ],
   "homepage": "https://hemmabo-mcp-server.vercel.app",
   "repository": {
@@ -26,7 +53,8 @@
     "url": "https://hemmabo.se"
   },
   "scripts": {
-    "build": "echo 'skip - vercel handles api/ bundling'",
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
     "start": "node dist/index.js",
     "dev": "tsc --watch"
   },

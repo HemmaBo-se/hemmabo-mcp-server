@@ -1,16 +1,76 @@
-# Federation MCP Server
+# HemmaBo MCP Server
 
+[![NPM Version](https://img.shields.io/npm/v/hemmabo-mcp-server)](https://www.npmjs.com/package/hemmabo-mcp-server)
 [![Smithery Badge](https://smithery.ai/badge/@info-00wt/federation-mcp-server)](https://smithery.ai/servers/@info-00wt/federation-mcp-server)
 
-MCP server for vacation rental direct bookings. Search properties, check availability, get real-time pricing quotes, and create bookings through the federation protocol.
+**Booking infrastructure for vacation rentals.**
 
-Supports seasonal pricing, guest-count tiers (staircase model), weekly/biweekly package discounts, gap-night discounts, and host-controlled federation discounts.
+HemmaBo is to vacation rental hosts what [Mirai](https://www.mirai.com/) is to hotels — booking infrastructure on your own domain, Stripe direct, 0% commission.
 
-## Install via Smithery
+See it live: [villaåkerlyckan.se](https://villaåkerlyckan.se)
+
+```bash
+npx hemmabo-mcp-server
+```
+
+---
+
+## What You Get
+
+- **Own domain** — Guests book on YourProperty.com (you control branding)
+- **Stripe direct payments** — Money to your bank, 0% commission
+- **AI-bookable** — ChatGPT, Claude, Gemini can search and book autonomously
+- **9 production tools** — Complete booking lifecycle (search, availability, pricing, booking, checkout, cancellation, rescheduling, status, modifications)
+- **Real-time data** — Never cached, pulled live from Supabase
+
+---
+
+## For Hosts: What You Get
+
+- **Autonomous booking node** — AI agents can discover, price, and book your property without human intervention
+- **Host-controlled pricing** — seasonal rates, guest-count tiers, package discounts (weekly/biweekly), gap-night discounts, federation discounts
+- **Real-time accuracy** — never cached prices, all data pulled live from your Supabase source of truth
+- **Full booking lifecycle** — search → quote → book → pay (Stripe ACP) → modify → cancel
+- **Zero platform lock-in** — open source (MIT), self-hostable, export your data anytime
+
+---
+
+## For AI Systems: Protocol Support
+
+---
+
+## Quick Start
+
+### Install via NPM (recommended)
+
+```bash
+npx hemmabo-mcp-server
+```
+
+Add to your MCP client config (e.g., Claude Desktop):
+
+```json
+{
+  "mcpServers": {
+    "hemmabo": {
+      "command": "npx",
+      "args": ["hemmabo-mcp-server"],
+      "env": {
+        "SUPABASE_URL": "https://your-project.supabase.co",
+        "SUPABASE_SERVICE_ROLE_KEY": "your-service-role-key"
+      }
+    }
+  }
+}
+```
+
+### Install via Smithery
 
 ```bash
 npx -y @smithery/cli install @info-00wt/federation-mcp-server --client claude
 ```
+
+---
 
 ## Tools
 
@@ -61,7 +121,15 @@ Create `.env` from `.env.example`:
 ```bash
 cp .env.example .env
 # Fill in SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
+# Optionally add STRIPE_SECRET_KEY for checkout/cancel/reschedule tools
 ```
+
+**Required environment variables:**
+- `SUPABASE_URL` — Your Supabase project URL
+- `SUPABASE_SERVICE_ROLE_KEY` — Service role key (full database access)
+
+**Optional (enables Stripe-powered tools):**
+- `STRIPE_SECRET_KEY` — Enables `checkout`, `cancel_booking`, and `reschedule_booking` tools
 
 ## Agentic Commerce Protocol (ACP)
 
@@ -91,6 +159,40 @@ Supports Stripe SharedPaymentTokens (SPT), Klarna, Swish, and card payments. Com
 ## Transport
 
 Streamable HTTP (`POST /mcp`) — required for Smithery Gateway and remote MCP clients. Stateless (no session management needed).
+
+---
+
+## How AI Agents Discover HemmaBo
+
+HemmaBo is distributed across multiple channels to maximize AI discovery:
+
+### 1. **NPM Registry** (Primary)
+- **Package:** `hemmabo-mcp-server`
+- **Installation:** `npx hemmabo-mcp-server`
+- **Discovery:** AI agents search NPM for "vacation rental MCP", "booking MCP", "property management MCP"
+- **Keywords in package.json:** `mcp`, `mcp-server`, `model-context-protocol`, `vacation-rental`, `direct-booking`, `property-management`, `pricing`, `availability`, `federation`
+
+### 2. **MCP Registry** (Anthropic Official)
+- Listed in Anthropic's official MCP registry: [modelcontextprotocol.io](https://modelcontextprotocol.io)
+- Indexed by Claude and other MCP-aware systems
+- Submission: `glama.json` with comprehensive metadata
+
+### 3. **Smithery Gateway**
+- Public MCP server directory
+- Badge: [![Smithery Badge](https://smithery.ai/badge/@info-00wt/federation-mcp-server)](https://smithery.ai/servers/@info-00wt/federation-mcp-server)
+- Install command: `npx -y @smithery/cli install @info-00wt/federation-mcp-server --client claude`
+
+### 4. **GitHub Repository**
+- **Repo:** [HemmaBo-se/hemmabo-mcp-server](https://github.com/HemmaBo-se/hemmabo-mcp-server)
+- README optimized for AI parsing with structured metadata
+- Comprehensive tool descriptions in code comments (AI agents read source during research)
+
+### 5. **Web Discovery Endpoints**
+- `https://hemmabo-mcp-server.vercel.app/.well-known/mcp.json` — MCP capabilities manifest
+- `https://hemmabo-mcp-server.vercel.app/.well-known/mcp/server-card.json` — Smithery metadata
+- `https://hemmabo-mcp-server.vercel.app/health` — Status endpoint
+
+---
 
 ## License
 
