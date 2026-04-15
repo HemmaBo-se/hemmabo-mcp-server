@@ -17,5 +17,137 @@
     "own-domain",
     "stripe-payments",
     "set-it-forget-it"
+  ],
+  "tools": [
+    {
+      "name": "hemmabo_search_properties",
+      "description": "Search available vacation rental properties by location and travel dates. Returns properties with live pricing (public and federation rates) and capacity info.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "region": { "type": "string", "description": "Region, area, or destination name to search within." },
+          "country": { "type": "string", "description": "Country name to filter by." },
+          "guests": { "type": "integer", "minimum": 1, "description": "Total number of guests." },
+          "checkIn": { "type": "string", "description": "Arrival date (YYYY-MM-DD)." },
+          "checkOut": { "type": "string", "description": "Departure date (YYYY-MM-DD)." }
+        },
+        "required": ["guests", "checkIn", "checkOut"]
+      }
+    },
+    {
+      "name": "hemmabo_search_availability",
+      "description": "Check whether a specific property is available for the requested dates. Returns available=true/false with conflict details if unavailable.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "propertyId": { "type": "string", "format": "uuid", "description": "Property UUID." },
+          "checkIn": { "type": "string", "description": "Arrival date (YYYY-MM-DD)." },
+          "checkOut": { "type": "string", "description": "Departure date (YYYY-MM-DD)." }
+        },
+        "required": ["propertyId", "checkIn", "checkOut"]
+      }
+    },
+    {
+      "name": "hemmabo_booking_quote",
+      "description": "Get a detailed pricing quote for a specific property, dates, and guest count. Returns public, federation, and gap-night totals with per-night breakdown.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "propertyId": { "type": "string", "format": "uuid", "description": "Property UUID." },
+          "checkIn": { "type": "string", "description": "Arrival date (YYYY-MM-DD)." },
+          "checkOut": { "type": "string", "description": "Departure date (YYYY-MM-DD)." },
+          "guests": { "type": "integer", "minimum": 1, "description": "Total number of guests." }
+        },
+        "required": ["propertyId", "checkIn", "checkOut", "guests"]
+      }
+    },
+    {
+      "name": "hemmabo_booking_create",
+      "description": "Create a direct booking without online payment (legacy flow). Booking is created with status 'pending' and requires host approval.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "propertyId": { "type": "string", "format": "uuid", "description": "Property UUID." },
+          "checkIn": { "type": "string", "description": "Arrival date (YYYY-MM-DD)." },
+          "checkOut": { "type": "string", "description": "Departure date (YYYY-MM-DD)." },
+          "guests": { "type": "integer", "minimum": 1, "description": "Total number of guests." },
+          "guestName": { "type": "string", "description": "Full name of primary guest." },
+          "guestEmail": { "type": "string", "format": "email", "description": "Email for booking confirmation." },
+          "guestPhone": { "type": "string", "description": "Phone with country code." }
+        },
+        "required": ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"]
+      }
+    },
+    {
+      "name": "hemmabo_booking_negotiate",
+      "description": "Create a binding price quote that locks the price for 15 minutes. Returns quoteId to pass to hemmabo_booking_checkout.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "propertyId": { "type": "string", "format": "uuid", "description": "Property UUID." },
+          "checkIn": { "type": "string", "description": "Arrival date (YYYY-MM-DD)." },
+          "checkOut": { "type": "string", "description": "Departure date (YYYY-MM-DD)." },
+          "guests": { "type": "integer", "minimum": 1, "description": "Total number of guests." }
+        },
+        "required": ["propertyId", "checkIn", "checkOut", "guests"]
+      }
+    },
+    {
+      "name": "hemmabo_booking_checkout",
+      "description": "Create a booking with Stripe payment and return a checkout URL. Supports checkout_session (redirect) and payment_intent (programmatic) modes.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "propertyId": { "type": "string", "format": "uuid", "description": "Property UUID." },
+          "checkIn": { "type": "string", "description": "Arrival date (YYYY-MM-DD)." },
+          "checkOut": { "type": "string", "description": "Departure date (YYYY-MM-DD)." },
+          "guests": { "type": "integer", "minimum": 1, "description": "Total number of guests." },
+          "guestName": { "type": "string", "description": "Full name of primary guest." },
+          "guestEmail": { "type": "string", "format": "email", "description": "Email for booking confirmation." },
+          "guestPhone": { "type": "string", "description": "Phone with country code." },
+          "quoteId": { "type": "string", "description": "Quote ID from hemmabo_booking_negotiate to lock the price." },
+          "paymentMode": { "type": "string", "enum": ["checkout_session", "payment_intent"], "description": "Payment flow type." },
+          "channel": { "type": "string", "enum": ["public", "federation"], "description": "Pricing channel." }
+        },
+        "required": ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"]
+      }
+    },
+    {
+      "name": "hemmabo_booking_cancel",
+      "description": "Cancel a confirmed booking and process the Stripe refund. Refund amount is calculated based on the host's cancellation policy.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "reservationId": { "type": "string", "description": "Booking UUID." },
+          "reason": { "type": "string", "description": "Cancellation reason." }
+        },
+        "required": ["reservationId"]
+      }
+    },
+    {
+      "name": "hemmabo_booking_status",
+      "description": "Retrieve current status and full details of an existing booking. Returns dates, guests, price, status, property info, and cancellation policy.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "reservationId": { "type": "string", "description": "Booking UUID." }
+        },
+        "required": ["reservationId"]
+      }
+    },
+    {
+      "name": "hemmabo_booking_reschedule",
+      "description": "Reschedule a confirmed or pending booking to new dates. Automatically recalculates price and handles Stripe charge or refund.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "reservationId": { "type": "string", "description": "Booking UUID to reschedule." },
+          "newCheckIn": { "type": "string", "description": "New arrival date (YYYY-MM-DD)." },
+          "newCheckOut": { "type": "string", "description": "New departure date (YYYY-MM-DD)." },
+          "reason": { "type": "string", "description": "Reason for rescheduling." }
+        },
+        "required": ["reservationId", "newCheckIn", "newCheckOut"]
+      }
+    }
   ]
 }
