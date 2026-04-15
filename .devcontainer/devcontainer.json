@@ -1,0 +1,14 @@
+{
+  "name": "HemmaBo MCP Server",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+  "postStartCommand": "npm install && npm run build && nohup npm start &",
+  "forwardPorts": [3000],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  }
+}
