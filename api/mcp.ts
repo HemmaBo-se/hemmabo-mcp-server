@@ -20,6 +20,15 @@ import {
   createPaymentIntent,
 } from "../src/stripe.js";
 
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║ SYNC WARNING: Tool logic is duplicated in src/index.ts          ║
+// ║ (MCP SDK + stdio transport). If you change a tool handler here, ║
+// ║ you MUST make the same change in src/index.ts — and vice versa. ║
+// ║                                                                ║
+// ║ Shared logic lives in lib/ (pricing.ts, availability.ts) and   ║
+// ║ src/stripe.ts — always prefer editing shared files.            ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
 // ── Server-level instructions for AI agents ──────────────────────
 const SERVER_INSTRUCTIONS = `This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated.
 

@@ -24,6 +24,15 @@ import { resolveQuote } from "./pricing.js";
 import { checkAvailability } from "./availability.js";
 import { createCheckoutSession, retrievePaymentIntent, createRefund, createPaymentIntent } from "./stripe.js";
 
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║ SYNC WARNING: Tool logic is duplicated in api/mcp.ts           ║
+// ║ (Vercel HTTP transport). If you change a tool handler here,    ║
+// ║ you MUST make the same change in api/mcp.ts — and vice versa.  ║
+// ║                                                                ║
+// ║ Shared logic lives in lib/ (pricing.ts, availability.ts) and   ║
+// ║ src/stripe.ts — always prefer editing shared files.            ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
 // ── Environment ────────────────────────────────────────────────────
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -335,7 +344,7 @@ server.tool(
         nights: quote.nights,
         requested_guests: guests,
         currency: quote.currency,
-        source_version: "3.0.0",
+        source_version: "3.1.16",
         valid_until: validUntil,
         public_total: quote.publicTotal,
         ai_total: quote.federationTotal,
@@ -871,13 +880,38 @@ server.tool(
   }
 );
 
+// ── Prompt: plan_trip ─────────────────────────────────────────────────────
+server.prompt(
+  "plan_trip",
+  "Help plan a vacation rental trip. Guides the agent through the full booking lifecycle: searching properties, getting a binding quote, completing payment via Stripe checkout, and managing the booking (status checks, rescheduling, cancellation). Provide destination, dates, and guest count to get started.",
+  {
+    destination: z.string().describe("Where the guest wants to travel (region, city, or country). Example: 'Skane', 'Sweden', 'Toscana'."),
+    checkIn: z.string().describe("Desired check-in date in YYYY-MM-DD format."),
+    checkOut: z.string().describe("Desired check-out date in YYYY-MM-DD format."),
+    guests: z.string().describe("Number of guests (integer, minimum 1)."),
+  },
+  async ({ destination, checkIn, checkOut, guests }) => {
+    return {
+      messages: [
+        {
+          role: "user" as const,
+          content: {
+            type: "text" as const,
+            text: `I want to plan a trip to ${destination || "a vacation destination"} from ${checkIn || "TBD"} to ${checkOut || "TBD"} for ${guests || "2"} guests. Please: (1) search for available properties, (2) show pricing with both public and direct booking rates, (3) create a binding quote with hemmabo_booking_negotiate, (4) proceed to hemmabo_booking_checkout with Stripe payment, and (5) confirm the booking status. If I need to change dates later, use hemmabo_booking_reschedule. If I need to cancel, use hemmabo_booking_cancel.`,
+          },
+        },
+      ],
+    };
+  }
+);
+
 // ── HTTP Server (Streamable HTTP Transport) ────────────────────────
 
 const app = express();
 
 // Health check
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", version: "3.0.0" });
+  res.json({ status: "ok", version: "3.1.16" });
 });
 
 // MCP endpoint
@@ -894,7 +928,7 @@ app.get("/.well-known/mcp/server-card.json", (_req, res) => {
   res.json({
     serverInfo: {
       name: "federation-mcp-server",
-      version: "3.0.0",
+      version: "3.1.16",
     },
     configSchema: {
       type: "object",
@@ -1043,7 +1077,18 @@ app.get("/.well-known/mcp/server-card.json", (_req, res) => {
       },
     ],
     resources: [],
-    prompts: [],
+    prompts: [
+      {
+        name: "plan_trip",
+        description: "Help plan a vacation rental trip. Guides the agent through the full booking lifecycle.",
+        arguments: [
+          { name: "destination", description: "Where to travel (region, city, or country)", required: true },
+          { name: "checkIn", description: "Check-in date YYYY-MM-DD", required: true },
+          { name: "checkOut", description: "Check-out date YYYY-MM-DD", required: true },
+          { name: "guests", description: "Number of guests", required: true },
+        ],
+      },
+    ],
   });
 });
 
