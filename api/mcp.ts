@@ -840,6 +840,7 @@ async function handleJsonRpc(
           capabilities: {
             tools: { listChanged: false },
             prompts: { listChanged: false },
+            resources: { listChanged: false },
           },
           serverInfo: {
             name: "federation-mcp-server",
@@ -870,6 +871,9 @@ async function handleJsonRpc(
 
     case "prompts/list":
       return { jsonrpc: "2.0", id, result: { prompts: PROMPTS } };
+
+    case "resources/list":
+      return { jsonrpc: "2.0", id, result: { resources: [] } };
 
     case "prompts/get": {
       const promptName = (params as { name: string })?.name;
