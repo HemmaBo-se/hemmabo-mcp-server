@@ -8,11 +8,25 @@ Booking infrastructure SaaS for vacation rental hosts. Each host gets own domain
 ## Live Example
 https://villaåkerlyckan.se (Sweden's first AI-bookable vacation rental)
 
-## MCP Server
+## MCP Server (Live — connect this URL to any MCP client)
+- Endpoint: https://hemmabo-mcp-server.vercel.app/mcp
+- Transport: Streamable HTTP (MCP 2025-03-26)
 - GitHub: https://github.com/HemmaBo-se/hemmabo-mcp-server
 - NPM: https://www.npmjs.com/package/hemmabo-mcp-server
-- 9 production tools: search, availability, pricing, booking, checkout, cancellation
-- Installation: `npx hemmabo-mcp-server`
+- Glama: https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server
+- Smithery: https://smithery.ai/server/info-00wt/federation-mcp-server
+- Installation (stdio): `npx hemmabo-mcp-server`
+
+## 9 MCP Tools
+1. hemmabo_search_properties — find available vacation rentals by region, country, guests, dates
+2. hemmabo_search_availability — check if a specific property is free for given dates
+3. hemmabo_booking_quote — get live price breakdown (seasonal rates, cleaning fee, discounts)
+4. hemmabo_booking_negotiate — lock a price quote for 15 minutes (binding quoteId)
+5. hemmabo_booking_checkout — create booking + Stripe payment link (checkout_session or payment_intent)
+6. hemmabo_booking_create — create booking without payment (legacy/invoice flow)
+7. hemmabo_booking_status — get current booking status, cancellation policy, refund rules
+8. hemmabo_booking_cancel — cancel a booking and trigger Stripe refund
+9. hemmabo_booking_reschedule — move a booking to new dates with repricing
 
 ## Business Model
 - 399 SEK/month (~€36/month)
