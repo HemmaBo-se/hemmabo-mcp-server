@@ -1,9 +1,42 @@
 /**
  * Stripe helpers — REST API via fetch (no SDK dependency)
- * 
+ *
  * Used by both api/mcp.ts (HTTP) and src/stdio.ts (stdio)
  * Requires STRIPE_SECRET_KEY environment variable
  */
+
+const FALLBACK_DOMAIN = "hemmabo.se";
+
+/**
+ * Validates a property domain before embedding it in Stripe redirect URLs.
+ *
+ * Accepts only bare hostnames (e.g. "villaaakerlyckan.se") — no scheme,
+ * no path, no port, no credentials. Returns the fallback domain when the
+ * value is absent or fails validation so callers always get a safe URL.
+ *
+ * Attack prevented: a malicious or compromised `properties.domain` value
+ * such as "evil.com/x?foo=" or "evil.com@legit.se" would otherwise redirect
+ * paying guests to an attacker-controlled page after Stripe checkout, leaking
+ * the session_id and enabling booking impersonation.
+ */
+export function sanitizeDomain(domain: string | null | undefined): string {
+  if (!domain) return FALLBACK_DOMAIN;
+
+  // Strip accidental scheme prefix so the regex below can do a clean check
+  const stripped = domain.replace(/^https?:\/\//i, "");
+
+  // Allow only hostname characters: labels separated by dots, optional port.
+  // Rejects paths (/), query strings (?), credentials (@), and fragments (#).
+  const HOSTNAME_RE = /^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*(\:\d{1,5})?$/;
+  if (!HOSTNAME_RE.test(stripped)) return FALLBACK_DOMAIN;
+
+  // Reject private/loopback ranges that should never appear in production
+  if (/^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(stripped)) {
+    return FALLBACK_DOMAIN;
+  }
+
+  return stripped;
+}
 
 export function getStripeKey(): string {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -39,12 +72,9 @@ export async function createCheckoutSession(params: {
   body.append("payment_intent_data[metadata][property_id]", params.propertyId);
   body.append("payment_intent_data[metadata][booking_id]", params.bookingId);
 
-  const successUrl = params.domain
-    ? `https://${params.domain}/booking/success?session_id={CHECKOUT_SESSION_ID}`
-    : "https://hemmabo.se/booking/success?session_id={CHECKOUT_SESSION_ID}";
-  const cancelUrl = params.domain
-    ? `https://${params.domain}/booking/cancelled`
-    : "https://hemmabo.se/booking/cancelled";
+  const safeDomain = sanitizeDomain(params.domain);
+  const successUrl = `https://${safeDomain}/booking/success?session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = `https://${safeDomain}/booking/cancelled`;
 
   body.append("success_url", successUrl);
   body.append("cancel_url", cancelUrl);

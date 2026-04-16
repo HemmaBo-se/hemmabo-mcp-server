@@ -20,10 +20,19 @@ import { checkAvailability } from "../lib/availability.js";
 
 // ── Helpers ──────────────────────────────────────────────────────
 
+// Service-role client — bypasses RLS. Use only for writes (insert/update/delete).
 function getSupabase() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  return createClient(url, key);
+}
+
+// Anon client — subject to RLS. Use for all read-only queries.
+function getSupabaseReader() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_ANON_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error("Missing SUPABASE_URL or SUPABASE_ANON_KEY");
   return createClient(url, key);
 }
 
@@ -76,8 +85,8 @@ interface ACPCheckoutState {
 }
 
 async function buildACPState(bookingId: string): Promise<ACPCheckoutState | null> {
-  const supabase = getSupabase();
-  const { data: booking, error } = await supabase
+  const reader = getSupabaseReader();
+  const { data: booking, error } = await reader
     .from("bookings")
     .select("*, properties(name, domain, currency, region, city, country, property_type)")
     .eq("id", bookingId)
@@ -171,6 +180,7 @@ function mapStatus(dbStatus: string): ACPCheckoutState["status"] {
 
 async function createCheckout(body: Record<string, unknown>, res: VercelResponse) {
   const supabase = getSupabase();
+  const reader = getSupabaseReader();
 
   // ACP uses items[].id as property_id, plus buyer and custom fields
   const items = body.items as { id: string; quantity: number }[] | undefined;
@@ -182,15 +192,19 @@ async function createCheckout(body: Record<string, unknown>, res: VercelResponse
   const checkOut = body.check_out as string;
   const guests = (body.guests as number) || items?.[0]?.quantity || 2;
 
+  const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
   if (!propertyId || !checkIn || !checkOut) {
     return res.status(400).json({
       error: "Missing required fields: items[].id (property_id), check_in, check_out",
       hint: "Use items: [{id: 'property-uuid', quantity: guests}], check_in: 'YYYY-MM-DD', check_out: 'YYYY-MM-DD'",
     });
   }
+  if (!ISO_DATE_RE.test(checkIn) || !ISO_DATE_RE.test(checkOut)) {
+    return res.status(400).json({ error: "Dates must be YYYY-MM-DD format" });
+  }
 
   // Fetch property
-  const { data: prop, error: propErr } = await supabase
+  const { data: prop, error: propErr } = await reader
     .from("properties")
     .select("name, domain, host_id, currency, direct_booking_discount, cleaning_fee")
     .eq("id", propertyId)
@@ -198,18 +212,26 @@ async function createCheckout(body: Record<string, unknown>, res: VercelResponse
   if (propErr || !prop) return res.status(404).json({ error: "Property not found" });
 
   // Check availability
-  const avail = await checkAvailability(supabase, propertyId, checkIn, checkOut);
+  const avail = await checkAvailability(reader, propertyId, checkIn, checkOut);
   if (!avail.available) return res.status(409).json({ error: "Not available", ...avail });
 
   // Calculate price (federation rate for agents)
-  const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
+  const quote = await resolveQuote(reader, propertyId, checkIn, checkOut, guests);
   if ("error" in quote) return res.status(400).json(quote);
 
   const totalPrice = quote.gapTotal ?? quote.federationTotal;
   const currency = quote.currency;
 
-  const guestName = buyer ? `${buyer.first_name || ""} ${buyer.last_name || ""}`.trim() : "ACP Guest";
-  const guestEmail = buyer?.email || "acp@hemmabo.se";
+  // buyer.email is required — reject rather than silently use an internal fallback
+  // that would receive all confirmation emails for anonymous agent bookings.
+  if (!buyer?.email) {
+    return res.status(400).json({
+      error: "Missing buyer.email — a valid guest email is required to create a booking",
+    });
+  }
+
+  const guestName = `${buyer.first_name || ""} ${buyer.last_name || ""}`.trim() || "ACP Guest";
+  const guestEmail = buyer.email;
 
   // Create booking record
   const { data: booking, error: bookErr } = await supabase
@@ -245,9 +267,10 @@ async function getCheckout(checkoutId: string, res: VercelResponse) {
 
 async function updateCheckout(checkoutId: string, body: Record<string, unknown>, res: VercelResponse) {
   const supabase = getSupabase();
+  const reader = getSupabaseReader();
 
   // Fetch existing booking
-  const { data: booking, error: bookErr } = await supabase
+  const { data: booking, error: bookErr } = await reader
     .from("bookings")
     .select("*")
     .eq("id", checkoutId)
@@ -275,12 +298,17 @@ async function updateCheckout(checkoutId: string, body: Record<string, unknown>,
     const co = newCheckOut || booking.check_out_date;
     const g = newGuests || booking.guests_count;
 
+    const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+    if (!ISO_DATE_RE.test(ci) || !ISO_DATE_RE.test(co)) {
+      return res.status(400).json({ error: "Dates must be YYYY-MM-DD format" });
+    }
+
     // Check availability
-    const avail = await checkAvailability(supabase, booking.property_id, ci, co);
+    const avail = await checkAvailability(reader, booking.property_id, ci, co);
     if (!avail.available) return res.status(409).json({ error: "New dates not available", ...avail });
 
     // Recalculate price
-    const quote = await resolveQuote(supabase, booking.property_id, ci, co, g);
+    const quote = await resolveQuote(reader, booking.property_id, ci, co, g);
     if ("error" in quote) return res.status(400).json(quote);
 
     updates.check_in_date = ci;
@@ -289,7 +317,7 @@ async function updateCheckout(checkoutId: string, body: Record<string, unknown>,
     updates.total_price = quote.gapTotal ?? quote.federationTotal;
     updates.currency = quote.currency;
   } else if (newGuests) {
-    const quote = await resolveQuote(supabase, booking.property_id, booking.check_in_date, booking.check_out_date, newGuests);
+    const quote = await resolveQuote(reader, booking.property_id, booking.check_in_date, booking.check_out_date, newGuests);
     if ("error" in quote) return res.status(400).json(quote);
     updates.guests_count = newGuests;
     updates.total_price = quote.gapTotal ?? quote.federationTotal;
@@ -309,10 +337,11 @@ async function updateCheckout(checkoutId: string, body: Record<string, unknown>,
 
 async function completeCheckout(checkoutId: string, body: Record<string, unknown>, res: VercelResponse) {
   const supabase = getSupabase();
+  const reader = getSupabaseReader();
   const stripeKey = getStripeKey();
 
   // Fetch booking
-  const { data: booking, error: bookErr } = await supabase
+  const { data: booking, error: bookErr } = await reader
     .from("bookings")
     .select("*, properties(name, domain, currency)")
     .eq("id", checkoutId)
@@ -383,8 +412,9 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
 
 async function cancelCheckout(checkoutId: string, res: VercelResponse) {
   const supabase = getSupabase();
+  const reader = getSupabaseReader();
 
-  const { data: booking, error: bookErr } = await supabase
+  const { data: booking, error: bookErr } = await reader
     .from("bookings")
     .select("id, status, stripe_payment_intent_id, total_price")
     .eq("id", checkoutId)
@@ -431,6 +461,10 @@ async function cancelCheckout(checkoutId: string, res: VercelResponse) {
 // ── HTTP Router ──────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Origin is intentionally unrestricted — ACP agents are not browsers.
+  // Browser-based CSRF is mitigated by requiring Authorization on all
+  // mutating methods (POST, PUT); browsers cannot send that header
+  // cross-origin without a preflight that explicitly grants it.
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
@@ -462,6 +496,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const checkoutId = pathParts[1];
   const action = pathParts[2]; // "complete" or "cancel" or undefined
+  const isMutation = req.method === "POST" || req.method === "PUT";
+
+  // Require Authorization on all mutating requests to block browser-based CSRF.
+  if (isMutation && !req.headers["authorization"]) {
+    return res.status(401).json({
+      error: "Missing Authorization header. ACP agents must pass: Authorization: Bearer <key>",
+    });
+  }
 
   try {
     // POST /acp/checkouts — Create
