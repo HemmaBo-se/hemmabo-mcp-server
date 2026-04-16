@@ -76,15 +76,15 @@ npx -y @smithery/cli install @info-00wt/federation-mcp-server --client claude
 
 | Tool | Description | Read-only |
 |------|-------------|-----------|
-| `search_properties` | Search vacation rentals by location, dates, and guest count. Returns available properties with live pricing (public + federation rates). | Yes |
-| `check_availability` | Check if a property is available for specific dates. Verifies blocked dates, bookings, and booking locks. | Yes |
-| `get_canonical_quote` | Get detailed pricing: publicTotal (website rate), federationTotal (direct booking rate), gapTotal (gap-night discount). Per-night breakdown included. | Yes |
-| `create_booking` | Create a direct booking at federation price. Validates availability, calculates price, creates pending booking for host approval. | No |
-| `negotiate_offer` | Create a binding price quote with quoteId. Stores immutable snapshot, expires after 15 minutes. Pass quoteId to checkout to lock the price. | Yes |
-| `checkout` | Create a booking with Stripe payment. Supports MPP (payment_intent mode for programmatic payment). Optionally locks price via quoteId. | No |
-| `cancel_booking` | Cancel a booking. Handles refund calculation, Stripe refund, email notifications via Supabase Edge Function. | No |
-| `get_booking_status` | Get booking details, property info, and cancellation policy by reservation ID. | Yes |
-| `reschedule_booking` | Reschedule to new dates. Checks availability, recalculates price, handles Stripe charge/refund for price delta. | No |
+| `hemmabo_search_properties` | Search vacation rentals by location, dates, and guest count. Returns available properties with live pricing (public + federation rates). | Yes |
+| `hemmabo_search_availability` | Check if a property is available for specific dates. Verifies blocked dates, bookings, and booking locks. | Yes |
+| `hemmabo_booking_quote` | Get detailed pricing: publicTotal (website rate), federationTotal (direct booking rate), gapTotal (gap-night discount). Per-night breakdown included. | Yes |
+| `hemmabo_booking_create` | Create a direct booking at federation price. Validates availability, calculates price, creates pending booking for host approval. | No |
+| `hemmabo_booking_negotiate` | Create a binding price quote with quoteId. Stores immutable snapshot, expires after 15 minutes. Pass quoteId to checkout to lock the price. | Yes |
+| `hemmabo_booking_checkout` | Create a booking with Stripe payment. Supports MPP (payment_intent mode for programmatic payment). Optionally locks price via quoteId. | No |
+| `hemmabo_booking_cancel` | Cancel a booking. Handles refund calculation, Stripe refund, email notifications via Supabase Edge Function. | No |
+| `hemmabo_booking_status` | Get booking details, property info, and cancellation policy by reservation ID. | Yes |
+| `hemmabo_booking_reschedule` | Reschedule to new dates. Checks availability, recalculates price, handles Stripe charge/refund for price delta. | No |
 
 ## Pricing Architecture
 
