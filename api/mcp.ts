@@ -317,10 +317,31 @@ function getPromptMessages(name: string, args: Record<string, string>) {
 
 // ── Tool execution ───────────────────────────────────────────────
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Returns an error string if any of the provided date strings are not YYYY-MM-DD. */
+function validateDates(...dates: (string | undefined)[]): string | null {
+  for (const d of dates) {
+    if (d !== undefined && !ISO_DATE_RE.test(d)) {
+      return `Invalid date format "${d}" — expected YYYY-MM-DD`;
+    }
+  }
+  return null;
+}
+
+// Service-role client — bypasses RLS. Use only for writes (insert/update/delete).
 function getSupabase() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  return createClient(url, key);
+}
+
+// Anon client — subject to RLS. Use for all read-only queries.
+function getSupabaseReader() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_ANON_KEY;
+  if (!url || !key) throw new Error("Missing SUPABASE_URL or SUPABASE_ANON_KEY");
   return createClient(url, key);
 }
 
@@ -329,14 +350,17 @@ async function executeTool(
   args: Record<string, unknown>
 ): Promise<{ content: { type: "text"; text: string }[] }> {
   const supabase = getSupabase();
+  const reader = getSupabaseReader();
 
   switch (name) {
     case "hemmabo_search_properties": {
       const { region, country, guests, checkIn, checkOut } = args as {
         region?: string; country?: string; guests: number; checkIn: string; checkOut: string;
       };
+      const dateErr = validateDates(checkIn, checkOut);
+      if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }] };
 
-      let query = supabase
+      let query = reader
         .from("properties")
         .select("id, name, domain, region, city, country, max_guests, currency, property_type, direct_booking_discount, cleaning_fee")
         .eq("published", true)
@@ -350,9 +374,9 @@ async function executeTool(
 
       const results = [];
       for (const prop of properties ?? []) {
-        const avail = await checkAvailability(supabase, prop.id, checkIn, checkOut);
+        const avail = await checkAvailability(reader, prop.id, checkIn, checkOut);
         if (!avail.available) continue;
-        const quote = await resolveQuote(supabase, prop.id, checkIn, checkOut, guests);
+        const quote = await resolveQuote(reader, prop.id, checkIn, checkOut, guests);
         if ("error" in quote) continue;
         results.push({
           propertyId: prop.id, name: prop.name, domain: prop.domain,
@@ -370,13 +394,17 @@ async function executeTool(
 
     case "hemmabo_search_availability": {
       const { propertyId, checkIn, checkOut } = args as { propertyId: string; checkIn: string; checkOut: string };
-      const result = await checkAvailability(supabase, propertyId, checkIn, checkOut);
+      const dateErr = validateDates(checkIn, checkOut);
+      if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }] };
+      const result = await checkAvailability(reader, propertyId, checkIn, checkOut);
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     }
 
     case "hemmabo_booking_quote": {
       const { propertyId, checkIn, checkOut, guests } = args as { propertyId: string; checkIn: string; checkOut: string; guests: number };
-      const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
+      const dateErr = validateDates(checkIn, checkOut);
+      if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }] };
+      const quote = await resolveQuote(reader, propertyId, checkIn, checkOut, guests);
       return { content: [{ type: "text", text: JSON.stringify(quote, null, 2) }] };
     }
 
@@ -385,15 +413,17 @@ async function executeTool(
         propertyId: string; checkIn: string; checkOut: string; guests: number;
         guestName: string; guestEmail: string; guestPhone?: string;
       };
+      const dateErr = validateDates(checkIn, checkOut);
+      if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }] };
 
-      const avail = await checkAvailability(supabase, propertyId, checkIn, checkOut);
+      const avail = await checkAvailability(reader, propertyId, checkIn, checkOut);
       if (!avail.available) return { content: [{ type: "text", text: JSON.stringify({ error: "Not available", ...avail }) }] };
 
-      const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
+      const quote = await resolveQuote(reader, propertyId, checkIn, checkOut, guests);
       if ("error" in quote) return { content: [{ type: "text", text: JSON.stringify(quote) }] };
 
       const totalPrice = quote.gapTotal ?? quote.federationTotal;
-      const { data: prop } = await supabase.from("properties").select("name, host_id").eq("id", propertyId).single();
+      const { data: prop } = await reader.from("properties").select("name, host_id").eq("id", propertyId).single();
 
       const { data: booking, error: bookErr } = await supabase
         .from("bookings")
@@ -431,12 +461,14 @@ async function executeTool(
       const { propertyId, checkIn, checkOut, guests } = args as {
         propertyId: string; checkIn: string; checkOut: string; guests: number;
       };
+      const dateErr = validateDates(checkIn, checkOut);
+      if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }] };
 
-      const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
+      const quote = await resolveQuote(reader, propertyId, checkIn, checkOut, guests);
       if ("error" in quote) return { content: [{ type: "text", text: JSON.stringify(quote) }] };
 
       // Fetch property domain for snapshot
-      const { data: prop } = await supabase.from("properties").select("domain").eq("id", propertyId).single();
+      const { data: prop } = await reader.from("properties").select("domain").eq("id", propertyId).single();
 
       const validUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
@@ -506,8 +538,11 @@ async function executeTool(
       const effectivePaymentMode = paymentMode ?? "checkout_session";
       const effectiveChannel = channel ?? "federation";
 
+      const dateErr = validateDates(checkIn, checkOut);
+      if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }] };
+
       // Fetch property
-      const { data: prop, error: propErr } = await supabase
+      const { data: prop, error: propErr } = await reader
         .from("properties")
         .select("name, domain, host_id, currency, direct_booking_discount, cleaning_fee")
         .eq("id", propertyId)
@@ -515,7 +550,7 @@ async function executeTool(
       if (propErr || !prop) return { content: [{ type: "text", text: JSON.stringify({ error: "Property not found" }) }] };
 
       // Check availability
-      const avail = await checkAvailability(supabase, propertyId, checkIn, checkOut);
+      const avail = await checkAvailability(reader, propertyId, checkIn, checkOut);
       if (!avail.available) return { content: [{ type: "text", text: JSON.stringify({ error: "Not available", ...avail }) }] };
 
       let totalPrice: number;
@@ -524,7 +559,7 @@ async function executeTool(
 
       if (quoteId) {
         // Use locked quote from hemmabo_booking_negotiate
-        const { data: snapshot, error: snapErr } = await supabase
+        const { data: snapshot, error: snapErr } = await reader
           .from("property_quote_snapshots")
           .select("*")
           .eq("id", quoteId)
@@ -538,7 +573,7 @@ async function executeTool(
         nights = snapshot.nights;
       } else {
         // Calculate fresh price
-        const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
+        const quote = await resolveQuote(reader, propertyId, checkIn, checkOut, guests);
         if ("error" in quote) return { content: [{ type: "text", text: JSON.stringify(quote) }] };
         totalPrice = effectiveChannel === "public" ? quote.publicTotal : (quote.gapTotal ?? quote.federationTotal);
         currency = quote.currency;
@@ -669,7 +704,7 @@ async function executeTool(
       const { reservationId } = args as { reservationId: string };
 
       // Fetch booking
-      const { data: booking, error: bookErr } = await supabase
+      const { data: booking, error: bookErr } = await reader
         .from("bookings")
         .select("id, status, check_in_date, check_out_date, guests_count, total_price, currency, property_id, guest_name, guest_email, created_at, updated_at")
         .eq("id", reservationId)
@@ -678,14 +713,14 @@ async function executeTool(
       if (bookErr || !booking) return { content: [{ type: "text", text: JSON.stringify({ error: "Booking not found" }) }] };
 
       // Fetch property
-      const { data: prop } = await supabase
+      const { data: prop } = await reader
         .from("properties")
         .select("name, domain")
         .eq("id", booking.property_id)
         .single();
 
       // Fetch cancellation policy
-      const { data: policy } = await supabase
+      const { data: policy } = await reader
         .from("host_policies")
         .select("cancellation_tier, refund_rules")
         .eq("property_id", booking.property_id)
@@ -722,6 +757,8 @@ async function executeTool(
       const { reservationId, newCheckIn, newCheckOut, reason } = args as {
         reservationId: string; newCheckIn: string; newCheckOut: string; reason?: string;
       };
+      const dateErr = validateDates(newCheckIn, newCheckOut);
+      if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }] };
 
       const RESCHEDULABLE_STATES = ["confirmed", "pending"];
 
@@ -754,11 +791,11 @@ async function executeTool(
       }
 
       // Check availability (excluding this booking)
-      const avail = await checkAvailability(supabase, booking.property_id, newCheckIn, newCheckOut, booking.id);
+      const avail = await checkAvailability(reader, booking.property_id, newCheckIn, newCheckOut, booking.id);
       if (!avail.available) return { content: [{ type: "text", text: JSON.stringify({ error: "New dates not available", ...avail }) }] };
 
       // Calculate new price
-      const quote = await resolveQuote(supabase, booking.property_id, newCheckIn, newCheckOut, booking.guests_count);
+      const quote = await resolveQuote(reader, booking.property_id, newCheckIn, newCheckOut, booking.guests_count);
       if ("error" in quote) return { content: [{ type: "text", text: JSON.stringify(quote) }] };
 
       const newPrice = quote.gapTotal ?? quote.federationTotal;
@@ -896,15 +933,31 @@ async function handleJsonRpc(
 // ── HTTP handler ─────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Origin is intentionally unrestricted — MCP clients (Claude Desktop, Smithery,
+  // Glama) are not browsers and do not send an Origin header. Browser-based CSRF
+  // is mitigated by requiring the Authorization header on all POST requests:
+  // browsers cannot send custom headers cross-origin without a preflight, and the
+  // preflight response does not grant credentials, so unauthenticated cross-site
+  // POSTs are blocked at the browser level.
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept, Mcp-Session-Id");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept, Mcp-Session-Id, Authorization");
   res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
 
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method === "GET") return res.json({ status: "ok", transport: "streamable-http", version: "3.1.16" });
   if (req.method === "DELETE") return res.status(202).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  // Require Authorization header on all POST requests. This prevents cross-site
+  // request forgery from browser contexts — browsers cannot attach a custom
+  // Authorization header cross-origin without an explicit preflight grant.
+  if (!req.headers["authorization"]) {
+    return res.status(401).json({
+      jsonrpc: "2.0",
+      error: { code: -32600, message: "Missing Authorization header. Pass your API key as: Authorization: Bearer <key>" },
+    });
+  }
 
   try {
     const body = req.body;
