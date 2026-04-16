@@ -1,13 +1,13 @@
 /**
- * Tests for sanitizeDomain — guards Stripe redirect URLs against open-redirect
- * injection via a malicious or compromised properties.domain value.
+ * Security unit tests.
  *
  * Run: npx tsx --test src/stripe.test.ts
  */
 
-import { describe, it } from "node:test";
+import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { sanitizeDomain } from "./stripe.js";
+import { validateApiKey } from "./auth.js";
 
 const FALLBACK = "hemmabo.se";
 
@@ -104,5 +104,76 @@ describe("sanitizeDomain", () => {
 
   it("rejects 172.16.0.1 (RFC-1918)", () => {
     assert.equal(sanitizeDomain("172.16.0.1"), FALLBACK);
+  });
+});
+
+describe("validateApiKey", () => {
+  let originalKey: string | undefined;
+
+  beforeEach(() => {
+    originalKey = process.env.MCP_API_KEY;
+  });
+
+  afterEach(() => {
+    if (originalKey === undefined) {
+      delete process.env.MCP_API_KEY;
+    } else {
+      process.env.MCP_API_KEY = originalKey;
+    }
+  });
+
+  // ── Open mode (no key configured) ─────────────────────────────
+
+  it("allows any request when MCP_API_KEY is unset", () => {
+    delete process.env.MCP_API_KEY;
+    assert.equal(validateApiKey(undefined), null);
+    assert.equal(validateApiKey("Bearer anything"), null);
+    assert.equal(validateApiKey("wrong"), null);
+  });
+
+  // ── Valid key ──────────────────────────────────────────────────
+
+  it("accepts a correct Bearer token", () => {
+    process.env.MCP_API_KEY = "secret-key-123";
+    assert.equal(validateApiKey("Bearer secret-key-123"), null);
+  });
+
+  it("accepts a token without Bearer prefix", () => {
+    process.env.MCP_API_KEY = "secret-key-123";
+    assert.equal(validateApiKey("secret-key-123"), null);
+  });
+
+  // ── Missing header ─────────────────────────────────────────────
+
+  it("rejects missing Authorization header", () => {
+    process.env.MCP_API_KEY = "secret-key-123";
+    assert.equal(validateApiKey(undefined), "Missing Authorization header");
+  });
+
+  // ── Wrong key ─────────────────────────────────────────────────
+
+  it("rejects a wrong token", () => {
+    process.env.MCP_API_KEY = "secret-key-123";
+    assert.equal(validateApiKey("Bearer wrong-key-456"), "Invalid API key");
+  });
+
+  it("rejects a token that is a prefix of the correct key", () => {
+    process.env.MCP_API_KEY = "secret-key-123";
+    assert.equal(validateApiKey("Bearer secret-key"), "Invalid API key");
+  });
+
+  it("rejects a token that extends the correct key", () => {
+    process.env.MCP_API_KEY = "secret-key-123";
+    assert.equal(validateApiKey("Bearer secret-key-123-extra"), "Invalid API key");
+  });
+
+  it("rejects an empty token", () => {
+    process.env.MCP_API_KEY = "secret-key-123";
+    assert.equal(validateApiKey("Bearer "), "Invalid API key");
+  });
+
+  it("rejects a token that differs by one character", () => {
+    process.env.MCP_API_KEY = "secret-key-123";
+    assert.equal(validateApiKey("Bearer secret-key-124"), "Invalid API key");
   });
 });

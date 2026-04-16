@@ -17,6 +17,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
 import { resolveQuote } from "../lib/pricing.js";
 import { checkAvailability } from "../lib/availability.js";
+import { validateApiKey } from "../src/auth.js";
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -85,8 +86,8 @@ interface ACPCheckoutState {
 }
 
 async function buildACPState(bookingId: string): Promise<ACPCheckoutState | null> {
-  const reader = getSupabaseReader();
-  const { data: booking, error } = await reader
+  const supabase = getSupabase();
+  const { data: booking, error } = await supabase
     .from("bookings")
     .select("*, properties(name, domain, currency, region, city, country, property_type)")
     .eq("id", bookingId)
@@ -269,8 +270,8 @@ async function updateCheckout(checkoutId: string, body: Record<string, unknown>,
   const supabase = getSupabase();
   const reader = getSupabaseReader();
 
-  // Fetch existing booking
-  const { data: booking, error: bookErr } = await reader
+  // Fetch existing booking — service role required (bookings table blocks anon reads)
+  const { data: booking, error: bookErr } = await supabase
     .from("bookings")
     .select("*")
     .eq("id", checkoutId)
@@ -337,11 +338,10 @@ async function updateCheckout(checkoutId: string, body: Record<string, unknown>,
 
 async function completeCheckout(checkoutId: string, body: Record<string, unknown>, res: VercelResponse) {
   const supabase = getSupabase();
-  const reader = getSupabaseReader();
   const stripeKey = getStripeKey();
 
-  // Fetch booking
-  const { data: booking, error: bookErr } = await reader
+  // Fetch booking — service role required (bookings table blocks anon reads)
+  const { data: booking, error: bookErr } = await supabase
     .from("bookings")
     .select("*, properties(name, domain, currency)")
     .eq("id", checkoutId)
@@ -412,9 +412,9 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
 
 async function cancelCheckout(checkoutId: string, res: VercelResponse) {
   const supabase = getSupabase();
-  const reader = getSupabaseReader();
 
-  const { data: booking, error: bookErr } = await reader
+  // Fetch booking — service role required (bookings table blocks anon reads)
+  const { data: booking, error: bookErr } = await supabase
     .from("bookings")
     .select("id, status, stripe_payment_intent_id, total_price")
     .eq("id", checkoutId)
@@ -498,11 +498,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = pathParts[2]; // "complete" or "cancel" or undefined
   const isMutation = req.method === "POST" || req.method === "PUT";
 
-  // Require Authorization on all mutating requests to block browser-based CSRF.
-  if (isMutation && !req.headers["authorization"]) {
-    return res.status(401).json({
-      error: "Missing Authorization header. ACP agents must pass: Authorization: Bearer <key>",
-    });
+  // Validate API key on all mutating requests. Blocks CSRF from browsers and
+  // rejects invalid keys when MCP_API_KEY is configured.
+  if (isMutation) {
+    const authErr = validateApiKey(req.headers["authorization"]);
+    if (authErr) {
+      return res.status(401).json({
+        error: `${authErr}. ACP agents must pass: Authorization: Bearer <key>`,
+      });
+    }
   }
 
   try {
