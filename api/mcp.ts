@@ -19,6 +19,7 @@ import {
   createRefund,
   createPaymentIntent,
 } from "../src/stripe.js";
+import { validateApiKey } from "../src/auth.js";
 
 // ╔══════════════════════════════════════════════════════════════════╗
 // ║ SYNC WARNING: Tool logic is duplicated in src/index.ts          ║
@@ -703,8 +704,10 @@ async function executeTool(
     case "hemmabo_booking_status": {
       const { reservationId } = args as { reservationId: string };
 
-      // Fetch booking
-      const { data: booking, error: bookErr } = await reader
+      // Uses service role — booking lookup by UUID is a privileged operation
+      // (only authenticated MCP agents with a valid API key reach this point).
+      // The anon client cannot look up bookings without a guest_token JWT claim.
+      const { data: booking, error: bookErr } = await supabase
         .from("bookings")
         .select("id, status, check_in_date, check_out_date, guests_count, total_price, currency, property_id, guest_name, guest_email, created_at, updated_at")
         .eq("id", reservationId)
@@ -713,14 +716,14 @@ async function executeTool(
       if (bookErr || !booking) return { content: [{ type: "text", text: JSON.stringify({ error: "Booking not found" }) }] };
 
       // Fetch property
-      const { data: prop } = await reader
+      const { data: prop } = await supabase
         .from("properties")
         .select("name, domain")
         .eq("id", booking.property_id)
         .single();
 
       // Fetch cancellation policy
-      const { data: policy } = await reader
+      const { data: policy } = await supabase
         .from("host_policies")
         .select("cancellation_tier, refund_rules")
         .eq("property_id", booking.property_id)
@@ -949,13 +952,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "DELETE") return res.status(202).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  // Require Authorization header on all POST requests. This prevents cross-site
-  // request forgery from browser contexts — browsers cannot attach a custom
-  // Authorization header cross-origin without an explicit preflight grant.
-  if (!req.headers["authorization"]) {
+  // Validate API key on all POST requests. Prevents CSRF from browser contexts
+  // (browsers cannot send Authorization cross-origin without a preflight grant)
+  // and rejects requests with an invalid key when MCP_API_KEY is configured.
+  const authErr = validateApiKey(req.headers["authorization"]);
+  if (authErr) {
     return res.status(401).json({
       jsonrpc: "2.0",
-      error: { code: -32600, message: "Missing Authorization header. Pass your API key as: Authorization: Bearer <key>" },
+      error: { code: -32600, message: `${authErr}. Pass your API key as: Authorization: Bearer <key>` },
     });
   }
 
