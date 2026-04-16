@@ -31,7 +31,7 @@ function getSupabase() {
 // Anon client — subject to RLS. Use for all read-only queries.
 function getSupabaseReader() {
   const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_ANON_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = process.env.SUPABASE_ANON_KEY;
   if (!url || !key) throw new Error("Missing SUPABASE_URL or SUPABASE_ANON_KEY");
   return createClient(url, key);
 }
