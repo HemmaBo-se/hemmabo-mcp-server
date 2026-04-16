@@ -23,7 +23,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
     icon: "https://hemmabo-mcp-server.vercel.app/icon.png",
     registry: {
       glama: "https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server",
-      smithery: "https://smithery.ai/server/info-00wt/federation-mcp-server",
+      smithery: "https://smithery.ai/servers/@hemmabo-se/hemmabo",
       npm: "https://www.npmjs.com/package/hemmabo-mcp-server",
     },
     tools: [

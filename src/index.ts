@@ -932,7 +932,7 @@ app.all("/mcp", async (req, res) => {
 app.get("/.well-known/mcp/server-card.json", (_req, res) => {
   res.json({
     serverInfo: {
-      name: "federation-mcp-server",
+      name: "hemmabo-mcp-server",
       version: "3.1.16",
     },
     configSchema: {
