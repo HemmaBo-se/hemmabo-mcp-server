@@ -32,20 +32,29 @@ startCommand:
         description: "Preferred response language (e.g. 'sv', 'en', 'de', 'it'). Defaults to English."
       SUPABASE_URL:
         type: string
-        description: "Supabase project URL (required)"
+        description: "Supabase project URL (required) — find in Supabase Dashboard → Settings → API"
       SUPABASE_SERVICE_ROLE_KEY:
         type: string
-        description: "Supabase service role key (required)"
+        description: "Supabase service role key (required) — find in Supabase Dashboard → Settings → API"
+      SUPABASE_ANON_KEY:
+        type: string
+        description: "Supabase anon/public key (required) — find in Supabase Dashboard → Settings → API"
       STRIPE_SECRET_KEY:
         type: string
-        description: "Stripe secret key for payment processing (optional, enables checkout/cancel/reschedule)"
+        description: "Stripe secret key (required for payments) — find in Stripe Dashboard → Developers → API keys"
+    required:
+      - SUPABASE_URL
+      - SUPABASE_SERVICE_ROLE_KEY
+      - SUPABASE_ANON_KEY
     additionalProperties: false
   commandFunction: |
     (config) => ({
       command: 'node',
       args: ['dist/stdio.js'],
       env: {
-        SUPABASE_URL: process.env.SUPABASE_URL,
-        SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY
+        SUPABASE_URL: config.SUPABASE_URL,
+        SUPABASE_SERVICE_ROLE_KEY: config.SUPABASE_SERVICE_ROLE_KEY,
+        SUPABASE_ANON_KEY: config.SUPABASE_ANON_KEY,
+        STRIPE_SECRET_KEY: config.STRIPE_SECRET_KEY
       }
     })
