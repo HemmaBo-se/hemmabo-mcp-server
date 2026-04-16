@@ -1,7 +1,7 @@
 # HemmaBo MCP Server
 
 [![NPM Version](https://img.shields.io/npm/v/hemmabo-mcp-server)](https://www.npmjs.com/package/hemmabo-mcp-server)
-[![Smithery Badge](https://smithery.ai/badge/@info-00wt/federation-mcp-server)](https://smithery.ai/servers/@info-00wt/federation-mcp-server)
+[![Smithery Badge](https://smithery.ai/badge/@hemmabo-se/hemmabo)](https://smithery.ai/servers/@hemmabo-se/hemmabo)
 
 **Booking infrastructure for vacation rentals.**
 
@@ -67,7 +67,7 @@ Add to your MCP client config (e.g., Claude Desktop):
 ### Install via Smithery
 
 ```bash
-npx -y @smithery/cli install @info-00wt/federation-mcp-server --client claude
+npx -y @smithery/cli install @hemmabo-se/hemmabo --client claude
 ```
 
 ---
@@ -179,8 +179,8 @@ HemmaBo is distributed across multiple channels to maximize AI discovery:
 
 ### 3. **Smithery Gateway**
 - Public MCP server directory
-- Badge: [![Smithery Badge](https://smithery.ai/badge/@info-00wt/federation-mcp-server)](https://smithery.ai/servers/@info-00wt/federation-mcp-server)
-- Install command: `npx -y @smithery/cli install @info-00wt/federation-mcp-server --client claude`
+- Badge: [![Smithery Badge](https://smithery.ai/badge/@hemmabo-se/hemmabo)](https://smithery.ai/servers/@hemmabo-se/hemmabo)
+- Install command: `npx -y @smithery/cli install @hemmabo-se/hemmabo --client claude`
 
 ### 4. **GitHub Repository**
 - **Repo:** [HemmaBo-se/hemmabo-mcp-server](https://github.com/HemmaBo-se/hemmabo-mcp-server)
