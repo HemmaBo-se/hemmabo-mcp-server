@@ -952,15 +952,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "DELETE") return res.status(202).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  // Validate API key on all POST requests. Prevents CSRF from browser contexts
-  // (browsers cannot send Authorization cross-origin without a preflight grant)
-  // and rejects requests with an invalid key when MCP_API_KEY is configured.
-  const authErr = validateApiKey(req.headers["authorization"]);
-  if (authErr) {
-    return res.status(401).json({
-      jsonrpc: "2.0",
-      error: { code: -32600, message: `${authErr}. Pass your API key as: Authorization: Bearer <key>` },
-    });
+  // Validate API key on tool execution requests only.
+  // initialize and tools/list are allowed without auth so MCP registries
+  // (Glama, Smithery inspector) can discover tools without credentials.
+  // tools/call requires auth — this is where data is read and bookings are made.
+  const requestMethod = Array.isArray(req.body) ? req.body[0]?.method : req.body?.method;
+  const requiresAuth = requestMethod === "tools/call";
+  if (requiresAuth) {
+    const authErr = validateApiKey(req.headers["authorization"]);
+    if (authErr) {
+      return res.status(401).json({
+        jsonrpc: "2.0",
+        error: { code: -32600, message: `${authErr}. Pass your API key as: Authorization: Bearer <key>` },
+      });
+    }
   }
 
   try {
