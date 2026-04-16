@@ -19,17 +19,27 @@ import {
   createPaymentIntent,
 } from "./stripe.js";
 
+// ── Shared validators ──────────────────────────────────────────────
+
+/** Accepts only YYYY-MM-DD. Rejects free-text, SQL fragments, and partial dates. */
+const zISODate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD");
+
 // ── Environment ────────────────────────────────────────────────────
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
+// Service-role client — bypasses RLS. Use only for writes and privileged reads.
 let supabase: SupabaseClient | null = null;
+// Anon client — subject to RLS. Use for all public read-only queries.
+let reader: SupabaseClient | null = null;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.warn("⚠ Running without database — tools will return errors until SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set");
 } else {
   supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+  reader = createClient(SUPABASE_URL, SUPABASE_ANON_KEY ?? SUPABASE_SERVICE_KEY);
 }
 
 // ── MCP Server ─────────────────────────────────────────────────────
@@ -54,17 +64,17 @@ server.tool(
     region: z.string().optional().describe("Region, area, or destination name to search within. Partial match (e.g. 'Skåne', 'Toscana'). At least one of region or country should be provided."),
     country: z.string().optional().describe("Country name to filter by (e.g. 'Sweden', 'Italy'). Partial match. At least one of region or country should be provided."),
     guests: z.number().int().min(1).describe("Total number of guests as integer >= 1 (e.g. 4). Determines price tier and filters out properties with insufficient capacity."),
-    checkIn: z.string().describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
-    checkOut: z.string().describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
+    checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
+    checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
   },
   async ({ region, country, guests, checkIn, checkOut }) => {
-    if (!supabase) {
+    if (!reader) {
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }],
       };
     }
 
-    let query = supabase
+    let query = reader
       .from("properties")
       .select("id, name, domain, region, city, country, max_guests, currency, property_type, direct_booking_discount, cleaning_fee")
       .eq("published", true)
@@ -81,10 +91,10 @@ server.tool(
 
     const results = [];
     for (const prop of properties ?? []) {
-      const avail = await checkAvailability(supabase, prop.id, checkIn, checkOut);
+      const avail = await checkAvailability(reader, prop.id, checkIn, checkOut);
       if (!avail.available) continue;
 
-      const quote = await resolveQuote(supabase, prop.id, checkIn, checkOut, guests);
+      const quote = await resolveQuote(reader, prop.id, checkIn, checkOut, guests);
       if ("error" in quote) continue;
 
       results.push({
@@ -124,17 +134,17 @@ server.tool(
   "Check whether a specific property is available for the requested dates. Use this tool after the user has selected a property from hemmabo_search_properties and wants to confirm availability before getting a quote. Do NOT use for general browsing — use hemmabo_search_properties instead. Returns available=true/false with conflict details (blocked dates, existing bookings, active locks) if unavailable.",
   {
     propertyId: z.string().uuid().describe("Property UUID returned by hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
-    checkIn: z.string().describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
-    checkOut: z.string().describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
+    checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
+    checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
   },
   async ({ propertyId, checkIn, checkOut }) => {
-    if (!supabase) {
+    if (!reader) {
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }],
       };
     }
 
-    const result = await checkAvailability(supabase, propertyId, checkIn, checkOut);
+    const result = await checkAvailability(reader, propertyId, checkIn, checkOut);
     return {
       content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
     };
@@ -148,18 +158,18 @@ server.tool(
   "Get a detailed pricing quote for a specific property, dates, and guest count. Use this tool after confirming availability to show the user exact pricing before booking. Do NOT use before checking availability — the quote may be invalid if dates are unavailable. Returns publicTotal (website rate), federationTotal (direct booking discount), gapTotal (gap-night discount if applicable), per-night breakdown, and package pricing. All prices are integers in the property's local currency (e.g. SEK).",
   {
     propertyId: z.string().uuid().describe("Property UUID from hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
-    checkIn: z.string().describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
-    checkOut: z.string().describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
+    checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
+    checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
     guests: z.number().int().min(1).describe("Total number of guests as integer >= 1 (e.g. 4). Determines which price tier is applied (staircase pricing by guest count)."),
   },
   async ({ propertyId, checkIn, checkOut, guests }) => {
-    if (!supabase) {
+    if (!reader) {
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }],
       };
     }
 
-    const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
+    const quote = await resolveQuote(reader, propertyId, checkIn, checkOut, guests);
     return {
       content: [{ type: "text" as const, text: JSON.stringify(quote, null, 2) }],
     };
@@ -173,8 +183,8 @@ server.tool(
   "Create a direct booking without online payment (legacy flow). Use this tool when the user wants to book without Stripe payment — the booking is created with status 'pending' and requires host approval. Do NOT use for paid bookings — use hemmabo_booking_checkout instead. Do NOT retry on timeout without calling hemmabo_booking_status first to avoid duplicate bookings. Returns bookingId, final price, and confirmation details.",
   {
     propertyId: z.string().uuid().describe("Property UUID from hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
-    checkIn: z.string().describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
-    checkOut: z.string().describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
+    checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
+    checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
     guests: z.number().int().min(1).describe("Total number of guests as integer >= 1 (e.g. 4)."),
     guestName: z.string().describe("Full name of primary guest (e.g. 'Anna Svensson')."),
     guestEmail: z.string().email().describe("Email for booking confirmation (e.g. 'anna@example.com'). Must be a valid email address."),
@@ -188,7 +198,7 @@ server.tool(
     }
 
     // 1. Verify availability
-    const avail = await checkAvailability(supabase, propertyId, checkIn, checkOut);
+    const avail = await checkAvailability(reader!, propertyId, checkIn, checkOut);
     if (!avail.available) {
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: "Not available", ...avail }) }],
@@ -196,7 +206,7 @@ server.tool(
     }
 
     // 2. Get quote (federation price)
-    const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
+    const quote = await resolveQuote(reader!, propertyId, checkIn, checkOut, guests);
     if ("error" in quote) {
       return {
         content: [{ type: "text" as const, text: JSON.stringify(quote) }],
@@ -207,7 +217,7 @@ server.tool(
     const totalPrice = quote.gapTotal ?? quote.federationTotal;
 
     // 3. Get property name for the booking record
-    const { data: prop } = await supabase
+    const { data: prop } = await reader!
       .from("properties")
       .select("name, host_id")
       .eq("id", propertyId)
@@ -277,8 +287,8 @@ server.tool(
   "Create a binding price quote that locks the price for 15 minutes. Use this tool before hemmabo_booking_checkout to guarantee the quoted price during payment. Do NOT skip this step if the user wants price certainty — without a quoteId, checkout calculates a fresh price that may differ. Returns quoteId (pass to hemmabo_booking_checkout), public and federation totals, per-night breakdown, and expiry timestamp.",
   {
     propertyId: z.string().uuid().describe("Property UUID from hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
-    checkIn: z.string().describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
-    checkOut: z.string().describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
+    checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
+    checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
     guests: z.number().int().min(1).describe("Total number of guests as integer >= 1 (e.g. 4). Determines which price tier is applied."),
   },
   async ({ propertyId, checkIn, checkOut, guests }) => {
@@ -288,7 +298,7 @@ server.tool(
       };
     }
 
-    const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
+    const quote = await resolveQuote(reader!, propertyId, checkIn, checkOut, guests);
     if ("error" in quote) {
       return {
         content: [{ type: "text" as const, text: JSON.stringify(quote) }],
@@ -296,7 +306,7 @@ server.tool(
     }
 
     // Fetch property domain for snapshot
-    const { data: prop } = await supabase.from("properties").select("domain").eq("id", propertyId).single();
+    const { data: prop } = await reader!.from("properties").select("domain").eq("id", propertyId).single();
 
     const validUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
@@ -371,8 +381,8 @@ server.tool(
   "Create a booking with Stripe payment and return a checkout URL. Use this tool when the user is ready to pay — it creates the booking record and generates a Stripe payment page. Do NOT call twice for the same booking — check hemmabo_booking_status first to avoid double charges. Optionally pass quoteId from hemmabo_booking_negotiate to lock the price. Returns reservationId, paymentUrl (Stripe checkout page), and pricing details.",
   {
     propertyId: z.string().uuid().describe("Property UUID from hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
-    checkIn: z.string().describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
-    checkOut: z.string().describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
+    checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
+    checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
     guests: z.number().int().min(1).describe("Total number of guests as integer >= 1 (e.g. 4)."),
     guestName: z.string().describe("Full name of primary guest (e.g. 'Anna Svensson')."),
     guestEmail: z.string().email().describe("Email for booking confirmation (e.g. 'anna@example.com'). Must be a valid email address."),
@@ -393,7 +403,7 @@ server.tool(
 
     try {
       // Fetch property
-      const { data: prop, error: propErr } = await supabase
+      const { data: prop, error: propErr } = await reader!
         .from("properties")
         .select("name, domain, host_id, currency, direct_booking_discount, cleaning_fee")
         .eq("id", propertyId)
@@ -405,7 +415,7 @@ server.tool(
       }
 
       // Check availability
-      const avail = await checkAvailability(supabase, propertyId, checkIn, checkOut);
+      const avail = await checkAvailability(reader!, propertyId, checkIn, checkOut);
       if (!avail.available) {
         return {
           content: [{ type: "text" as const, text: JSON.stringify({ error: "Not available", ...avail }) }],
@@ -418,7 +428,7 @@ server.tool(
 
       if (quoteId) {
         // Use locked quote from hemmabo_booking_negotiate
-        const { data: snapshot, error: snapErr } = await supabase
+        const { data: snapshot, error: snapErr } = await reader!
           .from("property_quote_snapshots")
           .select("*")
           .eq("id", quoteId)
@@ -438,7 +448,7 @@ server.tool(
         nights = snapshot.nights;
       } else {
         // Calculate fresh price
-        const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
+        const quote = await resolveQuote(reader!, propertyId, checkIn, checkOut, guests);
         if ("error" in quote) {
           return {
             content: [{ type: "text" as const, text: JSON.stringify(quote) }],
@@ -702,8 +712,8 @@ server.tool(
   "Reschedule a confirmed or pending booking to new dates. Use this tool when the guest wants to change travel dates on an existing booking. Do NOT use if the booking is cancelled or completed — check hemmabo_booking_status first. Automatically recalculates price and handles Stripe charge (if price increased) or refund (if decreased). Returns previous dates, new dates, price delta, and Stripe transaction details.",
   {
     reservationId: z.string().describe("Booking UUID to reschedule (e.g. '550e8400-e29b-41d4-a716-446655440000'). Must be in 'confirmed' or 'pending' status."),
-    newCheckIn: z.string().describe("New arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-20'). Must be today or later."),
-    newCheckOut: z.string().describe("New departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-27'). Must be after newCheckIn."),
+    newCheckIn: zISODate.describe("New arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-20'). Must be today or later."),
+    newCheckOut: zISODate.describe("New departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-27'). Must be after newCheckIn."),
     reason: z.string().optional().describe("Reason for rescheduling (e.g. 'Flight delayed'). Optional but recommended for host records."),
   },
   async ({ reservationId, newCheckIn, newCheckOut, reason }) => {
@@ -757,7 +767,7 @@ server.tool(
       }
 
       // Check availability (excluding this booking)
-      const avail = await checkAvailability(supabase, booking.property_id, newCheckIn, newCheckOut, booking.id);
+      const avail = await checkAvailability(reader!, booking.property_id, newCheckIn, newCheckOut, booking.id);
       if (!avail.available) {
         return {
           content: [{ type: "text" as const, text: JSON.stringify({ error: "New dates not available", ...avail }) }],
@@ -765,7 +775,7 @@ server.tool(
       }
 
       // Calculate new price
-      const quote = await resolveQuote(supabase, booking.property_id, newCheckIn, newCheckOut, booking.guests_count);
+      const quote = await resolveQuote(reader!, booking.property_id, newCheckIn, newCheckOut, booking.guests_count);
       if ("error" in quote) {
         return {
           content: [{ type: "text" as const, text: JSON.stringify(quote) }],
