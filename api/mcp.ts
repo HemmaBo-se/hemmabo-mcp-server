@@ -935,6 +935,9 @@ async function handleJsonRpc(
     case "resources/list":
       return { jsonrpc: "2.0", id, result: { resources: [] } };
 
+    case "resources/templates/list":
+      return { jsonrpc: "2.0", id, result: { resourceTemplates: [] } };
+
     case "prompts/get": {
       const promptName = (params as { name: string })?.name;
       const promptArgs = (params as { arguments?: Record<string, string> })?.arguments ?? {};
