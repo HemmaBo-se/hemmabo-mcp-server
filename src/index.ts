@@ -180,6 +180,168 @@ server.tool(
   }
 );
 
+// ── Tool: hemmabo_search_similar ───────────────────────────────────────────
+
+server.tool(
+  "hemmabo_search_similar",
+  "Find vacation rental properties similar to a given property on specific dates. Use this tool after the user has selected a property (via hemmabo_search_properties) and wants to see alternatives — same region, same property type, same or larger capacity. Do NOT use for the initial search; use hemmabo_search_properties instead. Returns a list of similar available properties with live pricing, excluding the source property.",
+  {
+    propertyId: z.string().uuid().describe("UUID of the source property to find alternatives for (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
+    checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
+    checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
+    guests: z.number().int().min(1).optional().describe("Number of guests. Defaults to the source property's max_guests if omitted."),
+    limit: z.number().int().min(1).max(20).optional().describe("Maximum number of similar properties to return. Default 5, max 20."),
+  },
+  async ({ propertyId, checkIn, checkOut, guests, limit }) => {
+    if (!supabase) {
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }],
+      };
+    }
+
+    const { data: src, error: srcErr } = await supabase
+      .from("properties")
+      .select("region, country, property_type, max_guests, published")
+      .eq("id", propertyId)
+      .single();
+    if (srcErr || !src) {
+      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Source property not found" }) }] };
+    }
+
+    const effectiveGuests = guests ?? src.max_guests ?? 2;
+    const max = limit ?? 5;
+
+    let query = supabase
+      .from("properties")
+      .select("id, name, domain, region, city, country, max_guests, currency, property_type, direct_booking_discount, cleaning_fee")
+      .eq("published", true)
+      .neq("id", propertyId)
+      .gte("max_guests", effectiveGuests);
+    if (src.region) query = query.ilike("region", `%${src.region}%`);
+    else if (src.country) query = query.ilike("country", `%${src.country}%`);
+    if (src.property_type) query = query.eq("property_type", src.property_type);
+
+    const { data: candidates, error: qErr } = await query.limit(max * 3);
+    if (qErr) {
+      return { content: [{ type: "text" as const, text: JSON.stringify({ error: qErr.message }) }] };
+    }
+
+    const results = [];
+    for (const prop of candidates ?? []) {
+      if (results.length >= max) break;
+      const avail = await checkAvailability(supabase, prop.id, checkIn, checkOut);
+      if (!avail.available) continue;
+      const quote = await resolveQuote(supabase, prop.id, checkIn, checkOut, effectiveGuests);
+      if ("error" in quote) continue;
+      results.push({
+        propertyId: prop.id,
+        name: prop.name,
+        domain: prop.domain,
+        region: prop.region,
+        city: prop.city,
+        country: prop.country,
+        maxGuests: prop.max_guests,
+        propertyType: prop.property_type,
+        currency: quote.currency,
+        nights: quote.nights,
+        publicTotal: quote.publicTotal,
+        federationTotal: quote.federationTotal,
+        federationDiscountPercent: quote.federationDiscountPercent,
+        packageApplied: quote.packageApplied,
+        available: true,
+      });
+    }
+
+    return {
+      content: [{
+        type: "text" as const,
+        text: JSON.stringify({
+          sourcePropertyId: propertyId,
+          checkIn,
+          checkOut,
+          guests: effectiveGuests,
+          count: results.length,
+          similarProperties: results,
+        }, null, 2),
+      }],
+    };
+  }
+);
+
+// ── Tool: hemmabo_compare_properties ──────────────────────────────────────
+
+server.tool(
+  "hemmabo_compare_properties",
+  "Compare availability and pricing for 2–10 specific properties on the same dates. Use this tool when the user is deciding between multiple properties and wants to see price and availability side by side. Do NOT use for discovery — use hemmabo_search_properties first. Returns one entry per propertyId, sorted by federation price (cheapest first), with unavailable properties last.",
+  {
+    propertyIds: z.array(z.string().uuid()).min(2).max(10).describe("Array of 2 to 10 property UUIDs to compare side by side."),
+    checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD). Must be today or later."),
+    checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD). Must be after checkIn."),
+    guests: z.number().int().min(1).describe("Total number of guests as integer >= 1."),
+  },
+  async ({ propertyIds, checkIn, checkOut, guests }) => {
+    if (!supabase) {
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }],
+      };
+    }
+
+    const comparisons = await Promise.all(
+      propertyIds.map(async (id) => {
+        const { data: prop } = await supabase!
+          .from("properties")
+          .select("id, name, domain, region, city, country, max_guests, property_type, published")
+          .eq("id", id)
+          .single();
+        if (!prop || !prop.published) {
+          return { propertyId: id, available: false, error: "Property not found or not published" };
+        }
+        const avail = await checkAvailability(supabase!, id, checkIn, checkOut);
+        if (!avail.available) {
+          return { propertyId: prop.id, name: prop.name, domain: prop.domain, available: false, reason: avail };
+        }
+        const quote = await resolveQuote(supabase!, id, checkIn, checkOut, guests);
+        if ("error" in quote) {
+          return { propertyId: prop.id, name: prop.name, domain: prop.domain, available: true, error: quote.error };
+        }
+        return {
+          propertyId: prop.id,
+          name: prop.name,
+          domain: prop.domain,
+          region: prop.region,
+          city: prop.city,
+          country: prop.country,
+          maxGuests: prop.max_guests,
+          propertyType: prop.property_type,
+          currency: quote.currency,
+          nights: quote.nights,
+          publicTotal: quote.publicTotal,
+          federationTotal: quote.federationTotal,
+          gapTotal: quote.gapTotal,
+          federationDiscountPercent: quote.federationDiscountPercent,
+          packageApplied: quote.packageApplied,
+          available: true,
+        };
+      })
+    );
+
+    comparisons.sort((a: any, b: any) => {
+      if (a.available && !b.available) return -1;
+      if (!a.available && b.available) return 1;
+      const ap = typeof a.federationTotal === "number" ? a.federationTotal : Infinity;
+      const bp = typeof b.federationTotal === "number" ? b.federationTotal : Infinity;
+      return ap - bp;
+    });
+
+    return {
+      content: [{
+        type: "text" as const,
+        text: JSON.stringify({ checkIn, checkOut, guests, count: comparisons.length, comparison: comparisons }, null, 2),
+      }],
+    };
+  }
+);
+
 // ── Tool: hemmabo_booking_quote ──────────────────────────────────────
 
 server.tool(
