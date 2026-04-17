@@ -16,6 +16,22 @@ keywords:
 homepage: https://hemmabo-mcp-server.vercel.app
 repository: https://github.com/HemmaBo-se/hemmabo-mcp-server
 
+configSchema:
+  type: object
+  description: "Optional configuration for HemmaBo MCP server. All fields are optional for the remote server — credentials are managed server-side."
+  properties:
+    region:
+      type: string
+      description: "Default region to search in (e.g. 'Skåne', 'Toscana'). Can be overridden per request."
+    currency:
+      type: string
+      description: "Preferred display currency (e.g. 'SEK', 'EUR'). Defaults to property's native currency."
+    language:
+      type: string
+      description: "Preferred response language (e.g. 'sv', 'en', 'de', 'it'). Defaults to English."
+  required: []
+  additionalProperties: false
+
 startCommand:
   type: stdio
   configSchema:
