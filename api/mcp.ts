@@ -21,6 +21,18 @@ import {
 } from "../src/stripe.js";
 import { validateApiKey } from "../src/auth.js";
 
+// ── Structured logging ───────────────────────────────────────────
+
+const REDACT_KEYS = ["stripe_token", "spt_token", "card_number", "email", "phone", "guest_name"];
+
+function sanitizeParams(params: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(params ?? {}).map(([k, v]) =>
+      REDACT_KEYS.some((r) => k.toLowerCase().includes(r)) ? [k, "[redacted]"] : [k, v]
+    )
+  );
+}
+
 // ╔══════════════════════════════════════════════════════════════════╗
 // ║ SYNC WARNING: Tool logic is duplicated in src/index.ts          ║
 // ║ (MCP SDK + stdio transport). If you change a tool handler here, ║
@@ -1039,7 +1051,8 @@ async function executeTool(
 // ── JSON-RPC handler ─────────────────────────────────────────────
 
 async function handleJsonRpc(
-  msg: { jsonrpc: string; method: string; id?: number | string; params?: Record<string, unknown> }
+  msg: { jsonrpc: string; method: string; id?: number | string; params?: Record<string, unknown> },
+  ctx: { agent: string; ip_hint: string } = { agent: "unknown", ip_hint: "unknown" }
 ): Promise<Record<string, unknown> | null> {
   const { method, id, params } = msg;
 
@@ -1092,12 +1105,27 @@ async function handleJsonRpc(
     case "tools/call": {
       const toolName = (params as { name: string })?.name;
       const toolArgs = (params as { arguments?: Record<string, unknown> })?.arguments ?? {};
+      const start = Date.now();
+      let ok = true;
+      let errMsg: string | undefined;
       try {
         const result = await executeTool(toolName, toolArgs);
         return { jsonrpc: "2.0", id, result };
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Internal error";
-        return { jsonrpc: "2.0", id, error: { code: -32603, message } };
+        ok = false;
+        errMsg = err instanceof Error ? err.message : "Internal error";
+        return { jsonrpc: "2.0", id, error: { code: -32603, message: errMsg } };
+      } finally {
+        console.log(JSON.stringify({
+          ts: new Date().toISOString(),
+          tool: toolName,
+          params: sanitizeParams(toolArgs),
+          duration_ms: Date.now() - start,
+          result: ok ? "ok" : "error",
+          error_msg: errMsg,
+          agent: ctx.agent,
+          ip_hint: ctx.ip_hint,
+        }));
       }
     }
 
@@ -1163,20 +1191,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
+  const ctx = {
+    agent: ((req.headers["user-agent"] as string | undefined) ?? "unknown").slice(0, 80),
+    ip_hint: ((req.headers["x-forwarded-for"] as string | undefined) ?? "").split(",")[0]?.trim() || "unknown",
+  };
+
   try {
     const body = req.body;
 
     if (Array.isArray(body)) {
       const results = [];
       for (const msg of body) {
-        const result = await handleJsonRpc(msg);
+        const result = await handleJsonRpc(msg, ctx);
         if (result !== null) results.push(result);
       }
       if (results.length === 0) return res.status(202).end();
       return res.json(results);
     }
 
-    const result = await handleJsonRpc(body);
+    const result = await handleJsonRpc(body, ctx);
     if (result === null) return res.status(202).end();
 
     res.setHeader("Content-Type", "application/json");

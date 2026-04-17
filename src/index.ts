@@ -20,6 +20,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import express from "express";
 import { z } from "zod";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { resolveQuote } from "./pricing.js";
 import { checkAvailability } from "./availability.js";
 import { createCheckoutSession, retrievePaymentIntent, createRefund, createPaymentIntent } from "./stripe.js";
@@ -83,6 +84,59 @@ const server = new McpServer(
     instructions: "This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated.\n\nFull booking lifecycle: hemmabo_search_properties (find properties) -> hemmabo_booking_negotiate (binding quote with quoteId) -> hemmabo_booking_checkout (Stripe payment) -> hemmabo_booking_status (check details) -> hemmabo_booking_reschedule / hemmabo_booking_cancel (modify or cancel).\n\nLegacy shortcut: hemmabo_search_properties -> hemmabo_booking_quote -> hemmabo_booking_create (no payment, pending host approval).\n\nPricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6). Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week) are applied automatically. Federation discount (direct booking rate) is host-controlled.\n\nDates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).",
   }
 );
+
+// ── Structured logging ──────────────────────────────────────────────
+// Wrapped once around server.tool() so every registered tool is auto-instrumented.
+// Per-request agent/ip_hint is propagated via AsyncLocalStorage (populated by /mcp handler).
+
+const REDACT_KEYS = ["stripe_token", "spt_token", "card_number", "email", "phone", "guest_name"];
+
+function sanitizeParams(params: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(params ?? {}).map(([k, v]) =>
+      REDACT_KEYS.some((r) => k.toLowerCase().includes(r)) ? [k, "[redacted]"] : [k, v]
+    )
+  );
+}
+
+type LogCtx = { agent: string; ip_hint: string };
+const requestContext = new AsyncLocalStorage<LogCtx>();
+
+const _originalServerTool = server.tool.bind(server);
+(server as unknown as { tool: unknown }).tool = (
+  name: string,
+  description: string,
+  schema: unknown,
+  handler: (args: Record<string, unknown>, extra: unknown) => Promise<unknown>
+) => {
+  const wrapped = async (args: Record<string, unknown>, extra: unknown) => {
+    const start = Date.now();
+    let ok = true;
+    let errMsg: string | undefined;
+    try {
+      return await handler(args, extra);
+    } catch (err) {
+      ok = false;
+      errMsg = err instanceof Error ? err.message : String(err);
+      throw err;
+    } finally {
+      const ctx = requestContext.getStore() ?? { agent: "unknown", ip_hint: "unknown" };
+      console.log(JSON.stringify({
+        ts: new Date().toISOString(),
+        tool: name,
+        params: sanitizeParams(args ?? {}),
+        duration_ms: Date.now() - start,
+        result: ok ? "ok" : "error",
+        error_msg: errMsg,
+        agent: ctx.agent,
+        ip_hint: ctx.ip_hint,
+      }));
+    }
+  };
+  return (_originalServerTool as unknown as (
+    n: string, d: string, s: unknown, h: typeof wrapped
+  ) => unknown)(name, description, schema, wrapped);
+};
 
 // ── Tool: hemmabo_search_properties ────────────────────────────────────────
 
@@ -1083,11 +1137,17 @@ app.get("/health", (_req, res) => {
 
 // MCP endpoint
 app.all("/mcp", async (req, res) => {
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined, // stateless
+  const ctx: LogCtx = {
+    agent: ((req.headers["user-agent"] as string | undefined) ?? "unknown").slice(0, 80),
+    ip_hint: ((req.headers["x-forwarded-for"] as string | undefined) ?? "").split(",")[0]?.trim() || "unknown",
+  };
+  await requestContext.run(ctx, async () => {
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined, // stateless
+    });
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
   });
-  await server.connect(transport);
-  await transport.handleRequest(req, res, req.body);
 });
 
 // Static server card for Smithery discovery

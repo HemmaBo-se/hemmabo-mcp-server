@@ -55,6 +55,58 @@ const server = new McpServer(
   }
 );
 
+// ── Structured logging ──────────────────────────────────────────────
+// Wrapped once around server.tool() so every registered tool is auto-instrumented.
+// stdio is single-session per process — no AsyncLocalStorage needed.
+
+const REDACT_KEYS = ["stripe_token", "spt_token", "card_number", "email", "phone", "guest_name"];
+
+function sanitizeParams(params: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(params ?? {}).map(([k, v]) =>
+      REDACT_KEYS.some((r) => k.toLowerCase().includes(r)) ? [k, "[redacted]"] : [k, v]
+    )
+  );
+}
+
+const STDIO_AGENT = (process.env.STDIO_SESSION_ID ?? "stdio").slice(0, 80);
+
+const _originalServerTool = server.tool.bind(server);
+(server as unknown as { tool: unknown }).tool = (
+  name: string,
+  description: string,
+  schema: unknown,
+  handler: (args: Record<string, unknown>, extra: unknown) => Promise<unknown>
+) => {
+  const wrapped = async (args: Record<string, unknown>, extra: unknown) => {
+    const start = Date.now();
+    let ok = true;
+    let errMsg: string | undefined;
+    try {
+      return await handler(args, extra);
+    } catch (err) {
+      ok = false;
+      errMsg = err instanceof Error ? err.message : String(err);
+      throw err;
+    } finally {
+      // stdio uses stdout for the MCP protocol — log to stderr so we don't corrupt the transport.
+      console.error(JSON.stringify({
+        ts: new Date().toISOString(),
+        tool: name,
+        params: sanitizeParams(args ?? {}),
+        duration_ms: Date.now() - start,
+        result: ok ? "ok" : "error",
+        error_msg: errMsg,
+        agent: STDIO_AGENT,
+        ip_hint: "stdio",
+      }));
+    }
+  };
+  return (_originalServerTool as unknown as (
+    n: string, d: string, s: unknown, h: typeof wrapped
+  ) => unknown)(name, description, schema, wrapped);
+};
+
 // ── Tool: hemmabo_search_properties ────────────────────────────────────────
 
 server.tool(
