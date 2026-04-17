@@ -99,8 +99,56 @@ function sanitizeParams(params: Record<string, unknown>): Record<string, unknown
   );
 }
 
-type LogCtx = { agent: string; ip_hint: string };
+type LogCtx = { agent: string; ip_hint: string; sessionId: string };
 const requestContext = new AsyncLocalStorage<LogCtx>();
+
+// ── Session tracking + intent classification ───────────────────────
+
+interface SessionState {
+  tools: string[];
+  firstSeen: number;
+  lastSeen: number;
+  propertyId?: string;
+  checkIn?: string;
+  checkOut?: string;
+}
+
+type Intent =
+  | "browsing"       // search → stop
+  | "comparing"      // quote × 3+ without checkout
+  | "ready_to_book"  // quote → checkout
+  | "completed"      // checkout → status
+  | "abandoned"      // quote → >30 min inactivity
+  | "unknown";
+
+// In-memory store — resets on cold start, intentional
+const sessionStore = new Map<string, SessionState>();
+
+function classifyIntent(tools: string[], lastSeen: number): Intent {
+  const hasStatus   = tools.includes("hemmabo_booking_status");
+  const hasCheckout = tools.includes("hemmabo_booking_checkout");
+  const quoteCount  = tools.filter(t => t === "hemmabo_booking_quote" || t === "hemmabo_booking_negotiate").length;
+  const hasSearch   = tools.some(t => t.includes("search"));
+  const hasQuote    = quoteCount > 0;
+  const idleMs      = Date.now() - lastSeen;
+
+  if (hasStatus)                              return "completed";
+  if (hasCheckout)                            return "ready_to_book";
+  if (hasQuote && idleMs > 30 * 60 * 1000)   return "abandoned";
+  if (quoteCount >= 3)                        return "comparing";
+  if (hasSearch && !hasQuote)                 return "browsing";
+  return "unknown";
+}
+
+// Cleanup sessions older than 2 hours — runs every 30 minutes
+setInterval(() => {
+  const cutoff = Date.now() - 2 * 60 * 60 * 1000;
+  for (const [id, session] of sessionStore.entries()) {
+    if (session.lastSeen < cutoff) sessionStore.delete(id);
+  }
+}, 30 * 60 * 1000).unref();
+
+// ── Tool wrapper ───────────────────────────────────────────────────
 
 const _originalServerTool = server.tool.bind(server);
 (server as unknown as { tool: unknown }).tool = (
@@ -120,16 +168,35 @@ const _originalServerTool = server.tool.bind(server);
       errMsg = err instanceof Error ? err.message : String(err);
       throw err;
     } finally {
-      const ctx = requestContext.getStore() ?? { agent: "unknown", ip_hint: "unknown" };
+      const ctx = requestContext.getStore() ?? { agent: "unknown", ip_hint: "unknown", sessionId: "anonymous" };
+
+      // Update session state
+      const session = sessionStore.get(ctx.sessionId) ?? {
+        tools: [], firstSeen: Date.now(), lastSeen: Date.now(),
+      };
+      session.tools.push(name);
+      session.lastSeen = Date.now();
+      if (args.property_id) session.propertyId = args.property_id as string;
+      if (args.propertyId)  session.propertyId = args.propertyId as string;
+      if (args.check_in)    session.checkIn    = args.check_in as string;
+      if (args.checkIn)     session.checkIn    = args.checkIn as string;
+      if (args.check_out)   session.checkOut   = args.check_out as string;
+      if (args.checkOut)    session.checkOut   = args.checkOut as string;
+      sessionStore.set(ctx.sessionId, session);
+
       console.log(JSON.stringify({
-        ts: new Date().toISOString(),
-        tool: name,
-        params: sanitizeParams(args ?? {}),
-        duration_ms: Date.now() - start,
-        result: ok ? "ok" : "error",
-        error_msg: errMsg,
-        agent: ctx.agent,
-        ip_hint: ctx.ip_hint,
+        ts:            new Date().toISOString(),
+        tool:          name,
+        params:        sanitizeParams(args ?? {}),
+        duration_ms:   Date.now() - start,
+        result:        ok ? "ok" : "error",
+        error_msg:     errMsg,
+        agent:         ctx.agent,
+        ip_hint:       ctx.ip_hint,
+        session_id:    ctx.sessionId,
+        session_depth: session.tools.length,
+        intent:        classifyIntent(session.tools, session.lastSeen),
+        property_id:   session.propertyId ?? null,
       }));
     }
   };
@@ -1140,6 +1207,10 @@ app.all("/mcp", async (req, res) => {
   const ctx: LogCtx = {
     agent: ((req.headers["user-agent"] as string | undefined) ?? "unknown").slice(0, 80),
     ip_hint: ((req.headers["x-forwarded-for"] as string | undefined) ?? "").split(",")[0]?.trim() || "unknown",
+    sessionId:
+      (req.headers["mcp-session-id"] as string | undefined) ??
+      (req.headers["x-session-id"] as string | undefined) ??
+      "anonymous",
   };
   await requestContext.run(ctx, async () => {
     const transport = new StreamableHTTPServerTransport({
