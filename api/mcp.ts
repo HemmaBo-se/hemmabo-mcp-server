@@ -887,6 +887,26 @@ async function handleJsonRpc(
             version: "3.1.17",
             description: "MCP server for vacation rental direct bookings. Search properties, check availability, get real-time pricing quotes, and create bookings through the federation protocol. Supports seasonal pricing, guest-count tiers, weekly and biweekly package discounts, gap-night discounts, and host-controlled federation discounts. All data is live — never cached, never estimated.",
           },
+          configSchema: {
+            type: "object",
+            properties: {
+              region: {
+                type: "string",
+                description: "Default region to search in (e.g. 'Skåne', 'Toscana'). Can be overridden per request.",
+              },
+              currency: {
+                type: "string",
+                description: "Preferred display currency (e.g. 'SEK', 'EUR'). Defaults to property's native currency.",
+                enum: ["SEK", "EUR", "USD", "NOK", "DKK"],
+              },
+              language: {
+                type: "string",
+                description: "Preferred response language (e.g. 'sv', 'en', 'de', 'it'). Defaults to English.",
+                enum: ["sv", "en", "de", "fr", "it", "nl"],
+              },
+            },
+            required: [],
+          },
           instructions: SERVER_INSTRUCTIONS,
         },
       };
