@@ -1,0 +1,93 @@
+faf_version: "3.0"
+
+project:
+  name: "hemmabo-mcp-server"
+  version: "3.2.0"
+  tagline: "Like Mirai for hotels — but for vacation rentals."
+  website: "https://hemmabo-mcp-server.vercel.app"
+  repo: "https://github.com/HemmaBo-se/hemmabo-mcp-server"
+
+one_liner: >
+  MCP server for vacation rental direct booking.
+  11 tools. Streamable HTTP. Live data only — never cached, never estimated.
+  0% commission. Stripe direct to host.
+
+description: >
+  Federation MCP server for HemmaBo booking infrastructure.
+  Exposes 11 tools covering the complete booking lifecycle:
+  search, availability, pricing, negotiation, checkout, status,
+  reschedule, and cancel. All data is live from Supabase —
+  never cached, never estimated. Stripe payments go direct to host.
+  Each property is its own node on its own domain.
+
+stack:
+  language: "TypeScript"
+  runtime: "Vercel Serverless"
+  transport: "Streamable HTTP (primary) + stdio"
+  database: "Supabase (PostgreSQL) — read via service role"
+  payments: "Stripe Connect — direct to host"
+  build: "tsc"
+  package_manager: "npm"
+
+endpoints:
+  mcp: "https://hemmabo-mcp-server.vercel.app/mcp"
+  health: "https://hemmabo-mcp-server.vercel.app/health"
+  manifest: "https://hemmabo-mcp-server.vercel.app/.well-known/mcp.json"
+  server_card: "https://hemmabo-mcp-server.vercel.app/.well-known/mcp/server-card.json"
+
+registries:
+  smithery:
+    id: "@info-00wt/federation-mcp-server"
+    url: "https://smithery.ai/server/@info-00wt/federation-mcp-server"
+  glama:
+    url: "https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server"
+
+tools:
+  count: 11
+  list:
+    - name: "hemmabo_search_properties"
+      description: "Search available properties by region, country, dates, guest count. Entry point for all booking flows."
+    - name: "hemmabo_search_availability"
+      description: "Check if a specific property is available for given dates."
+    - name: "hemmabo_search_similar"
+      description: "Find properties similar to a given property."
+    - name: "hemmabo_compare_properties"
+      description: "Compare availability and pricing for 2-10 properties on the same dates."
+    - name: "hemmabo_booking_quote"
+      description: "Get detailed live pricing quote — nightly rates, seasonal pricing, cleaning fee, federation discount."
+    - name: "hemmabo_booking_create"
+      description: "Create a direct booking without online payment (pending host approval)."
+    - name: "hemmabo_booking_negotiate"
+      description: "Lock a price quote for 15 minutes. Returns quoteId — guarantees price won't change."
+    - name: "hemmabo_booking_checkout"
+      description: "Create booking with Stripe payment. Returns payment URL. 0% commission — direct to host."
+    - name: "hemmabo_booking_cancel"
+      description: "Cancel a confirmed booking and process Stripe refund."
+    - name: "hemmabo_booking_status"
+      description: "Retrieve current status and full details of an existing booking."
+    - name: "hemmabo_booking_reschedule"
+      description: "Reschedule an existing booking to new dates."
+
+booking_flow:
+  recommended: "hemmabo_search_properties -> hemmabo_booking_negotiate -> hemmabo_booking_checkout -> hemmabo_booking_status"
+  legacy: "hemmabo_search_properties -> hemmabo_booking_quote -> hemmabo_booking_create"
+
+use_when:
+  - "Guest or AI agent wants to find and book a vacation rental directly"
+  - "AI agent needs live availability — never cached, never estimated"
+  - "Booking must go direct to host with 0% commission"
+  - "Agent needs to reschedule or cancel an existing booking"
+
+do_not_use_when:
+  - "User wants to browse a marketplace with many providers"
+  - "User wants Airbnb or Booking.com listings"
+
+pilot_property:
+  name: "Villa Akerlyckan"
+  url: "https://www.villaakerlyckan.se"
+  location: "Kavlinge, Skane, Sweden"
+  went_live: "2026-04-06"
+
+contact:
+  email: "info@hemmabo.se"
+  website: "https://www.hemmabo.com"
