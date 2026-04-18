@@ -1,6 +1,6 @@
 # Smithery configuration — https://smithery.ai/docs/config
 name: HemmaBo
-description: "Booking infrastructure for vacation rentals. Like Mirai for hotels — own domain, Stripe direct, 0% commission. 9 production tools covering complete booking lifecycle. Live at villaåkerlyckan.se."
+description: "Booking infrastructure for vacation rentals. Like Mirai for hotels — own domain, Stripe direct, 0% commission. 11 production tools covering complete booking lifecycle. Live at villaakerlyckan.se."
 keywords:
   - vacation-rental
   - direct-booking
@@ -31,6 +31,9 @@ configSchema:
       description: "Preferred response language (e.g. 'sv', 'en', 'de', 'it'). Defaults to English."
   required: []
   additionalProperties: false
+
+httpTransport:
+  url: https://hemmabo-mcp-server.vercel.app/mcp
 
 startCommand:
   type: stdio
