@@ -13,6 +13,8 @@
     { "source": "/health", "destination": "/api/health" },
     { "source": "/.well-known/mcp.json", "destination": "/api/mcp-manifest" },
     { "source": "/.well-known/mcp/server-card.json", "destination": "/api/server-card" },
-    { "source": "/acp/:path*", "destination": "/api/acp" }
+    { "source": "/acp/:path*", "destination": "/api/acp" },
+    { "source": "/oauth/token", "destination": "/api/oauth" },
+    { "source": "/oauth/register", "destination": "/api/oauth-register" }
   ]
 }
