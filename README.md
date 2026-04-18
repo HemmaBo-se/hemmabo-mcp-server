@@ -143,6 +143,8 @@ npx -y @smithery/cli install @info-00wt/federation-mcp-server --client claude
 |------|-------------|-----------|
 | `hemmabo_search_properties` | Search vacation rentals by location, dates, and guest count. Returns available properties with live pricing (public + federation rates). | Yes |
 | `hemmabo_search_availability` | Check if a property is available for specific dates. Verifies blocked dates, bookings, and booking locks. | Yes |
+| `hemmabo_search_similar` | Find properties similar to a given property (same region, type, capacity) for specific dates. Returns available alternatives with live pricing. | Yes |
+| `hemmabo_compare_properties` | Compare availability and pricing for 2–10 specific properties on the same dates. Sorted by federation price, unavailable last. | Yes |
 | `hemmabo_booking_quote` | Get detailed pricing: publicTotal (website rate), federationTotal (direct booking rate), gapTotal (gap-night discount). Per-night breakdown included. | Yes |
 | `hemmabo_booking_create` | Create a direct booking at federation price. Validates availability, calculates price, creates pending booking for host approval. | No |
 | `hemmabo_booking_negotiate` | Create a binding price quote with quoteId. Stores immutable snapshot, expires after 15 minutes. Pass quoteId to checkout to lock the price. | Yes |

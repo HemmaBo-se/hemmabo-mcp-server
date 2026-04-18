@@ -4,9 +4,9 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
   res.json({
     serverInfo: {
       name: "hemmabo-mcp-server",
-      version: "3.1.17",
+      version: "3.2.0",
     },
-    instructions: "Booking infrastructure for vacation rentals. Like Mirai for hotels — own domain, Stripe direct, 0% commission. 9 production tools covering complete booking lifecycle. All data is live from Supabase — never cached, never estimated. Workflow: (1) hemmabo_search_properties to find available rentals, (2) hemmabo_booking_quote for detailed pricing, (3) hemmabo_booking_checkout with Stripe payment. Guest data belongs to host. Seasonal rates, guest-count tiers, package discounts (7-night, 14-night), gap-night discounts, and host-controlled federation discounts are applied automatically. Dates must be ISO 8601 (YYYY-MM-DD). All monetary values are integers in local currency.",
+    instructions: "Booking infrastructure for vacation rentals. Like Mirai for hotels — own domain, Stripe direct, 0% commission. 11 production tools covering complete booking lifecycle. All data is live from Supabase — never cached, never estimated. Workflow: (1) hemmabo_search_properties to find available rentals, (2) hemmabo_booking_quote for detailed pricing, (3) hemmabo_booking_checkout with Stripe payment. Guest data belongs to host. Seasonal rates, guest-count tiers, package discounts (7-night, 14-night), gap-night discounts, and host-controlled federation discounts are applied automatically. Dates must be ISO 8601 (YYYY-MM-DD). All monetary values are integers in local currency.",
     configSchema: {
       type: "object",
       properties: {
@@ -69,6 +69,51 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
         },
         annotations: {
           title: "Check Availability",
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: false,
+        },
+      },
+      {
+        name: "hemmabo_search_similar",
+        description:
+          "Find vacation rental properties similar to a given property on specific dates. Use this tool after the user has selected a property and wants to see alternatives — same region, same property type, same or larger capacity. Do NOT use for initial search; use hemmabo_search_properties instead. Returns a list of similar available properties with live pricing, excluding the source property.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            propertyId: { type: "string", format: "uuid", description: "UUID of the source property to find alternatives for." },
+            checkIn: { type: "string", description: "Arrival date in ISO 8601 format (YYYY-MM-DD). Must be today or later." },
+            checkOut: { type: "string", description: "Departure date in ISO 8601 format (YYYY-MM-DD). Must be after checkIn." },
+            guests: { type: "integer", minimum: 1, description: "Number of guests. Defaults to source property max_guests if omitted." },
+            limit: { type: "integer", minimum: 1, maximum: 20, description: "Maximum number of results. Default 5, max 20." },
+          },
+          required: ["propertyId", "checkIn", "checkOut"],
+        },
+        annotations: {
+          title: "Find Similar Properties",
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: false,
+        },
+      },
+      {
+        name: "hemmabo_compare_properties",
+        description:
+          "Compare availability and pricing for 2–10 specific properties on the same dates. Use this tool when the user is deciding between multiple properties and wants price and availability side by side. Do NOT use for discovery — use hemmabo_search_properties first. Returns one entry per propertyId sorted by federation price (cheapest first), unavailable properties last.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            propertyIds: { type: "array", items: { type: "string", format: "uuid" }, minItems: 2, maxItems: 10, description: "Array of 2 to 10 property UUIDs to compare." },
+            checkIn: { type: "string", description: "Arrival date in ISO 8601 format (YYYY-MM-DD). Must be today or later." },
+            checkOut: { type: "string", description: "Departure date in ISO 8601 format (YYYY-MM-DD). Must be after checkIn." },
+            guests: { type: "integer", minimum: 1, description: "Total number of guests." },
+          },
+          required: ["propertyIds", "checkIn", "checkOut", "guests"],
+        },
+        annotations: {
+          title: "Compare Properties",
           readOnlyHint: true,
           destructiveHint: false,
           idempotentHint: true,

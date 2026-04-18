@@ -72,6 +72,16 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
         description:
           "Move a confirmed booking to new dates with automatic repricing.",
       },
+      {
+        name: "hemmabo_search_similar",
+        description:
+          "Find vacation rental properties similar to a given property on specific dates — same region, type, and capacity. Returns available alternatives with live pricing.",
+      },
+      {
+        name: "hemmabo_compare_properties",
+        description:
+          "Compare availability and pricing for 2–10 specific properties on the same dates. Returns results sorted by federation price, unavailable properties last.",
+      },
     ],
     example_properties: [
       {
