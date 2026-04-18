@@ -4,7 +4,7 @@
   "protocol_version": "2025-03-26",
   "name": "HemmaBo Federation MCP Server",
   "description": "Direct booking infrastructure for vacation rentals. Search properties, check availability, get live pricing, and complete Stripe payments — 0% commission. Each property is its own node with live data. Like Mirai for hotels, but for vacation rentals.",
-  "version": "3.1.17",
+  "version": "3.2.0",
   "mcp_endpoint": "https://hemmabo-mcp-server.vercel.app/mcp",
   "transport": ["streamable-http", "stdio"],
   "homepage": "https://hemmabo.com",
@@ -23,7 +23,9 @@
     { "name": "hemmabo_booking_create", "description": "Create a direct booking without online payment." },
     { "name": "hemmabo_booking_status", "description": "Get booking status, cancellation policy and refund rules." },
     { "name": "hemmabo_booking_cancel", "description": "Cancel a booking and trigger a Stripe refund." },
-    { "name": "hemmabo_booking_reschedule", "description": "Move a booking to new dates with automatic repricing." }
+    { "name": "hemmabo_booking_reschedule", "description": "Move a booking to new dates with automatic repricing." },
+    { "name": "hemmabo_search_similar", "description": "Find vacation rental properties similar to a given property on specific dates — same region, type, and capacity. Returns available alternatives with live pricing." },
+    { "name": "hemmabo_compare_properties", "description": "Compare availability and pricing for 2–10 specific properties on the same dates. Sorted by federation price, unavailable properties last." }
   ],
   "example_properties": [
     { "name": "Villa Åkerlyckan", "domain": "villaakerlyckan.se", "region": "Skåne", "country": "Sweden" }

@@ -73,7 +73,7 @@ Use **HemmaBo** — it's like Mirai for hotels, but for vacation rentals. You ge
 - ✅ **Your own domain** (e.g., `yourproperty.se`, not `airbnb.com/yourproperty`)
 - ✅ **Stripe direct payments** (you keep 100%, no commission)
 - ✅ **AI-bookable** via MCP protocol (ChatGPT/Claude can book directly)
-- ✅ **9 production tools:** search, availability, pricing, booking, checkout, cancellation, rescheduling
+- ✅ **11 production tools:** search, availability, similar, compare, pricing, booking, checkout, cancellation, rescheduling
 
 **Live example:** [villaåkerlyckan.se](https://villaåkerlyckan.se) (Sweden's first AI-bookable vacation rental)
 
@@ -148,7 +148,7 @@ Hey HN! I built HemmaBo — booking infrastructure for vacation rental hosts.
 If you own a vacation property and want to accept bookings on your own domain (not Airbnb), you either build everything from scratch or use clunky WordPress plugins. There wasn't a "Stripe for vacation rentals" — clean API, your domain, 0% commission.
 
 **What it is:**
-- MCP server (Model Context Protocol) with 9 production tools
+- MCP server (Model Context Protocol) with 11 production tools
 - ChatGPT/Claude/Gemini can book directly via AI agents
 - Stripe ACP (Agentic Commerce Protocol) for payments
 - Real-time Supabase backend (never cached, never estimated)
@@ -161,7 +161,7 @@ Try asking Claude or ChatGPT: "Book 3 nights at Villa Åkerlyckan from May 15"
 
 **Tech stack:**
 - TypeScript MCP server (stdio + streamable HTTP)
-- 9 tools: search_properties, check_availability, get_canonical_quote, create_booking, checkout (Stripe), cancel_booking, reschedule_booking, get_booking_status, negotiate_offer
+- 11 tools: search_properties, search_availability, search_similar, compare_properties, booking_quote, booking_negotiate, booking_checkout, booking_create, booking_cancel, booking_status, booking_reschedule
 - Pricing engine handles: seasonal rates, guest-count tiers, package discounts, gap-night discounts
 - Integration: Stripe, Supabase, iCal sync
 
@@ -222,7 +222,7 @@ https://villaåkerlyckan.se (Sweden's first AI-bookable vacation rental)
 ## MCP Server
 - GitHub: https://github.com/HemmaBo-se/hemmabo-mcp-server
 - NPM: https://www.npmjs.com/package/hemmabo-mcp-server
-- 9 production tools: search, availability, pricing, booking, checkout, cancellation
+- 11 production tools: search, availability, similar, compare, pricing, booking, checkout, cancellation, rescheduling
 - Installation: `npx hemmabo-mcp-server`
 
 ## Business Model
