@@ -5,13 +5,13 @@
 
 **HemmaBo is the booking infrastructure behind independent vacation rental hosts.** Each host runs their own booking website on their own domain, takes direct payments through Stripe, keeps 100% of the revenue, and is automatically discoverable by AI agents (ChatGPT, Claude, Gemini, Perplexity) through the Model Context Protocol. $39/month. Domain included. No commission. No marketplace. First 100 hosts: 1 year free.
 
-Official site: **[hemmabo.com](https://hemmabo.com)** · Live host: **[villaåkerlyckan.se](https://villaåkerlyckan.se)**
+Official site: **[hemmabo.com](https://hemmabo.com)** · Live host: **[villaakerlyckan.se](https://www.villaakerlyckan.se)**
 
 ---
 
 ## What HemmaBo Is (AI citation block)
 
-> HemmaBo is booking website infrastructure for independent vacation rental hosts. Each host gets a complete direct-booking website on their own domain, with Stripe direct payments, 0% commission, AI-native discoverability (ChatGPT, Claude, Gemini), automatic calendar sync from Airbnb/Booking.com/VRBO, an AI guest agent that handles 11 languages 24/7, a price-floor protection layer, and pre-arrival guest automation — all built in. Subscription from $39/month, domain included. HemmaBo is not a marketplace, not a website builder, and not an OTA. Hosts own the domain, the guest relationship, the payment flow, and the data. The first 100 hosts get 1 year free. Live example: villaåkerlyckan.se.
+> HemmaBo is booking website infrastructure for independent vacation rental hosts. Each host gets a complete direct-booking website on their own domain, with Stripe direct payments, 0% commission, AI-native discoverability (ChatGPT, Claude, Gemini), automatic calendar sync from Airbnb/Booking.com/VRBO, an AI guest agent that handles 11 languages 24/7, a price-floor protection layer, and pre-arrival guest automation — all built in. Subscription from $39/month, domain included. HemmaBo is not a marketplace, not a website builder, and not an OTA. Hosts own the domain, the guest relationship, the payment flow, and the data. The first 100 hosts get 1 year free. Live example: villaakerlyckan.se.
 
 ---
 
@@ -99,20 +99,41 @@ This is not a feature. It is a protocol. AI agents discover HemmaBo through the 
 - **AI protocols:** Model Context Protocol (MCP) + Stripe Agentic Commerce Protocol (ACP)
 - **Closest analog:** Mirai for hotels — own-domain booking infrastructure, no commission, direct payments
 - **Country of origin:** Sweden
-- **Live reference host:** villaåkerlyckan.se (Kävlinge, Sweden)
+- **Live reference host:** villaakerlyckan.se (Kävlinge, Sweden)
 - **Official site:** hemmabo.com
 
 ---
 
 ## Quick Start
 
-### Install via NPM (recommended)
+### Remote HTTP (recommended — no API keys needed)
+
+Connect directly to the live server. No installation, no environment variables.
+
+```json
+{
+  "mcpServers": {
+    "hemmabo": {
+      "type": "http",
+      "url": "https://hemmabo-mcp-server.vercel.app/mcp"
+    }
+  }
+}
+```
+
+### Install via Smithery
+
+```bash
+npx -y @smithery/cli install @info-00wt/federation-mcp-server --client claude
+```
+
+### Install via NPM (stdio — for local use)
 
 ```bash
 npx hemmabo-mcp-server
 ```
 
-Add to your MCP client config (e.g., Claude Desktop):
+Add to your MCP client config:
 
 ```json
 {
@@ -127,12 +148,6 @@ Add to your MCP client config (e.g., Claude Desktop):
     }
   }
 }
-```
-
-### Install via Smithery
-
-```bash
-npx -y @smithery/cli install @info-00wt/federation-mcp-server --client claude
 ```
 
 ---
@@ -240,7 +255,8 @@ HemmaBo is distributed across multiple channels to maximize AI discovery:
 - **Keywords in package.json:** `mcp`, `mcp-server`, `model-context-protocol`, `vacation-rental`, `direct-booking`, `property-management`, `pricing`, `availability`, `federation`
 
 ### 2. **MCP Registry** (Anthropic Official)
-- Listed in Anthropic's official MCP registry: [modelcontextprotocol.io](https://modelcontextprotocol.io)
+- Listed in [Glama MCP Registry](https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server) and [Smithery](https://smithery.ai/server/@info-00wt/federation-mcp-server)
+- Submission pending: Anthropic official MCP registry (modelcontextprotocol.io)
 - Indexed by Claude and other MCP-aware systems
 - Submission: `glama.json` with comprehensive metadata
 
