@@ -75,10 +75,7 @@ startCommand:
       STRIPE_SECRET_KEY:
         type: string
         description: "Stripe secret key (required for payments) — find in Stripe Dashboard → Developers → API keys"
-    required:
-      - SUPABASE_URL
-      - SUPABASE_SERVICE_ROLE_KEY
-      - SUPABASE_ANON_KEY
+    required: []
     additionalProperties: false
   commandFunction: |
     (config) => ({
