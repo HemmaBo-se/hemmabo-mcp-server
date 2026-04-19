@@ -13,7 +13,7 @@ keywords:
   - own-domain
   - stripe-payments
   - set-it-forget-it
-homepage: https://hemmabo-mcp-server.vercel.app
+homepage: https://hemmabo.com
 repository: https://github.com/HemmaBo-se/hemmabo-mcp-server
 
 configSchema:
@@ -34,6 +34,20 @@ configSchema:
 
 httpTransport:
   url: https://hemmabo-mcp-server.vercel.app/mcp
+  configSchema:
+    type: object
+    properties:
+      region:
+        type: string
+        description: "Default region (e.g. 'Skåne', 'Toscana')"
+      currency:
+        type: string
+        description: "Display currency (e.g. 'SEK', 'EUR')"
+      language:
+        type: string
+        description: "Response language (e.g. 'sv', 'en', 'de')"
+    required: []
+    additionalProperties: false
 
 startCommand:
   type: stdio
