@@ -1,23 +1,57 @@
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
-  "name": "io.github.hemmabo-se/hemmabo-mcp-server",
-  "description": "Vacation rental booking infrastructure for independent hosts. Own domain, Stripe direct payments, 0% commission. Each host is a sovereign booking node — own Supabase database, own Stripe account, never routed through a marketplace. AI-native: built on Model Context Protocol + Stripe ACP. 11 tools. Not an OTA. Not a marketplace. Infrastructure. Live: villaakerlyckan.se. From $39/month.",
-  "version": "3.2.0",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.hemmabo/federation",
+  "description": "Sovereign booking infrastructure for vacation rentals — own domain, Stripe direct, 0% commission.",
   "repository": {
     "url": "https://github.com/HemmaBo-se/hemmabo-mcp-server",
     "source": "github"
   },
+  "version": "3.2.1",
+  "websiteUrl": "https://hemmabo.com",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://hemmabo-mcp-server.vercel.app/mcp"
+    }
+  ],
   "packages": [
     {
       "registryType": "npm",
       "identifier": "hemmabo-mcp-server",
-      "version": "3.2.0"
-    }
-  ],
-  "remotes": [
-    {
-      "transportType": "http",
-      "url": "https://hemmabo-mcp-server.vercel.app/mcp"
+      "version": "3.2.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "SUPABASE_URL",
+          "description": "Supabase project URL — find in Supabase Dashboard → Settings → API",
+          "isRequired": true,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "SUPABASE_SERVICE_ROLE_KEY",
+          "description": "Supabase service role key — find in Supabase Dashboard → Settings → API",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "SUPABASE_ANON_KEY",
+          "description": "Supabase anon/public key — find in Supabase Dashboard → Settings → API",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "STRIPE_SECRET_KEY",
+          "description": "Stripe secret key for payment processing — find in Stripe Dashboard → Developers → API keys",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        }
+      ]
     }
   ]
 }
