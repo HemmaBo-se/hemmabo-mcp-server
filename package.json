@@ -1,5 +1,6 @@
 {
   "name": "hemmabo-mcp-server",
+  "mcpName": "io.github.hemmabo-se/hemmabo-mcp-server",
   "version": "3.2.0",
   "description": "Sovereign booking infrastructure for vacation rentals. Each host is the source of truth — own domain, own Supabase database, own Stripe account, 0% commission. First vacation rental with MCP + Stripe ACP. Live at villaakerlyckan.se.",
   "main": "dist/index.js",

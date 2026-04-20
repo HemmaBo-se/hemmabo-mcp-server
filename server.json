@@ -1,0 +1,23 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "name": "io.github.hemmabo-se/hemmabo-mcp-server",
+  "description": "Vacation rental booking infrastructure for independent hosts. Own domain, Stripe direct payments, 0% commission. Each host is a sovereign booking node — own Supabase database, own Stripe account, never routed through a marketplace. AI-native: built on Model Context Protocol + Stripe ACP. 11 tools. Not an OTA. Not a marketplace. Infrastructure. Live: villaakerlyckan.se. From $39/month.",
+  "version": "3.2.0",
+  "repository": {
+    "url": "https://github.com/HemmaBo-se/hemmabo-mcp-server",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "hemmabo-mcp-server",
+      "version": "3.2.0"
+    }
+  ],
+  "remotes": [
+    {
+      "transportType": "http",
+      "url": "https://hemmabo-mcp-server.vercel.app/mcp"
+    }
+  ]
+}
