@@ -2,7 +2,7 @@ faf_version: "3.0"
 
 project:
   name: "hemmabo-mcp-server"
-  version: "3.2.3"
+  version: "3.2.4"
   tagline: "Like Mirai for hotels — but for vacation rentals."
   website: "https://hemmabo-mcp-server.vercel.app"
   repo: "https://github.com/HemmaBo-se/hemmabo-mcp-server"

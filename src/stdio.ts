@@ -47,7 +47,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
 const server = new McpServer(
   {
     name: "hemmabo-mcp-server",
-    version: "3.2.3",
+    version: "3.2.4",
     description: "MCP server for vacation rental direct bookings. Search properties, check availability, get real-time pricing quotes, and create bookings through the federation protocol. Supports seasonal pricing, guest-count tiers, weekly and biweekly package discounts, gap-night discounts, and host-controlled federation discounts. All data is live — never cached, never estimated.",
   },
   {
@@ -532,7 +532,7 @@ server.tool(
         nights: quote.nights,
         requested_guests: guests,
         currency: quote.currency,
-        source_version: "3.2.3",
+        source_version: "3.2.4",
         valid_until: validUntil,
         public_total: quote.publicTotal,
         ai_total: quote.federationTotal,

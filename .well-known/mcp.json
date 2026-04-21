@@ -4,7 +4,7 @@
   "protocol_version": "2025-03-26",
   "name": "HemmaBo Federation MCP Server",
   "description": "Vacation rental booking infrastructure for independent hosts. Own domain, Stripe direct payments, 0% commission. Each host is a sovereign booking node — own Supabase database, own Stripe account, never routed through a marketplace. AI-native: built on Model Context Protocol + Stripe ACP. 11 tools. Not an OTA. Not a marketplace. Infrastructure. Live: villaakerlyckan.se. From $39/month.",
-  "version": "3.2.3",
+  "version": "3.2.4",
   "mcp_endpoint": "https://hemmabo-mcp-server.vercel.app/mcp",
   "transport": ["streamable-http", "stdio"],
   "homepage": "https://hemmabo.com",
