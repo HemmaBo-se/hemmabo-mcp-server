@@ -1,4 +1,4 @@
-# LAUNCHGUIDE — com.hemmabo/federation
+# LAUNCHGUIDE — com.hemmabo/hemmabo-mcp-server
 
 This file is the MCP Marketplace launch guide for the HemmaBo federation MCP server. It tells the marketplace (and users installing the server) what the server does, how to run it, and which credentials it needs.
 
@@ -6,7 +6,7 @@ This file is the MCP Marketplace launch guide for the HemmaBo federation MCP ser
 
 ## 1. Server identity
 
-- **MCP name:** `com.hemmabo/federation`
+- **MCP name:** `com.hemmabo/hemmabo-mcp-server`
 - **npm package:** [`hemmabo-mcp-server`](https://www.npmjs.com/package/hemmabo-mcp-server)
 - **Binary:** `hemmabo-mcp-server`
 - **Repository:** https://github.com/HemmaBo-se/hemmabo-mcp-server
@@ -14,7 +14,7 @@ This file is the MCP Marketplace launch guide for the HemmaBo federation MCP ser
 - **Live host running on it:** https://www.villaakerlyckan.se
 - **License:** MIT
 - **Maintainer:** HemmaBo (hello@hemmabo.com)
-- **Current version:** 3.2.3
+- **Current version:** 3.2.4
 - **Scope:** **Global.** The MCP server itself declares support for 5 currencies in its `configSchema` (SEK, EUR, USD, NOK, DKK — see [api/server-card.ts](api/server-card.ts)) and is multi-region. The broader HemmaBo platform that this server fronts supports additional currencies and multi-language guest chat, but those capabilities live in separate services and are not part of this repository.
 
 ---
