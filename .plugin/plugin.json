@@ -1,0 +1,25 @@
+{
+  "$schema": "https://open-plugins.com/schema/plugin.json",
+  "name": "hemmabo",
+  "displayName": "HemmaBo",
+  "version": "3.2.4",
+  "description": "Direct booking infrastructure for vacation rentals. 0% commission, Stripe direct to host.",
+  "author": {
+    "name": "HemmaBo",
+    "email": "info@hemmabo.se",
+    "url": "https://hemmabo.com"
+  },
+  "license": "MIT",
+  "homepage": "https://hemmabo.com",
+  "repository": "https://github.com/HemmaBo-se/hemmabo-mcp-server",
+  "keywords": [
+    "vacation-rental",
+    "direct-booking",
+    "booking-infrastructure",
+    "mcp-server",
+    "stripe",
+    "stripe-acp",
+    "agentic-commerce",
+    "travel"
+  ]
+}
