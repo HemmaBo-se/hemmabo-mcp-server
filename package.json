@@ -1,8 +1,8 @@
 {
   "name": "hemmabo-mcp-server",
-  "version": "3.2.2",
+  "version": "3.2.3",
   "mcpName": "com.hemmabo/federation",
-  "description": "Sovereign booking infrastructure for vacation rentals. Each host is the source of truth — own domain, own Supabase database, own Stripe account, 0% commission. First vacation rental with MCP + Stripe ACP. Live at villaakerlyckan.se.",
+  "description": "Booking infrastructure for independent vacation rental hosts. Each host is the source of truth — own domain, own Supabase, own Stripe account, 0% commission. 11 MCP tools covering the full booking lifecycle plus Stripe Agentic Commerce Protocol (ACP) support. Live at villaakerlyckan.se.",
   "main": "dist/index.js",
   "bin": {
     "hemmabo-mcp-server": "dist/stdio.js"

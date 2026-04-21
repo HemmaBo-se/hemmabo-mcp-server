@@ -4,9 +4,9 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
   res.json({
     serverInfo: {
       name: "hemmabo-mcp-server",
-      version: "3.2.0",
+      version: "3.2.3",
     },
-    instructions: "Booking infrastructure for vacation rentals. Like Mirai for hotels — own domain, Stripe direct, 0% commission. 11 production tools covering complete booking lifecycle. All data is live from Supabase — never cached, never estimated. Workflow: (1) hemmabo_search_properties to find available rentals, (2) hemmabo_booking_quote for detailed pricing, (3) hemmabo_booking_checkout with Stripe payment. Guest data belongs to host. Seasonal rates, guest-count tiers, package discounts (7-night, 14-night), gap-night discounts, and host-controlled federation discounts are applied automatically. Dates must be ISO 8601 (YYYY-MM-DD). All monetary values are integers in local currency.",
+    instructions: "Booking infrastructure for independent vacation rental hosts. Each host is the source of truth — own domain, own Supabase, own Stripe account, 0% commission. 11 MCP tools covering the full booking lifecycle plus Stripe Agentic Commerce Protocol (ACP) support. All data is live from Supabase — never cached, never estimated. Workflow: (1) hemmabo_search_properties to find available rentals, (2) hemmabo_booking_quote for detailed pricing, (3) hemmabo_booking_checkout with Stripe payment. Guest data belongs to host. Seasonal rates, guest-count tiers, package discounts (7-night, 14-night), gap-night discounts, and host-controlled federation discounts are applied automatically. Dates must be ISO 8601 (YYYY-MM-DD). All monetary values are integers in local currency.",
     configSchema: {
       type: "object",
       properties: {

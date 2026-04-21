@@ -2,9 +2,9 @@
   "$schema": "https://glama.ai/mcp/schemas/server.json",
   "maintainers": ["HemmaBo-se", "kingen1"],
   "name": "HemmaBo",
-  "version": "3.2.0",
+  "version": "3.2.3",
   "license": "MIT",
-  "description": "Booking infrastructure for vacation rentals. Like Mirai for hotels — own domain, Stripe direct, 0% commission. 11 production tools covering complete booking lifecycle. Live at villaåkerlyckan.se.",
+  "description": "Booking infrastructure for independent vacation rental hosts. Each host is the source of truth — own domain, own Supabase, own Stripe account, 0% commission. 11 MCP tools covering the full booking lifecycle plus Stripe Agentic Commerce Protocol (ACP) support. Live at villaakerlyckan.se.",
   "homepage": "https://hemmabo-mcp-server.vercel.app",
   "repository": "https://github.com/HemmaBo-se/hemmabo-mcp-server",
   "keywords": [

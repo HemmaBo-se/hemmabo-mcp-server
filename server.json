@@ -1,12 +1,12 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "com.hemmabo/federation",
-  "description": "Sovereign booking infrastructure for vacation rentals — own domain, Stripe direct, 0% commission.",
+  "description": "Booking infrastructure for independent vacation rental hosts. Each host is the source of truth — own domain, own Supabase, own Stripe account, 0% commission. 11 MCP tools covering the full booking lifecycle plus Stripe Agentic Commerce Protocol (ACP) support. Live at villaakerlyckan.se.",
   "repository": {
     "url": "https://github.com/HemmaBo-se/hemmabo-mcp-server",
     "source": "github"
   },
-  "version": "3.2.1",
+  "version": "3.2.3",
   "websiteUrl": "https://hemmabo.com",
   "remotes": [
     {
@@ -18,7 +18,7 @@
     {
       "registryType": "npm",
       "identifier": "hemmabo-mcp-server",
-      "version": "3.2.1",
+      "version": "3.2.3",
       "transport": {
         "type": "stdio"
       },
