@@ -254,9 +254,9 @@ HemmaBo is distributed across multiple channels to maximize AI discovery:
 - **Discovery:** AI agents search NPM for "vacation rental MCP", "booking MCP", "property management MCP"
 - **Keywords in package.json:** `mcp`, `mcp-server`, `model-context-protocol`, `vacation-rental`, `direct-booking`, `property-management`, `pricing`, `availability`, `federation`
 
-### 2. **MCP Registry** (Anthropic Official)
+### 2. **MCP Registry** (Official)
 - Listed in [Glama MCP Registry](https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server) and [Smithery](https://smithery.ai/server/@info-00wt/federation-mcp-server)
-- Submission pending: Anthropic official MCP registry (modelcontextprotocol.io)
+- Submission pending: Official MCP Registry (modelcontextprotocol.io)
 - Indexed by Claude and other MCP-aware systems
 - Submission: `glama.json` with comprehensive metadata
 

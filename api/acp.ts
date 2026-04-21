@@ -9,8 +9,8 @@
  *   POST   /acp/checkouts/:id/complete → Complete with SharedPaymentToken
  *   POST   /acp/checkouts/:id/cancel   → Cancel checkout
  *
- * This makes HemmaBo the first vacation rental with ACP-compatible
- * agentic commerce — AI agents can book and pay without redirect.
+ * This endpoint implements Stripe's Agentic Commerce Protocol so AI
+ * agents can book and pay without a browser redirect.
  */
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
@@ -151,7 +151,7 @@ async function buildACPState(bookingId: string): Promise<ACPCheckoutState | null
       ? [{ type: "info", text: "Booking has been cancelled." }]
       : [{ type: "info", text: "Booking created, awaiting details." }],
     links: [
-      { rel: "property", href: prop?.domain ? `https://${prop.domain}` : "https://hemmabo.se" },
+      { rel: "property", href: prop?.domain ? `https://${prop.domain}` : "https://hemmabo.com" },
       { rel: "booking_status", href: `https://hemmabo-mcp-server.vercel.app/acp/checkouts/${booking.id}` },
     ],
     metadata: {
