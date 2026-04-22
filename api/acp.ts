@@ -13,7 +13,7 @@
  * agents can book and pay without a browser redirect.
  */
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { VercelRequest, VercelResponse } from "./_types.js";
 import { createClient } from "@supabase/supabase-js";
 import { resolveQuote } from "../lib/pricing.js";
 import { checkAvailability } from "../lib/availability.js";
@@ -213,11 +213,12 @@ async function createCheckout(body: Record<string, unknown>, res: VercelResponse
   if (propErr || !prop) return res.status(404).json({ error: "Property not found" });
 
   // Check availability
-  const avail = await checkAvailability(reader, propertyId, checkIn, checkOut);
+  // MCP-06: use service-role client so bookings table is visible to availability checks
+  const avail = await checkAvailability(supabase, propertyId, checkIn, checkOut);
   if (!avail.available) return res.status(409).json({ error: "Not available", ...avail });
 
   // Calculate price (federation rate for agents)
-  const quote = await resolveQuote(reader, propertyId, checkIn, checkOut, guests);
+  const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
   if ("error" in quote) return res.status(400).json(quote);
 
   const totalPrice = quote.gapTotal ?? quote.federationTotal;
@@ -305,11 +306,12 @@ async function updateCheckout(checkoutId: string, body: Record<string, unknown>,
     }
 
     // Check availability
-    const avail = await checkAvailability(reader, booking.property_id, ci, co);
+    // MCP-06: use service-role client so bookings table is visible to availability checks
+    const avail = await checkAvailability(supabase, booking.property_id, ci, co);
     if (!avail.available) return res.status(409).json({ error: "New dates not available", ...avail });
 
     // Recalculate price
-    const quote = await resolveQuote(reader, booking.property_id, ci, co, g);
+    const quote = await resolveQuote(supabase, booking.property_id, ci, co, g);
     if ("error" in quote) return res.status(400).json(quote);
 
     updates.check_in_date = ci;
@@ -318,7 +320,8 @@ async function updateCheckout(checkoutId: string, body: Record<string, unknown>,
     updates.total_price = quote.gapTotal ?? quote.federationTotal;
     updates.currency = quote.currency;
   } else if (newGuests) {
-    const quote = await resolveQuote(reader, booking.property_id, booking.check_in_date, booking.check_out_date, newGuests);
+    // MCP-06: use service-role client so gap-night detection (reads bookings) works
+    const quote = await resolveQuote(supabase, booking.property_id, booking.check_in_date, booking.check_out_date, newGuests);
     if ("error" in quote) return res.status(400).json(quote);
     updates.guests_count = newGuests;
     updates.total_price = quote.gapTotal ?? quote.federationTotal;

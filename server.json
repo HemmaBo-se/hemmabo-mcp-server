@@ -1,12 +1,12 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "com.hemmabo/hemmabo-mcp-server",
-  "description": "Vacation rental booking infrastructure for independent hosts. 0% commission. MCP + Stripe ACP.",
+  "description": "Vacation rental booking infrastructure for independent hosts. 0% commission. 11 tools · Live pricing & availability · Stripe ACP agentic checkout · Built on Supabase per-host source-of-truth. First 100 hosts: 1 year free.",
   "repository": {
     "url": "https://github.com/HemmaBo-se/hemmabo-mcp-server",
     "source": "github"
   },
-  "version": "3.2.4",
+  "version": "3.2.5",
   "websiteUrl": "https://hemmabo.com",
   "remotes": [
     {
@@ -18,7 +18,7 @@
     {
       "registryType": "npm",
       "identifier": "hemmabo-mcp-server",
-      "version": "3.2.4",
+      "version": "3.2.5",
       "transport": {
         "type": "stdio"
       },
