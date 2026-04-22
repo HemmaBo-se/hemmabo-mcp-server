@@ -1,31 +1,106 @@
 /**
- * API key validation for MCP and ACP endpoints.
+ * API key / OAuth token validation for MCP and ACP endpoints.
  *
- * When MCP_API_KEY is set in the environment, all POST/PUT requests must carry
- * a matching Bearer token. When unset the check is skipped (open mode), which
- * allows gradual rollout without breaking existing clients.
+ * Two accepted credential types (checked in order):
+ *
+ * 1. MCP_API_KEY (legacy / admin)
+ *    Authorization: Bearer <MCP_API_KEY value>
+ *    Validated with constant-time comparison — no DB lookup needed.
+ *
+ * 2. OAuth access token (AI platforms)
+ *    Issued by POST /oauth/token (client_credentials grant).
+ *    Validated against mcp_access_tokens table in Supabase.
+ *    Tokens expire after 1 hour — clients re-fetch automatically.
+ *
+ * When MCP_API_KEY is unset, the server runs in open mode (all callers allowed).
  */
+
+import { createClient } from "@supabase/supabase-js";
+import { timingSafeEqual } from "crypto";
+
+let _supabase: ReturnType<typeof createClient> | null = null;
+function getSupabase() {
+  if (!_supabase) {
+    _supabase = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+  }
+  return _supabase;
+}
+
+function timingSafeStringEqual(a: string, b: string): boolean {
+  try {
+    const aBuf = Buffer.from(a, "utf8");
+    const bBuf = Buffer.from(b, "utf8");
+    if (aBuf.length !== bBuf.length) {
+      timingSafeEqual(aBuf, aBuf);
+      return false;
+    }
+    return timingSafeEqual(aBuf, bBuf);
+  } catch {
+    return false;
+  }
+}
 
 /**
- * Validates the Bearer token in an Authorization header against MCP_API_KEY.
- *
- * Uses constant-time comparison to prevent timing-based token enumeration.
- * Returns null when the key is valid or MCP_API_KEY is unset.
- * Returns an error string when validation fails.
+ * Full async validation — checks MCP_API_KEY first, then OAuth tokens.
+ * Returns null if valid, error string if invalid.
  */
-export function validateApiKey(authHeader: string | undefined): string | null {
-  const expectedKey = process.env.MCP_API_KEY;
-  if (!expectedKey) return null; // open mode — no key configured
+export async function validateAuth(
+  authorizationHeader: string | undefined
+): Promise<string | null> {
+  const masterKey = process.env.MCP_API_KEY;
+  if (!masterKey) return null; // open mode
 
-  if (!authHeader) return "Missing Authorization header";
-
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader;
-
-  // Constant-time comparison — prevents timing attacks that could enumerate the key
-  if (token.length !== expectedKey.length) return "Invalid API key";
-  let mismatch = 0;
-  for (let i = 0; i < token.length; i++) {
-    mismatch |= token.charCodeAt(i) ^ expectedKey.charCodeAt(i);
+  if (!authorizationHeader?.startsWith("Bearer ")) {
+    return "Authorization required. Pass: Authorization: Bearer <token>";
   }
-  return mismatch !== 0 ? "Invalid API key" : null;
+
+  const token = authorizationHeader.slice(7).trim();
+  if (!token) return "Empty Bearer token";
+
+  // 1. MCP_API_KEY — constant-time, no DB
+  if (timingSafeStringEqual(token, masterKey)) return null;
+
+  // 2. OAuth access token — DB lookup
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("mcp_access_tokens")
+    .select("id, expires_at")
+    .eq("token", token)
+    .maybeSingle<{ id: string; expires_at: string }>();
+
+  if (error || !data) return "Invalid or unknown token";
+
+  if (new Date(data.expires_at) < new Date()) {
+    await supabase.from("mcp_access_tokens").delete().eq("id", data.id);
+    return "Token expired — request a new one via POST /oauth/token";
+  }
+
+  return null;
+}
+
+/**
+ * Synchronous legacy validator — only checks MCP_API_KEY.
+ * @deprecated Use validateAuth() for full OAuth support.
+ */
+export function validateApiKey(
+  authorizationHeader: string | string[] | undefined
+): string | null {
+  const masterKey = process.env.MCP_API_KEY;
+  if (!masterKey) return null;
+
+  const header = Array.isArray(authorizationHeader)
+    ? authorizationHeader[0]
+    : authorizationHeader;
+
+  if (!header?.startsWith("Bearer ")) {
+    return "Authorization required. Pass: Authorization: Bearer <key>";
+  }
+
+  const provided = header.slice(7).trim();
+  if (!timingSafeStringEqual(provided, masterKey)) return "Invalid API key";
+
+  return null;
 }

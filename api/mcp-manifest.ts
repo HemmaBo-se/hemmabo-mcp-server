@@ -19,6 +19,22 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
       "Direct booking infrastructure for vacation rentals. Search properties, check availability, get live pricing, and complete Stripe payments — 0% commission. Each property is its own node with live data. Like Mirai for hotels, but for vacation rentals.",
     mcp_endpoint: "https://hemmabo-mcp-server.vercel.app/mcp",
     transport: ["streamable-http", "stdio"],
+    authentication: {
+      type: "oauth2",
+      flows: {
+        clientCredentials: {
+          tokenUrl: "https://hemmabo-mcp-server.vercel.app/oauth/token",
+          scopes: {
+            mcp: "Full access to all MCP tools",
+          },
+        },
+      },
+      registration: {
+        endpoint: "https://hemmabo-mcp-server.vercel.app/oauth/register",
+        description:
+          "Register an OAuth client to obtain client_id and client_secret. Use POST /oauth/token with grant_type=client_credentials to get an access token.",
+      },
+    },
     homepage: "https://hemmabo.com",
     icon: "https://hemmabo-mcp-server.vercel.app/icon.png",
     registry: {
