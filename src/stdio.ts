@@ -10,14 +10,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { resolveQuote } from "./pricing.js";
-import { checkAvailability } from "./availability.js";
-import {
-  createCheckoutSession,
-  retrievePaymentIntent,
-  createRefund,
-  createPaymentIntent,
-} from "./stripe.js";
+import { executeTool } from "../lib/tools.js";
 
 // ── Shared validators ──────────────────────────────────────────────
 
@@ -119,63 +112,11 @@ server.tool(
     checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
     checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
   },
-  async ({ region, country, guests, checkIn, checkOut }) => {
-    if (!reader) {
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }],
-      };
+  async (args) => {
+    if (!supabase || !reader) {
+      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
-
-    let query = reader
-      .from("properties")
-      .select("id, name, domain, region, city, country, max_guests, currency, property_type, direct_booking_discount, cleaning_fee")
-      .eq("published", true)
-      .gte("max_guests", guests);
-
-    if (region) query = query.ilike("region", `%${region}%`);
-    if (country) query = query.ilike("country", `%${country}%`);
-
-    const { data: properties, error } = await query;
-
-    if (error) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }] };
-    }
-
-    const results = [];
-    for (const prop of properties ?? []) {
-      const avail = await checkAvailability(reader, prop.id, checkIn, checkOut);
-      if (!avail.available) continue;
-
-      const quote = await resolveQuote(reader, prop.id, checkIn, checkOut, guests);
-      if ("error" in quote) continue;
-
-      results.push({
-        propertyId: prop.id,
-        name: prop.name,
-        domain: prop.domain,
-        region: prop.region,
-        city: prop.city,
-        country: prop.country,
-        maxGuests: prop.max_guests,
-        propertyType: prop.property_type,
-        currency: quote.currency,
-        nights: quote.nights,
-        publicTotal: quote.publicTotal,
-        federationTotal: quote.federationTotal,
-        federationDiscountPercent: quote.federationDiscountPercent,
-        packageApplied: quote.packageApplied,
-        available: true,
-      });
-    }
-
-    return {
-      content: [
-        {
-          type: "text" as const,
-          text: JSON.stringify({ checkIn, checkOut, guests, properties: results }, null, 2),
-        },
-      ],
-    };
+    return executeTool("hemmabo_search_properties", args as Record<string, unknown>, { supabase, reader });
   }
 );
 
@@ -189,17 +130,11 @@ server.tool(
     checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
     checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
   },
-  async ({ propertyId, checkIn, checkOut }) => {
-    if (!reader) {
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }],
-      };
+  async (args) => {
+    if (!supabase || !reader) {
+      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
-
-    const result = await checkAvailability(reader, propertyId, checkIn, checkOut);
-    return {
-      content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
-    };
+    return executeTool("hemmabo_search_availability", args as Record<string, unknown>, { supabase, reader });
   }
 );
 // ── Tool: hemmabo_search_similar ──────────────────────────────────
@@ -214,79 +149,11 @@ server.tool(
     guests: z.number().int().min(1).optional().describe("Number of guests. Defaults to source property's max_guests."),
     limit: z.number().int().min(1).max(20).optional().describe("Maximum number of similar properties to return. Default 5, max 20."),
   },
-  async ({ propertyId, checkIn, checkOut, guests, limit }) => {
-    if (!reader) {
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }],
-      };
+  async (args) => {
+    if (!supabase || !reader) {
+      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
-
-    const { data: src, error: srcErr } = await reader
-      .from("properties")
-      .select("region, country, property_type, max_guests, published")
-      .eq("id", propertyId)
-      .single();
-    if (srcErr || !src) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Source property not found" }) }] };
-    }
-
-    const effectiveGuests = guests ?? src.max_guests ?? 2;
-    const max = limit ?? 5;
-
-    let query = reader
-      .from("properties")
-      .select("id, name, domain, region, city, country, max_guests, currency, property_type, direct_booking_discount, cleaning_fee")
-      .eq("published", true)
-      .neq("id", propertyId)
-      .gte("max_guests", effectiveGuests);
-    if (src.region) query = query.ilike("region", `%${src.region}%`);
-    else if (src.country) query = query.ilike("country", `%${src.country}%`);
-    if (src.property_type) query = query.eq("property_type", src.property_type);
-
-    const { data: candidates, error: qErr } = await query.limit(max * 3);
-    if (qErr) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({ error: qErr.message }) }] };
-    }
-
-    const results = [];
-    for (const prop of candidates ?? []) {
-      if (results.length >= max) break;
-      const avail = await checkAvailability(reader, prop.id, checkIn, checkOut);
-      if (!avail.available) continue;
-      const quote = await resolveQuote(reader, prop.id, checkIn, checkOut, effectiveGuests);
-      if ("error" in quote) continue;
-      results.push({
-        propertyId: prop.id,
-        name: prop.name,
-        domain: prop.domain,
-        region: prop.region,
-        city: prop.city,
-        country: prop.country,
-        maxGuests: prop.max_guests,
-        propertyType: prop.property_type,
-        currency: quote.currency,
-        nights: quote.nights,
-        publicTotal: quote.publicTotal,
-        federationTotal: quote.federationTotal,
-        federationDiscountPercent: quote.federationDiscountPercent,
-        packageApplied: quote.packageApplied,
-        available: true,
-      });
-    }
-
-    return {
-      content: [{
-        type: "text" as const,
-        text: JSON.stringify({
-          sourcePropertyId: propertyId,
-          checkIn,
-          checkOut,
-          guests: effectiveGuests,
-          count: results.length,
-          similarProperties: results,
-        }, null, 2),
-      }],
-    };
+    return executeTool("hemmabo_search_similar", args as Record<string, unknown>, { supabase, reader });
   }
 );
 
@@ -301,66 +168,11 @@ server.tool(
     checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD). Must be after checkIn."),
     guests: z.number().int().min(1).describe("Total number of guests as integer >= 1."),
   },
-  async ({ propertyIds, checkIn, checkOut, guests }) => {
-    if (!reader) {
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }],
-      };
+  async (args) => {
+    if (!supabase || !reader) {
+      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
-
-    const comparisons = await Promise.all(
-      propertyIds.map(async (id) => {
-        const { data: prop } = await reader!
-          .from("properties")
-          .select("id, name, domain, region, city, country, max_guests, property_type, published")
-          .eq("id", id)
-          .single();
-        if (!prop || !prop.published) {
-          return { propertyId: id, available: false, error: "Property not found or not published" };
-        }
-        const avail = await checkAvailability(reader!, id, checkIn, checkOut);
-        if (!avail.available) {
-          return { propertyId: prop.id, name: prop.name, domain: prop.domain, available: false, reason: avail };
-        }
-        const quote = await resolveQuote(reader!, id, checkIn, checkOut, guests);
-        if ("error" in quote) {
-          return { propertyId: prop.id, name: prop.name, domain: prop.domain, available: true, error: quote.error };
-        }
-        return {
-          propertyId: prop.id,
-          name: prop.name,
-          domain: prop.domain,
-          region: prop.region,
-          city: prop.city,
-          country: prop.country,
-          maxGuests: prop.max_guests,
-          propertyType: prop.property_type,
-          currency: quote.currency,
-          nights: quote.nights,
-          publicTotal: quote.publicTotal,
-          federationTotal: quote.federationTotal,
-          gapTotal: quote.gapTotal,
-          federationDiscountPercent: quote.federationDiscountPercent,
-          packageApplied: quote.packageApplied,
-          available: true,
-        };
-      })
-    );
-
-    comparisons.sort((a: any, b: any) => {
-      if (a.available && !b.available) return -1;
-      if (!a.available && b.available) return 1;
-      const ap = typeof a.federationTotal === "number" ? a.federationTotal : Infinity;
-      const bp = typeof b.federationTotal === "number" ? b.federationTotal : Infinity;
-      return ap - bp;
-    });
-
-    return {
-      content: [{
-        type: "text" as const,
-        text: JSON.stringify({ checkIn, checkOut, guests, count: comparisons.length, comparison: comparisons }, null, 2),
-      }],
-    };
+    return executeTool("hemmabo_compare_properties", args as Record<string, unknown>, { supabase, reader });
   }
 );
 // ── Tool: hemmabo_booking_quote ──────────────────────────────────────
@@ -374,17 +186,11 @@ server.tool(
     checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
     guests: z.number().int().min(1).describe("Total number of guests as integer >= 1 (e.g. 4). Determines which price tier is applied (staircase pricing by guest count)."),
   },
-  async ({ propertyId, checkIn, checkOut, guests }) => {
-    if (!reader) {
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }],
-      };
+  async (args) => {
+    if (!supabase || !reader) {
+      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
-
-    const quote = await resolveQuote(reader, propertyId, checkIn, checkOut, guests);
-    return {
-      content: [{ type: "text" as const, text: JSON.stringify(quote, null, 2) }],
-    };
+    return executeTool("hemmabo_booking_quote", args as Record<string, unknown>, { supabase, reader });
   }
 );
 
@@ -402,93 +208,11 @@ server.tool(
     guestEmail: z.string().email().describe("Email for booking confirmation (e.g. 'anna@example.com'). Must be a valid email address."),
     guestPhone: z.string().optional().describe("Phone with country code (e.g. '+46701234567'). Optional but recommended for check-in coordination."),
   },
-  async ({ propertyId, checkIn, checkOut, guests, guestName, guestEmail, guestPhone }) => {
-    if (!supabase) {
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }],
-      };
+  async (args) => {
+    if (!supabase || !reader) {
+      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
-
-    // 1. Verify availability
-    const avail = await checkAvailability(reader!, propertyId, checkIn, checkOut);
-    if (!avail.available) {
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: "Not available", ...avail }) }],
-      };
-    }
-
-    // 2. Get quote (federation price)
-    const quote = await resolveQuote(reader!, propertyId, checkIn, checkOut, guests);
-    if ("error" in quote) {
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(quote) }],
-      };
-    }
-
-    // Use gap price if applicable, otherwise federation price
-    const totalPrice = quote.gapTotal ?? quote.federationTotal;
-
-    // 3. Get property name for the booking record
-    const { data: prop } = await reader!
-      .from("properties")
-      .select("name, host_id")
-      .eq("id", propertyId)
-      .single();
-
-    // 4. Create booking
-    const { data: booking, error: bookErr } = await supabase
-      .from("bookings")
-      .insert({
-        property_id: propertyId,
-        host_id: prop?.host_id,
-        check_in_date: checkIn,
-        check_out_date: checkOut,
-        guests_count: guests,
-        guest_name: guestName,
-        guest_email: guestEmail,
-        guest_phone: guestPhone ?? null,
-        total_price: totalPrice,
-        currency: quote.currency,
-        status: "pending",
-        property_name_at_booking: prop?.name ?? null,
-        host_approval_required: true,
-      })
-      .select("id, status, created_at")
-      .single();
-
-    if (bookErr) {
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: bookErr.message }) }],
-      };
-    }
-
-    return {
-      content: [
-        {
-          type: "text" as const,
-          text: JSON.stringify(
-            {
-              bookingId: booking.id,
-              status: booking.status,
-              propertyId,
-              checkIn,
-              checkOut,
-              nights: quote.nights,
-              guests,
-              totalPrice,
-              currency: quote.currency,
-              priceType: quote.gapTotal ? "gap_night" : (quote.packageApplied ? `package_${quote.packageApplied}` : "federation"),
-              packageApplied: quote.packageApplied,
-              federationDiscountPercent: quote.federationDiscountPercent,
-              gapDiscountPercent: quote.gapDiscountPercent,
-              createdAt: booking.created_at,
-            },
-            null,
-            2
-          ),
-        },
-      ],
-    };
+    return executeTool("hemmabo_booking_create", args as Record<string, unknown>, { supabase, reader });
   }
 );
 
@@ -503,86 +227,11 @@ server.tool(
     checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
     guests: z.number().int().min(1).describe("Total number of guests as integer >= 1 (e.g. 4). Determines which price tier is applied."),
   },
-  async ({ propertyId, checkIn, checkOut, guests }) => {
-    if (!supabase) {
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }],
-      };
+  async (args) => {
+    if (!supabase || !reader) {
+      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
-
-    const quote = await resolveQuote(reader!, propertyId, checkIn, checkOut, guests);
-    if ("error" in quote) {
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(quote) }],
-      };
-    }
-
-    // Fetch property domain for snapshot
-    const { data: prop } = await reader!.from("properties").select("domain").eq("id", propertyId).single();
-
-    const validUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-
-    const { data: snapshot, error: snapErr } = await supabase
-      .from("property_quote_snapshots")
-      .insert({
-        property_id: propertyId,
-        domain: prop?.domain ?? null,
-        stay_start: checkIn,
-        stay_end: checkOut,
-        nights: quote.nights,
-        requested_guests: guests,
-        currency: quote.currency,
-        source_version: "3.2.4",
-        valid_until: validUntil,
-        public_total: quote.publicTotal,
-        ai_total: quote.federationTotal,
-        ai_discount_pct: quote.federationDiscountPercent,
-        segments_detail: quote.breakdown.nightlyRates.map((n: any) => ({
-          date: n.date,
-          rate: n.rate,
-          season: n.season,
-          dayType: n.dayType,
-        })),
-        status: "ok",
-      })
-      .select("id")
-      .single();
-
-    if (snapErr) {
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: snapErr.message }) }],
-      };
-    }
-
-    return {
-      content: [
-        {
-          type: "text" as const,
-          text: JSON.stringify(
-            {
-              propertyId,
-              checkIn,
-              checkOut,
-              guests,
-              nights: quote.nights,
-              currency: quote.currency,
-              publicTotal: quote.publicTotal,
-              federationTotal: quote.federationTotal,
-              federationDiscountPercent: quote.federationDiscountPercent,
-              breakdown: quote.breakdown,
-              packageApplied: quote.packageApplied,
-              gapNight: quote.gapNight,
-              gapTotal: quote.gapTotal,
-              gapDiscountPercent: quote.gapDiscountPercent,
-              quoteId: snapshot.id,
-              validUntil,
-            },
-            null,
-            2
-          ),
-        },
-      ],
-    };
+    return executeTool("hemmabo_booking_negotiate", args as Record<string, unknown>, { supabase, reader });
   }
 );
 
@@ -603,153 +252,14 @@ server.tool(
     paymentMode: z.enum(["checkout_session", "payment_intent"]).optional().describe("'checkout_session' (default): returns Stripe redirect URL. 'payment_intent': returns client_secret for programmatic payment (AI agent MPP flow)."),
     channel: z.enum(["public", "federation"]).optional().describe("'federation' (default): applies direct booking discount. 'public': uses standard website rate."),
   },
-  async ({ propertyId, checkIn, checkOut, guests, guestName, guestEmail, guestPhone, quoteId, paymentMode, channel }) => {
-    if (!supabase) {
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }],
-      };
+  async (args) => {
+    if (!supabase || !reader) {
+      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
-
-    const effectivePaymentMode = paymentMode ?? "checkout_session";
-    const effectiveChannel = channel ?? "federation";
-
     try {
-      // Fetch property
-      const { data: prop, error: propErr } = await reader!
-        .from("properties")
-        .select("name, domain, host_id, currency, direct_booking_discount, cleaning_fee")
-        .eq("id", propertyId)
-        .single();
-      if (propErr || !prop) {
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify({ error: "Property not found" }) }],
-        };
-      }
-
-      // Check availability
-      const avail = await checkAvailability(reader!, propertyId, checkIn, checkOut);
-      if (!avail.available) {
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify({ error: "Not available", ...avail }) }],
-        };
-      }
-
-      let totalPrice: number;
-      let currency: string;
-      let nights: number;
-
-      if (quoteId) {
-        // Use locked quote from hemmabo_booking_negotiate
-        const { data: snapshot, error: snapErr } = await reader!
-          .from("property_quote_snapshots")
-          .select("*")
-          .eq("id", quoteId)
-          .single();
-        if (snapErr || !snapshot) {
-          return {
-            content: [{ type: "text" as const, text: JSON.stringify({ error: "Quote not found" }) }],
-          };
-        }
-        if (new Date(snapshot.valid_until) < new Date()) {
-          return {
-            content: [{ type: "text" as const, text: JSON.stringify({ error: "Quote expired", quoteId, validUntil: snapshot.valid_until }) }],
-          };
-        }
-        totalPrice = effectiveChannel === "public" ? snapshot.public_total : snapshot.ai_total;
-        currency = snapshot.currency;
-        nights = snapshot.nights;
-      } else {
-        // Calculate fresh price
-        const quote = await resolveQuote(reader!, propertyId, checkIn, checkOut, guests);
-        if ("error" in quote) {
-          return {
-            content: [{ type: "text" as const, text: JSON.stringify(quote) }],
-          };
-        }
-        totalPrice = effectiveChannel === "public" ? quote.publicTotal : (quote.gapTotal ?? quote.federationTotal);
-        currency = quote.currency;
-        nights = quote.nights;
-      }
-
-      // Create Stripe Checkout Session
-      const session = await createCheckoutSession({
-        amount: totalPrice,
-        currency,
-        propertyName: prop.name,
-        checkIn,
-        checkOut,
-        guests,
-        guestEmail,
-        propertyId,
-        bookingId: "pending",
-        domain: prop.domain ?? "",
-      });
-
-      // Create booking record
-      const { data: booking, error: bookErr } = await supabase
-        .from("bookings")
-        .insert({
-          property_id: propertyId,
-          host_id: prop.host_id,
-          check_in_date: checkIn,
-          check_out_date: checkOut,
-          guests_count: guests,
-          guest_name: guestName,
-          guest_email: guestEmail,
-          guest_phone: guestPhone ?? null,
-          total_price: totalPrice,
-          currency,
-          status: "pending",
-          property_name_at_booking: prop.name,
-          stripe_session_id: session.id,
-        })
-        .select("id, status, created_at, guest_token")
-        .single();
-
-      if (bookErr) {
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify({ error: bookErr.message }) }],
-        };
-      }
-
-      // Build response
-      const result: Record<string, unknown> = {
-        reservationId: booking.id,
-        status: booking.status,
-        paymentUrl: session.url,
-        propertyId,
-        checkIn,
-        checkOut,
-        nights,
-        guests,
-        totalPrice,
-        currency,
-        payment_modes: ["checkout_session", "payment_intent"],
-        createdAt: booking.created_at,
-      };
-
-      // MPP enrichment: if payment_intent mode, retrieve client_secret
-      if (effectivePaymentMode === "payment_intent" && session.payment_intent) {
-        const pi = await retrievePaymentIntent(session.payment_intent);
-        result.mpp = {
-          protocol: "stripe-mpp",
-          version: "2025-03-17",
-          payment_intent_id: pi.id,
-          client_secret: pi.client_secret,
-          amount: totalPrice,
-          currency,
-          supported_payment_methods: ["card", "klarna", "swish", "link"],
-          confirmation_url: session.url,
-        };
-      }
-
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
-      };
+      return await executeTool("hemmabo_booking_checkout", args as Record<string, unknown>, { supabase, reader });
     } catch (error: any) {
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message || "Checkout failed" }) }],
-      };
+      return { content: [{ type: "text" as const, text: JSON.stringify({ error: error.message || "Checkout failed" }) }], isError: true };
     }
   }
 );
@@ -763,78 +273,14 @@ server.tool(
     reservationId: z.string().describe("Booking UUID from hemmabo_booking_checkout or hemmabo_booking_create (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
     reason: z.string().optional().describe("Cancellation reason for host notification (e.g. 'Travel plans changed'). Optional but recommended."),
   },
-  async ({ reservationId, reason }) => {
-    if (!supabase) {
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }],
-      };
+  async (args) => {
+    if (!supabase || !reader) {
+      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
-
     try {
-      // Fetch booking
-      const { data: booking, error: bookErr } = await supabase
-        .from("bookings")
-        .select("id, status, guest_token, check_in_date, check_out_date, total_price, currency, property_id, stripe_payment_intent_id")
-        .eq("id", reservationId)
-        .single();
-
-      if (bookErr || !booking) {
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify({ error: "Booking not found" }) }],
-        };
-      }
-      if (booking.status === "cancelled") {
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify({ error: "Booking is already cancelled", reservationId }) }],
-        };
-      }
-
-      // Delegate to Supabase Edge Function
-      const supabaseUrl = process.env.SUPABASE_URL;
-      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-      const cancelResp = await fetch(`${supabaseUrl}/functions/v1/cancel-booking`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${supabaseKey}`,
-        },
-        body: JSON.stringify({
-          bookingId: booking.id,
-          guestToken: booking.guest_token,
-          reason: reason ?? "Cancelled via MCP",
-        }),
-      });
-
-      if (!cancelResp.ok) {
-        const errBody = await cancelResp.text();
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify({ error: `Cancel failed: ${errBody}` }) }],
-        };
-      }
-
-      const cancelResult = await cancelResp.json();
-
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify(
-              {
-                reservationId: booking.id,
-                status: "cancelled",
-                refund: cancelResult.refund ?? null,
-              },
-              null,
-              2
-            ),
-          },
-        ],
-      };
+      return await executeTool("hemmabo_booking_cancel", args as Record<string, unknown>, { supabase, reader });
     } catch (error: any) {
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message || "Cancellation failed" }) }],
-      };
+      return { content: [{ type: "text" as const, text: JSON.stringify({ error: error.message || "Cancellation failed" }) }], isError: true };
     }
   }
 );
@@ -847,73 +293,11 @@ server.tool(
   {
     reservationId: z.string().describe("Booking UUID from hemmabo_booking_checkout or hemmabo_booking_create (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
   },
-  async ({ reservationId }) => {
-    if (!supabase) {
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }],
-      };
+  async (args) => {
+    if (!supabase || !reader) {
+      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
-
-    // Fetch booking
-    const { data: booking, error: bookErr } = await supabase
-      .from("bookings")
-      .select("id, status, check_in_date, check_out_date, guests_count, total_price, currency, property_id, guest_name, guest_email, created_at, updated_at")
-      .eq("id", reservationId)
-      .single();
-
-    if (bookErr || !booking) {
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: "Booking not found" }) }],
-      };
-    }
-
-    // Fetch property
-    const { data: prop } = await supabase
-      .from("properties")
-      .select("name, domain")
-      .eq("id", booking.property_id)
-      .single();
-
-    // Fetch cancellation policy
-    const { data: policy } = await supabase
-      .from("host_policies")
-      .select("cancellation_tier, refund_rules")
-      .eq("property_id", booking.property_id)
-      .single();
-
-    return {
-      content: [
-        {
-          type: "text" as const,
-          text: JSON.stringify(
-            {
-              reservationId: booking.id,
-              status: booking.status,
-              propertyId: booking.property_id,
-              propertyName: prop?.name ?? null,
-              propertyDomain: prop?.domain ?? null,
-              checkIn: booking.check_in_date,
-              checkOut: booking.check_out_date,
-              guests: booking.guests_count,
-              totalPrice: booking.total_price,
-              currency: booking.currency,
-              guestName: booking.guest_name,
-              guestEmail: booking.guest_email,
-              cancellationPolicy: policy
-                ? {
-                    tier: policy.cancellation_tier,
-                    refundRules: policy.refund_rules,
-                  }
-                : null,
-              createdAt: booking.created_at,
-              updatedAt: booking.updated_at,
-            },
-            null,
-            2
-          ),
-        },
-      ],
-    };
+    return executeTool("hemmabo_booking_status", args as Record<string, unknown>, { supabase, reader });
   }
 );
 
@@ -928,142 +312,14 @@ server.tool(
     newCheckOut: zISODate.describe("New departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-27'). Must be after newCheckIn."),
     reason: z.string().optional().describe("Reason for rescheduling (e.g. 'Flight delayed'). Optional but recommended for host records."),
   },
-  async ({ reservationId, newCheckIn, newCheckOut, reason }) => {
-    if (!supabase) {
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }],
-      };
+  async (args) => {
+    if (!supabase || !reader) {
+      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
-
     try {
-      const RESCHEDULABLE_STATES = ["confirmed", "pending"];
-
-      // Fetch booking
-      const { data: booking, error: bookErr } = await supabase
-        .from("bookings")
-        .select("id, status, check_in_date, check_out_date, guests_count, total_price, currency, property_id, stripe_payment_intent_id")
-        .eq("id", reservationId)
-        .single();
-
-      if (bookErr || !booking) {
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify({ error: "Booking not found" }) }],
-        };
-      }
-      if (!RESCHEDULABLE_STATES.includes(booking.status)) {
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify({ error: `Booking status '${booking.status}' is not reschedulable. Must be: ${RESCHEDULABLE_STATES.join(", ")}` }) }],
-        };
-      }
-
-      // Idempotency: same dates = no-op
-      if (booking.check_in_date === newCheckIn && booking.check_out_date === newCheckOut) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify(
-                {
-                  reservationId: booking.id,
-                  status: booking.status,
-                  message: "No change — new dates match current dates",
-                  checkIn: booking.check_in_date,
-                  checkOut: booking.check_out_date,
-                },
-                null,
-                2
-              ),
-            },
-          ],
-        };
-      }
-
-      // Check availability (excluding this booking)
-      const avail = await checkAvailability(reader!, booking.property_id, newCheckIn, newCheckOut, booking.id);
-      if (!avail.available) {
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify({ error: "New dates not available", ...avail }) }],
-        };
-      }
-
-      // Calculate new price
-      const quote = await resolveQuote(reader!, booking.property_id, newCheckIn, newCheckOut, booking.guests_count);
-      if ("error" in quote) {
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify(quote) }],
-        };
-      }
-
-      const newPrice = quote.gapTotal ?? quote.federationTotal;
-      const oldPrice = booking.total_price;
-      const delta = newPrice - oldPrice;
-
-      let stripeAction: Record<string, unknown> | null = null;
-
-      if (delta > 0 && booking.stripe_payment_intent_id) {
-        // Price increased: create new PaymentIntent with manual capture
-        const pi = await createPaymentIntent({
-          amount: delta,
-          currency: booking.currency,
-          captureMethod: "manual",
-          metadata: {
-            booking_id: booking.id,
-            type: "reschedule_delta",
-            original_payment_intent: booking.stripe_payment_intent_id,
-          },
-        });
-        stripeAction = { type: "additional_charge", amount: delta, paymentIntentId: pi.id, status: pi.status };
-      } else if (delta < 0 && booking.stripe_payment_intent_id) {
-        // Price decreased: partial refund
-        const refund = await createRefund(booking.stripe_payment_intent_id, Math.abs(delta));
-        stripeAction = { type: "partial_refund", amount: Math.abs(delta), refundId: refund.id, status: refund.status };
-      }
-
-      // Update booking
-      const { error: updateErr } = await supabase
-        .from("bookings")
-        .update({
-          check_in_date: newCheckIn,
-          check_out_date: newCheckOut,
-          total_price: newPrice,
-        })
-        .eq("id", booking.id);
-
-      if (updateErr) {
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify({ error: updateErr.message }) }],
-        };
-      }
-
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify(
-              {
-                reservationId: booking.id,
-                status: booking.status,
-                previousDates: { checkIn: booking.check_in_date, checkOut: booking.check_out_date },
-                newDates: { checkIn: newCheckIn, checkOut: newCheckOut },
-                pricing: {
-                  previousPrice: oldPrice,
-                  newPrice,
-                  delta,
-                  currency: booking.currency,
-                  stripeAction,
-                },
-                reason: reason ?? null,
-              },
-              null,
-              2
-            ),
-          },
-        ],
-      };
+      return await executeTool("hemmabo_booking_reschedule", args as Record<string, unknown>, { supabase, reader });
     } catch (error: any) {
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message || "Reschedule failed" }) }],
-      };
+      return { content: [{ type: "text" as const, text: JSON.stringify({ error: error.message || "Reschedule failed" }) }], isError: true };
     }
   }
 );

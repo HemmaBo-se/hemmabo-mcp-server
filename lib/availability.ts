@@ -9,6 +9,15 @@
 
 import { SupabaseClient } from "@supabase/supabase-js";
 
+// MCP-04b: Pending bookings older than this are ignored by the availability
+// check. Stripe Checkout Sessions expire after 24 h by default, after which
+// the external stripe-webhook fires checkout.session.expired. Until that path
+// also updates the bookings row (NOT PROVEN — see MCP-04a3), a pending row
+// with no payment can otherwise block the calendar indefinitely. The 24 h
+// cut-off matches Stripe's default session TTL; confirmed bookings are
+// unaffected and continue to block regardless of age.
+const PENDING_BOOKING_TTL_MS = 24 * 60 * 60 * 1000;
+
 export interface AvailabilityResult {
   propertyId: string;
   checkIn: string;
@@ -46,12 +55,15 @@ export async function checkAvailability(
     };
   }
 
-  // 2. Check confirmed/pending bookings
+  // 2. Check confirmed/pending bookings.
+  // MCP-04b: confirmed rows always count; pending rows only count while
+  // younger than PENDING_BOOKING_TTL_MS (stale-pending filter).
+  const pendingCutoff = new Date(Date.now() - PENDING_BOOKING_TTL_MS).toISOString();
   let bookingsQuery = supabase
     .from("bookings")
     .select("check_in_date, check_out_date, status")
     .eq("property_id", propertyId)
-    .in("status", ["confirmed", "pending"])
+    .or(`status.eq.confirmed,and(status.eq.pending,created_at.gte.${pendingCutoff})`)
     .lt("check_in_date", checkOut)
     .gt("check_out_date", checkIn);
 

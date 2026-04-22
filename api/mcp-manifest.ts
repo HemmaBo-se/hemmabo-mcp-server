@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { VercelRequest, VercelResponse } from "./_types.js";
 
 /**
  * /.well-known/mcp.json — MCP discovery manifest
