@@ -99,14 +99,5 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
           "Compare availability and pricing for 2–10 specific properties on the same dates. Returns results sorted by federation price, unavailable properties last.",
       },
     ],
-    example_properties: [
-      {
-        name: "Villa Åkerlyckan",
-        domain: "villaakerlyckan.se",
-        region: "Skåne",
-        country: "Sweden",
-        property_id: "11111111-1111-1111-1111-111111111111",
-      },
-    ],
   });
 }

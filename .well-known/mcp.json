@@ -3,7 +3,7 @@
   "protocol": "mcp",
   "protocol_version": "2025-03-26",
   "name": "HemmaBo Federation MCP Server",
-  "description": "Vacation rental booking infrastructure for independent hosts. Own domain, Stripe direct payments, 0% commission. Each host is a sovereign booking node — own Supabase database, own Stripe account, never routed through a marketplace. AI-native: built on Model Context Protocol + Stripe ACP. 11 tools. Not an OTA. Not a marketplace. Infrastructure. Live: villaakerlyckan.se. From $39/month.",
+  "description": "Vacation rental booking infrastructure for independent hosts. Own domain, Stripe direct payments, 0% commission. Each host is a sovereign booking node — own Supabase database, own Stripe account, never routed through a marketplace. AI-native: built on Model Context Protocol + Stripe ACP. 11 tools. Not an OTA. Not a marketplace. Infrastructure. From $39/month.",
   "version": "3.2.4",
   "mcp_endpoint": "https://hemmabo-mcp-server.vercel.app/mcp",
   "transport": ["streamable-http", "stdio"],
@@ -26,9 +26,6 @@
     { "name": "hemmabo_booking_reschedule", "description": "Move a booking to new dates with automatic repricing." },
     { "name": "hemmabo_search_similar", "description": "Find vacation rental properties similar to a given property on specific dates — same region, type, and capacity. Returns available alternatives with live pricing." },
     { "name": "hemmabo_compare_properties", "description": "Compare availability and pricing for 2–10 specific properties on the same dates. Sorted by federation price, unavailable properties last." }
-  ],
-  "example_properties": [
-    { "name": "Villa Åkerlyckan", "domain": "villaakerlyckan.se", "region": "Skåne", "country": "Sweden" }
   ],
   "trust": {
     "payment": "Stripe (direct to host)",

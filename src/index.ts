@@ -512,7 +512,7 @@ app.get("/.well-known/mcp/server-card.json", (_req, res) => {
       properties: {
         propertyDomain: {
           type: "string",
-          description: "Your vacation rental domain (e.g. villaakerlyckan.se)",
+          description: "Your vacation rental domain (e.g. example.com)",
           default: "",
         },
         language: {
