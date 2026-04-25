@@ -51,7 +51,6 @@ export interface QuoteResult {
   currency: string;
   breakdown: {
     nightlyRates: { date: string; rate: number; season: string; dayType: string }[];
-    cleaningFee: number;
   };
   publicTotal: number;
   federationTotal: number;
@@ -169,7 +168,7 @@ export async function resolveQuote(
   const { data: property, error: propErr } = await supabase
     .from("properties")
     .select(
-      "id, name, currency, max_guests, direct_booking_discount, cleaning_fee, min_nights, max_nights, published"
+      "id, name, currency, max_guests, direct_booking_discount, min_nights, max_nights, published"
     )
     .eq("id", propertyId)
     .single();
@@ -271,8 +270,7 @@ export async function resolveQuote(
     accommodationTotal = nightlyRates.reduce((sum, n) => sum + n.rate, 0);
   }
 
-  const cleaningFee = property.cleaning_fee ?? 0;
-  const publicTotal = accommodationTotal + cleaningFee;
+  const publicTotal = accommodationTotal;
 
   // 8. Federation discount (host-controlled)
   const discountPct = property.direct_booking_discount ?? 0;
@@ -301,7 +299,7 @@ export async function resolveQuote(
     guests,
     nights,
     currency: property.currency ?? "SEK",
-    breakdown: { nightlyRates, cleaningFee },
+    breakdown: { nightlyRates },
     publicTotal,
     federationTotal,
     federationDiscountPercent: discountPct,
