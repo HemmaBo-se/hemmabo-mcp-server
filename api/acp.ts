@@ -207,7 +207,7 @@ async function createCheckout(body: Record<string, unknown>, res: VercelResponse
   // Fetch property
   const { data: prop, error: propErr } = await reader
     .from("properties")
-    .select("name, domain, host_id, currency, direct_booking_discount, cleaning_fee")
+    .select("name, domain, host_id, currency, direct_booking_discount")
     .eq("id", propertyId)
     .single();
   if (propErr || !prop) return res.status(404).json({ error: "Property not found" });

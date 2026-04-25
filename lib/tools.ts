@@ -73,7 +73,7 @@ export async function executeTool(
 
       let query = reader
         .from("properties")
-        .select("id, name, domain, region, city, country, max_guests, currency, property_type, direct_booking_discount, cleaning_fee")
+        .select("id, name, domain, region, city, country, max_guests, currency, property_type, direct_booking_discount")
         .eq("published", true)
         .gte("max_guests", guests);
 
@@ -134,7 +134,7 @@ export async function executeTool(
 
       let query = reader
         .from("properties")
-        .select("id, name, domain, region, city, country, max_guests, currency, property_type, direct_booking_discount, cleaning_fee")
+        .select("id, name, domain, region, city, country, max_guests, currency, property_type, direct_booking_discount")
         .eq("published", true)
         .neq("id", propertyId)
         .gte("max_guests", effectiveGuests);
@@ -385,7 +385,7 @@ export async function executeTool(
       // Fetch property
       const { data: prop, error: propErr } = await reader
         .from("properties")
-        .select("name, domain, host_id, currency, direct_booking_discount, cleaning_fee")
+        .select("name, domain, host_id, currency, direct_booking_discount")
         .eq("id", propertyId)
         .single();
       if (propErr || !prop) return { content: [{ type: "text", text: JSON.stringify({ error: "Property not found" }) }], isError: true };
