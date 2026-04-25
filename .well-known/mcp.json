@@ -17,7 +17,7 @@
   "tools": [
     { "name": "hemmabo_search_properties", "description": "Search available vacation rental properties by region, country, guest count and dates." },
     { "name": "hemmabo_search_availability", "description": "Check whether a specific property is available for given check-in and check-out dates." },
-    { "name": "hemmabo_booking_quote", "description": "Get a detailed live pricing quote: nightly rates, seasonal pricing, cleaning fee, federation discount." },
+    { "name": "hemmabo_booking_quote", "description": "Get a detailed live pricing quote: nightly rates, seasonal pricing, federation discount." },
     { "name": "hemmabo_booking_negotiate", "description": "Lock a price quote for 15 minutes. Returns a quoteId — guarantees the price won't change." },
     { "name": "hemmabo_booking_checkout", "description": "Create a booking and Stripe payment. 0% commission — payment direct to host." },
     { "name": "hemmabo_booking_create", "description": "Create a direct booking without online payment." },

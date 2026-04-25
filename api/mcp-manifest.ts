@@ -56,7 +56,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
       {
         name: "hemmabo_booking_quote",
         description:
-          "Get a detailed live pricing quote: nightly rates, seasonal pricing, cleaning fee, federation discount.",
+          "Get a detailed live pricing quote: nightly rates, seasonal pricing, federation discount.",
       },
       {
         name: "hemmabo_booking_negotiate",
