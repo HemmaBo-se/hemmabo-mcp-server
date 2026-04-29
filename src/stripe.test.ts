@@ -138,16 +138,22 @@ describe("validateApiKey", () => {
     assert.equal(validateApiKey("Bearer secret-key-123"), null);
   });
 
-  it("accepts a token without Bearer prefix", () => {
+  it("rejects a token without Bearer prefix", () => {
     process.env.MCP_API_KEY = "secret-key-123";
-    assert.equal(validateApiKey("secret-key-123"), null);
+    assert.equal(
+      validateApiKey("secret-key-123"),
+      "Authorization required. Pass: Authorization: Bearer <key>"
+    );
   });
 
   // ── Missing header ─────────────────────────────────────────────
 
   it("rejects missing Authorization header", () => {
     process.env.MCP_API_KEY = "secret-key-123";
-    assert.equal(validateApiKey(undefined), "Missing Authorization header");
+    assert.equal(
+      validateApiKey(undefined),
+      "Authorization required. Pass: Authorization: Bearer <key>"
+    );
   });
 
   // ── Wrong key ─────────────────────────────────────────────────
