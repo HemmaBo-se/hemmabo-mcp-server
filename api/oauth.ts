@@ -19,7 +19,7 @@
  * https://datatracker.ietf.org/doc/html/rfc6749#section-4.4
  */
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { VercelRequest, VercelResponse } from "./_types.js";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes, timingSafeEqual } from "crypto";
 

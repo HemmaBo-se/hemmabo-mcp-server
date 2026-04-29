@@ -24,7 +24,7 @@
  * is hashed (SHA-256) before storage so HemmaBo never sees the plaintext.
  */
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { VercelRequest, VercelResponse } from "./_types.js";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes, randomUUID } from "crypto";
 
