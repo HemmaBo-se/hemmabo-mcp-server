@@ -292,4 +292,19 @@ HemmaBo is distributed across multiple channels to maximize AI discovery:
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
+
+The HemmaBo MCP server source code is open under MIT. AI agents, MCP clients, Glama, Smithery, and end-users may install, run, and integrate with the public HemmaBo MCP server.
+
+**HemmaBo's moat is not the code alone.** A clone of this repository runs against an empty database and an unconfigured federation — it produces nothing.
+
+The moat is operational:
+
+- **Live verified property data** — host-curated, continuously updated via the host dashboard.
+- **Published-gated nodes** — only properties with `published = true` and a verified domain are served.
+- **Canonical pricing & availability** — the host's own Supabase database is source-of-truth. No cache, no mirror, no marketplace in between.
+- **Host-owned domains** — each property runs on its own domain, owned by the host. The booking entity is the host's domain, not hemmabo.com.
+- **Identity & provenance** — `network_id: hemmabo_verified`, signed federation responses, DNS-bound entity declarations.
+- **HemmaBo federation trust** — registry membership, cross-host signal exchange, and verified-direct-source positioning across AI agents (ChatGPT, Claude, Gemini, Perplexity).
+
+You may install and use this server. You may not replicate the federation, the verified host network, or the live data layer by cloning the source.
