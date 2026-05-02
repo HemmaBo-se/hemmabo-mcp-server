@@ -24,7 +24,6 @@ export interface AvailabilityResult {
   checkOut: string;
   available: boolean;
   reason?: string;
-  conflictDates?: string[];
 }
 
 export async function checkAvailability(
@@ -49,9 +48,6 @@ export async function checkAvailability(
       checkOut,
       available: false,
       reason: "Dates blocked",
-      conflictDates: blocked.map(
-        (b) => `${b.start_date} to ${b.end_date} (${b.source})`
-      ),
     };
   }
 
@@ -80,9 +76,6 @@ export async function checkAvailability(
       checkOut,
       available: false,
       reason: "Dates already booked",
-      conflictDates: bookings.map(
-        (b) => `${b.check_in_date} to ${b.check_out_date} (${b.status})`
-      ),
     };
   }
 
