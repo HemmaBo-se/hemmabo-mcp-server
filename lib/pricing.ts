@@ -63,7 +63,7 @@ export interface QuoteResult {
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-function daysBetween(checkIn: string, checkOut: string): number {
+export function daysBetween(checkIn: string, checkOut: string): number {
   const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
   return Math.max(1, Math.round(ms / 86_400_000));
 }
@@ -75,7 +75,7 @@ function addDays(dateStr: string, days: number): string {
 }
 
 /** Weekend = Friday (5) + Saturday (6). Sunday is NEVER weekend. */
-function isWeekend(dateStr: string): boolean {
+export function isWeekend(dateStr: string): boolean {
   const d = new Date(dateStr + "T12:00:00Z");
   const dow = d.getUTCDay(); // 0=Sun, 5=Fri, 6=Sat
   return dow === 5 || dow === 6;
@@ -93,7 +93,7 @@ function getSeasonForDate(date: string, seasons: Season[]): Season | null {
  * Example: blocks [2, 6] — 2 guests → 2g, 3-6 guests → 6g, 1 guest → 2g.
  * Returns null only if guests > all blocks (handled by max_guests check upstream).
  */
-function findPriceBlock(guests: number, blocks: PriceBlock[]): PriceBlock | null {
+export function findPriceBlock(guests: number, blocks: PriceBlock[]): PriceBlock | null {
   const sorted = [...blocks].sort((a, b) => a.guests - b.guests);
   for (const b of sorted) {
     if (b.guests >= guests) return b;

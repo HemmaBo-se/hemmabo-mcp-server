@@ -56,6 +56,232 @@ export function validateDates(...dates: (string | undefined)[]): string | null {
   return null;
 }
 
+/** Returns an error string if checkOut is not strictly after checkIn. */
+export function validateDateOrder(checkIn: string, checkOut: string): string | null {
+  if (checkOut <= checkIn) {
+    return `checkOut (${checkOut}) must be strictly after checkIn (${checkIn})`;
+  }
+  return null;
+}
+
+// ── booking_locks helpers ─────────────────────────────────────────────────────
+
+const LOCK_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+/**
+ * Attempts to acquire a booking lock for property+date-range.
+ * First cleans up any expired locks for that property, then inserts a new one.
+ * Returns the lock UUID on success, null if the slot is already locked.
+ *
+ * Uses service-role client (writes to booking_locks are denied for anon).
+ */
+async function acquireBookingLock(
+  supabase: SupabaseClient,
+  propertyId: string,
+  checkIn: string,
+  checkOut: string
+): Promise<string | null> {
+  // 1. Clean up expired locks for this property (best-effort; failure is non-fatal)
+  await supabase
+    .from("booking_locks")
+    .delete()
+    .eq("property_id", propertyId)
+    .lt("locked_until", new Date().toISOString());
+
+  // 2. Attempt to insert a new lock
+  const lockedUntil = new Date(Date.now() + LOCK_TTL_MS).toISOString();
+  const { data, error } = await supabase
+    .from("booking_locks")
+    .insert({
+      property_id: propertyId,
+      check_in: checkIn,
+      check_out: checkOut,
+      locked_until: lockedUntil,
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    // Unique constraint violation or other DB error → slot already locked.
+    // Log without PII for spike / attack detection.
+    console.warn(
+      JSON.stringify({
+        event: "booking_lock_acquire_failed",
+        propertyId,
+        checkIn,
+        checkOut,
+        errorCode: error?.code ?? "unknown",
+        ts: new Date().toISOString(),
+      })
+    );
+    return null;
+  }
+  return data.id as string;
+}
+
+/**
+ * Releases a booking lock by setting locked_until to now (immediate expiry).
+ * This makes the row invisible to the active-lock filter in checkAvailability
+ * without requiring a DELETE (which could race with another reader).
+ * Best-effort: errors are ignored so the call site's finally block never throws.
+ */
+async function releaseBookingLock(supabase: SupabaseClient, lockId: string): Promise<void> {
+  try {
+    await supabase
+      .from("booking_locks")
+      .update({ locked_until: new Date().toISOString() })
+      .eq("id", lockId);
+  } catch (err) {
+    // Non-fatal: lock will expire naturally after LOCK_TTL_MS.
+    // Log so on-call can detect if DB is unreachable during cleanup.
+    console.warn(
+      JSON.stringify({
+        event: "booking_lock_release_failed",
+        lockId,
+        ts: new Date().toISOString(),
+        error: err instanceof Error ? err.message : String(err),
+      })
+    );
+  }
+}
+
+// ── _runCheckout ──────────────────────────────────────────────────────────────
+// Inner implementation for hemmabo_booking_checkout, extracted so it can be
+// called from inside the lock try/finally block without duplicating logic.
+// The caller holds a booking_lock; this function must NOT release it.
+
+async function _runCheckout(
+  supabase: SupabaseClient,
+  reader: SupabaseClient,
+  prop: { name: string; domain: string | null; host_id: string; currency: string; direct_booking_discount: number | null },
+  propertyId: string,
+  checkIn: string,
+  checkOut: string,
+  guests: number,
+  guestName: string,
+  guestEmail: string,
+  guestPhone: string | undefined,
+  quoteId: string | undefined,
+  effectivePaymentMode: string,
+  effectiveChannel: string
+): Promise<ToolResult> {
+  let totalPrice: number;
+  let currency: string;
+  let nights: number;
+
+  if (quoteId) {
+    // Use locked quote from hemmabo_booking_negotiate
+    const { data: snapshot, error: snapErr } = await reader
+      .from("property_quote_snapshots")
+      .select("*")
+      .eq("id", quoteId)
+      .single();
+    if (snapErr || !snapshot) return { content: [{ type: "text", text: JSON.stringify({ error: "Quote not found" }) }], isError: true };
+    if (new Date(snapshot.valid_until) < new Date()) {
+      return { content: [{ type: "text", text: JSON.stringify({ error: "Quote expired", quoteId, validUntil: snapshot.valid_until }) }], isError: true };
+    }
+    totalPrice = effectiveChannel === "public" ? snapshot.public_total : snapshot.ai_total;
+    currency = snapshot.currency;
+    nights = snapshot.nights;
+  } else {
+    // Calculate fresh price.
+    // MCP-06: supabase is the service-role client so gap-night detection works.
+    const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
+    if ("error" in quote) return { content: [{ type: "text", text: JSON.stringify(quote) }], isError: true };
+    totalPrice = effectiveChannel === "public" ? quote.publicTotal : (quote.gapTotal ?? quote.federationTotal);
+    currency = quote.currency;
+    nights = quote.nights;
+  }
+
+  // Create booking record first (MCP-04b: needed to put real UUID into
+  // Stripe metadata[booking_id] — previously this was the literal string
+  // "pending", which left the external stripe-webhook without a reliable
+  // link from Stripe event → booking row).
+  const { data: booking, error: bookErr } = await supabase
+    .from("bookings")
+    .insert({
+      property_id: propertyId,
+      host_id: prop.host_id,
+      check_in_date: checkIn,
+      check_out_date: checkOut,
+      guests_count: guests,
+      guest_name: guestName,
+      guest_email: guestEmail,
+      guest_phone: guestPhone ?? null,
+      total_price: totalPrice,
+      currency,
+      status: "pending",
+      property_name_at_booking: prop.name,
+      // stripe_session_id is filled in right after the Stripe session is
+      // created below. If that call fails, this row remains with a NULL
+      // stripe_session_id — the stale-pending filter in lib/availability.ts
+      // ensures it stops blocking the calendar after PENDING_BOOKING_TTL_MS.
+    })
+    .select("id, status, created_at, guest_token")
+    .single();
+
+  if (bookErr) return { content: [{ type: "text", text: JSON.stringify({ error: bookErr.message }) }], isError: true };
+
+  // Create Stripe Checkout Session (now with real booking UUID in metadata)
+  const session = await createCheckoutSession({
+    amount: totalPrice,
+    currency,
+    propertyName: prop.name,
+    checkIn,
+    checkOut,
+    guests,
+    guestEmail,
+    propertyId,
+    bookingId: booking.id,
+    domain: prop.domain ?? "",
+  });
+
+  // Link booking row to Stripe session so the webhook can locate it.
+  const { error: updErr } = await supabase
+    .from("bookings")
+    .update({ stripe_session_id: session.id })
+    .eq("id", booking.id);
+
+  if (updErr) return { content: [{ type: "text", text: JSON.stringify({ error: updErr.message }) }], isError: true };
+
+  // Build response
+  const result: Record<string, unknown> = {
+    reservationId: booking.id,
+    status: booking.status,
+    paymentUrl: session.url,
+    propertyId,
+    checkIn,
+    checkOut,
+    nights,
+    guests,
+    totalPrice,
+    currency,
+    payment_modes: ["checkout_session", "payment_intent"],
+    createdAt: booking.created_at,
+  };
+
+  // MPP enrichment: if payment_intent mode, retrieve client_secret.
+  // SECURITY NOTE: client_secret and payment_intent_id are intentionally
+  // returned here — this is required by the Stripe Mobile Payment Protocol
+  // (MPP) so the agent/client SDK can confirm the payment directly without
+  // a redirect. Do not remove these fields without a separate policy decision.
+  if (effectivePaymentMode === "payment_intent" && session.payment_intent) {
+    const pi = await retrievePaymentIntent(session.payment_intent);
+    result.mpp = {
+      protocol: "stripe-mpp",
+      version: "2025-03-17",
+      payment_intent_id: pi.id,
+      client_secret: pi.client_secret,
+      amount: totalPrice,
+      currency,
+      supported_payment_methods: ["card", "klarna", "swish", "link"],
+      confirmation_url: session.url,
+    };
+  }
+
+  return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+}
+
 export async function executeTool(
   name: string,
   args: Record<string, unknown>,
@@ -70,6 +296,8 @@ export async function executeTool(
       };
       const dateErr = validateDates(checkIn, checkOut);
       if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }], isError: true };
+      const orderErr = validateDateOrder(checkIn, checkOut);
+      if (orderErr) return { content: [{ type: "text", text: JSON.stringify({ error: orderErr }) }], isError: true };
 
       let query = reader
         .from("properties")
@@ -108,6 +336,8 @@ export async function executeTool(
       const { propertyId, checkIn, checkOut } = args as { propertyId: string; checkIn: string; checkOut: string };
       const dateErr = validateDates(checkIn, checkOut);
       if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }], isError: true };
+      const orderErr = validateDateOrder(checkIn, checkOut);
+      if (orderErr) return { content: [{ type: "text", text: JSON.stringify({ error: orderErr }) }], isError: true };
       // MCP-06: use service-role client so bookings table is visible to availability checks
       const result = await checkAvailability(supabase, propertyId, checkIn, checkOut);
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
@@ -119,6 +349,8 @@ export async function executeTool(
       };
       const dateErr = validateDates(checkIn, checkOut);
       if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }], isError: true };
+      const orderErr = validateDateOrder(checkIn, checkOut);
+      if (orderErr) return { content: [{ type: "text", text: JSON.stringify({ error: orderErr }) }], isError: true };
 
       const { data: src, error: srcErr } = await reader
         .from("properties")
@@ -183,6 +415,8 @@ export async function executeTool(
       };
       const dateErr = validateDates(checkIn, checkOut);
       if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }], isError: true };
+      const orderErr = validateDateOrder(checkIn, checkOut);
+      if (orderErr) return { content: [{ type: "text", text: JSON.stringify({ error: orderErr }) }], isError: true };
       if (!Array.isArray(propertyIds) || propertyIds.length < 2 || propertyIds.length > 10) {
         return { content: [{ type: "text", text: JSON.stringify({ error: "propertyIds must contain 2 to 10 UUIDs" }) }], isError: true };
       }
@@ -240,6 +474,8 @@ export async function executeTool(
       const { propertyId, checkIn, checkOut, guests } = args as { propertyId: string; checkIn: string; checkOut: string; guests: number };
       const dateErr = validateDates(checkIn, checkOut);
       if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }], isError: true };
+      const orderErr = validateDateOrder(checkIn, checkOut);
+      if (orderErr) return { content: [{ type: "text", text: JSON.stringify({ error: orderErr }) }], isError: true };
       // MCP-06: use service-role client so gap-night detection (reads bookings) works
       const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
       // MCP-05: resolveQuote may return { error: ... } — surface as MCP tool error, not success.
@@ -254,47 +490,73 @@ export async function executeTool(
       };
       const dateErr = validateDates(checkIn, checkOut);
       if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }], isError: true };
+      const orderErr = validateDateOrder(checkIn, checkOut);
+      if (orderErr) return { content: [{ type: "text", text: JSON.stringify({ error: orderErr }) }], isError: true };
 
       // MCP-06: use service-role client so bookings table is visible to availability/gap checks
       const avail = await checkAvailability(supabase, propertyId, checkIn, checkOut);
       if (!avail.available) return { content: [{ type: "text", text: JSON.stringify({ error: "Not available", ...avail }) }], isError: true };
 
-      const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
-      if ("error" in quote) return { content: [{ type: "text", text: JSON.stringify(quote) }], isError: true };
+      // Acquire a short-term booking lock to close the TOCTOU window between
+      // the availability check above and the insert below.
+      const lockId = await acquireBookingLock(supabase, propertyId, checkIn, checkOut);
+      if (!lockId) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: "Dates temporarily locked — another booking is in progress. Please try again shortly." }) }], isError: true };
+      }
 
-      const totalPrice = quote.gapTotal ?? quote.federationTotal;
-      const { data: prop } = await reader.from("properties").select("name, host_id").eq("id", propertyId).single();
+      let bookingCreateResult: ToolResult;
+      try {
+        // Re-check availability under lock to guard against concurrent requests
+        // that passed the first check before the lock was acquired.
+        const availUnderLock = await checkAvailability(supabase, propertyId, checkIn, checkOut);
+        if (!availUnderLock.available) {
+          bookingCreateResult = { content: [{ type: "text", text: JSON.stringify({ error: "Not available", ...availUnderLock }) }], isError: true };
+        } else {
+          const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
+          if ("error" in quote) {
+            bookingCreateResult = { content: [{ type: "text", text: JSON.stringify(quote) }], isError: true };
+          } else {
+            const totalPrice = quote.gapTotal ?? quote.federationTotal;
+            const { data: prop } = await reader.from("properties").select("name, host_id").eq("id", propertyId).single();
 
-      const { data: booking, error: bookErr } = await supabase
-        .from("bookings")
-        .insert({
-          property_id: propertyId, host_id: prop?.host_id,
-          check_in_date: checkIn, check_out_date: checkOut,
-          guests_count: guests, guest_name: guestName,
-          guest_email: guestEmail, guest_phone: guestPhone ?? null,
-          total_price: totalPrice, currency: quote.currency,
-          status: "pending", property_name_at_booking: prop?.name ?? null,
-          host_approval_required: true,
-        })
-        .select("id, status, created_at")
-        .single();
+            const { data: booking, error: bookErr } = await supabase
+              .from("bookings")
+              .insert({
+                property_id: propertyId, host_id: prop?.host_id,
+                check_in_date: checkIn, check_out_date: checkOut,
+                guests_count: guests, guest_name: guestName,
+                guest_email: guestEmail, guest_phone: guestPhone ?? null,
+                total_price: totalPrice, currency: quote.currency,
+                status: "pending", property_name_at_booking: prop?.name ?? null,
+                host_approval_required: true,
+              })
+              .select("id, status, created_at")
+              .single();
 
-      if (bookErr) return { content: [{ type: "text", text: JSON.stringify({ error: bookErr.message }) }], isError: true };
-
-      return {
-        content: [{
-          type: "text",
-          text: JSON.stringify({
-            bookingId: booking.id, status: booking.status, propertyId,
-            checkIn, checkOut, nights: quote.nights, guests, totalPrice,
-            currency: quote.currency,
-            priceType: quote.gapTotal ? "gap_night" : (quote.packageApplied ? `package_${quote.packageApplied}` : "federation"),
-            packageApplied: quote.packageApplied,
-            federationDiscountPercent: quote.federationDiscountPercent,
-            gapDiscountPercent: quote.gapDiscountPercent, createdAt: booking.created_at,
-          }, null, 2),
-        }],
-      };
+            if (bookErr) {
+              bookingCreateResult = { content: [{ type: "text", text: JSON.stringify({ error: bookErr.message }) }], isError: true };
+            } else {
+              bookingCreateResult = {
+                content: [{
+                  type: "text",
+                  text: JSON.stringify({
+                    bookingId: booking.id, status: booking.status, propertyId,
+                    checkIn, checkOut, nights: quote.nights, guests, totalPrice,
+                    currency: quote.currency,
+                    priceType: quote.gapTotal ? "gap_night" : (quote.packageApplied ? `package_${quote.packageApplied}` : "federation"),
+                    packageApplied: quote.packageApplied,
+                    federationDiscountPercent: quote.federationDiscountPercent,
+                    gapDiscountPercent: quote.gapDiscountPercent, createdAt: booking.created_at,
+                  }, null, 2),
+                }],
+              };
+            }
+          }
+        }
+      } finally {
+        await releaseBookingLock(supabase, lockId);
+      }
+      return bookingCreateResult;
     }
 
     case "hemmabo_booking_negotiate": {
@@ -303,6 +565,8 @@ export async function executeTool(
       };
       const dateErr = validateDates(checkIn, checkOut);
       if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }], isError: true };
+      const orderErr = validateDateOrder(checkIn, checkOut);
+      if (orderErr) return { content: [{ type: "text", text: JSON.stringify({ error: orderErr }) }], isError: true };
 
       // MCP-06: use service-role client so gap-night detection (reads bookings) works
       const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
@@ -381,6 +645,8 @@ export async function executeTool(
 
       const dateErr = validateDates(checkIn, checkOut);
       if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }], isError: true };
+      const orderErr = validateDateOrder(checkIn, checkOut);
+      if (orderErr) return { content: [{ type: "text", text: JSON.stringify({ error: orderErr }) }], isError: true };
 
       // Fetch property
       const { data: prop, error: propErr } = await reader
@@ -395,117 +661,32 @@ export async function executeTool(
       const avail = await checkAvailability(supabase, propertyId, checkIn, checkOut);
       if (!avail.available) return { content: [{ type: "text", text: JSON.stringify({ error: "Not available", ...avail }) }], isError: true };
 
-      let totalPrice: number;
-      let currency: string;
-      let nights: number;
+      // Acquire a short-term booking lock to close the TOCTOU window between
+      // the availability check above and the booking insert below.
+      const lockId = await acquireBookingLock(supabase, propertyId, checkIn, checkOut);
+      if (!lockId) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: "Dates temporarily locked — another booking is in progress. Please try again shortly." }) }], isError: true };
+      }
 
-      if (quoteId) {
-        // Use locked quote from hemmabo_booking_negotiate
-        const { data: snapshot, error: snapErr } = await reader
-          .from("property_quote_snapshots")
-          .select("*")
-          .eq("id", quoteId)
-          .single();
-        if (snapErr || !snapshot) return { content: [{ type: "text", text: JSON.stringify({ error: "Quote not found" }) }], isError: true };
-        if (new Date(snapshot.valid_until) < new Date()) {
-          return { content: [{ type: "text", text: JSON.stringify({ error: "Quote expired", quoteId, validUntil: snapshot.valid_until }) }], isError: true };
+      let checkoutResult: ToolResult;
+      try {
+        // Re-check availability under lock to guard against concurrent requests
+        // that passed the first check before the lock was acquired.
+        const availUnderLock = await checkAvailability(supabase, propertyId, checkIn, checkOut);
+        if (!availUnderLock.available) {
+          checkoutResult = { content: [{ type: "text", text: JSON.stringify({ error: "Not available", ...availUnderLock }) }], isError: true };
+        } else {
+          checkoutResult = await _runCheckout(
+            supabase, reader, prop, propertyId, checkIn, checkOut, guests,
+            guestName, guestEmail, guestPhone, quoteId, effectivePaymentMode, effectiveChannel
+          );
         }
-        totalPrice = effectiveChannel === "public" ? snapshot.public_total : snapshot.ai_total;
-        currency = snapshot.currency;
-        nights = snapshot.nights;
-      } else {
-        // Calculate fresh price
-        // MCP-06: use service-role client so gap-night detection (reads bookings) works
-        const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
-        if ("error" in quote) return { content: [{ type: "text", text: JSON.stringify(quote) }], isError: true };
-        totalPrice = effectiveChannel === "public" ? quote.publicTotal : (quote.gapTotal ?? quote.federationTotal);
-        currency = quote.currency;
-        nights = quote.nights;
+      } finally {
+        // Release lock regardless of outcome — Stripe failures must not leave
+        // a dangling lock that blocks the calendar for 10 minutes.
+        await releaseBookingLock(supabase, lockId);
       }
-
-      // Create booking record first (MCP-04b: needed to put real UUID into
-      // Stripe metadata[booking_id] — previously this was the literal string
-      // "pending", which left the external stripe-webhook without a reliable
-      // link from Stripe event → booking row).
-      const { data: booking, error: bookErr } = await supabase
-        .from("bookings")
-        .insert({
-          property_id: propertyId,
-          host_id: prop.host_id,
-          check_in_date: checkIn,
-          check_out_date: checkOut,
-          guests_count: guests,
-          guest_name: guestName,
-          guest_email: guestEmail,
-          guest_phone: guestPhone ?? null,
-          total_price: totalPrice,
-          currency,
-          status: "pending",
-          property_name_at_booking: prop.name,
-          // stripe_session_id is filled in right after the Stripe session is
-          // created below. If that call fails, this row remains with a NULL
-          // stripe_session_id — the stale-pending filter in lib/availability.ts
-          // ensures it stops blocking the calendar after PENDING_BOOKING_TTL_MS.
-        })
-        .select("id, status, created_at, guest_token")
-        .single();
-
-      if (bookErr) return { content: [{ type: "text", text: JSON.stringify({ error: bookErr.message }) }], isError: true };
-
-      // Create Stripe Checkout Session (now with real booking UUID in metadata)
-      const session = await createCheckoutSession({
-        amount: totalPrice,
-        currency,
-        propertyName: prop.name,
-        checkIn,
-        checkOut,
-        guests,
-        guestEmail,
-        propertyId,
-        bookingId: booking.id,
-        domain: prop.domain ?? "",
-      });
-
-      // Link booking row to Stripe session so the webhook can locate it.
-      const { error: updErr } = await supabase
-        .from("bookings")
-        .update({ stripe_session_id: session.id })
-        .eq("id", booking.id);
-
-      if (updErr) return { content: [{ type: "text", text: JSON.stringify({ error: updErr.message }) }], isError: true };
-
-      // Build response
-      const result: Record<string, unknown> = {
-        reservationId: booking.id,
-        status: booking.status,
-        paymentUrl: session.url,
-        propertyId,
-        checkIn,
-        checkOut,
-        nights,
-        guests,
-        totalPrice,
-        currency,
-        payment_modes: ["checkout_session", "payment_intent"],
-        createdAt: booking.created_at,
-      };
-
-      // MPP enrichment: if payment_intent mode, retrieve client_secret
-      if (effectivePaymentMode === "payment_intent" && session.payment_intent) {
-        const pi = await retrievePaymentIntent(session.payment_intent);
-        result.mpp = {
-          protocol: "stripe-mpp",
-          version: "2025-03-17",
-          payment_intent_id: pi.id,
-          client_secret: pi.client_secret,
-          amount: totalPrice,
-          currency,
-          supported_payment_methods: ["card", "klarna", "swish", "link"],
-          confirmation_url: session.url,
-        };
-      }
-
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      return checkoutResult;
     }
 
     case "hemmabo_booking_cancel": {
@@ -599,8 +780,19 @@ export async function executeTool(
             guests: booking.guests_count,
             totalPrice: booking.total_price,
             currency: booking.currency,
-            guestName: booking.guest_name,
-            guestEmail: booking.guest_email,
+            guestName: booking.guest_name
+              // PII: mask full name — show first name + last initial only (e.g. "Anna S.")
+              ? (() => {
+                  const parts = (booking.guest_name as string).trim().split(/\s+/);
+                  return parts.length >= 2
+                    ? `${parts[0]} ${parts[parts.length - 1][0]}.`
+                    : parts[0];
+                })()
+              : null,
+            // PII: mask email — show only first char + domain so agents can confirm identity without exposing full address
+            guestEmail: booking.guest_email
+              ? booking.guest_email.replace(/^(.)([^@]*)(@.+)$/, "$1***$3")
+              : null,
             cancellationPolicy: policy ? {
               tier: policy.cancellation_tier,
               refundRules: policy.refund_rules,
@@ -618,6 +810,8 @@ export async function executeTool(
       };
       const dateErr = validateDates(newCheckIn, newCheckOut);
       if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }], isError: true };
+      const orderErr = validateDateOrder(newCheckIn, newCheckOut);
+      if (orderErr) return { content: [{ type: "text", text: JSON.stringify({ error: orderErr }) }], isError: true };
 
       const RESCHEDULABLE_STATES = ["confirmed", "pending"];
 
