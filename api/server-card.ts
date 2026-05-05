@@ -5,7 +5,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
   res.json({
     serverInfo: {
       name: "hemmabo-mcp-server",
-      version: "3.2.6",
+      version: "3.2.7",
     },
     instructions: SERVER_INSTRUCTIONS,
     configSchema: {

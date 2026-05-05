@@ -14,7 +14,7 @@ This file is the MCP Marketplace launch guide for the HemmaBo federation MCP ser
 - **Live host running on it:** https://www.villaakerlyckan.se
 - **License:** MIT
 - **Maintainer:** HemmaBo (hello@hemmabo.com)
-- **Current version:** 3.2.6
+- **Current version:** 3.2.7
 - **Scope:** **Global.** The MCP server itself declares support for 5 currencies in its `configSchema` (SEK, EUR, USD, NOK, DKK — see [api/server-card.ts](api/server-card.ts)) and is multi-region. The broader HemmaBo platform that this server fronts supports additional currencies and multi-language guest chat, but those capabilities live in separate services and are not part of this repository.
 
 ---
