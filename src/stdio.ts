@@ -44,7 +44,7 @@ const server = new McpServer(
     description: "MCP server for vacation rental direct bookings. Search properties, check availability, get real-time pricing quotes, and create bookings through the federation protocol. Supports seasonal pricing, guest-count tiers, weekly and biweekly package discounts, gap-night discounts, and host-controlled federation discounts. All data is live — never cached, never estimated.",
   },
   {
-    instructions: "This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated.\n\nFull booking lifecycle: hemmabo_search_properties (find properties) -> hemmabo_booking_negotiate (binding quote with quoteId) -> hemmabo_booking_checkout (Stripe payment) -> hemmabo_booking_status (check details) -> hemmabo_booking_reschedule / hemmabo_booking_cancel (modify or cancel).\n\nLegacy shortcut: hemmabo_search_properties -> hemmabo_booking_quote -> hemmabo_booking_create (no payment, pending host approval).\n\nPricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6). Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week) are applied automatically. Federation discount (direct booking rate) is host-controlled.\n\nDates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).",
+    instructions: "This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated.\n\nFull booking lifecycle: search.properties (find properties) -> booking.negotiate (binding quote with quoteId) -> booking.checkout (Stripe payment) -> booking.status (check details) -> booking.reschedule / booking.cancel (modify or cancel).\n\nLegacy shortcut: search.properties -> booking.quote -> booking.create (no payment, pending host approval).\n\nPricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6). Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week) are applied automatically. Federation discount (direct booking rate) is host-controlled.\n\nDates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).",
   }
 );
 
@@ -100,11 +100,11 @@ const _originalServerTool = server.tool.bind(server);
   ) => unknown)(name, description, schema, wrapped);
 };
 
-// ── Tool: hemmabo_search_properties ────────────────────────────────────────
+// ── Tool: search.properties ────────────────────────────────────────
 
 server.tool(
-  "hemmabo_search_properties",
-  "Search available vacation rental properties by location and travel dates. Use this tool when the user wants to find or browse properties — it is the entry point for all booking flows. Do NOT use if the user already has a specific propertyId; use hemmabo_search_availability or hemmabo_booking_quote instead. Returns a list of available properties with propertyId, live pricing, and capacity info needed for subsequent tools.",
+  "search.properties",
+  "Search available vacation rental properties by location and travel dates. Use this tool when the user wants to find or browse properties — it is the entry point for all booking flows. Do NOT use if the user already has a specific propertyId; use search.availability or booking.quote instead. Returns a list of available properties with propertyId, live pricing, and capacity info needed for subsequent tools.",
   {
     region: z.string().optional().describe("Region, area, or destination name to search within. Partial match (e.g. 'Skåne', 'Toscana'). At least one of region or country should be provided."),
     country: z.string().optional().describe("Country name to filter by (e.g. 'Sweden', 'Italy'). Partial match. At least one of region or country should be provided."),
@@ -116,17 +116,17 @@ server.tool(
     if (!supabase || !reader) {
       return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
-    return executeTool("hemmabo_search_properties", args as Record<string, unknown>, { supabase, reader });
+    return executeTool("search.properties", args as Record<string, unknown>, { supabase, reader });
   }
 );
 
-// ── Tool: hemmabo_search_availability ───────────────────────────────────────
+// ── Tool: search.availability ───────────────────────────────────────
 
 server.tool(
-  "hemmabo_search_availability",
-  "Check whether a specific property is available for the requested dates. Use this tool after the user has selected a property from hemmabo_search_properties and wants to confirm availability before getting a quote. Do NOT use for general browsing — use hemmabo_search_properties instead. Returns available=true/false with conflict details (blocked dates, existing bookings, active locks) if unavailable.",
+  "search.availability",
+  "Check whether a specific property is available for the requested dates. Use this tool after the user has selected a property from search.properties and wants to confirm availability before getting a quote. Do NOT use for general browsing — use search.properties instead. Returns available=true/false with conflict details (blocked dates, existing bookings, active locks) if unavailable.",
   {
-    propertyId: z.string().uuid().describe("Property UUID returned by hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
+    propertyId: z.string().uuid().describe("Property UUID returned by search.properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
     checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
     checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
   },
@@ -134,14 +134,14 @@ server.tool(
     if (!supabase || !reader) {
       return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
-    return executeTool("hemmabo_search_availability", args as Record<string, unknown>, { supabase, reader });
+    return executeTool("search.availability", args as Record<string, unknown>, { supabase, reader });
   }
 );
-// ── Tool: hemmabo_search_similar ──────────────────────────────────
+// ── Tool: search.similar ──────────────────────────────────
 
 server.tool(
-  "hemmabo_search_similar",
-  "Find vacation rental properties similar to a given property on specific dates. Use this tool after the user has selected a property (via hemmabo_search_properties) and wants to see alternatives — same region, same property type, same or larger capacity. Do NOT use for the initial search; use hemmabo_search_properties instead. Returns a list of similar available properties with live pricing, excluding the source property.",
+  "search.similar",
+  "Find vacation rental properties similar to a given property on specific dates. Use this tool after the user has selected a property (via search.properties) and wants to see alternatives — same region, same property type, same or larger capacity. Do NOT use for the initial search; use search.properties instead. Returns a list of similar available properties with live pricing, excluding the source property.",
   {
     propertyId: z.string().uuid().describe("UUID of the source property to find alternatives for."),
     checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD). Must be today or later."),
@@ -153,15 +153,15 @@ server.tool(
     if (!supabase || !reader) {
       return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
-    return executeTool("hemmabo_search_similar", args as Record<string, unknown>, { supabase, reader });
+    return executeTool("search.similar", args as Record<string, unknown>, { supabase, reader });
   }
 );
 
-// ── Tool: hemmabo_compare_properties ─────────────────────────────
+// ── Tool: search.compare ─────────────────────────────
 
 server.tool(
-  "hemmabo_compare_properties",
-  "Compare availability and pricing for 2–10 specific properties on the same dates. Use this tool when the user is deciding between multiple properties and wants to see price and availability side by side. Do NOT use for discovery — use hemmabo_search_properties first. Returns one entry per propertyId, sorted by federation price (cheapest first), with unavailable properties last.",
+  "search.compare",
+  "Compare availability and pricing for 2–10 specific properties on the same dates. Use this tool when the user is deciding between multiple properties and wants to see price and availability side by side. Do NOT use for discovery — use search.properties first. Returns one entry per propertyId, sorted by federation price (cheapest first), with unavailable properties last.",
   {
     propertyIds: z.array(z.string().uuid()).min(2).max(10).describe("Array of 2 to 10 property UUIDs to compare."),
     checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD). Must be today or later."),
@@ -172,16 +172,16 @@ server.tool(
     if (!supabase || !reader) {
       return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
-    return executeTool("hemmabo_compare_properties", args as Record<string, unknown>, { supabase, reader });
+    return executeTool("search.compare", args as Record<string, unknown>, { supabase, reader });
   }
 );
-// ── Tool: hemmabo_booking_quote ──────────────────────────────────────
+// ── Tool: booking.quote ──────────────────────────────────────
 
 server.tool(
-  "hemmabo_booking_quote",
+  "booking.quote",
   "Get a detailed pricing quote for a specific property, dates, and guest count. Use this tool after confirming availability to show the user exact pricing before booking. Do NOT use before checking availability — the quote may be invalid if dates are unavailable. Returns publicTotal (website rate), federationTotal (direct booking discount), gapTotal (gap-night discount if applicable), per-night breakdown, and package pricing. All prices are integers in the property's local currency (e.g. SEK).",
   {
-    propertyId: z.string().uuid().describe("Property UUID from hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
+    propertyId: z.string().uuid().describe("Property UUID from search.properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
     checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
     checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
     guests: z.number().int().min(1).describe("Total number of guests as integer >= 1 (e.g. 4). Determines which price tier is applied (staircase pricing by guest count)."),
@@ -190,17 +190,17 @@ server.tool(
     if (!supabase || !reader) {
       return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
-    return executeTool("hemmabo_booking_quote", args as Record<string, unknown>, { supabase, reader });
+    return executeTool("booking.quote", args as Record<string, unknown>, { supabase, reader });
   }
 );
 
-// ── Tool: hemmabo_booking_create ───────────────────────────────────────────
+// ── Tool: booking.create ───────────────────────────────────────────
 
 server.tool(
-  "hemmabo_booking_create",
-  "Create a direct booking without online payment (legacy flow). Use this tool when the user wants to book without Stripe payment — the booking is created with status 'pending' and requires host approval. Do NOT use for paid bookings — use hemmabo_booking_checkout instead. Do NOT retry on timeout without calling hemmabo_booking_status first to avoid duplicate bookings. Returns bookingId, final price, and confirmation details.",
+  "booking.create",
+  "Create a direct booking without online payment (legacy flow). Use this tool when the user wants to book without Stripe payment — the booking is created with status 'pending' and requires host approval. Do NOT use for paid bookings — use booking.checkout instead. Do NOT retry on timeout without calling booking.status first to avoid duplicate bookings. Returns bookingId, final price, and confirmation details.",
   {
-    propertyId: z.string().uuid().describe("Property UUID from hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
+    propertyId: z.string().uuid().describe("Property UUID from search.properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
     checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
     checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
     guests: z.number().int().min(1).describe("Total number of guests as integer >= 1 (e.g. 4)."),
@@ -212,17 +212,17 @@ server.tool(
     if (!supabase || !reader) {
       return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
-    return executeTool("hemmabo_booking_create", args as Record<string, unknown>, { supabase, reader });
+    return executeTool("booking.create", args as Record<string, unknown>, { supabase, reader });
   }
 );
 
-// ── Tool: hemmabo_booking_negotiate ──────────────────────────────────────────
+// ── Tool: booking.negotiate ──────────────────────────────────────────
 
 server.tool(
-  "hemmabo_booking_negotiate",
-  "Create a binding price quote that locks the price for 15 minutes. Use this tool before hemmabo_booking_checkout to guarantee the quoted price during payment. Do NOT skip this step if the user wants price certainty — without a quoteId, checkout calculates a fresh price that may differ. Returns quoteId (pass to hemmabo_booking_checkout), public and federation totals, per-night breakdown, and expiry timestamp.",
+  "booking.negotiate",
+  "Create a binding price quote that locks the price for 15 minutes. Use this tool before booking.checkout to guarantee the quoted price during payment. Do NOT skip this step if the user wants price certainty — without a quoteId, checkout calculates a fresh price that may differ. Returns quoteId (pass to booking.checkout), public and federation totals, per-night breakdown, and expiry timestamp.",
   {
-    propertyId: z.string().uuid().describe("Property UUID from hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
+    propertyId: z.string().uuid().describe("Property UUID from search.properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
     checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
     checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
     guests: z.number().int().min(1).describe("Total number of guests as integer >= 1 (e.g. 4). Determines which price tier is applied."),
@@ -231,24 +231,24 @@ server.tool(
     if (!supabase || !reader) {
       return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
-    return executeTool("hemmabo_booking_negotiate", args as Record<string, unknown>, { supabase, reader });
+    return executeTool("booking.negotiate", args as Record<string, unknown>, { supabase, reader });
   }
 );
 
-// ── Tool: hemmabo_booking_checkout ─────────────────────────────────────────────────
+// ── Tool: booking.checkout ─────────────────────────────────────────────────
 
 server.tool(
-  "hemmabo_booking_checkout",
-  "Create a booking with Stripe payment and return a checkout URL. Use this tool when the user is ready to pay — it creates the booking record and generates a Stripe payment page. Do NOT call twice for the same booking — check hemmabo_booking_status first to avoid double charges. Optionally pass quoteId from hemmabo_booking_negotiate to lock the price. Returns reservationId, paymentUrl (Stripe checkout page), and pricing details.",
+  "booking.checkout",
+  "Create a booking with Stripe payment and return a checkout URL. Use this tool when the user is ready to pay — it creates the booking record and generates a Stripe payment page. Do NOT call twice for the same booking — check booking.status first to avoid double charges. Optionally pass quoteId from booking.negotiate to lock the price. Returns reservationId, paymentUrl (Stripe checkout page), and pricing details.",
   {
-    propertyId: z.string().uuid().describe("Property UUID from hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
+    propertyId: z.string().uuid().describe("Property UUID from search.properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
     checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
     checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
     guests: z.number().int().min(1).describe("Total number of guests as integer >= 1 (e.g. 4)."),
     guestName: z.string().describe("Full name of primary guest (e.g. 'Anna Svensson')."),
     guestEmail: z.string().email().describe("Email for booking confirmation (e.g. 'anna@example.com'). Must be a valid email address."),
     guestPhone: z.string().optional().describe("Phone with country code (e.g. '+46701234567'). Optional but recommended."),
-    quoteId: z.string().optional().describe("Quote ID from hemmabo_booking_negotiate to lock the price. Optional — if omitted, a fresh federation price is calculated at checkout time."),
+    quoteId: z.string().optional().describe("Quote ID from booking.negotiate to lock the price. Optional — if omitted, a fresh federation price is calculated at checkout time."),
     paymentMode: z.enum(["checkout_session", "payment_intent"]).optional().describe("'checkout_session' (default): returns Stripe redirect URL. 'payment_intent': returns client_secret for programmatic payment (AI agent MPP flow)."),
     channel: z.enum(["public", "federation"]).optional().describe("'federation' (default): applies direct booking discount. 'public': uses standard website rate."),
   },
@@ -257,20 +257,20 @@ server.tool(
       return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
     try {
-      return await executeTool("hemmabo_booking_checkout", args as Record<string, unknown>, { supabase, reader });
+      return await executeTool("booking.checkout", args as Record<string, unknown>, { supabase, reader });
     } catch (error: any) {
       return { content: [{ type: "text" as const, text: JSON.stringify({ error: error.message || "Checkout failed" }) }], isError: true };
     }
   }
 );
 
-// ── Tool: hemmabo_booking_cancel ───────────────────────────────────────────
+// ── Tool: booking.cancel ───────────────────────────────────────────
 
 server.tool(
-  "hemmabo_booking_cancel",
+  "booking.cancel",
   "Cancel a confirmed booking and process the Stripe refund. Use this tool when the guest explicitly requests cancellation. Do NOT use for pending/unpaid bookings — those expire automatically. Refund amount is calculated based on the host's cancellation policy. Returns cancellation confirmation with refund amount and status.",
   {
-    reservationId: z.string().describe("Booking UUID from hemmabo_booking_checkout or hemmabo_booking_create (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
+    reservationId: z.string().describe("Booking UUID from booking.checkout or booking.create (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
     reason: z.string().optional().describe("Cancellation reason for host notification (e.g. 'Travel plans changed'). Optional but recommended."),
   },
   async (args) => {
@@ -278,34 +278,34 @@ server.tool(
       return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
     try {
-      return await executeTool("hemmabo_booking_cancel", args as Record<string, unknown>, { supabase, reader });
+      return await executeTool("booking.cancel", args as Record<string, unknown>, { supabase, reader });
     } catch (error: any) {
       return { content: [{ type: "text" as const, text: JSON.stringify({ error: error.message || "Cancellation failed" }) }], isError: true };
     }
   }
 );
 
-// ── Tool: hemmabo_booking_status ───────────────────────────────────────
+// ── Tool: booking.status ───────────────────────────────────────
 
 server.tool(
-  "hemmabo_booking_status",
-  "Retrieve current status and full details of an existing booking. Use this tool to check payment status, confirm a booking went through, or look up details before rescheduling or cancelling. Use after hemmabo_booking_checkout if unsure whether the booking succeeded. Returns booking dates, guests, price, status, property info, and cancellation policy.",
+  "booking.status",
+  "Retrieve current status and full details of an existing booking. Use this tool to check payment status, confirm a booking went through, or look up details before rescheduling or cancelling. Use after booking.checkout if unsure whether the booking succeeded. Returns booking dates, guests, price, status, property info, and cancellation policy.",
   {
-    reservationId: z.string().describe("Booking UUID from hemmabo_booking_checkout or hemmabo_booking_create (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
+    reservationId: z.string().describe("Booking UUID from booking.checkout or booking.create (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
   },
   async (args) => {
     if (!supabase || !reader) {
       return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
-    return executeTool("hemmabo_booking_status", args as Record<string, unknown>, { supabase, reader });
+    return executeTool("booking.status", args as Record<string, unknown>, { supabase, reader });
   }
 );
 
-// ── Tool: hemmabo_booking_reschedule ───────────────────────────────────────
+// ── Tool: booking.reschedule ───────────────────────────────────────
 
 server.tool(
-  "hemmabo_booking_reschedule",
-  "Reschedule a confirmed or pending booking to new dates. Use this tool when the guest wants to change travel dates on an existing booking. Do NOT use if the booking is cancelled or completed — check hemmabo_booking_status first. Automatically recalculates price and handles Stripe charge (if price increased) or refund (if decreased). Returns previous dates, new dates, price delta, and Stripe transaction details.",
+  "booking.reschedule",
+  "Reschedule a confirmed or pending booking to new dates. Use this tool when the guest wants to change travel dates on an existing booking. Do NOT use if the booking is cancelled or completed — check booking.status first. Automatically recalculates price and handles Stripe charge (if price increased) or refund (if decreased). Returns previous dates, new dates, price delta, and Stripe transaction details.",
   {
     reservationId: z.string().describe("Booking UUID to reschedule (e.g. '550e8400-e29b-41d4-a716-446655440000'). Must be in 'confirmed' or 'pending' status."),
     newCheckIn: zISODate.describe("New arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-20'). Must be today or later."),
@@ -317,7 +317,7 @@ server.tool(
       return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
     }
     try {
-      return await executeTool("hemmabo_booking_reschedule", args as Record<string, unknown>, { supabase, reader });
+      return await executeTool("booking.reschedule", args as Record<string, unknown>, { supabase, reader });
     } catch (error: any) {
       return { content: [{ type: "text" as const, text: JSON.stringify({ error: error.message || "Reschedule failed" }) }], isError: true };
     }

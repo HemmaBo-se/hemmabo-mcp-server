@@ -44,57 +44,57 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
     },
     tools: [
       {
-        name: "hemmabo_search_properties",
+        name: "search.properties",
         description:
           "Search available vacation rental properties by region, country, guest count and dates. Returns live availability and pricing.",
       },
       {
-        name: "hemmabo_search_availability",
+        name: "search.availability",
         description:
           "Check whether a specific property is available for given check-in and check-out dates.",
       },
       {
-        name: "hemmabo_booking_quote",
+        name: "booking.quote",
         description:
           "Get a detailed live pricing quote: nightly rates, seasonal pricing, federation discount.",
       },
       {
-        name: "hemmabo_booking_negotiate",
+        name: "booking.negotiate",
         description:
           "Lock a price quote for 15 minutes. Returns a quoteId to use in checkout — guarantees the price won't change.",
       },
       {
-        name: "hemmabo_booking_checkout",
+        name: "booking.checkout",
         description:
           "Create a booking and Stripe payment. Returns a checkout URL (checkout_session) or client_secret (payment_intent) for AI agent payment flows.",
       },
       {
-        name: "hemmabo_booking_create",
+        name: "booking.create",
         description:
           "Create a direct booking without online payment — for invoice or manual payment flows.",
       },
       {
-        name: "hemmabo_booking_status",
+        name: "booking.status",
         description:
           "Get current booking status, dates, price, cancellation policy and refund rules.",
       },
       {
-        name: "hemmabo_booking_cancel",
+        name: "booking.cancel",
         description:
           "Cancel a booking and trigger a Stripe refund according to the host's cancellation policy.",
       },
       {
-        name: "hemmabo_booking_reschedule",
+        name: "booking.reschedule",
         description:
           "Move a confirmed booking to new dates with automatic repricing.",
       },
       {
-        name: "hemmabo_search_similar",
+        name: "search.similar",
         description:
           "Find vacation rental properties similar to a given property on specific dates — same region, type, and capacity. Returns available alternatives with live pricing.",
       },
       {
-        name: "hemmabo_compare_properties",
+        name: "search.compare",
         description:
           "Compare availability and pricing for 2–10 specific properties on the same dates. Returns results sorted by federation price, unavailable properties last.",
       },

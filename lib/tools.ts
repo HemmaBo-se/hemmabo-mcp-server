@@ -44,6 +44,26 @@ export type ToolResult = {
   isError?: boolean;
 };
 
+const TOOL_NAME_ALIASES: Record<string, string> = {
+  // Search tree
+  "search.properties": "hemmabo_search_properties",
+  "search.availability": "hemmabo_search_availability",
+  "search.similar": "hemmabo_search_similar",
+  "search.compare": "hemmabo_compare_properties",
+  // Booking tree
+  "booking.quote": "hemmabo_booking_quote",
+  "booking.create": "hemmabo_booking_create",
+  "booking.negotiate": "hemmabo_booking_negotiate",
+  "booking.checkout": "hemmabo_booking_checkout",
+  "booking.cancel": "hemmabo_booking_cancel",
+  "booking.status": "hemmabo_booking_status",
+  "booking.reschedule": "hemmabo_booking_reschedule",
+};
+
+function normalizeToolName(name: string): string {
+  return TOOL_NAME_ALIASES[name] ?? name;
+}
+
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Returns an error string if any of the provided date strings are not YYYY-MM-DD. */
@@ -288,8 +308,9 @@ export async function executeTool(
   clients: ToolClients
 ): Promise<ToolResult> {
   const { supabase, reader } = clients;
+  const canonicalName = normalizeToolName(name);
 
-  switch (name) {
+  switch (canonicalName) {
     case "hemmabo_search_properties": {
       const { region, country, guests, checkIn, checkOut } = args as {
         region?: string; country?: string; guests: number; checkIn: string; checkOut: string;
