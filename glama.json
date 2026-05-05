@@ -2,7 +2,7 @@
   "$schema": "https://glama.ai/mcp/schemas/server.json",
   "maintainers": ["HemmaBo-se", "kingen1"],
   "name": "HemmaBo",
-  "version": "3.2.7",
+  "version": "3.2.8",
   "license": "MIT",
   "description": "Vacation rental booking infrastructure for independent hosts. Own domain, Stripe direct payments, 0% commission. Each host is a sovereign booking node — own Supabase database, own Stripe account, never routed through a marketplace. AI-native: built on Model Context Protocol + Stripe ACP. 11 tools. Not an OTA. Not a marketplace. Infrastructure. Live: villaakerlyckan.se. From $39/month.",
   "homepage": "https://hemmabo-mcp-server.vercel.app",
