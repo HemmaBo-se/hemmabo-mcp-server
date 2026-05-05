@@ -14,7 +14,7 @@ This file is the MCP Marketplace launch guide for the HemmaBo federation MCP ser
 - **Live host running on it:** https://www.villaakerlyckan.se
 - **License:** MIT
 - **Maintainer:** HemmaBo (hello@hemmabo.com)
-- **Current version:** 3.2.4
+- **Current version:** 3.2.6
 - **Scope:** **Global.** The MCP server itself declares support for 5 currencies in its `configSchema` (SEK, EUR, USD, NOK, DKK — see [api/server-card.ts](api/server-card.ts)) and is multi-region. The broader HemmaBo platform that this server fronts supports additional currencies and multi-language guest chat, but those capabilities live in separate services and are not part of this repository.
 
 ---
@@ -31,25 +31,25 @@ All tools are prefixed `hemmabo_`.
 
 | # | Tool | Purpose |
 |---|---|---|
-| 1 | `hemmabo_search_properties` | Discover available properties globally by region/country, guests, and dates. Returns live pricing per property. |
-| 2 | `hemmabo_search_availability` | Confirm a specific property is available for dates. Returns conflict details if not. |
-| 3 | `hemmabo_search_similar` | Find similar properties (same region and type) to a given property. |
-| 4 | `hemmabo_compare_properties` | Side-by-side comparison of 2–10 properties on the same dates, sorted by price. |
-| 5 | `hemmabo_booking_quote` | Non-binding price quote (public rate). |
-| 6 | `hemmabo_booking_negotiate` | **Binding** quote with `quoteId` — federation rate, required before checkout. |
-| 7 | `hemmabo_booking_checkout` | Completes the booking with payment (Stripe Checkout or Stripe ACP SharedPaymentToken). |
-| 8 | `hemmabo_booking_create` | Legacy path: creates a pending booking without payment (host approves manually). |
-| 9 | `hemmabo_booking_status` | Retrieves current status and details of a booking. |
-| 10 | `hemmabo_booking_reschedule` | Moves an existing booking to new dates. |
-| 11 | `hemmabo_booking_cancel` | Cancels a booking and triggers any applicable Stripe refund. |
+| 1 | `search.properties` | Discover available properties globally by region/country, guests, and dates. Returns live pricing per property. |
+| 2 | `search.availability` | Confirm a specific property is available for dates. Returns conflict details if not. |
+| 3 | `search.similar` | Find similar properties (same region and type) to a given property. |
+| 4 | `search.compare` | Side-by-side comparison of 2–10 properties on the same dates, sorted by price. |
+| 5 | `booking.quote` | Non-binding price quote (public rate). |
+| 6 | `booking.negotiate` | **Binding** quote with `quoteId` — federation rate, required before checkout. |
+| 7 | `booking.checkout` | Completes the booking with payment (Stripe Checkout or Stripe ACP SharedPaymentToken). |
+| 8 | `booking.create` | Legacy path: creates a pending booking without payment (host approves manually). |
+| 9 | `booking.status` | Retrieves current status and details of a booking. |
+| 10 | `booking.reschedule` | Moves an existing booking to new dates. |
+| 11 | `booking.cancel` | Cancels a booking and triggers any applicable Stripe refund. |
 
-**Full agent flow:** `hemmabo_search_properties` → `hemmabo_booking_negotiate` → `hemmabo_booking_checkout` → `hemmabo_booking_status` (→ optional `hemmabo_booking_reschedule` / `hemmabo_booking_cancel`).
+**Full agent flow:** `search.properties` → `booking.negotiate` → `booking.checkout` → `booking.status` (→ optional `booking.reschedule` / `booking.cancel`).
 
 ### Stripe integration
 
 HemmaBo has **first-class Stripe integration**, connected in two ways:
 
-1. **Stripe Checkout** — standard hosted checkout session for classic booking flows. Used by `hemmabo_booking_checkout`.
+1. **Stripe Checkout** — standard hosted checkout session for classic booking flows. Used by `booking.checkout`.
 2. **Stripe ACP (Agentic Commerce Protocol)** — implementation of Stripe's ACP spec at `/acp/checkouts` (create, retrieve, update, complete, cancel). This lets AI agents pay with a `SharedPaymentToken` without redirecting the user to a browser. See [api/acp.ts](api/acp.ts) for the full implementation.
 
 All payments go **directly to each host's own Stripe account**. HemmaBo does not hold, route, or take a cut of host funds. No platform fees, no commission.

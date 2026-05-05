@@ -44,17 +44,21 @@ Dates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in 
 export const CONFIG_SCHEMA = {
   type: "object",
   properties: {
+    propertyDomain: {
+      type: "string",
+      description: "Your vacation rental domain (e.g. 'villaakerlyckan.se'). Optional — used when connecting to a specific host node.",
+    },
     region: {
       type: "string",
       description: "Default region to search in (e.g. 'Skane', 'Toscana'). Can be overridden per request.",
     },
     currency: {
       type: "string",
-      description: "Preferred display currency (e.g. 'SEK', 'EUR'). Defaults to the property's native currency.",
+      description: "Preferred display currency (ISO 4217, e.g. 'EUR', 'SEK', 'USD'). Defaults to the property's native currency.",
     },
     language: {
       type: "string",
-      description: "Preferred response language (e.g. 'sv', 'en', 'de', 'it'). Defaults to English.",
+      description: "Preferred response language (ISO 639-1 code, e.g. 'en', 'sv', 'de', 'it', 'fr', 'es'). Defaults to English.",
     },
   },
   additionalProperties: false,
@@ -688,29 +692,10 @@ async function handleJsonRpc(
           },
           serverInfo: {
             name: "hemmabo-mcp-server",
-            version: "3.2.4",
+            version: "3.2.6",
             description: "MCP server for vacation rental direct bookings. Search properties, check availability, get real-time pricing quotes, and create bookings through the federation protocol. Supports seasonal pricing, guest-count tiers, weekly and biweekly package discounts, gap-night discounts, and host-controlled federation discounts. All data is live — never cached, never estimated.",
           },
-          configSchema: {
-            type: "object",
-            properties: {
-              region: {
-                type: "string",
-                description: "Default region to search in (e.g. 'Skåne', 'Toscana'). Can be overridden per request.",
-              },
-              currency: {
-                type: "string",
-                description: "Preferred display currency (e.g. 'SEK', 'EUR'). Defaults to property's native currency.",
-                enum: ["SEK", "EUR", "USD", "NOK", "DKK"],
-              },
-              language: {
-                type: "string",
-                description: "Preferred response language (e.g. 'sv', 'en', 'de', 'it'). Defaults to English.",
-                enum: ["sv", "en", "de", "fr", "it", "nl"],
-              },
-            },
-            required: [],
-          },
+          configSchema: CONFIG_SCHEMA,
           instructions: SERVER_INSTRUCTIONS,
         },
       };
@@ -793,7 +778,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
 
   if (req.method === "OPTIONS") return res.status(204).end();
-  if (req.method === "GET") return res.json({ status: "ok", transport: "streamable-http", version: "3.2.4" });
+  if (req.method === "GET") return res.json({ status: "ok", transport: "streamable-http", version: "3.2.6" });
   if (req.method === "DELETE") return res.status(202).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
