@@ -6,7 +6,7 @@
     "url": "https://github.com/HemmaBo-se/hemmabo-mcp-server",
     "source": "github"
   },
-  "version": "3.2.7",
+  "version": "3.2.8",
   "websiteUrl": "https://hemmabo.com",
   "remotes": [
     {
@@ -18,7 +18,7 @@
     {
       "registryType": "npm",
       "identifier": "hemmabo-mcp-server",
-      "version": "3.2.7",
+      "version": "3.2.8",
       "transport": {
         "type": "stdio"
       },
