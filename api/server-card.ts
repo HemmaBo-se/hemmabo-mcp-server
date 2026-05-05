@@ -14,19 +14,14 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
         propertyDomain: {
           type: "string",
           description: "Your vacation rental domain (e.g. villaakerlyckan.se)",
-          default: "",
         },
         language: {
           type: "string",
-          description: "Default response language",
-          default: "sv",
-          enum: ["sv", "en", "de", "fr"],
+          description: "Preferred response language (ISO 639-1 code, e.g. 'en', 'sv', 'de', 'it', 'fr', 'es'). Defaults to English.",
         },
         currency: {
           type: "string",
-          description: "Default currency for pricing",
-          default: "SEK",
-          enum: ["SEK", "EUR", "USD", "NOK", "DKK"],
+          description: "Preferred display currency (ISO 4217, e.g. 'EUR', 'SEK', 'USD'). Defaults to the property's native currency.",
         },
       },
       required: [],

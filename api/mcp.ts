@@ -44,17 +44,21 @@ Dates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in 
 export const CONFIG_SCHEMA = {
   type: "object",
   properties: {
+    propertyDomain: {
+      type: "string",
+      description: "Your vacation rental domain (e.g. 'villaakerlyckan.se'). Optional — used when connecting to a specific host node.",
+    },
     region: {
       type: "string",
       description: "Default region to search in (e.g. 'Skane', 'Toscana'). Can be overridden per request.",
     },
     currency: {
       type: "string",
-      description: "Preferred display currency (e.g. 'SEK', 'EUR'). Defaults to the property's native currency.",
+      description: "Preferred display currency (ISO 4217, e.g. 'EUR', 'SEK', 'USD'). Defaults to the property's native currency.",
     },
     language: {
       type: "string",
-      description: "Preferred response language (e.g. 'sv', 'en', 'de', 'it'). Defaults to English.",
+      description: "Preferred response language (ISO 639-1 code, e.g. 'en', 'sv', 'de', 'it', 'fr', 'es'). Defaults to English.",
     },
   },
   additionalProperties: false,
