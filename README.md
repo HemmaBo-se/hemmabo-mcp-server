@@ -156,17 +156,17 @@ Add to your MCP client config:
 
 | Tool | Description | Read-only |
 |------|-------------|-----------|
-| `hemmabo_search_properties` | Search vacation rentals by location, dates, and guest count. Returns available properties with live pricing (public + federation rates). | Yes |
-| `hemmabo_search_availability` | Check if a property is available for specific dates. Verifies blocked dates, bookings, and booking locks. | Yes |
-| `hemmabo_search_similar` | Find properties similar to a given property (same region, type, capacity) for specific dates. Returns available alternatives with live pricing. | Yes |
-| `hemmabo_compare_properties` | Compare availability and pricing for 2–10 specific properties on the same dates. Sorted by federation price, unavailable last. | Yes |
-| `hemmabo_booking_quote` | Get detailed pricing: publicTotal (website rate), federationTotal (direct booking rate), gapTotal (gap-night discount). Per-night breakdown included. | Yes |
-| `hemmabo_booking_create` | Create a direct booking at federation price. Validates availability, calculates price, creates pending booking for host approval. | No |
-| `hemmabo_booking_negotiate` | Create a binding price quote with quoteId. Stores immutable snapshot, expires after 15 minutes. Pass quoteId to checkout to lock the price. | Yes |
-| `hemmabo_booking_checkout` | Create a booking with Stripe payment. Supports MPP (payment_intent mode for programmatic payment). Optionally locks price via quoteId. | No |
-| `hemmabo_booking_cancel` | Cancel a booking. Handles refund calculation, Stripe refund, email notifications via Supabase Edge Function. | No |
-| `hemmabo_booking_status` | Get booking details, property info, and cancellation policy by reservation ID. | Yes |
-| `hemmabo_booking_reschedule` | Reschedule to new dates. Checks availability, recalculates price, handles Stripe charge/refund for price delta. | No |
+| `search.properties` | Search vacation rentals by location, dates, and guest count. Returns available properties with live pricing (public + federation rates). | Yes |
+| `search.availability` | Check if a property is available for specific dates. Verifies blocked dates, bookings, and booking locks. | Yes |
+| `search.similar` | Find properties similar to a given property (same region, type, capacity) for specific dates. Returns available alternatives with live pricing. | Yes |
+| `search.compare` | Compare availability and pricing for 2–10 specific properties on the same dates. Sorted by federation price, unavailable last. | Yes |
+| `booking.quote` | Get detailed pricing: publicTotal (website rate), federationTotal (direct booking rate), gapTotal (gap-night discount). Per-night breakdown included. | Yes |
+| `booking.create` | Create a direct booking at federation price. Validates availability, calculates price, creates pending booking for host approval. | No |
+| `booking.negotiate` | Create a binding price quote with quoteId. Stores immutable snapshot, expires after 15 minutes. Pass quoteId to checkout to lock the price. | Yes |
+| `booking.checkout` | Create a booking with Stripe payment. Supports MPP (payment_intent mode for programmatic payment). Optionally locks price via quoteId. | No |
+| `booking.cancel` | Cancel a booking. Handles refund calculation, Stripe refund, email notifications via Supabase Edge Function. | No |
+| `booking.status` | Get booking details, property info, and cancellation policy by reservation ID. | Yes |
+| `booking.reschedule` | Reschedule to new dates. Checks availability, recalculates price, handles Stripe charge/refund for price delta. | No |
 
 ## Pricing Architecture
 

@@ -15,6 +15,10 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
           type: "string",
           description: "Your vacation rental domain (e.g. villaakerlyckan.se)",
         },
+        region: {
+          type: "string",
+          description: "Default region to search in (e.g. 'Skåne', 'Toscana', 'Bavaria'). Can be overridden per request.",
+        },
         language: {
           type: "string",
           description: "Preferred response language (ISO 639-1 code, e.g. 'en', 'sv', 'de', 'it', 'fr', 'es'). Defaults to English.",
