@@ -428,7 +428,7 @@ export const TOOLS = [
     },
     annotations: {
       title: "Negotiate Offer",
-      readOnlyHint: true,
+      readOnlyHint: false,
       destructiveHint: false,
       idempotentHint: false,
       openWorldHint: false,
@@ -480,7 +480,7 @@ export const TOOLS = [
       readOnlyHint: false,
       destructiveHint: false,
       idempotentHint: false,
-      openWorldHint: false,
+      openWorldHint: true,
     },
   },
   {
@@ -511,7 +511,7 @@ export const TOOLS = [
       readOnlyHint: false,
       destructiveHint: true,
       idempotentHint: true,
-      openWorldHint: false,
+      openWorldHint: true,
     },
   },
   {
@@ -599,7 +599,7 @@ export const TOOLS = [
       readOnlyHint: false,
       destructiveHint: true,
       idempotentHint: false,
-      openWorldHint: false,
+      openWorldHint: true,
     },
   },
 ];
