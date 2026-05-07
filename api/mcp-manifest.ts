@@ -37,6 +37,34 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
     },
     homepage: "https://hemmabo.com",
     icon: "https://hemmabo-mcp-server.vercel.app/icon.png",
+    // ── ChatGPT Apps directory fields ─────────────────────────────
+    developer: {
+      name: "HemmaBo AB",
+      url: "https://hemmabo.com",
+      email: "support@hemmabo.com",
+    },
+    privacy_policy_url: "https://hemmabo.com/privacy",
+    terms_of_service_url: "https://hemmabo.com/terms",
+    categories: ["travel", "lodging"],
+    safety_disclosures: {
+      handles_payments: true,
+      payment_provider: "Stripe (Agentic Commerce Protocol)",
+      data_collected: [
+        "Guest name, email and phone (only at checkout, sent directly to the host's own Stripe + Supabase)",
+        "Search parameters (region, dates, guest count) — not linked to a user identity",
+      ],
+      data_sharing:
+        "HemmaBo never stores guest payment details. Each booking writes to the host's own Supabase project and Stripe account — not a HemmaBo-owned database.",
+      external_redirects:
+        "Checkout completes via Stripe-hosted pages or the host's own domain. ChatGPT may bounce out for final confirmation.",
+      content_safety: "No user-generated content. Property listings are curated by verified hosts.",
+    },
+    sample_prompts: [
+      "Find a pet-friendly villa in Sweden for 6 guests in July",
+      "Show me direct-booking vacation rentals in Skåne for August 2026",
+      "What's the price for Villa Åkerlyckan for 4 guests, 5 nights?",
+      "Compare these properties on the same dates and book the cheapest one",
+    ],
     registry: {
       glama: "https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server",
       smithery: "https://smithery.ai/servers/@hemmabo-se/hemmabo",

@@ -125,6 +125,11 @@ export const TOOLS = [
       idempotentHint: true,
       openWorldHint: false,
     },
+    _meta: {
+      // ChatGPT Apps SDK: bind this tool's output to the property-card widget.
+      // ChatGPT renders the widget inline using the tool result as data.
+      "openai/outputTemplate": "ui://hemmabo/property-card",
+    },
   },
   {
     name: "search.availability",
@@ -630,6 +635,119 @@ export const PROMPTS = [
   },
 ];
 
+// ── Resources (ChatGPT Apps SDK UI widgets) ──────────────────────
+//
+// Apps SDK requires `ui://` resources that ChatGPT renders inline. Tools bind
+// to a widget via `_meta["openai/outputTemplate"]`. This single widget renders
+// a property search-result card for `search.properties`. Other tools may
+// adopt their own widgets later — kept minimal per Gap 2 spec.
+
+const PROPERTY_CARD_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>HemmaBo property card</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; margin: 0; padding: 12px; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .card { border: 1px solid rgba(127,127,127,0.25); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; background: var(--card-bg, transparent); }
+  .card img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #eee; }
+  .body { padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .title { font-weight: 600; font-size: 15px; line-height: 1.25; }
+  .loc { font-size: 12px; opacity: 0.7; }
+  .price { font-size: 14px; margin-top: 4px; }
+  .price .strike { text-decoration: line-through; opacity: 0.55; margin-right: 6px; }
+  .price .fed { font-weight: 600; }
+  .badge { display: inline-block; font-size: 11px; padding: 2px 6px; border-radius: 999px; background: #16a34a22; color: #16a34a; margin-left: 6px; }
+  .cta { margin-top: 8px; display: inline-block; text-align: center; padding: 8px 12px; border-radius: 8px; background: #111; color: #fff; text-decoration: none; font-size: 13px; }
+  @media (prefers-color-scheme: dark) { .cta { background: #fafafa; color: #111; } }
+  .empty { padding: 16px; opacity: 0.7; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="root" class="empty">Loading HemmaBo properties…</div>
+<script>
+  // Apps SDK injects tool output into window.openai.toolOutput.
+  // Fallback: read ?data=... URL param for static previews.
+  function getData() {
+    try {
+      var w = window;
+      if (w.openai && w.openai.toolOutput) return w.openai.toolOutput;
+    } catch (e) {}
+    try {
+      var u = new URL(window.location.href);
+      var raw = u.searchParams.get("data");
+      if (raw) return JSON.parse(decodeURIComponent(raw));
+    } catch (e) {}
+    return null;
+  }
+  function fmt(amount, currency) {
+    if (amount == null) return "";
+    try { return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "SEK", maximumFractionDigits: 0 }).format(amount); }
+    catch (e) { return amount + " " + (currency || ""); }
+  }
+  function render(data) {
+    var root = document.getElementById("root");
+    var props = (data && data.properties) || [];
+    if (!props.length) { root.className = "empty"; root.textContent = "No properties found for these dates."; return; }
+    root.className = "grid";
+    root.innerHTML = "";
+    props.forEach(function (p) {
+      var card = document.createElement("div"); card.className = "card";
+      if (p.image) { var img = document.createElement("img"); img.src = p.image; img.alt = p.name || ""; card.appendChild(img); }
+      var body = document.createElement("div"); body.className = "body";
+      var t = document.createElement("div"); t.className = "title"; t.textContent = p.name || "Property"; body.appendChild(t);
+      var loc = document.createElement("div"); loc.className = "loc";
+      loc.textContent = [p.city, p.region, p.country].filter(Boolean).join(", ");
+      body.appendChild(loc);
+      var price = document.createElement("div"); price.className = "price";
+      if (p.publicTotal && p.federationTotal && p.publicTotal !== p.federationTotal) {
+        var s = document.createElement("span"); s.className = "strike"; s.textContent = fmt(p.publicTotal / 100, p.currency); price.appendChild(s);
+      }
+      var f = document.createElement("span"); f.className = "fed"; f.textContent = fmt((p.federationTotal || 0) / 100, p.currency); price.appendChild(f);
+      if (p.nights) { var n = document.createElement("span"); n.style.opacity = "0.7"; n.style.marginLeft = "6px"; n.textContent = "/ " + p.nights + " nights"; price.appendChild(n); }
+      if (p.federationDiscountPercent) { var b = document.createElement("span"); b.className = "badge"; b.textContent = "Direct -" + p.federationDiscountPercent + "%"; price.appendChild(b); }
+      body.appendChild(price);
+      if (p.domain) {
+        var a = document.createElement("a"); a.className = "cta"; a.target = "_blank"; a.rel = "noopener noreferrer";
+        a.href = "https://" + p.domain; a.textContent = "Book direct on " + p.domain;
+        body.appendChild(a);
+      }
+      card.appendChild(body);
+      root.appendChild(card);
+    });
+  }
+  render(getData());
+</script>
+</body>
+</html>`;
+
+export const RESOURCES = [
+  {
+    uri: "ui://hemmabo/property-card",
+    name: "HemmaBo property card",
+    description:
+      "ChatGPT Apps SDK widget that renders search.properties results as a grid of property cards with image, location, public vs federation (direct-booking) price, host-controlled discount badge, and a CTA linking to the property's own host-owned domain.",
+    mimeType: "text/html",
+  },
+];
+
+function readResource(uri: string): { contents: { uri: string; mimeType: string; text: string }[] } | null {
+  if (uri === "ui://hemmabo/property-card") {
+    return {
+      contents: [
+        {
+          uri,
+          mimeType: "text/html",
+          text: PROPERTY_CARD_HTML,
+        },
+      ],
+    };
+  }
+  return null;
+}
+
 function getPromptMessages(name: string, args: Record<string, string>) {
   if (name === "trip.plan") {
     return {
@@ -740,7 +858,16 @@ async function handleJsonRpc(
       return { jsonrpc: "2.0", id, result: { prompts: PROMPTS } };
 
     case "resources/list":
-      return { jsonrpc: "2.0", id, result: { resources: [] } };
+      return { jsonrpc: "2.0", id, result: { resources: RESOURCES } };
+
+    case "resources/read": {
+      const uri = (params as { uri?: string })?.uri ?? "";
+      const result = readResource(uri);
+      if (!result) {
+        return { jsonrpc: "2.0", id, error: { code: -32602, message: `Unknown resource URI: ${uri}` } };
+      }
+      return { jsonrpc: "2.0", id, result };
+    }
 
     case "resources/templates/list":
       return { jsonrpc: "2.0", id, result: { resourceTemplates: [] } };
