@@ -82,38 +82,38 @@
     },
     "booking.negotiate": {
       "annotations": {
-        "readOnlyHint": true,
+        "readOnlyHint": false,
         "openWorldHint": false,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Evaluates a counter-offer against the host's negotiation rules and returns an accept or decline result without changing any record.",
-        "open_world_justification": "Operates only inside the federation's private database and never reaches public third-party systems.",
-        "destructive_justification": "Performs no destructive or irreversible action; only returns a recommendation."
+        "read_only_justification": "Inserts a short-lived quote snapshot row into the federation's private database to lock the quoted price for 15 minutes, so it is not read-only.",
+        "open_world_justification": "Writes only to the federation's private Supabase database and does not publish or send data to public third-party systems.",
+        "destructive_justification": "Creates a new quote snapshot row and does not delete, overwrite, or revoke any existing data."
       }
     },
     "booking.checkout": {
       "annotations": {
         "readOnlyHint": false,
-        "openWorldHint": false,
+        "openWorldHint": true,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Creates a Stripe Checkout Session for the booking, which is a write operation against the host's private Stripe account.",
-        "open_world_justification": "Calls only the host's own Stripe account using their API key and does not post or publish content to any public third-party system.",
-        "destructive_justification": "Initiates a payment session but does not delete or overwrite data; the actual charge requires explicit user confirmation in Stripe Checkout."
+        "read_only_justification": "Inserts a booking row in the federation's private database and creates a Stripe Checkout Session, both of which are write operations.",
+        "open_world_justification": "Calls the Stripe API to create a Checkout Session in the host's Stripe account, which is an external third-party system.",
+        "destructive_justification": "Initiates a payment session but does not delete or overwrite existing data; the actual charge requires explicit user confirmation in Stripe Checkout."
       }
     },
     "booking.cancel": {
       "annotations": {
         "readOnlyHint": false,
-        "openWorldHint": false,
+        "openWorldHint": true,
         "destructiveHint": true
       },
       "justifications": {
-        "read_only_justification": "Marks the booking as cancelled and may issue a Stripe refund, both of which are write operations.",
-        "open_world_justification": "Writes only to the federation's private database and the host's own Stripe account; does not affect public third-party systems.",
-        "destructive_justification": "Cancels an existing booking and may refund the payment, which is an irreversible state change for the booking and the charge."
+        "read_only_justification": "Marks the booking as cancelled in the federation's private database and may issue a Stripe refund, both of which are write operations.",
+        "open_world_justification": "Calls the Stripe API to issue a refund against the host's Stripe account, which is an external third-party system.",
+        "destructive_justification": "Cancels an existing booking and may refund the original Stripe payment, which is an irreversible state change for both the booking and the charge."
       }
     },
     "booking.status": {
@@ -131,13 +131,13 @@
     "booking.reschedule": {
       "annotations": {
         "readOnlyHint": false,
-        "openWorldHint": false,
+        "openWorldHint": true,
         "destructiveHint": true
       },
       "justifications": {
         "read_only_justification": "Updates the existing booking's check-in and check-out dates, which is a write operation.",
-        "open_world_justification": "Writes only to the federation's private database and does not affect public third-party systems.",
-        "destructive_justification": "Overwrites the previously confirmed booking dates, which replaces existing booking state and cannot be undone automatically."
+        "open_world_justification": "Calls the Stripe API to issue an additional charge or partial refund against the host's Stripe account when the new dates change the price, which is an external third-party system.",
+        "destructive_justification": "Overwrites the previously confirmed booking dates and may issue an irreversible Stripe charge or refund, replacing prior booking state in a way that cannot be undone automatically."
       }
     }
   },
