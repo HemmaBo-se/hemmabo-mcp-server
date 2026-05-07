@@ -1,131 +1,228 @@
 {
-  "$schema_note": "Submission payload for ChatGPT Apps directory. All values are derived from production endpoints in this repo (hemmabo-mcp-server). No external dependencies.",
-  "app": {
-    "name": "HemmaBo",
+  "$schema": "https://developers.openai.com/apps-sdk/schemas/chatgpt-app-submission.v1.json",
+  "schema_version": 1,
+  "app_info": {
+    "display_name": "HemmaBo",
     "subtitle": "Direct booking. 0% commission.",
-    "description": "HemmaBo is a network of independent vacation rental hosts who each own their domain, database and Stripe account. Search across the network, get binding price quotes, and book directly with the host — no aggregator markup, no platform commission. The host receives the payment directly via Stripe. Live example: villaakerlyckan.se. Powered by Model Context Protocol and the Stripe Agentic Commerce Protocol.",
-    "categories": ["travel", "lodging"],
-    "logo": {
-      "light": "https://hemmabo-mcp-server.vercel.app/icon.png",
-      "format": "PNG",
-      "size_bytes": 27891,
-      "source_in_repo": "./icon.png",
-      "vector_source_in_repo": "./icon.svg"
-    },
-    "developer": {
-      "name": "HemmaBo AB",
-      "url": "https://hemmabo.com",
-      "email": "support@hemmabo.com"
-    },
-    "homepage_url": "https://hemmabo.com",
-    "privacy_policy_url": "https://www.hemmabo.com/privacy",
-    "terms_of_service_url": "https://www.hemmabo.com/terms"
+    "description": "HemmaBo provides direct booking infrastructure for independently owned vacation rental properties. Each property is hosted on its own domain. Guests can search availability, request binding quotes, and complete bookings directly with the host via Stripe — no aggregator markup, no platform commission. Live example: villaakerlyckan.se.",
+    "category": "TRAVEL"
   },
-  "mcp_server": {
-    "public_url": "https://hemmabo-mcp-server.vercel.app/mcp",
-    "transport": "streamable-http",
-    "protocol_version": "2025-03-26",
-    "discovery_manifest": "https://hemmabo-mcp-server.vercel.app/.well-known/mcp.json",
-    "health_check": "https://hemmabo-mcp-server.vercel.app/health",
-    "authentication": {
-      "type": "oauth2",
-      "grant": "client_credentials",
-      "token_endpoint": "https://hemmabo-mcp-server.vercel.app/oauth/token",
-      "registration_endpoint": "https://hemmabo-mcp-server.vercel.app/oauth/register",
-      "open_mode": "When MCP_API_KEY is unset on the server, the MCP endpoint accepts unauthenticated calls — used for registry inspectors (Glama, Smithery). Production tools/call requires Bearer token.",
-      "review_note": "OpenAI reviewers can inspect tools/list, prompts/list, resources/list and resources/read without credentials. tools/call requires a Bearer token (see demo credentials below)."
-    },
-    "tool_count": 11,
-    "tools": [
-      { "name": "search.properties", "purpose": "Find available vacation rentals in a region/country for given dates and guest count. Entry point for all booking flows.", "ui_widget": "ui://hemmabo/property-card" },
-      { "name": "search.availability", "purpose": "Check whether a specific property is free for given dates." },
-      { "name": "search.similar", "purpose": "Find vacation rentals similar to a given property on specific dates." },
-      { "name": "search.compare", "purpose": "Compare 2–10 properties on the same dates, sorted by price." },
-      { "name": "booking.quote", "purpose": "Get a detailed live pricing quote with seasonal/weekend/package breakdowns." },
-      { "name": "booking.negotiate", "purpose": "Lock a price quote for 15 minutes; returns a quoteId for use in checkout." },
-      { "name": "booking.checkout", "purpose": "Create a booking and Stripe payment (checkout_session URL or payment_intent client_secret) — full ACP flow." },
-      { "name": "booking.create", "purpose": "Create a direct booking without online payment (invoice / manual flows)." },
-      { "name": "booking.status", "purpose": "Get current booking status, dates, price and cancellation policy." },
-      { "name": "booking.cancel", "purpose": "Cancel a booking and trigger a Stripe refund according to host policy." },
-      { "name": "booking.reschedule", "purpose": "Move a confirmed booking to new dates with automatic repricing." }
-    ],
-    "ui_resources": [
-      {
-        "uri": "ui://hemmabo/property-card",
-        "mime_type": "text/html",
-        "purpose": "Inline ChatGPT widget that renders search.properties results as a grid of property cards (image, location, public-vs-direct price, discount badge, CTA to host's own domain).",
-        "bound_to_tool": "search.properties (via _meta[\"openai/outputTemplate\"])"
+  "tools": {
+    "search.properties": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Only queries the published-property catalog in Supabase and returns matching listings without modifying any data.",
+        "open_world_justification": "Reads only from the federation's private Supabase catalog and does not write to public internet state or third-party systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform any irreversible action."
       }
-    ]
+    },
+    "search.availability": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Computes free dates and minimum nightly price for a property by reading bookings and pricing rules without changing them.",
+        "open_world_justification": "Reads only from the federation's private database and does not affect any external public system.",
+        "destructive_justification": "Does not delete or overwrite data and cannot perform irreversible actions."
+      }
+    },
+    "search.similar": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Returns alternative properties matching given criteria by reading the catalog only.",
+        "open_world_justification": "Reads only from the federation's private catalog and never publishes or sends data externally.",
+        "destructive_justification": "Performs no destructive or irreversible action."
+      }
+    },
+    "search.compare": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Reads pricing and availability for multiple properties and returns a side-by-side comparison without mutating data.",
+        "open_world_justification": "Reads only from the federation's private database and does not contact public third-party systems.",
+        "destructive_justification": "Performs no destructive or irreversible action."
+      }
+    },
+    "booking.quote": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Computes a binding price quote from pricing rules and availability without persisting bookings or charges.",
+        "open_world_justification": "Computation runs against the federation's private database and does not call out to public third-party systems.",
+        "destructive_justification": "Does not delete, overwrite, or perform irreversible actions; the quote is informational only."
+      }
+    },
+    "booking.create": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Inserts a new booking record into the federation's private database, so it is not read-only.",
+        "open_world_justification": "Writes only to the federation's private Supabase database and does not publish content or post to any public third-party system.",
+        "destructive_justification": "Creates a new booking but does not delete, overwrite, or revoke access to any existing data."
+      }
+    },
+    "booking.negotiate": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Evaluates a counter-offer against the host's negotiation rules and returns an accept or decline result without changing any record.",
+        "open_world_justification": "Operates only inside the federation's private database and never reaches public third-party systems.",
+        "destructive_justification": "Performs no destructive or irreversible action; only returns a recommendation."
+      }
+    },
+    "booking.checkout": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Creates a Stripe Checkout Session for the booking, which is a write operation against the host's private Stripe account.",
+        "open_world_justification": "Calls only the host's own Stripe account using their API key and does not post or publish content to any public third-party system.",
+        "destructive_justification": "Initiates a payment session but does not delete or overwrite data; the actual charge requires explicit user confirmation in Stripe Checkout."
+      }
+    },
+    "booking.cancel": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Marks the booking as cancelled and may issue a Stripe refund, both of which are write operations.",
+        "open_world_justification": "Writes only to the federation's private database and the host's own Stripe account; does not affect public third-party systems.",
+        "destructive_justification": "Cancels an existing booking and may refund the payment, which is an irreversible state change for the booking and the charge."
+      }
+    },
+    "booking.status": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Reads the current booking record and returns its status without making any changes.",
+        "open_world_justification": "Reads only from the federation's private database and does not contact public third-party systems.",
+        "destructive_justification": "Performs no destructive or irreversible action."
+      }
+    },
+    "booking.reschedule": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Updates the existing booking's check-in and check-out dates, which is a write operation.",
+        "open_world_justification": "Writes only to the federation's private database and does not affect public third-party systems.",
+        "destructive_justification": "Overwrites the previously confirmed booking dates, which replaces existing booking state and cannot be undone automatically."
+      }
+    }
   },
-  "test_prompts": [
+  "test_cases": [
     {
-      "prompt": "Find a pet-friendly villa in Sweden for 6 guests in July",
-      "expected_behavior": "App is suggested. ChatGPT calls search.properties with country=Sweden, guests=6, July dates. Property-card widget renders results with direct-booking prices.",
-      "primary_tool": "search.properties"
+      "description": "Find vacation rentals in a Swedish region for specific dates and guest count.",
+      "user_prompt": "Find a HemmaBo vacation rental in Skane for 4 guests from July 12 to July 19, 2026.",
+      "file_attachment_urls": null,
+      "tools_triggered": "search.properties",
+      "expected_output": "Returns a list of available properties in Skane for those dates with name, location, capacity, and nightly price.",
+      "expected_output_url": null
     },
     {
-      "prompt": "Show me direct-booking vacation rentals in Skåne for August 2026",
-      "expected_behavior": "search.properties called with region=Skåne, August 2026 dates. Widget shows villaakerlyckan.se among results.",
-      "primary_tool": "search.properties"
+      "description": "Check availability and minimum nightly price for a specific property.",
+      "user_prompt": "Show free dates in August 2026 for Villa Akerlyckan and the lowest nightly price.",
+      "file_attachment_urls": null,
+      "tools_triggered": "search.availability",
+      "expected_output": "Returns a list of free date ranges in August 2026 for the property with the minimum nightly rate.",
+      "expected_output_url": null
     },
     {
-      "prompt": "What's the price for Villa Åkerlyckan for 4 guests, 5 nights starting 2026-08-10?",
-      "expected_behavior": "Two-step: search.properties to resolve propertyId, then booking.quote for detailed nightly breakdown including seasonal rates and federation discount.",
-      "primary_tool": "booking.quote"
+      "description": "Get a binding price quote for a specific property and date range.",
+      "user_prompt": "Give me a binding price quote for Villa Akerlyckan, July 12 to 19, 4 guests.",
+      "file_attachment_urls": null,
+      "tools_triggered": "booking.quote",
+      "expected_output": "Returns a quote object with total price, nightly breakdown, fees, currency, and a quote validity window.",
+      "expected_output_url": null
     },
     {
-      "prompt": "Compare these properties on the same dates and book the cheapest one",
-      "expected_behavior": "search.compare → booking.negotiate (lock price) → booking.checkout (Stripe URL).",
-      "primary_tool": "search.compare"
+      "description": "Generate a Stripe checkout link for an accepted quote.",
+      "user_prompt": "I accept the quote, generate the Stripe checkout link to pay the host directly.",
+      "file_attachment_urls": null,
+      "tools_triggered": "booking.checkout",
+      "expected_output": "Returns a Stripe Checkout Session URL for the guest to complete payment directly to the host's Stripe account.",
+      "expected_output_url": null
     },
     {
-      "prompt": "I need to cancel booking abc-123 — what's the refund?",
-      "expected_behavior": "booking.status (read policy) → booking.cancel (trigger refund per host policy).",
-      "primary_tool": "booking.cancel"
+      "description": "Look up the status of an existing booking by ID.",
+      "user_prompt": "What is the status of my booking BK_12345?",
+      "file_attachment_urls": null,
+      "tools_triggered": "booking.status",
+      "expected_output": "Returns the booking's current state (pending, confirmed, cancelled), check-in and check-out dates, and payment status.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Cancel a confirmed booking and request a refund according to host policy.",
+      "user_prompt": "Cancel my booking BK_12345 and refund what is allowed by the host's cancellation policy.",
+      "file_attachment_urls": null,
+      "tools_triggered": "booking.cancel",
+      "expected_output": "Returns a confirmation that the booking was cancelled along with any refund amount issued via Stripe per host policy.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Compare two specific properties for the same dates and guest count.",
+      "user_prompt": "Compare Villa Akerlyckan and Stuga Skane for July 12 to 19, 4 guests.",
+      "file_attachment_urls": null,
+      "tools_triggered": "search.compare",
+      "expected_output": "Returns a side-by-side comparison of total price, capacity, and amenities for both properties for the requested period.",
+      "expected_output_url": null
     }
   ],
-  "demo_credentials": {
-    "required_for_review": false,
-    "reason": "tools/list, resources/list, resources/read and prompts/list are open. Reviewers can fully inspect the app surface without credentials.",
-    "for_tools_call_testing": {
-      "instructions": "If reviewers want to exercise tools/call against live data, request a temporary OAuth client via support@hemmabo.com — we will provision client_id + client_secret bound to a test property dataset (no real bookings). The /oauth/register endpoint is open (RFC 7591 dynamic registration) but currently returns 500 due to a Supabase RLS issue under investigation; manual provisioning is the workaround until that is resolved.",
-      "test_property": {
-        "domain": "villaakerlyckan.se",
-        "note": "Real, live property. Searches on Skåne/Sweden return this property. booking.checkout creates a real Stripe checkout session in test mode if STRIPE_SECRET_KEY on the server is a test key; reviewers should not complete actual payments."
-      }
-    }
-  },
-  "review_disclosures": {
-    "handles_payments": true,
-    "payment_provider": "Stripe (Agentic Commerce Protocol — direct to host's own Stripe account, never to HemmaBo)",
-    "data_collected": [
-      "Guest name, email, phone — only at checkout, written to the host's own Supabase project + Stripe account",
-      "Search parameters (region, dates, guest count) — not linked to user identity"
-    ],
-    "data_sharing": "HemmaBo does not store guest payment details. Each booking writes to the host's own Supabase project and Stripe account, not a HemmaBo-owned database.",
-    "external_redirects": "Stripe-hosted checkout pages or the host's own domain. ChatGPT may bounce out for final confirmation.",
-    "content_safety": "No user-generated content. Property listings are curated by verified hosts.",
-    "regions": "Worldwide (currently mostly Sweden + Italy). No region restrictions."
-  },
-  "verification_evidence": {
-    "manifest_live": "curl https://hemmabo-mcp-server.vercel.app/.well-known/mcp.json — returns full directory metadata including categories, developer, sample_prompts, safety_disclosures, trust",
-    "tools_meta_live": "tools/list response has search.properties._meta = { \"openai/outputTemplate\": \"ui://hemmabo/property-card\" }",
-    "widget_live": "resources/read on ui://hemmabo/property-card returns 4475 bytes of valid HTML",
-    "drift_guard": "src/mcp-manifest-singleton.test.ts (4 contract tests, CI-enforced)"
-  },
-  "open_issues_disclosed": [
+  "negative_test_cases": [
     {
-      "issue": "/oauth/register currently returns HTTP 500",
-      "impact": "Dynamic Client Registration (RFC 7591) blocked. Manual OAuth provisioning works.",
-      "scope": "Out of scope for the Apps SDK readiness work; tracked separately.",
-      "submission_impact": "None — Apps SDK clients are pre-registered via OpenAI's connector flow, not via DCR."
+      "description": "Do not trigger for hotel or chain-hotel bookings outside the HemmaBo federation.",
+      "user_prompt": "Book me a room at the Hilton in Stockholm next weekend.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because HemmaBo only covers independently owned vacation rentals in its federation, not chain hotels.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger for unrelated travel logistics like flights or rental cars.",
+      "user_prompt": "Find me a flight from New York to Stockholm next Friday.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because flights are outside HemmaBo's vacation-rental booking workflows.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger when the user only asks for general travel inspiration unrelated to booking.",
+      "user_prompt": "What are some fun things to do in Skane in summer?",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because the request is generic travel advice with no rental property, dates, or booking action specified.",
+      "expected_output_url": null
     }
-  ],
-  "submission_metadata": {
-    "generated_from": "hemmabo-mcp-server@3.2.8",
-    "source_branch": "docs/chatgpt-apps-submission",
-    "version": "3.2.8",
-    "do_not_touch": ["hemmabo-smart-stays — separate repo, only touched for visual assets if requested"]
-  }
+  ]
 }
