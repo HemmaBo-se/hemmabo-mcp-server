@@ -1,4 +1,10 @@
 import type { VercelRequest, VercelResponse } from "./_types.js";
+import { createRequire } from "module";
+
+// Read package.json at module load — single source of truth for `version`.
+// createRequire works under Node16 ESM where JSON import attributes are not
+// available; the file is bundled by Vercel into the function deployment.
+const pkg = createRequire(import.meta.url)("../package.json") as { version: string };
 
 /**
  * /.well-known/mcp.json — MCP discovery manifest
@@ -6,6 +12,10 @@ import type { VercelRequest, VercelResponse } from "./_types.js";
  * AI agents and crawlers (Anthropic, OpenAI, Glama, Smithery) read this
  * to discover the server's endpoint, capabilities, and tools.
  * Spec: https://spec.modelcontextprotocol.io/specification/
+ *
+ * Single source of truth — the static .well-known/mcp.json file was removed
+ * (see fix/mcp-manifest-single-sot). All discovery fields live here.
+ * `version` is read dynamically from package.json so it cannot drift.
  */
 export default function handler(_req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -15,8 +25,9 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
     protocol: "mcp",
     protocol_version: "2025-03-26",
     name: "HemmaBo Federation MCP Server",
+    version: pkg.version,
     description:
-      "Direct booking infrastructure for vacation rentals. Search properties, check availability, get live pricing, and complete Stripe payments — 0% commission. Each property is its own node with live data. Like Mirai for hotels, but for vacation rentals.",
+      "Direct booking infrastructure for vacation rentals. Each host is a sovereign booking node — own domain, 0% commission, payment direct to host via Stripe. Search properties, get quotes, book without aggregator markup. Like Mirai for hotels, but for vacation rentals. From $39/month.",
     mcp_endpoint: "https://hemmabo-mcp-server.vercel.app/mcp",
     transport: ["streamable-http", "stdio"],
     authentication: {
@@ -58,6 +69,11 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
       external_redirects:
         "Checkout completes via Stripe-hosted pages or the host's own domain. ChatGPT may bounce out for final confirmation.",
       content_safety: "No user-generated content. Property listings are curated by verified hosts.",
+    },
+    trust: {
+      payment: "Stripe (direct to host)",
+      commission: "0%",
+      data_ownership: "host",
     },
     sample_prompts: [
       "Find a pet-friendly villa in Sweden for 6 guests in July",
