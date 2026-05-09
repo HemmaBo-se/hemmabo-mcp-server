@@ -168,6 +168,12 @@ Add to your MCP client config:
 | `booking.status` | Get booking details, property info, and cancellation policy by reservation ID. | Yes |
 | `booking.reschedule` | Reschedule to new dates. Checks availability, recalculates price, handles Stripe charge/refund for price delta. | No |
 
+### Authentication: public read, signed write
+
+Discovery and pricing tools (`search.*`, `booking.quote`) are callable **without** a Bearer token so AI agents (ChatGPT, Claude, Glama, Smithery) can rank and invoke them on the first try. Supabase RLS restricts these reads to published properties.
+
+Booking writes and PII reads — `booking.create`, `booking.negotiate`, `booking.checkout`, `booking.cancel`, `booking.reschedule`, `booking.status` — require `Authorization: Bearer <token>` (MCP_API_KEY or an OAuth `client_credentials` access token from `POST /oauth/token`).
+
 ## Pricing Architecture
 
 ```
