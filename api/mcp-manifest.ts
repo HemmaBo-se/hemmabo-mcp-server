@@ -1,10 +1,21 @@
 import type { VercelRequest, VercelResponse } from "./_types.js";
 import { createRequire } from "module";
+import { ANON_TOOLS } from "./mcp.js";
 
 // Read package.json at module load — single source of truth for `version`.
 // createRequire works under Node16 ESM where JSON import attributes are not
 // available; the file is bundled by Vercel into the function deployment.
 const pkg = createRequire(import.meta.url)("../package.json") as { version: string };
+
+/**
+ * Resolve a tool's authentication requirement from the runtime allowlist.
+ * Single source of truth: ANON_TOOLS in api/mcp.ts. If a tool is added or
+ * removed there, this value flips automatically — clients (Glama, Smithery,
+ * ChatGPT directory) can render an accurate "no key required" badge.
+ */
+function authForTool(name: string): "none" | "bearer" {
+  return ANON_TOOLS.has(name) ? "none" : "bearer";
+}
 
 /**
  * /.well-known/mcp.json — MCP discovery manifest
@@ -89,56 +100,67 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
     tools: [
       {
         name: "search.properties",
+        auth: authForTool("search.properties"),
         description:
           "Search available vacation rental properties by region, country, guest count and dates. Returns live availability and pricing.",
       },
       {
         name: "search.availability",
+        auth: authForTool("search.availability"),
         description:
           "Check whether a specific property is available for given check-in and check-out dates.",
       },
       {
         name: "booking.quote",
+        auth: authForTool("booking.quote"),
         description:
           "Get a detailed live pricing quote: nightly rates, seasonal pricing, federation discount.",
       },
       {
         name: "booking.negotiate",
+        auth: authForTool("booking.negotiate"),
         description:
           "Lock a price quote for 15 minutes. Returns a quoteId to use in checkout — guarantees the price won't change.",
       },
       {
         name: "booking.checkout",
+        auth: authForTool("booking.checkout"),
         description:
           "Create a booking and Stripe payment. Returns a checkout URL (checkout_session) or client_secret (payment_intent) for AI agent payment flows.",
       },
       {
         name: "booking.create",
+        auth: authForTool("booking.create"),
         description:
           "Create a direct booking without online payment — for invoice or manual payment flows.",
       },
       {
         name: "booking.status",
+        auth: authForTool("booking.status"),
         description:
           "Get current booking status, dates, price, cancellation policy and refund rules.",
       },
       {
         name: "booking.cancel",
+        auth: authForTool("booking.cancel"),
         description:
           "Cancel a booking and trigger a Stripe refund according to the host's cancellation policy.",
       },
       {
         name: "booking.reschedule",
+        auth: authForTool("booking.reschedule"),
         description:
           "Move a confirmed booking to new dates with automatic repricing.",
       },
       {
         name: "search.similar",
+        auth: authForTool("search.similar"),
         description:
           "Find vacation rental properties similar to a given property on specific dates — same region, type, and capacity. Returns available alternatives with live pricing.",
       },
       {
         name: "search.compare",
+        auth: authForTool("search.compare"),
         description:
           "Compare availability and pricing for 2–10 specific properties on the same dates. Returns results sorted by federation price, unavailable properties last.",
       },

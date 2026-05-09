@@ -1,7 +1,16 @@
 import type { VercelRequest, VercelResponse } from "./_types.js";
-import { PROMPTS, SERVER_INSTRUCTIONS, TOOLS } from "./mcp.js";
+import { ANON_TOOLS, PROMPTS, SERVER_INSTRUCTIONS, TOOLS } from "./mcp.js";
 
 export default function handler(_req: VercelRequest, res: VercelResponse) {
+  // Annotate each tool with its runtime auth requirement so registries
+  // (Glama, Smithery, ChatGPT directory) can render an accurate
+  // "no key required" badge without first issuing a tools/call probe.
+  // Single source of truth: ANON_TOOLS in api/mcp.ts.
+  const toolsWithAuth = TOOLS.map((t) => ({
+    ...t,
+    auth: ANON_TOOLS.has(t.name) ? "none" : "bearer",
+  }));
+
   res.json({
     serverInfo: {
       name: "hemmabo-mcp-server",
@@ -30,7 +39,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
       },
       required: [],
     },
-    tools: TOOLS,
+    tools: toolsWithAuth,
     resources: [],
     prompts: PROMPTS,
   });
