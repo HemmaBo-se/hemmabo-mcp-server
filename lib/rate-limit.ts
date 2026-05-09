@@ -19,6 +19,11 @@
  *   UPSTASH_REDIS_REST_TOKEN  bearer token
  *   RATE_LIMIT_ANON_PER_MIN   default 60
  *   RATE_LIMIT_BEARER_PER_MIN default 200
+ *
+ * Vercel's "Upstash for Redis" Marketplace integration with a custom prefix
+ * injects env vars in the form UPSTASH_REDIS_KV_REST_API_URL /
+ * UPSTASH_REDIS_KV_REST_API_TOKEN. Those names are also accepted as a
+ * fallback so the limiter works without manual env-var aliasing.
  */
 
 export type RateKind = "anon" | "bearer";
@@ -70,8 +75,11 @@ export async function checkRateLimit(
   deps: RateLimitDeps = {}
 ): Promise<RateLimitResult> {
   const env = deps.env ?? process.env;
-  const url = env.UPSTASH_REDIS_REST_URL;
-  const token = env.UPSTASH_REDIS_REST_TOKEN;
+  // Accept both the classic Upstash REST env names and Vercel's "Upstash for
+  // Redis" KV-integration names (which inject `_KV_REST_API_` in the middle
+  // when a custom prefix is set). Either pair fully configures the limiter.
+  const url = env.UPSTASH_REDIS_REST_URL ?? env.UPSTASH_REDIS_KV_REST_API_URL;
+  const token = env.UPSTASH_REDIS_REST_TOKEN ?? env.UPSTASH_REDIS_KV_REST_API_TOKEN;
 
   // Fail-open when the limiter isn't configured. See module header.
   if (!url || !token) return { ok: true };

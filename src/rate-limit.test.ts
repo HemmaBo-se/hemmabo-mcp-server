@@ -69,6 +69,61 @@ describe("checkRateLimit fail-open semantics", () => {
   });
 });
 
+describe("checkRateLimit env-name compatibility", () => {
+  // Vercel's "Upstash for Redis" Marketplace integration with a custom
+  // prefix produces UPSTASH_REDIS_KV_REST_API_URL / _TOKEN. The limiter must
+  // accept these as a fallback so the integration works without manual
+  // env-var aliasing in the Vercel UI.
+
+  it("activates with UPSTASH_REDIS_KV_REST_API_* fallback names", async () => {
+    let calledUrl: string | undefined;
+    const fetchSpy = (async (input: unknown) => {
+      calledUrl = String(input);
+      return { ok: true, json: async () => [{ result: 1 }, { result: 1 }] } as unknown as Response;
+    }) as unknown as typeof fetch;
+
+    const result = await checkRateLimit("anon", "1.2.3.4", {
+      env: {
+        UPSTASH_REDIS_KV_REST_API_URL: "https://kv.example.upstash.io",
+        UPSTASH_REDIS_KV_REST_API_TOKEN: "kv-token",
+      },
+      fetch: fetchSpy,
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.limit, 60);
+    assert.equal(result.remaining, 59);
+    assert.ok(calledUrl?.startsWith("https://kv.example.upstash.io/"));
+  });
+
+  it("prefers classic UPSTASH_REDIS_REST_* when both pairs are set", async () => {
+    let calledUrl: string | undefined;
+    const fetchSpy = (async (input: unknown) => {
+      calledUrl = String(input);
+      return { ok: true, json: async () => [{ result: 1 }, { result: 1 }] } as unknown as Response;
+    }) as unknown as typeof fetch;
+
+    await checkRateLimit("anon", "1.2.3.4", {
+      env: {
+        UPSTASH_REDIS_REST_URL: "https://classic.example.upstash.io",
+        UPSTASH_REDIS_REST_TOKEN: "classic-token",
+        UPSTASH_REDIS_KV_REST_API_URL: "https://kv.example.upstash.io",
+        UPSTASH_REDIS_KV_REST_API_TOKEN: "kv-token",
+      },
+      fetch: fetchSpy,
+    });
+
+    assert.ok(calledUrl?.startsWith("https://classic.example.upstash.io/"));
+  });
+
+  it("fails open when only one half of the KV pair is set", async () => {
+    const result = await checkRateLimit("anon", "1.2.3.4", {
+      env: { UPSTASH_REDIS_KV_REST_API_URL: "https://kv.example.upstash.io" },
+    });
+    assert.deepEqual(result, { ok: true });
+  });
+});
+
 describe("checkRateLimit window enforcement", () => {
   it("allows requests up to the configured limit", async () => {
     const result = await checkRateLimit("anon", "1.2.3.4", {
