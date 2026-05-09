@@ -10,6 +10,12 @@ updates:
     commit-message:
       prefix: deps
       include: scope
+    ignore:
+      # @supabase/supabase-js >= 2.105.2 removes `ws` from realtime-js, which
+      # breaks Vercel's Node 20 runtime (no native WebSocket). Pin to 2.105.1
+      # until we either upgrade to Node 22 or wire `ws` into createClient.
+      - dependency-name: "@supabase/supabase-js"
+        versions: [">=2.105.2"]
 
   - package-ecosystem: github-actions
     directory: /
