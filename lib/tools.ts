@@ -84,6 +84,30 @@ export function validateDateOrder(checkIn: string, checkOut: string): string | n
   return null;
 }
 
+/**
+ * Returns an error string listing any required keys whose value is `undefined`
+ * or `null` in `args`. Prevents missing-arg values from reaching Supabase
+ * filters as the literal string "undefined" (Postgres int parser rejects it
+ * with `invalid input syntax for type integer: "undefined"`).
+ *
+ * Note: this does NOT validate types — JSON-Schema in TOOLS metadata is the
+ * source of truth for shapes. This is a fail-fast guard against the most
+ * common AI-agent error: omitting required fields entirely.
+ */
+export function validateRequiredArgs(
+  args: Record<string, unknown>,
+  required: readonly string[]
+): string | null {
+  const missing = required.filter((k) => args[k] === undefined || args[k] === null);
+  if (missing.length === 0) return null;
+  return `Missing required argument(s): ${missing.join(", ")}`;
+}
+
+/** Wraps an error message in the standard MCP tool-error envelope. */
+function toolError(message: string): ToolResult {
+  return { content: [{ type: "text", text: JSON.stringify({ error: message }) }], isError: true };
+}
+
 // ── booking_locks helpers ─────────────────────────────────────────────────────
 
 const LOCK_TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -312,6 +336,8 @@ export async function executeTool(
 
   switch (canonicalName) {
     case "hemmabo_search_properties": {
+      const reqErr = validateRequiredArgs(args, ["guests", "checkIn", "checkOut"]);
+      if (reqErr) return toolError(reqErr);
       const { region, country, guests, checkIn, checkOut } = args as {
         region?: string; country?: string; guests: number; checkIn: string; checkOut: string;
       };
@@ -354,6 +380,8 @@ export async function executeTool(
     }
 
     case "hemmabo_search_availability": {
+      const reqErr = validateRequiredArgs(args, ["propertyId", "checkIn", "checkOut"]);
+      if (reqErr) return toolError(reqErr);
       const { propertyId, checkIn, checkOut } = args as { propertyId: string; checkIn: string; checkOut: string };
       const dateErr = validateDates(checkIn, checkOut);
       if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }], isError: true };
@@ -365,6 +393,8 @@ export async function executeTool(
     }
 
     case "hemmabo_search_similar": {
+      const reqErr = validateRequiredArgs(args, ["propertyId", "checkIn", "checkOut"]);
+      if (reqErr) return toolError(reqErr);
       const { propertyId, checkIn, checkOut, guests, limit } = args as {
         propertyId: string; checkIn: string; checkOut: string; guests?: number; limit?: number;
       };
@@ -431,6 +461,8 @@ export async function executeTool(
     }
 
     case "hemmabo_compare_properties": {
+      const reqErr = validateRequiredArgs(args, ["propertyIds", "checkIn", "checkOut", "guests"]);
+      if (reqErr) return toolError(reqErr);
       const { propertyIds, checkIn, checkOut, guests } = args as {
         propertyIds: string[]; checkIn: string; checkOut: string; guests: number;
       };
@@ -492,6 +524,8 @@ export async function executeTool(
     }
 
     case "hemmabo_booking_quote": {
+      const reqErr = validateRequiredArgs(args, ["propertyId", "checkIn", "checkOut", "guests"]);
+      if (reqErr) return toolError(reqErr);
       const { propertyId, checkIn, checkOut, guests } = args as { propertyId: string; checkIn: string; checkOut: string; guests: number };
       const dateErr = validateDates(checkIn, checkOut);
       if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }], isError: true };
@@ -505,6 +539,8 @@ export async function executeTool(
     }
 
     case "hemmabo_booking_create": {
+      const reqErr = validateRequiredArgs(args, ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"]);
+      if (reqErr) return toolError(reqErr);
       const { propertyId, checkIn, checkOut, guests, guestName, guestEmail, guestPhone } = args as {
         propertyId: string; checkIn: string; checkOut: string; guests: number;
         guestName: string; guestEmail: string; guestPhone?: string;
@@ -581,6 +617,8 @@ export async function executeTool(
     }
 
     case "hemmabo_booking_negotiate": {
+      const reqErr = validateRequiredArgs(args, ["propertyId", "checkIn", "checkOut", "guests"]);
+      if (reqErr) return toolError(reqErr);
       const { propertyId, checkIn, checkOut, guests } = args as {
         propertyId: string; checkIn: string; checkOut: string; guests: number;
       };
@@ -652,6 +690,8 @@ export async function executeTool(
     }
 
     case "hemmabo_booking_checkout": {
+      const reqErr = validateRequiredArgs(args, ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"]);
+      if (reqErr) return toolError(reqErr);
       const {
         propertyId, checkIn, checkOut, guests, guestName, guestEmail,
         guestPhone, quoteId, paymentMode, channel,
@@ -711,6 +751,8 @@ export async function executeTool(
     }
 
     case "hemmabo_booking_cancel": {
+      const reqErr = validateRequiredArgs(args, ["reservationId"]);
+      if (reqErr) return toolError(reqErr);
       const { reservationId, reason } = args as { reservationId: string; reason?: string };
 
       // Fetch booking
@@ -760,6 +802,8 @@ export async function executeTool(
     }
 
     case "hemmabo_booking_status": {
+      const reqErr = validateRequiredArgs(args, ["reservationId"]);
+      if (reqErr) return toolError(reqErr);
       const { reservationId } = args as { reservationId: string };
 
       // Uses service role — booking lookup by UUID is a privileged operation
@@ -826,6 +870,8 @@ export async function executeTool(
     }
 
     case "hemmabo_booking_reschedule": {
+      const reqErr = validateRequiredArgs(args, ["reservationId", "newCheckIn", "newCheckOut"]);
+      if (reqErr) return toolError(reqErr);
       const { reservationId, newCheckIn, newCheckOut, reason } = args as {
         reservationId: string; newCheckIn: string; newCheckOut: string; reason?: string;
       };
