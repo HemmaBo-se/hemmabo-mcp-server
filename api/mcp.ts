@@ -14,6 +14,7 @@ import { createClient } from "@supabase/supabase-js";
 import { executeTool } from "../lib/tools.js";
 import { validateApiKey } from "../src/auth.js";
 import { anonIdentifier, bearerIdentifier, checkRateLimit } from "../lib/rate-limit.js";
+import { registerToolSchemas, validateToolArgs } from "../lib/validate-args.js";
 
 // ── Structured logging ───────────────────────────────────────────
 
@@ -832,6 +833,30 @@ async function handleJsonRpc(
       let ok = true;
       let errMsg: string | undefined;
       try {
+        // Validate args against the tool's JSON-Schema before any business
+        // logic runs. Returns field-level errors so AI agents can self-correct
+        // rather than guess from a generic message. lib/tools.ts still
+        // enforces required-arg presence as defense-in-depth.
+        const validation = validateToolArgs(toolName, toolArgs);
+        if (!validation.ok) {
+          ok = false;
+          errMsg = `Invalid arguments for ${toolName}`;
+          return {
+            jsonrpc: "2.0",
+            id,
+            result: {
+              content: [{
+                type: "text",
+                text: JSON.stringify({
+                  error: errMsg,
+                  details: validation.errors ?? [],
+                }),
+              }],
+              isError: true,
+            },
+          };
+        }
+
         const result = await executeTool(toolName, toolArgs, {
           supabase: getSupabase(),
           reader: getSupabaseReader(),
@@ -892,6 +917,12 @@ async function handleJsonRpc(
 }
 
 // ── Anonymous read-only tool allowlist ───────────────────────────
+//
+// Compile inputSchema validators once at module load. Validation runs in the
+// tools/call dispatcher below; lib/tools.ts retains the required-arg gate as
+// defense-in-depth (the stdio transport has its own Zod validator).
+registerToolSchemas(TOOLS);
+
 //
 // Tools that may be invoked without a Bearer token. These are pure read-only
 // discovery and pricing helpers; they perform no writes, no Stripe calls, and
