@@ -174,6 +174,8 @@ Discovery and pricing tools (`search.*`, `booking.quote`) are callable **without
 
 Booking writes and PII reads — `booking.create`, `booking.negotiate`, `booking.checkout`, `booking.cancel`, `booking.reschedule`, `booking.status` — require `Authorization: Bearer <token>` (MCP_API_KEY or an OAuth `client_credentials` access token from `POST /oauth/token`).
 
+Rate limits (per source IP for anon, per token-hash for bearer) — defaults 60 req/min anon, 200 req/min bearer. Configure via `RATE_LIMIT_ANON_PER_MIN` / `RATE_LIMIT_BEARER_PER_MIN`. Backed by Upstash Redis (`UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`); fail-open when unconfigured. Limit headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `Retry-After` on 429.
+
 ## Pricing Architecture
 
 ```

@@ -13,6 +13,7 @@ import type { VercelRequest, VercelResponse } from "./_types.js";
 import { createClient } from "@supabase/supabase-js";
 import { executeTool } from "../lib/tools.js";
 import { validateApiKey } from "../src/auth.js";
+import { anonIdentifier, bearerIdentifier, checkRateLimit } from "../lib/rate-limit.js";
 
 // ── Structured logging ───────────────────────────────────────────
 
@@ -976,6 +977,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         jsonrpc: "2.0",
         error: { code: -32600, message: `${authErr}. Pass your API key as: Authorization: Bearer <key>` },
       });
+    }
+  }
+
+  // Per-IP / per-token rate limit. Anonymous callers share a 60 req/min budget
+  // per source IP; authenticated callers get 200 req/min per token. Limits are
+  // configurable via RATE_LIMIT_ANON_PER_MIN / RATE_LIMIT_BEARER_PER_MIN.
+  // Fail-open when Upstash isn't configured (preview deploys, local dev) — see
+  // lib/rate-limit.ts.
+  //
+  // Only applied to tools/call. initialize / tools/list / prompts / ping are
+  // cheap discovery calls and must remain unthrottled so registries can crawl
+  // without bumping into the limit.
+  const hasToolsCall = requestMessages.some(
+    (m) => m && typeof m === "object" && (m as { method?: unknown }).method === "tools/call"
+  );
+  if (hasToolsCall) {
+    const kind = requiresAuth ? "bearer" : "anon";
+    const identifier = requiresAuth
+      ? bearerIdentifier(req.headers["authorization"] as string | undefined)
+      : anonIdentifier(req.headers as Record<string, string | string[] | undefined>);
+    const rl = await checkRateLimit(kind, identifier);
+    if (!rl.ok) {
+      res.setHeader("Retry-After", String(rl.retryAfterSec ?? 60));
+      if (rl.limit !== undefined) res.setHeader("X-RateLimit-Limit", String(rl.limit));
+      res.setHeader("X-RateLimit-Remaining", "0");
+      return res.status(429).json({
+        jsonrpc: "2.0",
+        error: {
+          code: -32000,
+          message: `Rate limit exceeded — retry in ${rl.retryAfterSec ?? 60}s`,
+        },
+      });
+    }
+    if (rl.limit !== undefined && rl.remaining !== undefined) {
+      res.setHeader("X-RateLimit-Limit", String(rl.limit));
+      res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
     }
   }
 
