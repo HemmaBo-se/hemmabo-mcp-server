@@ -890,6 +890,51 @@ async function handleJsonRpc(
   }
 }
 
+// ── Anonymous read-only tool allowlist ───────────────────────────
+//
+// Tools that may be invoked without a Bearer token. These are pure read-only
+// discovery and pricing helpers; they perform no writes, no Stripe calls, and
+// return no PII. Both the canonical dot-notation names (exposed via tools/list)
+// and the legacy underscored aliases from lib/tools.ts TOOL_NAME_ALIASES are
+// listed so callers using either naming style get the same gate.
+//
+// Any tool NOT in this set requires authentication:
+//   booking.create, booking.negotiate, booking.checkout, booking.cancel,
+//   booking.reschedule, booking.status (PII).
+export const ANON_TOOLS: ReadonlySet<string> = new Set([
+  // Canonical dot names
+  "search.properties",
+  "search.availability",
+  "search.similar",
+  "search.compare",
+  "booking.quote",
+  // Legacy aliases (mirror lib/tools.ts TOOL_NAME_ALIASES for the same five)
+  "hemmabo_search_properties",
+  "hemmabo_search_availability",
+  "hemmabo_search_similar",
+  "hemmabo_compare_properties",
+  "hemmabo_booking_quote",
+]);
+
+/**
+ * Returns true if the given JSON-RPC message requires Bearer auth.
+ *
+ * Auth-required iff method is "tools/call" AND the requested tool name is
+ * NOT in ANON_TOOLS. Unknown/missing tool names default to requiring auth
+ * (fail-closed) so a typo can never bypass the gate.
+ */
+export function isAuthRequiredMessage(msg: unknown): boolean {
+  if (!msg || typeof msg !== "object") return false;
+  const m = msg as { method?: unknown; params?: unknown };
+  if (m.method !== "tools/call") return false;
+  const name =
+    m.params && typeof m.params === "object"
+      ? (m.params as { name?: unknown }).name
+      : undefined;
+  if (typeof name !== "string") return true; // fail closed
+  return !ANON_TOOLS.has(name);
+}
+
 // ── HTTP handler ─────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -909,12 +954,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "DELETE") return res.status(202).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  // Validate API key on tool execution requests only.
-  // initialize and tools/list are allowed without auth so MCP registries
-  // (Glama, Smithery inspector) can discover tools without credentials.
-  // tools/call requires auth — this is where data is read and bookings are made.
-  const requestMethod = Array.isArray(req.body) ? req.body[0]?.method : req.body?.method;
-  const requiresAuth = requestMethod === "tools/call";
+  // Auth model: public read, signed write.
+  // - initialize / tools/list / prompts/* / ping: anonymous (registry discovery).
+  // - tools/call for ANON_TOOLS: anonymous. These are pure read-only discovery
+  //   and pricing helpers. Same data is published on the host's public website,
+  //   and Supabase RLS restricts properties/snapshot reads to published rows.
+  //   Bookings reads from these tools (availability gap detection) only return
+  //   boolean availability + blocked-date ranges, never PII.
+  // - tools/call for any other tool (booking writes, status with PII): requires
+  //   Bearer token (MCP_API_KEY or OAuth client_credentials access token).
+  //
+  // This allows ChatGPT/Claude/Glama/Smithery to rank and call HemmaBo discovery
+  // tools without provisioning credentials, while keeping all stateful actions
+  // and PII reads behind authentication.
+  const requestMessages = Array.isArray(req.body) ? req.body : [req.body];
+  const requiresAuth = requestMessages.some(isAuthRequiredMessage);
   if (requiresAuth) {
     const authErr = validateApiKey(req.headers["authorization"]);
     if (authErr) {
