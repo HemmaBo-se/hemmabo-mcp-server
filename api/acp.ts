@@ -18,6 +18,7 @@ import { createClient } from "@supabase/supabase-js";
 import { resolveQuote } from "../lib/pricing.js";
 import { checkAvailability } from "../lib/availability.js";
 import { validateApiKey } from "../src/auth.js";
+import { toStripeMinorUnits } from "../src/stripe.js";
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -97,7 +98,7 @@ async function buildACPState(bookingId: string): Promise<ACPCheckoutState | null
 
   const prop = booking.properties;
   const status = mapStatus(booking.status);
-  const totalAmountCents = booking.total_price * 100; // ACP uses smallest currency unit
+  const totalAmountCents = toStripeMinorUnits(booking.total_price); // ACP uses smallest currency unit
   const nights = Math.round(
     (new Date(booking.check_out_date).getTime() - new Date(booking.check_in_date).getTime()) / 86400000
   );
@@ -359,7 +360,7 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
     return res.status(400).json({ error: "Missing payment_data.token (SharedPaymentToken)" });
   }
 
-  const amountCents = booking.total_price * 100;
+  const amountCents = toStripeMinorUnits(booking.total_price);
   const currency = (booking.currency || "SEK").toLowerCase();
 
   // Create PaymentIntent with SharedPaymentToken (SPT)
