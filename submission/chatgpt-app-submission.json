@@ -8,7 +8,7 @@
     "category": "TRAVEL"
   },
   "tools": {
-    "search.properties": {
+    "hemmabo_search_properties": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
@@ -20,7 +20,7 @@
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform any irreversible action."
       }
     },
-    "search.availability": {
+    "hemmabo_search_availability": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
@@ -32,7 +32,7 @@
         "destructive_justification": "Does not delete or overwrite data and cannot perform irreversible actions."
       }
     },
-    "search.similar": {
+    "hemmabo_search_similar": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
@@ -44,7 +44,7 @@
         "destructive_justification": "Performs no destructive or irreversible action."
       }
     },
-    "search.compare": {
+    "hemmabo_compare_properties": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
@@ -56,7 +56,7 @@
         "destructive_justification": "Performs no destructive or irreversible action."
       }
     },
-    "booking.quote": {
+    "hemmabo_booking_quote": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
@@ -68,7 +68,7 @@
         "destructive_justification": "Does not delete, overwrite, or perform irreversible actions; the quote is informational only."
       }
     },
-    "booking.create": {
+    "hemmabo_booking_create": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": false,
@@ -80,7 +80,7 @@
         "destructive_justification": "Creates a new booking but does not delete, overwrite, or revoke access to any existing data."
       }
     },
-    "booking.negotiate": {
+    "hemmabo_booking_negotiate": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": false,
@@ -92,7 +92,7 @@
         "destructive_justification": "Creates a new quote snapshot row and does not delete, overwrite, or revoke any existing data."
       }
     },
-    "booking.checkout": {
+    "hemmabo_booking_checkout": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
@@ -104,7 +104,7 @@
         "destructive_justification": "Initiates a payment session but does not delete or overwrite existing data; the actual charge requires explicit user confirmation in Stripe Checkout."
       }
     },
-    "booking.cancel": {
+    "hemmabo_booking_cancel": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
@@ -116,7 +116,7 @@
         "destructive_justification": "Cancels an existing booking and may refund the original Stripe payment, which is an irreversible state change for both the booking and the charge."
       }
     },
-    "booking.status": {
+    "hemmabo_booking_status": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
@@ -128,7 +128,7 @@
         "destructive_justification": "Performs no destructive or irreversible action."
       }
     },
-    "booking.reschedule": {
+    "hemmabo_booking_reschedule": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
@@ -146,7 +146,7 @@
       "description": "Find vacation rentals in a Swedish region for specific dates and guest count.",
       "user_prompt": "Find a HemmaBo vacation rental in Skane for 4 guests from July 12 to July 19, 2026.",
       "file_attachment_urls": null,
-      "tools_triggered": "search.properties",
+      "tools_triggered": "hemmabo_search_properties",
       "expected_output": "Returns a list of available properties in Skane for those dates with name, location, capacity, and nightly price.",
       "expected_output_url": null
     },
@@ -154,7 +154,7 @@
       "description": "Check availability and minimum nightly price for a specific property.",
       "user_prompt": "Show free dates in August 2026 for Villa Akerlyckan and the lowest nightly price.",
       "file_attachment_urls": null,
-      "tools_triggered": "search.availability",
+      "tools_triggered": "hemmabo_search_availability",
       "expected_output": "Returns a list of free date ranges in August 2026 for the property with the minimum nightly rate.",
       "expected_output_url": null
     },
@@ -162,7 +162,7 @@
       "description": "Get a binding price quote for a specific property and date range.",
       "user_prompt": "Give me a binding price quote for Villa Akerlyckan, July 12 to 19, 4 guests.",
       "file_attachment_urls": null,
-      "tools_triggered": "booking.quote",
+      "tools_triggered": "hemmabo_booking_quote",
       "expected_output": "Returns a quote object with total price, nightly breakdown, fees, currency, and a quote validity window.",
       "expected_output_url": null
     },
@@ -170,7 +170,7 @@
       "description": "Generate a Stripe checkout link for an accepted quote.",
       "user_prompt": "I accept the quote, generate the Stripe checkout link to pay the host directly.",
       "file_attachment_urls": null,
-      "tools_triggered": "booking.checkout",
+      "tools_triggered": "hemmabo_booking_checkout",
       "expected_output": "Returns a Stripe Checkout Session URL for the guest to complete payment directly to the host's Stripe account.",
       "expected_output_url": null
     },
@@ -178,7 +178,7 @@
       "description": "Look up the status of an existing booking by ID.",
       "user_prompt": "What is the status of my booking BK_12345?",
       "file_attachment_urls": null,
-      "tools_triggered": "booking.status",
+      "tools_triggered": "hemmabo_booking_status",
       "expected_output": "Returns the booking's current state (pending, confirmed, cancelled), check-in and check-out dates, and payment status.",
       "expected_output_url": null
     },
@@ -186,7 +186,7 @@
       "description": "Cancel a confirmed booking and request a refund according to host policy.",
       "user_prompt": "Cancel my booking BK_12345 and refund what is allowed by the host's cancellation policy.",
       "file_attachment_urls": null,
-      "tools_triggered": "booking.cancel",
+      "tools_triggered": "hemmabo_booking_cancel",
       "expected_output": "Returns a confirmation that the booking was cancelled along with any refund amount issued via Stripe per host policy.",
       "expected_output_url": null
     },
@@ -194,7 +194,7 @@
       "description": "Compare two specific properties for the same dates and guest count.",
       "user_prompt": "Compare Villa Akerlyckan and Stuga Skane for July 12 to 19, 4 guests.",
       "file_attachment_urls": null,
-      "tools_triggered": "search.compare",
+      "tools_triggered": "hemmabo_compare_properties",
       "expected_output": "Returns a side-by-side comparison of total price, capacity, and amenities for both properties for the requested period.",
       "expected_output_url": null
     }

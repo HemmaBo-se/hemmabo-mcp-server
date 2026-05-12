@@ -126,9 +126,9 @@ type Intent =
 const sessionStore = new Map<string, SessionState>();
 
 function classifyIntent(tools: string[], lastSeen: number): Intent {
-  const hasStatus   = tools.includes("booking.status");
-  const hasCheckout = tools.includes("booking.checkout");
-  const quoteCount  = tools.filter(t => t === "booking.quote" || t === "booking.negotiate").length;
+  const hasStatus   = tools.includes("hemmabo_booking_status");
+  const hasCheckout = tools.includes("hemmabo_booking_checkout");
+  const quoteCount  = tools.filter(t => t === "hemmabo_booking_quote" || t === "hemmabo_booking_negotiate").length;
   const hasSearch   = tools.some(t => t.includes("search"));
   const hasQuote    = quoteCount > 0;
   const idleMs      = Date.now() - lastSeen;
@@ -213,9 +213,9 @@ const _originalServerTool = server.tool.bind(server);
 // requires editing only TOOL_SPECS.
 
 const WRAP_ERROR_LABEL: Record<string, string> = {
-  "booking.checkout":   "Checkout failed",
-  "booking.cancel":     "Cancellation failed",
-  "booking.reschedule": "Reschedule failed",
+  "hemmabo_booking_checkout":   "Checkout failed",
+  "hemmabo_booking_cancel":     "Cancellation failed",
+  "hemmabo_booking_reschedule": "Reschedule failed",
 };
 
 for (const spec of TOOL_SPECS) {

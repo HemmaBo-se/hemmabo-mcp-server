@@ -25,27 +25,27 @@ function authForTool(name: string): "none" | "bearer" {
  * stay aligned (covers all 11 tools, no extras).
  */
 const MANIFEST_SUMMARIES: Record<string, string> = {
-  "search.properties":
+  "hemmabo_search_properties":
     "Search available vacation rental properties by region, country, guest count and dates. Returns live availability and pricing.",
-  "search.availability":
+  "hemmabo_search_availability":
     "Check whether a specific property is available for given check-in and check-out dates.",
-  "search.similar":
+  "hemmabo_search_similar":
     "Find vacation rental properties similar to a given property on specific dates — same region, type, and capacity. Returns available alternatives with live pricing.",
-  "search.compare":
+  "hemmabo_compare_properties":
     "Compare availability and pricing for 2–10 specific properties on the same dates. Returns results sorted by federation price, unavailable properties last.",
-  "booking.quote":
+  "hemmabo_booking_quote":
     "Get a detailed live pricing quote: nightly rates, seasonal pricing, federation discount.",
-  "booking.create":
+  "hemmabo_booking_create":
     "Create a direct booking without online payment — for invoice or manual payment flows.",
-  "booking.negotiate":
+  "hemmabo_booking_negotiate":
     "Lock a price quote for 15 minutes. Returns a quoteId to use in checkout — guarantees the price won't change.",
-  "booking.checkout":
+  "hemmabo_booking_checkout":
     "Create a booking and Stripe payment. Returns a checkout URL (checkout_session) or client_secret (payment_intent) for AI agent payment flows.",
-  "booking.cancel":
+  "hemmabo_booking_cancel":
     "Cancel a booking and trigger a Stripe refund according to the host's cancellation policy.",
-  "booking.status":
+  "hemmabo_booking_status":
     "Get current booking status, dates, price, cancellation policy and refund rules.",
-  "booking.reschedule":
+  "hemmabo_booking_reschedule":
     "Move a confirmed booking to new dates with automatic repricing.",
 };
 

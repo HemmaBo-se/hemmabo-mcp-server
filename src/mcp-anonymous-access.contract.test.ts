@@ -16,11 +16,11 @@ import assert from "node:assert/strict";
 import { ANON_TOOLS, isAuthRequiredMessage, TOOLS } from "../api/mcp.js";
 
 const ANON_DOT_NAMES = [
-  "search.properties",
-  "search.availability",
-  "search.similar",
-  "search.compare",
-  "booking.quote",
+  "hemmabo_search_properties",
+  "hemmabo_search_availability",
+  "hemmabo_search_similar",
+  "hemmabo_compare_properties",
+  "hemmabo_booking_quote",
 ] as const;
 
 const ANON_ALIASES = [
@@ -32,12 +32,12 @@ const ANON_ALIASES = [
 ] as const;
 
 const AUTH_REQUIRED_TOOLS = [
-  "booking.create",
-  "booking.negotiate",
-  "booking.checkout",
-  "booking.cancel",
-  "booking.reschedule",
-  "booking.status",
+  "hemmabo_booking_create",
+  "hemmabo_booking_negotiate",
+  "hemmabo_booking_checkout",
+  "hemmabo_booking_cancel",
+  "hemmabo_booking_reschedule",
+  "hemmabo_booking_status",
 ] as const;
 
 describe("anonymous tool allowlist contract", () => {

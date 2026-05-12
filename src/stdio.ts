@@ -104,15 +104,15 @@ const _originalServerTool = server.tool.bind(server);
 const toolHandlers: Record<string, "wrap" | "plain"> = {
   // These three wrap executeTool in try/catch with transport-specific error
   // messages, matching the historical stdio behaviour.
-  "booking.checkout":   "wrap",
-  "booking.cancel":     "wrap",
-  "booking.reschedule": "wrap",
+  "hemmabo_booking_checkout":   "wrap",
+  "hemmabo_booking_cancel":     "wrap",
+  "hemmabo_booking_reschedule": "wrap",
 };
 
 const ERROR_LABEL: Record<string, string> = {
-  "booking.checkout":   "Checkout failed",
-  "booking.cancel":     "Cancellation failed",
-  "booking.reschedule": "Reschedule failed",
+  "hemmabo_booking_checkout":   "Checkout failed",
+  "hemmabo_booking_cancel":     "Cancellation failed",
+  "hemmabo_booking_reschedule": "Reschedule failed",
 };
 
 for (const spec of TOOL_SPECS) {
