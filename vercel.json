@@ -16,6 +16,7 @@
     { "source": "/.well-known/openai-apps-challenge", "destination": "/api/openai-apps-challenge" },
     { "source": "/acp/:path*", "destination": "/api/acp" },
     { "source": "/oauth/token", "destination": "/api/oauth" },
-    { "source": "/oauth/register", "destination": "/api/oauth-register" }
+    { "source": "/oauth/register", "destination": "/api/oauth-register" },
+    { "source": "/stripe/webhook", "destination": "/api/stripe-webhook" }
   ]
 }
