@@ -12,7 +12,7 @@
 import type { VercelRequest, VercelResponse } from "./_types.js";
 import { createClient } from "@supabase/supabase-js";
 import { executeTool } from "../lib/tools.js";
-import { validateApiKey } from "../src/auth.js";
+import { validateAuth } from "../src/auth.js";
 import { anonIdentifier, bearerIdentifier, checkRateLimit } from "../lib/rate-limit.js";
 import { registerToolSchemas, validateToolArgs } from "../lib/validate-args.js";
 
@@ -1002,7 +1002,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const requestMessages = Array.isArray(req.body) ? req.body : [req.body];
   const requiresAuth = requestMessages.some(isAuthRequiredMessage);
   if (requiresAuth) {
-    const authErr = validateApiKey(req.headers["authorization"]);
+    const authErr = await validateAuth(
+      Array.isArray(req.headers["authorization"])
+        ? req.headers["authorization"][0]
+        : req.headers["authorization"],
+    );
     if (authErr) {
       return res.status(401).json({
         jsonrpc: "2.0",

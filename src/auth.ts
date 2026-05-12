@@ -63,7 +63,14 @@ export async function validateAuth(
   // 1. MCP_API_KEY — constant-time, no DB
   if (timingSafeStringEqual(token, masterKey)) return null;
 
-  // 2. OAuth access token — DB lookup
+  // 2. OAuth access token — DB lookup. If Supabase is not configured, OAuth
+  //    cannot be used to authenticate, so reject the token immediately rather
+  //    than crashing the request. This is the same outcome a caller with an
+  //    unknown OAuth token would have received once the DB lookup completed.
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return "Invalid API key";
+  }
+
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("mcp_access_tokens")

@@ -17,7 +17,7 @@ import type { VercelRequest, VercelResponse } from "./_types.js";
 import { createClient } from "@supabase/supabase-js";
 import { resolveQuote } from "../lib/pricing.js";
 import { checkAvailability } from "../lib/availability.js";
-import { validateApiKey } from "../src/auth.js";
+import { validateAuth } from "../src/auth.js";
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -508,7 +508,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // beyond "checkouts") stays public.
   const requiresAuth = isMutation || Boolean(checkoutId);
   if (requiresAuth) {
-    const authErr = validateApiKey(req.headers["authorization"]);
+    const authErr = await validateAuth(
+      Array.isArray(req.headers["authorization"])
+        ? req.headers["authorization"][0]
+        : req.headers["authorization"],
+    );
     if (authErr) {
       return res.status(401).json({
         error: `${authErr}. ACP agents must pass: Authorization: Bearer <key>`,

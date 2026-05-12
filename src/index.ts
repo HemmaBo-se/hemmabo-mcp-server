@@ -22,7 +22,7 @@ import express from "express";
 import { z } from "zod";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { executeTool } from "../lib/tools.js";
-import { validateApiKey } from "./auth.js";
+import { validateAuth } from "./auth.js";
 import { PROMPTS as CATALOG_PROMPTS, TOOLS as CATALOG_TOOLS } from "../api/mcp.js";
 
 // Tool execution is shared via lib/tools.ts (single source of truth for all
@@ -475,7 +475,11 @@ app.all("/mcp", async (req, res) => {
   // MCP_API_KEY är satt. GET/OPTIONS/DELETE och öppet läge (ingen nyckel
   // satt) lämnas oförändrade.
   if (req.method === "POST") {
-    const authErr = validateApiKey(req.headers["authorization"]);
+    const authErr = await validateAuth(
+      Array.isArray(req.headers["authorization"])
+        ? req.headers["authorization"][0]
+        : req.headers["authorization"],
+    );
     if (authErr) {
       return res.status(401).json({
         jsonrpc: "2.0",
