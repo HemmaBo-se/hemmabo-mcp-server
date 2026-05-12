@@ -539,9 +539,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
   }
 
-  // Validate API key on all mutating requests. Blocks CSRF from browsers and
-  // rejects invalid keys when MCP_API_KEY is configured.
-  if (isMutation) {
+  // Auth gate on every checkout-scoped request, including GET. The response
+  // from buildACPState() contains guest PII (name, email, phone, dates).
+  // Without this gate, anyone holding (or guessing) a booking UUID can read
+  // that PII — a GDPR exposure surface (#67). Discovery doc (no pathParts
+  // beyond "checkouts") stays public. Mutations still require auth via the
+  // same gate (the `isMutation` branch is now subsumed by `requiresAuth`).
+  const requiresAuth = isMutation || Boolean(checkoutId);
+  if (requiresAuth) {
     const authErr = validateApiKey(req.headers["authorization"]);
     if (authErr) {
       return res.status(401).json({
