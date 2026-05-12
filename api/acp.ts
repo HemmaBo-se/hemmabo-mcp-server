@@ -19,6 +19,12 @@ import { resolveQuote } from "../lib/pricing.js";
 import { checkAvailability } from "../lib/availability.js";
 import { validateApiKey } from "../src/auth.js";
 import {
+  fingerprint as idemFingerprint,
+  lookup as idemLookup,
+  normaliseIdempotencyKey,
+  record as idemRecord,
+} from "../lib/idempotency.js";
+import {
   anonIdentifier,
   bearerIdentifier,
   checkRateLimit,
@@ -544,33 +550,111 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
+  // Idempotency-Key handling (#66). Optional but strongly recommended by the
+  // ACP spec. Applied to ALL mutating routes (POST/PUT) so a retried request
+  // never double-books, double-charges, or double-refunds. Cache backend is
+  // Upstash Redis (24h TTL); without it the cache is a no-op and requests
+  // execute every time (fail-open — same policy as the rate-limiter).
+  //
+  // Contract:
+  //   Same key + same body  → return cached prior response verbatim.
+  //   Same key + diff body  → 409 Conflict (HTTP semantics, not RPC error).
+  //   New key               → execute, cache 2xx response on success.
+  const idemKeyRaw = req.headers["idempotency-key"];
+  const idemKey = isMutation
+    ? normaliseIdempotencyKey(Array.isArray(idemKeyRaw) ? idemKeyRaw[0] : idemKeyRaw)
+    : null;
+  // Reject malformed keys explicitly so clients aren't silently treated as
+  // "no idempotency". A header present but unusable is almost certainly a
+  // bug at the caller worth surfacing.
+  if (isMutation && idemKeyRaw !== undefined && idemKey === null) {
+    return res.status(400).json({
+      error: "invalid_idempotency_key",
+      message:
+        "Idempotency-Key must be 1-200 chars matching [A-Za-z0-9._:-]. See ACP spec.",
+    });
+  }
+
+  let bodyFp: string | null = null;
+  if (idemKey) {
+    bodyFp = idemFingerprint({
+      method: req.method,
+      path: url.pathname,
+      body: req.body ?? {},
+    });
+    const outcome = await idemLookup(idemKey, bodyFp);
+    if (outcome.kind === "conflict") {
+      return res.status(409).json({
+        error: "idempotency_conflict",
+        message:
+          "Idempotency-Key was reused with a different request body. " +
+          "Use a fresh key for a different request.",
+      });
+    }
+    if (outcome.kind === "hit") {
+      // Tag the response so callers can detect a replay if they care.
+      res.setHeader("Idempotent-Replay", "true");
+      return res.status(outcome.status).json(outcome.body);
+    }
+  }
+
+  // Wrap `res` so that on a cache miss we can record the outgoing response
+  // for future retries. We only capture status() / json(); other methods
+  // (setHeader, end, etc.) pass through unchanged.
+  let capturedStatus = 200;
+  let capturedBody: unknown = undefined;
+  const recordingRes = idemKey
+    ? (new Proxy(res, {
+        get(target, prop, receiver) {
+          if (prop === "status") {
+            return (code: number) => {
+              capturedStatus = code;
+              target.status(code);
+              return receiver;
+            };
+          }
+          if (prop === "json") {
+            return (body: unknown) => {
+              capturedBody = body;
+              return target.json(body);
+            };
+          }
+          return Reflect.get(target, prop, receiver);
+        },
+      }) as VercelResponse)
+    : res;
+
   try {
     // POST /acp/checkouts — Create
     if (!checkoutId && req.method === "POST") {
-      return createCheckout(req.body || {}, res);
+      await createCheckout(req.body || {}, recordingRes);
     }
-
     // GET /acp/checkouts/:id — Retrieve
-    if (checkoutId && !action && req.method === "GET") {
-      return getCheckout(checkoutId, res);
+    else if (checkoutId && !action && req.method === "GET") {
+      await getCheckout(checkoutId, recordingRes);
     }
-
     // PUT /acp/checkouts/:id — Update
-    if (checkoutId && !action && req.method === "PUT") {
-      return updateCheckout(checkoutId, req.body || {}, res);
+    else if (checkoutId && !action && req.method === "PUT") {
+      await updateCheckout(checkoutId, req.body || {}, recordingRes);
     }
-
     // POST /acp/checkouts/:id/complete — Complete with payment
-    if (checkoutId && action === "complete" && req.method === "POST") {
-      return completeCheckout(checkoutId, req.body || {}, res);
+    else if (checkoutId && action === "complete" && req.method === "POST") {
+      await completeCheckout(checkoutId, req.body || {}, recordingRes);
     }
-
     // POST /acp/checkouts/:id/cancel — Cancel
-    if (checkoutId && action === "cancel" && req.method === "POST") {
-      return cancelCheckout(checkoutId, res);
+    else if (checkoutId && action === "cancel" && req.method === "POST") {
+      await cancelCheckout(checkoutId, recordingRes);
+    } else {
+      return res.status(405).json({ error: "Method not allowed" });
     }
 
-    return res.status(405).json({ error: "Method not allowed" });
+    // On a successful 2xx response with an idempotency key in play, persist
+    // the response for future retries. 4xx/5xx are NOT cached: a client
+    // retrying after a transient failure should be allowed to succeed.
+    if (idemKey && bodyFp && capturedStatus >= 200 && capturedStatus < 300) {
+      await idemRecord(idemKey, bodyFp, capturedStatus, capturedBody);
+    }
+    return;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal error";
     console.error("ACP handler error:", message);
