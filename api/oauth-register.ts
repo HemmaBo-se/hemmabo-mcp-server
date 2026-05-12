@@ -28,11 +28,12 @@ import type { VercelRequest, VercelResponse } from "./_types.js";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes, randomUUID } from "crypto";
 import { baseUrl } from "../lib/base-url.js";
+import { requireEnv } from "../lib/env.js";
 import { anonIdentifier, checkRateLimit } from "../lib/rate-limit.js";
 
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  requireEnv("SUPABASE_URL"),
+  requireEnv("SUPABASE_SERVICE_ROLE_KEY")
 );
 
 const TOKEN_ENDPOINT_PATH = "/oauth/token";
