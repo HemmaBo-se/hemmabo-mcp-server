@@ -8,6 +8,24 @@
 const FALLBACK_DOMAIN = "hemmabo.se";
 
 /**
+ * Convert a decimal price to Stripe minor units (cents / öre).
+ *
+ * Plain `price * 100` produces floating-point garbage (`19.99 * 100 ===
+ * 1998.9999999999998`), which Stripe rejects as a non-integer amount and
+ * which would silently over/undercharge by 1 unit for any price that
+ * doesn't round cleanly. Always go through this helper. (#69)
+ *
+ * Throws on NaN, Infinity, or negative input — those indicate a logic bug
+ * upstream that we never want to forward to Stripe.
+ */
+export function toStripeMinorUnits(price: number): number {
+  if (!Number.isFinite(price) || price < 0) {
+    throw new Error(`Invalid price for Stripe conversion: ${price}`);
+  }
+  return Math.round(price * 100);
+}
+
+/**
  * Validates a property domain before embedding it in Stripe redirect URLs.
  *
  * Accepts only bare hostnames (e.g. "villaaakerlyckan.se") — no scheme,
@@ -60,7 +78,7 @@ export async function createCheckoutSession(params: {
   const body = new URLSearchParams();
   body.append("mode", "payment");
   body.append("line_items[0][price_data][currency]", params.currency.toLowerCase());
-  body.append("line_items[0][price_data][unit_amount]", String(params.amount * 100));
+  body.append("line_items[0][price_data][unit_amount]", String(toStripeMinorUnits(params.amount)));
   body.append(
     "line_items[0][price_data][product_data][name]",
     `${params.propertyName} — ${params.checkIn} to ${params.checkOut} (${params.guests} guests)`
@@ -120,7 +138,7 @@ export async function createRefund(
   const stripeKey = getStripeKey();
   const body = new URLSearchParams();
   body.append("payment_intent", paymentIntentId);
-  body.append("amount", String(amount * 100));
+  body.append("amount", String(toStripeMinorUnits(amount)));
 
   const resp = await fetch("https://api.stripe.com/v1/refunds", {
     method: "POST",
@@ -146,7 +164,7 @@ export async function createPaymentIntent(params: {
 }): Promise<{ id: string; client_secret: string; status: string }> {
   const stripeKey = getStripeKey();
   const body = new URLSearchParams();
-  body.append("amount", String(params.amount * 100));
+  body.append("amount", String(toStripeMinorUnits(params.amount)));
   body.append("currency", params.currency.toLowerCase());
   body.append("capture_method", params.captureMethod);
   for (const [k, v] of Object.entries(params.metadata)) {
