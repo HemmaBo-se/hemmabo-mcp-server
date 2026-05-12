@@ -33,3 +33,6 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Docs drift (#71) — no dotted MCP tool names in public docs
+        run: bash scripts/check-docs-drift.sh

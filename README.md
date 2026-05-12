@@ -154,27 +154,29 @@ Add to your MCP client config:
 
 ## Tools
 
+Canonical wire names are `snake_case` so every MCP client (including claude.ai web, whose frontend regex is `^[a-zA-Z0-9_-]{1,64}$`) accepts them. The legacy dotted names (`search.properties`, `booking.quote`, …) remain accepted as inbound aliases — see `lib/tools.ts:TOOL_NAME_ALIASES`.
+
 | Tool | Description | Read-only |
 |------|-------------|-----------|
-| `search.properties` | Search vacation rentals by location, dates, and guest count. Returns available properties with live pricing (public + federation rates). | Yes |
-| `search.availability` | Check if a property is available for specific dates. Verifies blocked dates, bookings, and booking locks. | Yes |
-| `search.similar` | Find properties similar to a given property (same region, type, capacity) for specific dates. Returns available alternatives with live pricing. | Yes |
-| `search.compare` | Compare availability and pricing for 2–10 specific properties on the same dates. Sorted by federation price, unavailable last. | Yes |
-| `booking.quote` | Get detailed pricing: publicTotal (website rate), federationTotal (direct booking rate), gapTotal (gap-night discount). Per-night breakdown included. | Yes |
-| `booking.create` | Create a direct booking at federation price. Validates availability, calculates price, creates pending booking for host approval. | No |
-| `booking.negotiate` | Create a binding price quote with quoteId. Stores immutable snapshot, expires after 15 minutes. Pass quoteId to checkout to lock the price. | Yes |
-| `booking.checkout` | Create a booking with Stripe payment. Supports MPP (payment_intent mode for programmatic payment). Optionally locks price via quoteId. | No |
-| `booking.cancel` | Cancel a booking. Handles refund calculation, Stripe refund, email notifications via Supabase Edge Function. | No |
-| `booking.status` | Get booking details, property info, and cancellation policy by reservation ID. | Yes |
-| `booking.reschedule` | Reschedule to new dates. Checks availability, recalculates price, handles Stripe charge/refund for price delta. | No |
+| `hemmabo_search_properties` | Search vacation rentals by location, dates, and guest count. Returns available properties with live pricing (public + federation rates). | Yes |
+| `hemmabo_search_availability` | Check if a property is available for specific dates. Verifies blocked dates, bookings, and booking locks. | Yes |
+| `hemmabo_search_similar` | Find properties similar to a given property (same region, type, capacity) for specific dates. Returns available alternatives with live pricing. | Yes |
+| `hemmabo_compare_properties` | Compare availability and pricing for 2–10 specific properties on the same dates. Sorted by federation price, unavailable last. | Yes |
+| `hemmabo_booking_quote` | Get detailed pricing: publicTotal (website rate), federationTotal (direct booking rate), gapTotal (gap-night discount). Per-night breakdown included. | Yes |
+| `hemmabo_booking_create` | Create a direct booking at federation price. Validates availability, calculates price, creates pending booking for host approval. | No |
+| `hemmabo_booking_negotiate` | Create a binding price quote with quoteId. Stores immutable snapshot, expires after 15 minutes. Pass quoteId to checkout to lock the price. | Yes |
+| `hemmabo_booking_checkout` | Create a booking with Stripe payment. Supports MPP (payment_intent mode for programmatic payment). Optionally locks price via quoteId. | No |
+| `hemmabo_booking_cancel` | Cancel a booking. Handles refund calculation, Stripe refund, email notifications via Supabase Edge Function. | No |
+| `hemmabo_booking_status` | Get booking details, property info, and cancellation policy by reservation ID. | Yes |
+| `hemmabo_booking_reschedule` | Reschedule to new dates. Checks availability, recalculates price, handles Stripe charge/refund for price delta. | No |
 
 ### Authentication: public read, signed write
 
-Discovery and pricing tools (`search.*`, `booking.quote`) are callable **without** a Bearer token so AI agents (ChatGPT, Claude, Glama, Smithery) can rank and invoke them on the first try. Supabase RLS restricts these reads to published properties.
+Discovery and pricing tools (`hemmabo_search_*`, `hemmabo_compare_properties`, `hemmabo_booking_quote`) are callable **without** a Bearer token so AI agents (ChatGPT, Claude, Glama, Smithery) can rank and invoke them on the first try. Supabase RLS restricts these reads to published properties.
 
-Booking writes and PII reads — `booking.create`, `booking.negotiate`, `booking.checkout`, `booking.cancel`, `booking.reschedule`, `booking.status` — require `Authorization: Bearer <token>` (MCP_API_KEY or an OAuth `client_credentials` access token from `POST /oauth/token`).
+Booking writes and PII reads — `hemmabo_booking_create`, `hemmabo_booking_negotiate`, `hemmabo_booking_checkout`, `hemmabo_booking_cancel`, `hemmabo_booking_reschedule`, `hemmabo_booking_status` — require `Authorization: Bearer <token>` (`MCP_API_KEY` or an OAuth `client_credentials` access token from `POST /oauth/token`; OAuth tokens are validated at runtime — see #64).
 
-Rate limits (per source IP for anon, per token-hash for bearer) — defaults 60 req/min anon, 200 req/min bearer. Configure via `RATE_LIMIT_ANON_PER_MIN` / `RATE_LIMIT_BEARER_PER_MIN`. Backed by Upstash Redis (`UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`); fail-open when unconfigured. Limit headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `Retry-After` on 429.
+Rate limits (per source IP for anon, per token-hash for bearer) — defaults 60 req/min anon, 200 req/min bearer. Configure via `RATE_LIMIT_ANON_PER_MIN` / `RATE_LIMIT_BEARER_PER_MIN`. Applied to `/mcp`, `/oauth/token`, `/oauth/register` and `/acp/*` (see #65). Backed by Upstash Redis (`UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`); fail-open when unconfigured. Limit headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `Retry-After` on 429.
 
 ## Pricing Architecture
 
@@ -224,6 +226,8 @@ cp .env.example .env
 ## Agentic Commerce Protocol (ACP)
 
 First vacation rental with [Stripe ACP](https://docs.stripe.com/agentic-commerce/protocol) support. AI agents can complete bookings with SharedPaymentTokens — no redirect, no manual payment.
+
+All `/acp/*` endpoints share the global rate-limit policy (see #65). `GET /acp/checkouts/:id` requires `Authorization: Bearer <token>` to return guest PII (#67) — anonymous callers receive a 401 instead of buyer fields. ACP request bodies are deduplicated via the `Idempotency-Key` header (#66). Money amounts are computed in integer cents throughout (#69) and reconciled via Stripe webhook (#70) so refund/capture state cannot silently diverge from the host's Stripe account.
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
