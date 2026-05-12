@@ -23,6 +23,7 @@ import type { VercelRequest, VercelResponse } from "./_types.js";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import { requireEnv } from "../lib/env.js";
+import { anonIdentifier, checkRateLimit } from "../lib/rate-limit.js";
 
 const supabase = createClient(
   requireEnv("SUPABASE_URL"),
@@ -60,6 +61,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") {
     return res.status(405).json({ error: "method_not_allowed" });
+  }
+
+  // Rate-limit (#65): token endpoint verifies client_secret on every call, so
+  // it's the primary surface for credential-stuffing. Use the "strict" tier
+  // keyed on client IP (default 5/min). Legitimate clients hit it once per
+  // hour (token TTL).
+  const rlIdent = anonIdentifier(req.headers as Record<string, string | string[] | undefined>);
+  const rl = await checkRateLimit("strict", rlIdent);
+  if (!rl.ok) {
+    res.setHeader("Retry-After", String(rl.retryAfterSec ?? 60));
+    if (rl.limit !== undefined) res.setHeader("X-RateLimit-Limit", String(rl.limit));
+    res.setHeader("X-RateLimit-Remaining", "0");
+    return res.status(429).json({
+      error: "rate_limit_exceeded",
+      error_description: `Too many token requests. Retry in ${rl.retryAfterSec ?? 60}s.`,
+    });
+  }
+  if (rl.limit !== undefined && rl.remaining !== undefined) {
+    res.setHeader("X-RateLimit-Limit", String(rl.limit));
+    res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
   }
 
   // Parse body — supports both JSON and application/x-www-form-urlencoded
