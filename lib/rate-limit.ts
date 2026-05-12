@@ -19,6 +19,7 @@
  *   UPSTASH_REDIS_REST_TOKEN  bearer token
  *   RATE_LIMIT_ANON_PER_MIN   default 60
  *   RATE_LIMIT_BEARER_PER_MIN default 200
+ *   RATE_LIMIT_STRICT_PER_MIN default 5    (credential endpoints)
  *
  * Vercel's "Upstash for Redis" Marketplace integration with a custom prefix
  * injects env vars in the form UPSTASH_REDIS_KV_REST_API_URL /
@@ -26,7 +27,7 @@
  * fallback so the limiter works without manual env-var aliasing.
  */
 
-export type RateKind = "anon" | "bearer";
+export type RateKind = "anon" | "bearer" | "strict";
 
 export interface RateLimitResult {
   ok: boolean;
@@ -50,12 +51,25 @@ export interface RateLimitDeps {
 const WINDOW_MS = 60_000;
 const DEFAULT_ANON_LIMIT = 60;
 const DEFAULT_BEARER_LIMIT = 200;
+/**
+ * Strict bucket — for credential-sensitive endpoints (OAuth register,
+ * OAuth token). Per-IP per-minute. Default 5 is deliberately low: legitimate
+ * AI platforms register once, get a token, and reuse it for an hour.
+ */
+const DEFAULT_STRICT_LIMIT = 5;
 
 function readLimit(env: NodeJS.ProcessEnv, kind: RateKind): number {
-  const raw = kind === "anon" ? env.RATE_LIMIT_ANON_PER_MIN : env.RATE_LIMIT_BEARER_PER_MIN;
+  const raw =
+    kind === "anon"
+      ? env.RATE_LIMIT_ANON_PER_MIN
+      : kind === "bearer"
+      ? env.RATE_LIMIT_BEARER_PER_MIN
+      : env.RATE_LIMIT_STRICT_PER_MIN;
   const parsed = raw ? Number(raw) : NaN;
   if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
-  return kind === "anon" ? DEFAULT_ANON_LIMIT : DEFAULT_BEARER_LIMIT;
+  if (kind === "anon") return DEFAULT_ANON_LIMIT;
+  if (kind === "bearer") return DEFAULT_BEARER_LIMIT;
+  return DEFAULT_STRICT_LIMIT;
 }
 
 function safeIdentifier(id: string): string {

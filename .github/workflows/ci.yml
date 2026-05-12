@@ -31,5 +31,8 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Check test-file enrollment
+        run: npm run test:enrolled
+
       - name: Test
         run: npm test
