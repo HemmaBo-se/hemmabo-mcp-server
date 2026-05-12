@@ -24,6 +24,11 @@ import {
   normaliseIdempotencyKey,
   record as idemRecord,
 } from "../lib/idempotency.js";
+import {
+  anonIdentifier,
+  bearerIdentifier,
+  checkRateLimit,
+} from "../lib/rate-limit.js";
 import { toStripeMinorUnits } from "../src/stripe.js";
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -507,6 +512,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const checkoutId = pathParts[1];
   const action = pathParts[2]; // "complete" or "cancel" or undefined
   const isMutation = req.method === "POST" || req.method === "PUT";
+
+  // Rate-limit (#65). Applied to ALL routed /acp/checkouts traffic, before
+  // the auth gate, so unauthenticated probes are also throttled. The "kind"
+  // is "bearer" when an Authorization header is present (per-token bucket,
+  // higher quota) and "anon" otherwise (per-IP bucket, lower quota). This
+  // matches the same scheme used by api/mcp.ts so legitimate AI agents see
+  // consistent limits across both surfaces.
+  const authHeader = req.headers["authorization"] as string | undefined;
+  const rlKind = authHeader ? "bearer" : "anon";
+  const rlIdent = authHeader
+    ? bearerIdentifier(authHeader)
+    : anonIdentifier(req.headers as Record<string, string | string[] | undefined>);
+  const rl = await checkRateLimit(rlKind, rlIdent);
+  if (!rl.ok) {
+    res.setHeader("Retry-After", String(rl.retryAfterSec ?? 60));
+    if (rl.limit !== undefined) res.setHeader("X-RateLimit-Limit", String(rl.limit));
+    res.setHeader("X-RateLimit-Remaining", "0");
+    return res.status(429).json({
+      error: "rate_limit_exceeded",
+      message: `Too many requests. Retry in ${rl.retryAfterSec ?? 60}s.`,
+    });
+  }
+  if (rl.limit !== undefined && rl.remaining !== undefined) {
+    res.setHeader("X-RateLimit-Limit", String(rl.limit));
+    res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
+  }
 
   // Validate API key on all mutating requests. Blocks CSRF from browsers and
   // rejects invalid keys when MCP_API_KEY is configured.
