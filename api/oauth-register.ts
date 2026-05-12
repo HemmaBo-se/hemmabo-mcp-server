@@ -27,13 +27,14 @@
 import type { VercelRequest, VercelResponse } from "./_types.js";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes, randomUUID } from "crypto";
+import { baseUrl } from "../lib/base-url.js";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const TOKEN_ENDPOINT = "https://hemmabo-mcp-server.vercel.app/oauth/token";
+const TOKEN_ENDPOINT_PATH = "/oauth/token";
 
 function hashSecret(secret: string): string {
   return createHash("sha256").update(secret).digest("hex");
@@ -87,7 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     client_id: clientId,
     client_secret: clientSecret, // shown ONCE — client must store this
     client_name: clientName.trim(),
-    token_endpoint: TOKEN_ENDPOINT,
+    token_endpoint: `${baseUrl(req)}${TOKEN_ENDPOINT_PATH}`,
     grant_types: ["client_credentials"],
     token_endpoint_auth_method: "client_secret_post",
     note: "Store client_secret securely — it is not recoverable. Use it to obtain access tokens via the token_endpoint.",

@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "./_types.js";
 import { createRequire } from "module";
 import { ANON_TOOLS } from "./mcp.js";
+import { baseUrl } from "../lib/base-url.js";
 
 // Read package.json at module load — single source of truth for `version`.
 // createRequire works under Node16 ESM where JSON import attributes are not
@@ -28,9 +29,10 @@ function authForTool(name: string): "none" | "bearer" {
  * (see fix/mcp-manifest-single-sot). All discovery fields live here.
  * `version` is read dynamically from package.json so it cannot drift.
  */
-export default function handler(_req: VercelRequest, res: VercelResponse) {
+export default function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "public, max-age=3600");
+  const base = baseUrl(req);
   res.json({
     schema_version: "1.1",
     protocol: "mcp",
@@ -39,26 +41,26 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
     version: pkg.version,
     description:
       "Direct booking infrastructure for vacation rentals. Each host is a sovereign booking node — own domain, 0% commission, payment direct to host via Stripe. Search properties, get quotes, book without aggregator markup. Like Mirai for hotels, but for vacation rentals. From $39/month.",
-    mcp_endpoint: "https://hemmabo-mcp-server.vercel.app/mcp",
+    mcp_endpoint: `${base}/mcp`,
     transport: ["streamable-http", "stdio"],
     authentication: {
       type: "oauth2",
       flows: {
         clientCredentials: {
-          tokenUrl: "https://hemmabo-mcp-server.vercel.app/oauth/token",
+          tokenUrl: `${base}/oauth/token`,
           scopes: {
             mcp: "Full access to all MCP tools",
           },
         },
       },
       registration: {
-        endpoint: "https://hemmabo-mcp-server.vercel.app/oauth/register",
+        endpoint: `${base}/oauth/register`,
         description:
           "Register an OAuth client to obtain client_id and client_secret. Use POST /oauth/token with grant_type=client_credentials to get an access token.",
       },
     },
     homepage: "https://hemmabo.com",
-    icon: "https://hemmabo-mcp-server.vercel.app/icon.png",
+    icon: `${base}/icon.png`,
     // ── ChatGPT Apps directory fields ─────────────────────────────
     developer: {
       name: "HemmaBo AB",
