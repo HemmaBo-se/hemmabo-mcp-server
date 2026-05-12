@@ -89,7 +89,11 @@ describe("TOOL_SPECS singleton (#63)", () => {
     //     lib/tool-definitions.ts.
     const forbiddenPatterns: { pattern: RegExp; reason: string }[] = [];
     for (const name of EXPECTED_TOOL_NAMES) {
-      const escapedName = name.replace(/\./g, "\\.");
+      // Full regex-metachar escape (CodeQL js/incomplete-sanitization).
+      // Our tool names today only contain letters and dots, but escaping
+      // every metacharacter keeps the guard correct if a future name uses
+      // characters like `_`, `-`, `+` or `?`.
+      const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       // server.tool("foo.bar", — direct SDK registration
       forbiddenPatterns.push({
         pattern: new RegExp(`server\\.tool\\(\\s*"${escapedName}"`),
