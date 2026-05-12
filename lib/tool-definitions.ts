@@ -49,6 +49,15 @@ export interface ToolInputSchema {
   type: "object";
   properties: Record<string, JsonSchemaField>;
   required?: readonly string[];
+  /**
+   * MUST be `false` for every tool (#85). Unknown keys break the AI-agent
+   * loop: Ajv silently accepts them, then `lib/tools.ts:validateRequiredArgs`
+   * trips on the field the agent *meant* to send (typically a casing typo
+   * like `propertyID` instead of `propertyId`). With `false`, Ajv returns
+   * a field-level error pointing at the unknown key so the agent can
+   * self-correct on the next call.
+   */
+  additionalProperties: false;
 }
 
 export interface ToolOutputSchema {
@@ -234,6 +243,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         checkOut: F.checkOut,
       },
       required: ["guests", "checkIn", "checkOut"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
@@ -274,6 +284,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         checkOut: F.checkOut,
       },
       required: ["propertyId", "checkIn", "checkOut"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
@@ -310,6 +321,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         limit: { type: "integer", minimum: 1, maximum: 20, description: "Max results. Default 5, max 20." },
       },
       required: ["propertyId", "checkIn", "checkOut"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
@@ -376,6 +388,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         guests: { ...F.guests, description: "Total number of guests as integer >= 1." },
       },
       required: ["propertyIds", "checkIn", "checkOut", "guests"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
@@ -438,6 +451,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         guests: F.guests,
       },
       required: ["propertyId", "checkIn", "checkOut", "guests"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
@@ -488,6 +502,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         guestPhone: F.guestPhone,
       },
       required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
@@ -532,6 +547,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         guests: { ...F.guests, description: "Total number of guests as integer >= 1 (e.g. 4). Determines which price tier is applied." },
       },
       required: ["propertyId", "checkIn", "checkOut", "guests"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
@@ -584,6 +600,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         channel: { type: "string", enum: ["public", "federation"], description: "'federation' (default): applies direct booking discount. 'public': uses standard website rate." },
       },
       required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
@@ -625,6 +642,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         reason: { type: "string", description: "Cancellation reason for host notification (e.g. 'Travel plans changed'). Optional but recommended." },
       },
       required: ["reservationId"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
@@ -655,6 +673,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         reservationId: F.reservationId,
       },
       required: ["reservationId"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
@@ -700,6 +719,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         reason: { type: "string", description: "Reason for rescheduling (e.g. 'Flight delayed'). Optional but recommended for host records." },
       },
       required: ["reservationId", "newCheckIn", "newCheckOut"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
