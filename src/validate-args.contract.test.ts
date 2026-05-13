@@ -36,12 +36,12 @@ const VALID_SEARCH = {
 
 describe("validateToolArgs happy paths", () => {
   it("accepts a fully valid search.properties payload", () => {
-    const r = validateToolArgs("search.properties", VALID_SEARCH);
+    const r = validateToolArgs("hemmabo_search_properties", VALID_SEARCH);
     assert.equal(r.ok, true, JSON.stringify(r.errors));
   });
 
   it("accepts a valid booking.quote payload", () => {
-    const r = validateToolArgs("booking.quote", {
+    const r = validateToolArgs("hemmabo_booking_quote", {
       propertyId: "3ef1d46d-5c23-46fe-86cb-8e714abf734f",
       ...VALID_SEARCH,
     });
@@ -51,7 +51,7 @@ describe("validateToolArgs happy paths", () => {
 
 describe("validateToolArgs strict typing", () => {
   it("rejects guests:'six' (string instead of integer)", () => {
-    const r = validateToolArgs("search.properties", {
+    const r = validateToolArgs("hemmabo_search_properties", {
       ...VALID_SEARCH,
       guests: "six",
     });
@@ -60,7 +60,7 @@ describe("validateToolArgs strict typing", () => {
   });
 
   it("rejects guests:0 when minimum is 1", () => {
-    const r = validateToolArgs("search.properties", {
+    const r = validateToolArgs("hemmabo_search_properties", {
       ...VALID_SEARCH,
       guests: 0,
     });
@@ -69,7 +69,7 @@ describe("validateToolArgs strict typing", () => {
   });
 
   it("rejects guests as a float (must be integer)", () => {
-    const r = validateToolArgs("search.properties", {
+    const r = validateToolArgs("hemmabo_search_properties", {
       ...VALID_SEARCH,
       guests: 2.5,
     });
@@ -79,21 +79,21 @@ describe("validateToolArgs strict typing", () => {
 
 describe("validateToolArgs missing required fields", () => {
   it("reports required-property errors with field paths", () => {
-    const r = validateToolArgs("search.properties", {});
+    const r = validateToolArgs("hemmabo_search_properties", {});
     assert.equal(r.ok, false);
     const paths = r.errors!.map((e) => e.path).sort();
     assert.deepEqual(paths, ["/checkIn", "/checkOut", "/guests"]);
   });
 
   it("collects ALL missing fields in one pass (allErrors:true)", () => {
-    const r = validateToolArgs("booking.create", {});
+    const r = validateToolArgs("hemmabo_booking_create", {});
     assert.equal(r.ok, false);
     // booking.create requires propertyId, checkIn, checkOut, guests, guestName, guestEmail
     assert.ok((r.errors?.length ?? 0) >= 6, `expected >=6 errors, got ${r.errors?.length}`);
   });
 
   it("reports a missing single field for booking.cancel", () => {
-    const r = validateToolArgs("booking.cancel", {});
+    const r = validateToolArgs("hemmabo_booking_cancel", {});
     assert.equal(r.ok, false);
     assert.ok(r.errors!.some((e) => e.path === "/reservationId"));
   });
@@ -106,7 +106,7 @@ describe("validateToolArgs forwards compatibility", () => {
   });
 
   it("treats undefined args as empty object", () => {
-    const r = validateToolArgs("search.properties", undefined);
+    const r = validateToolArgs("hemmabo_search_properties", undefined);
     assert.equal(r.ok, false);
     assert.ok(r.errors!.length >= 1);
   });

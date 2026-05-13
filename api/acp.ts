@@ -18,6 +18,19 @@ import { createClient } from "@supabase/supabase-js";
 import { resolveQuote } from "../lib/pricing.js";
 import { checkAvailability } from "../lib/availability.js";
 import { validateApiKey } from "../src/auth.js";
+import { baseUrl } from "../lib/base-url.js";
+import {
+  fingerprint as idemFingerprint,
+  lookup as idemLookup,
+  normaliseIdempotencyKey,
+  record as idemRecord,
+} from "../lib/idempotency.js";
+import {
+  anonIdentifier,
+  bearerIdentifier,
+  checkRateLimit,
+} from "../lib/rate-limit.js";
+import { toStripeMinorUnits } from "../src/stripe.js";
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -85,7 +98,7 @@ interface ACPCheckoutState {
   metadata?: Record<string, unknown>;
 }
 
-async function buildACPState(bookingId: string): Promise<ACPCheckoutState | null> {
+async function buildACPState(bookingId: string, base: string): Promise<ACPCheckoutState | null> {
   const supabase = getSupabase();
   const { data: booking, error } = await supabase
     .from("bookings")
@@ -97,7 +110,7 @@ async function buildACPState(bookingId: string): Promise<ACPCheckoutState | null
 
   const prop = booking.properties;
   const status = mapStatus(booking.status);
-  const totalAmountCents = booking.total_price * 100; // ACP uses smallest currency unit
+  const totalAmountCents = toStripeMinorUnits(booking.total_price); // ACP uses smallest currency unit
   const nights = Math.round(
     (new Date(booking.check_out_date).getTime() - new Date(booking.check_in_date).getTime()) / 86400000
   );
@@ -152,7 +165,7 @@ async function buildACPState(bookingId: string): Promise<ACPCheckoutState | null
       : [{ type: "info", text: "Booking created, awaiting details." }],
     links: [
       { rel: "property", href: prop?.domain ? `https://${prop.domain}` : "https://hemmabo.com" },
-      { rel: "booking_status", href: `https://hemmabo-mcp-server.vercel.app/acp/checkouts/${booking.id}` },
+      { rel: "booking_status", href: `${base}/acp/checkouts/${booking.id}` },
     ],
     metadata: {
       property_id: booking.property_id,
@@ -179,7 +192,7 @@ function mapStatus(dbStatus: string): ACPCheckoutState["status"] {
 
 // ── ACP Endpoints ────────────────────────────────────────────────
 
-async function createCheckout(body: Record<string, unknown>, res: VercelResponse) {
+async function createCheckout(body: Record<string, unknown>, res: VercelResponse, base: string) {
   const supabase = getSupabase();
   const reader = getSupabaseReader();
 
@@ -257,17 +270,17 @@ async function createCheckout(body: Record<string, unknown>, res: VercelResponse
 
   if (bookErr) return res.status(500).json({ error: bookErr.message });
 
-  const state = await buildACPState(booking.id);
+  const state = await buildACPState(booking.id, base);
   return res.status(201).json(state);
 }
 
-async function getCheckout(checkoutId: string, res: VercelResponse) {
-  const state = await buildACPState(checkoutId);
+async function getCheckout(checkoutId: string, res: VercelResponse, base: string) {
+  const state = await buildACPState(checkoutId, base);
   if (!state) return res.status(404).json({ error: "Checkout not found" });
   return res.json(state);
 }
 
-async function updateCheckout(checkoutId: string, body: Record<string, unknown>, res: VercelResponse) {
+async function updateCheckout(checkoutId: string, body: Record<string, unknown>, res: VercelResponse, base: string) {
   const supabase = getSupabase();
   const reader = getSupabaseReader();
 
@@ -335,11 +348,11 @@ async function updateCheckout(checkoutId: string, body: Record<string, unknown>,
     if (updateErr) return res.status(500).json({ error: updateErr.message });
   }
 
-  const state = await buildACPState(checkoutId);
+  const state = await buildACPState(checkoutId, base);
   return res.json(state);
 }
 
-async function completeCheckout(checkoutId: string, body: Record<string, unknown>, res: VercelResponse) {
+async function completeCheckout(checkoutId: string, body: Record<string, unknown>, res: VercelResponse, base: string) {
   const supabase = getSupabase();
   const stripeKey = getStripeKey();
 
@@ -359,7 +372,7 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
     return res.status(400).json({ error: "Missing payment_data.token (SharedPaymentToken)" });
   }
 
-  const amountCents = booking.total_price * 100;
+  const amountCents = toStripeMinorUnits(booking.total_price);
   const currency = (booking.currency || "SEK").toLowerCase();
 
   // Create PaymentIntent with SharedPaymentToken (SPT)
@@ -409,11 +422,11 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
 
   if (updateErr) return res.status(500).json({ error: updateErr.message });
 
-  const state = await buildACPState(checkoutId);
+  const state = await buildACPState(checkoutId, base);
   return res.json(state);
 }
 
-async function cancelCheckout(checkoutId: string, res: VercelResponse) {
+async function cancelCheckout(checkoutId: string, res: VercelResponse, base: string) {
   const supabase = getSupabase();
 
   // Fetch booking — service role required (bookings table blocks anon reads)
@@ -493,7 +506,7 @@ async function cancelCheckout(checkoutId: string, res: VercelResponse) {
 
   if (updateErr) return res.status(500).json({ error: updateErr.message });
 
-  const state = await buildACPState(checkoutId);
+  const state = await buildACPState(checkoutId, base);
   if (state && refund) {
     state.messages.push({ type: "info", text: `Refund issued: ${refund.id}` });
   }
@@ -539,10 +552,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const checkoutId = pathParts[1];
   const action = pathParts[2]; // "complete" or "cancel" or undefined
   const isMutation = req.method === "POST" || req.method === "PUT";
+  const base = baseUrl(req);
 
-  // Validate API key on all mutating requests. Blocks CSRF from browsers and
-  // rejects invalid keys when MCP_API_KEY is configured.
-  if (isMutation) {
+  // Rate-limit (#65). Applied to ALL routed /acp/checkouts traffic, before
+  // the auth gate, so unauthenticated probes are also throttled. The "kind"
+  // is "bearer" when an Authorization header is present (per-token bucket,
+  // higher quota) and "anon" otherwise (per-IP bucket, lower quota). This
+  // matches the same scheme used by api/mcp.ts so legitimate AI agents see
+  // consistent limits across both surfaces.
+  const authHeader = req.headers["authorization"] as string | undefined;
+  const rlKind = authHeader ? "bearer" : "anon";
+  const rlIdent = authHeader
+    ? bearerIdentifier(authHeader)
+    : anonIdentifier(req.headers as Record<string, string | string[] | undefined>);
+  const rl = await checkRateLimit(rlKind, rlIdent);
+  if (!rl.ok) {
+    res.setHeader("Retry-After", String(rl.retryAfterSec ?? 60));
+    if (rl.limit !== undefined) res.setHeader("X-RateLimit-Limit", String(rl.limit));
+    res.setHeader("X-RateLimit-Remaining", "0");
+    return res.status(429).json({
+      error: "rate_limit_exceeded",
+      message: `Too many requests. Retry in ${rl.retryAfterSec ?? 60}s.`,
+    });
+  }
+  if (rl.limit !== undefined && rl.remaining !== undefined) {
+    res.setHeader("X-RateLimit-Limit", String(rl.limit));
+    res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
+  }
+
+  // Auth gate on every checkout-scoped request, including GET. The response
+  // from buildACPState() contains guest PII (name, email, phone, dates).
+  // Without this gate, anyone holding (or guessing) a booking UUID can read
+  // that PII — a GDPR exposure surface (#67). Discovery doc (no pathParts
+  // beyond "checkouts") stays public. Mutations still require auth via the
+  // same gate (the `isMutation` branch is now subsumed by `requiresAuth`).
+  const requiresAuth = isMutation || Boolean(checkoutId);
+  if (requiresAuth) {
     const authErr = validateApiKey(req.headers["authorization"]);
     if (authErr) {
       return res.status(401).json({
@@ -551,33 +596,111 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
+  // Idempotency-Key handling (#66). Optional but strongly recommended by the
+  // ACP spec. Applied to ALL mutating routes (POST/PUT) so a retried request
+  // never double-books, double-charges, or double-refunds. Cache backend is
+  // Upstash Redis (24h TTL); without it the cache is a no-op and requests
+  // execute every time (fail-open — same policy as the rate-limiter).
+  //
+  // Contract:
+  //   Same key + same body  → return cached prior response verbatim.
+  //   Same key + diff body  → 409 Conflict (HTTP semantics, not RPC error).
+  //   New key               → execute, cache 2xx response on success.
+  const idemKeyRaw = req.headers["idempotency-key"];
+  const idemKey = isMutation
+    ? normaliseIdempotencyKey(Array.isArray(idemKeyRaw) ? idemKeyRaw[0] : idemKeyRaw)
+    : null;
+  // Reject malformed keys explicitly so clients aren't silently treated as
+  // "no idempotency". A header present but unusable is almost certainly a
+  // bug at the caller worth surfacing.
+  if (isMutation && idemKeyRaw !== undefined && idemKey === null) {
+    return res.status(400).json({
+      error: "invalid_idempotency_key",
+      message:
+        "Idempotency-Key must be 1-200 chars matching [A-Za-z0-9._:-]. See ACP spec.",
+    });
+  }
+
+  let bodyFp: string | null = null;
+  if (idemKey) {
+    bodyFp = idemFingerprint({
+      method: req.method,
+      path: url.pathname,
+      body: req.body ?? {},
+    });
+    const outcome = await idemLookup(idemKey, bodyFp);
+    if (outcome.kind === "conflict") {
+      return res.status(409).json({
+        error: "idempotency_conflict",
+        message:
+          "Idempotency-Key was reused with a different request body. " +
+          "Use a fresh key for a different request.",
+      });
+    }
+    if (outcome.kind === "hit") {
+      // Tag the response so callers can detect a replay if they care.
+      res.setHeader("Idempotent-Replay", "true");
+      return res.status(outcome.status).json(outcome.body);
+    }
+  }
+
+  // Wrap `res` so that on a cache miss we can record the outgoing response
+  // for future retries. We only capture status() / json(); other methods
+  // (setHeader, end, etc.) pass through unchanged.
+  let capturedStatus = 200;
+  let capturedBody: unknown = undefined;
+  const recordingRes = idemKey
+    ? (new Proxy(res, {
+        get(target, prop, receiver) {
+          if (prop === "status") {
+            return (code: number) => {
+              capturedStatus = code;
+              target.status(code);
+              return receiver;
+            };
+          }
+          if (prop === "json") {
+            return (body: unknown) => {
+              capturedBody = body;
+              return target.json(body);
+            };
+          }
+          return Reflect.get(target, prop, receiver);
+        },
+      }) as VercelResponse)
+    : res;
+
   try {
     // POST /acp/checkouts — Create
     if (!checkoutId && req.method === "POST") {
-      return createCheckout(req.body || {}, res);
+      await createCheckout(req.body || {}, recordingRes, base);
     }
-
     // GET /acp/checkouts/:id — Retrieve
-    if (checkoutId && !action && req.method === "GET") {
-      return getCheckout(checkoutId, res);
+    else if (checkoutId && !action && req.method === "GET") {
+      await getCheckout(checkoutId, recordingRes, base);
     }
-
     // PUT /acp/checkouts/:id — Update
-    if (checkoutId && !action && req.method === "PUT") {
-      return updateCheckout(checkoutId, req.body || {}, res);
+    else if (checkoutId && !action && req.method === "PUT") {
+      await updateCheckout(checkoutId, req.body || {}, recordingRes, base);
     }
-
     // POST /acp/checkouts/:id/complete — Complete with payment
-    if (checkoutId && action === "complete" && req.method === "POST") {
-      return completeCheckout(checkoutId, req.body || {}, res);
+    else if (checkoutId && action === "complete" && req.method === "POST") {
+      await completeCheckout(checkoutId, req.body || {}, recordingRes, base);
     }
-
     // POST /acp/checkouts/:id/cancel — Cancel
-    if (checkoutId && action === "cancel" && req.method === "POST") {
-      return cancelCheckout(checkoutId, res);
+    else if (checkoutId && action === "cancel" && req.method === "POST") {
+      await cancelCheckout(checkoutId, recordingRes, base);
+    } else {
+      return res.status(405).json({ error: "Method not allowed" });
     }
 
-    return res.status(405).json({ error: "Method not allowed" });
+    // On a successful 2xx response with an idempotency key in play, persist
+    // the response for future retries. 4xx/5xx are NOT cached: a client
+    // retrying after a transient failure should be allowed to succeed.
+    if (idemKey && bodyFp && capturedStatus >= 200 && capturedStatus < 300) {
+      await idemRecord(idemKey, bodyFp, capturedStatus, capturedBody);
+    }
+    return;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal error";
     console.error("ACP handler error:", message);

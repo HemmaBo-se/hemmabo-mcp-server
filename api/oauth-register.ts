@@ -27,13 +27,16 @@
 import type { VercelRequest, VercelResponse } from "./_types.js";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes, randomUUID } from "crypto";
+import { baseUrl } from "../lib/base-url.js";
+import { requireEnv } from "../lib/env.js";
+import { anonIdentifier, checkRateLimit } from "../lib/rate-limit.js";
 
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  requireEnv("SUPABASE_URL"),
+  requireEnv("SUPABASE_SERVICE_ROLE_KEY")
 );
 
-const TOKEN_ENDPOINT = "https://hemmabo-mcp-server.vercel.app/oauth/token";
+const TOKEN_ENDPOINT_PATH = "/oauth/token";
 
 function hashSecret(secret: string): string {
   return createHash("sha256").update(secret).digest("hex");
@@ -48,6 +51,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") {
     return res.status(405).json({ error: "method_not_allowed" });
+  }
+
+  // Rate-limit (#65): registration creates a new credential pair on every
+  // call, so per-IP throttling at the "strict" tier (default 5/min) prevents
+  // credential-storage bloat and brute-force probing of the endpoint.
+  const rlIdent = anonIdentifier(req.headers as Record<string, string | string[] | undefined>);
+  const rl = await checkRateLimit("strict", rlIdent);
+  if (!rl.ok) {
+    res.setHeader("Retry-After", String(rl.retryAfterSec ?? 60));
+    if (rl.limit !== undefined) res.setHeader("X-RateLimit-Limit", String(rl.limit));
+    res.setHeader("X-RateLimit-Remaining", "0");
+    return res.status(429).json({
+      error: "rate_limit_exceeded",
+      error_description: `Too many registration attempts. Retry in ${rl.retryAfterSec ?? 60}s.`,
+    });
+  }
+  if (rl.limit !== undefined && rl.remaining !== undefined) {
+    res.setHeader("X-RateLimit-Limit", String(rl.limit));
+    res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
   }
 
   const clientName: string | undefined = req.body?.client_name;
@@ -87,7 +109,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     client_id: clientId,
     client_secret: clientSecret, // shown ONCE — client must store this
     client_name: clientName.trim(),
-    token_endpoint: TOKEN_ENDPOINT,
+    token_endpoint: `${baseUrl(req)}${TOKEN_ENDPOINT_PATH}`,
     grant_types: ["client_credentials"],
     token_endpoint_auth_method: "client_secret_post",
     note: "Store client_secret securely — it is not recoverable. Use it to obtain access tokens via the token_endpoint.",
