@@ -49,6 +49,9 @@ export interface ToolInputSchema {
   type: "object";
   properties: Record<string, JsonSchemaField>;
   required?: readonly string[];
+  /** Required by #85 — Ajv must reject unknown keys so AI agents see typo'd
+   *  field names as field-level errors instead of generic "missing required". */
+  additionalProperties: false;
 }
 
 export interface ToolOutputSchema {
@@ -234,6 +237,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         checkOut: F.checkOut,
       },
       required: ["guests", "checkIn", "checkOut"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
@@ -274,6 +278,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         checkOut: F.checkOut,
       },
       required: ["propertyId", "checkIn", "checkOut"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
@@ -310,6 +315,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         limit: { type: "integer", minimum: 1, maximum: 20, description: "Max results. Default 5, max 20." },
       },
       required: ["propertyId", "checkIn", "checkOut"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
@@ -376,6 +382,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         guests: { ...F.guests, description: "Total number of guests as integer >= 1." },
       },
       required: ["propertyIds", "checkIn", "checkOut", "guests"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
@@ -438,6 +445,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         guests: F.guests,
       },
       required: ["propertyId", "checkIn", "checkOut", "guests"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
@@ -488,6 +496,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         guestPhone: F.guestPhone,
       },
       required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
@@ -532,6 +541,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         guests: { ...F.guests, description: "Total number of guests as integer >= 1 (e.g. 4). Determines which price tier is applied." },
       },
       required: ["propertyId", "checkIn", "checkOut", "guests"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
@@ -584,6 +594,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         channel: { type: "string", enum: ["public", "federation"], description: "'federation' (default): applies direct booking discount. 'public': uses standard website rate." },
       },
       required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
@@ -625,6 +636,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         reason: { type: "string", description: "Cancellation reason for host notification (e.g. 'Travel plans changed'). Optional but recommended." },
       },
       required: ["reservationId"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
@@ -655,6 +667,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         reservationId: F.reservationId,
       },
       required: ["reservationId"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
@@ -700,6 +713,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         reason: { type: "string", description: "Reason for rescheduling (e.g. 'Flight delayed'). Optional but recommended for host records." },
       },
       required: ["reservationId", "newCheckIn", "newCheckOut"],
+      additionalProperties: false,
     },
     outputSchema: {
       type: "object",
