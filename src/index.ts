@@ -23,7 +23,9 @@ import { z } from "zod";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { executeTool } from "../lib/tools.js";
 import { TOOL_SPECS, toZodShape } from "../lib/tool-definitions.js";
-import { validateApiKey } from "./auth.js";
+import { validateAuth } from "./auth.js";
+import { anonIdentifier, bearerIdentifier, checkRateLimit } from "../lib/rate-limit.js";
+import rateLimit from "express-rate-limit";
 import { PROMPTS as CATALOG_PROMPTS, TOOLS as CATALOG_TOOLS } from "../api/mcp.js";
 
 // Tool execution is shared via lib/tools.ts (single source of truth for all
@@ -281,8 +283,20 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok", version: "3.2.8" });
 });
 
+// Standard Express-recognised rate-limit middleware on /mcp. This is the
+// pattern CodeQL's js/missing-rate-limiting query matches; the deeper
+// per-token Upstash limit (lib/rate-limit.ts, #65/#77) still runs inside
+// the handler for production accuracy. 600/min is a very loose safety net —
+// the real budgets (60 anon / 200 bearer) are enforced by checkRateLimit.
+const mcpIpLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 600,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+});
+
 // MCP endpoint
-app.all("/mcp", async (req, res) => {
+app.all("/mcp", mcpIpLimiter, async (req, res) => {
   // MCP-09: auth gate. Grövre än api/mcp.ts — där kontrolleras endast
   // tools/call via inspektion av den förparsade JSON-RPC-bodyn. Här kan vi
   // inte inspektera method före StreamableHTTPServerTransport tar över
@@ -291,7 +305,38 @@ app.all("/mcp", async (req, res) => {
   // MCP_API_KEY är satt. GET/OPTIONS/DELETE och öppet läge (ingen nyckel
   // satt) lämnas oförändrade.
   if (req.method === "POST") {
-    const authErr = validateApiKey(req.headers["authorization"]);
+    // Rate-limit BEFORE the auth DB-lookup so an unauthenticated brute-force
+    // cannot DoS the OAuth registry. Same SoT as api/mcp.ts (#65/#77). We
+    // throttle every POST here (not just tools/call) because the JSON-RPC
+    // body has not been parsed yet at this transport layer.
+    const hasBearer = Boolean(req.headers["authorization"]);
+    const kind = hasBearer ? "bearer" : "anon";
+    const identifier = hasBearer
+      ? bearerIdentifier(req.headers["authorization"] as string | undefined)
+      : anonIdentifier(req.headers as Record<string, string | string[] | undefined>);
+    const rl = await checkRateLimit(kind, identifier);
+    if (!rl.ok) {
+      res.setHeader("Retry-After", String(rl.retryAfterSec ?? 60));
+      if (rl.limit !== undefined) res.setHeader("X-RateLimit-Limit", String(rl.limit));
+      res.setHeader("X-RateLimit-Remaining", "0");
+      return res.status(429).json({
+        jsonrpc: "2.0",
+        error: {
+          code: -32000,
+          message: `Rate limit exceeded — retry in ${rl.retryAfterSec ?? 60}s`,
+        },
+      });
+    }
+    if (rl.limit !== undefined && rl.remaining !== undefined) {
+      res.setHeader("X-RateLimit-Limit", String(rl.limit));
+      res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
+    }
+
+    const authErr = await validateAuth(
+      Array.isArray(req.headers["authorization"])
+        ? req.headers["authorization"][0]
+        : req.headers["authorization"],
+    );
     if (authErr) {
       return res.status(401).json({
         jsonrpc: "2.0",
