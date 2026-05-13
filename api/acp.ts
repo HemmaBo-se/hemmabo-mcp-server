@@ -440,13 +440,17 @@ async function cancelCheckout(checkoutId: string, res: VercelResponse, base: str
 
   // If paid, issue refund
   let refund = null;
+  // ADR 0002 §2.2 clause 5: do not flip booking to 'cancelled' until refund
+  // is confirmed (or no refund was needed). Refund failures must surface to
+  // the caller and persist on the booking row so support can reconstruct.
   if (booking.stripe_payment_intent_id) {
-    try {
-      const stripeKey = getStripeKey();
-      const refundBody = new URLSearchParams();
-      refundBody.append("payment_intent", booking.stripe_payment_intent_id);
+    const stripeKey = getStripeKey();
+    const refundBody = new URLSearchParams();
+    refundBody.append("payment_intent", booking.stripe_payment_intent_id);
 
-      const refundResp = await fetch("https://api.stripe.com/v1/refunds", {
+    let refundResp: Response;
+    try {
+      refundResp = await fetch("https://api.stripe.com/v1/refunds", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${stripeKey}`,
@@ -454,10 +458,45 @@ async function cancelCheckout(checkoutId: string, res: VercelResponse, base: str
         },
         body: refundBody.toString(),
       });
-      if (refundResp.ok) {
-        refund = await refundResp.json();
-      }
-    } catch { /* refund is best-effort */ }
+    } catch (err) {
+      // Network error reaching Stripe. Persist the failure on the booking
+      // and return 502 so the caller knows the cancel was not completed.
+      const message = err instanceof Error ? err.message : "stripe_unreachable";
+      await supabase
+        .from("bookings")
+        .update({ refund_status: "failed", refund_error: message })
+        .eq("id", checkoutId);
+      console.error(`ACP refund network error for booking ${checkoutId}:`, message);
+      return res.status(502).json({
+        error: "Refund could not be issued — booking left in non-final state",
+        refund_status: "failed",
+        refund_error: message,
+      });
+    }
+
+    if (!refundResp.ok) {
+      const errJson = await refundResp.json().catch(() => ({}));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const code = (errJson as any).error?.code ?? (errJson as any).error?.message ?? refundResp.statusText;
+      await supabase
+        .from("bookings")
+        .update({ refund_status: "failed", refund_error: String(code) })
+        .eq("id", checkoutId);
+      console.error(`ACP refund 4xx for booking ${checkoutId}:`, code);
+      return res.status(502).json({
+        error: "Refund rejected by Stripe — booking left in non-final state",
+        refund_status: "failed",
+        refund_error: String(code),
+      });
+    }
+
+    refund = await refundResp.json();
+    // Mark refund pending. The webhook (charge.refunded) is the authoritative
+    // writer of refund_status='succeeded' once Stripe confirms.
+    await supabase
+      .from("bookings")
+      .update({ refund_status: "pending", refund_id: refund.id })
+      .eq("id", checkoutId);
   }
 
   const { error: updateErr } = await supabase
