@@ -22,6 +22,7 @@ import express from "express";
 import { z } from "zod";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { executeTool } from "../lib/tools.js";
+import { TOOL_SPECS, toZodShape } from "../lib/tool-definitions.js";
 import { validateApiKey } from "./auth.js";
 import { PROMPTS as CATALOG_PROMPTS, TOOLS as CATALOG_TOOLS } from "../api/mcp.js";
 
@@ -205,231 +206,46 @@ const _originalServerTool = server.tool.bind(server);
   ) => unknown)(name, description, schema, wrapped);
 };
 
-// ── Tool: search.properties ────────────────────────────────────────
+// ── Tool registration ──────────────────────────────────────────────
+//
+// All 11 tools come from lib/tool-definitions.ts — single source of truth
+// (#63). server.tool() is called from a loop so adding or removing a tool
+// requires editing only TOOL_SPECS.
 
-server.tool(
-  "search.properties",
-  "Search available vacation rental properties by location and travel dates. Use this tool when the user wants to find or browse properties — it is the entry point for all booking flows. Do NOT use if the user already has a specific propertyId; use search.availability or booking.quote instead. Returns a list of available properties with propertyId, live pricing, and capacity info needed for subsequent tools.",
-  {
-    region: z.string().optional().describe("Region, area, or destination name to search within. Partial match (e.g. 'Skåne', 'Toscana'). At least one of region or country should be provided."),
-    country: z.string().optional().describe("Country name to filter by (e.g. 'Sweden', 'Italy'). Partial match. At least one of region or country should be provided."),
-    guests: z.number().int().min(1).describe("Total number of guests as integer >= 1 (e.g. 4). Determines price tier and filters out properties with insufficient capacity."),
-    checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
-    checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
-  },
-  async (args) => {
+const WRAP_ERROR_LABEL: Record<string, string> = {
+  "booking.checkout":   "Checkout failed",
+  "booking.cancel":     "Cancellation failed",
+  "booking.reschedule": "Reschedule failed",
+};
+
+for (const spec of TOOL_SPECS) {
+  const shape = toZodShape(spec.inputSchema);
+  const handler = async (args: Record<string, unknown>) => {
     if (!supabase || !reader) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }),
+        }],
+        isError: true,
+      };
     }
-    return executeTool("search.properties", args as Record<string, unknown>, { supabase, reader });
-  }
-);
-
-// ── Tool: search.availability ───────────────────────────────────────
-
-server.tool(
-  "search.availability",
-  "Check whether a specific property is available for the requested dates. Use this tool after the user has selected a property from search.properties and wants to confirm availability before getting a quote. Do NOT use for general browsing — use search.properties instead. Returns available=true/false with conflict details (blocked dates, existing bookings, active locks) if unavailable.",
-  {
-    propertyId: z.string().uuid().describe("Property UUID returned by search.properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
-    checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
-    checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
-  },
-  async (args) => {
-    if (!supabase || !reader) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
+    const errorLabel = WRAP_ERROR_LABEL[spec.name];
+    if (errorLabel) {
+      try {
+        return await executeTool(spec.name, args, { supabase, reader });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : errorLabel;
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({ error: msg }) }],
+          isError: true,
+        };
+      }
     }
-    return executeTool("search.availability", args as Record<string, unknown>, { supabase, reader });
-  }
-);
-
-// ── Tool: search.similar ───────────────────────────────────────────
-
-server.tool(
-  "search.similar",
-  "Find vacation rental properties similar to a given property on specific dates. Use this tool after the user has selected a property (via search.properties) and wants to see alternatives — same region, same property type, same or larger capacity. Do NOT use for the initial search; use search.properties instead. Returns a list of similar available properties with live pricing, excluding the source property.",
-  {
-    propertyId: z.string().uuid().describe("UUID of the source property to find alternatives for (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
-    checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
-    checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
-    guests: z.number().int().min(1).optional().describe("Number of guests. Defaults to the source property's max_guests if omitted."),
-    limit: z.number().int().min(1).max(20).optional().describe("Maximum number of similar properties to return. Default 5, max 20."),
-  },
-  async (args) => {
-    if (!supabase || !reader) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
-    }
-    return executeTool("search.similar", args as Record<string, unknown>, { supabase, reader });
-  }
-);
-
-// ── Tool: search.compare ──────────────────────────────────────
-
-server.tool(
-  "search.compare",
-  "Compare availability and pricing for 2–10 specific properties on the same dates. Use this tool when the user is deciding between multiple properties and wants to see price and availability side by side. Do NOT use for discovery — use search.properties first. Returns one entry per propertyId, sorted by federation price (cheapest first), with unavailable properties last.",
-  {
-    propertyIds: z.array(z.string().uuid()).min(2).max(10).describe("Array of 2 to 10 property UUIDs to compare side by side."),
-    checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD). Must be today or later."),
-    checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD). Must be after checkIn."),
-    guests: z.number().int().min(1).describe("Total number of guests as integer >= 1."),
-  },
-  async (args) => {
-    if (!supabase || !reader) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
-    }
-    return executeTool("search.compare", args as Record<string, unknown>, { supabase, reader });
-  }
-);
-
-// ── Tool: booking.quote ──────────────────────────────────────
-
-server.tool(
-  "booking.quote",
-  "Get a detailed pricing quote for a specific property, dates, and guest count. Use this tool after confirming availability to show the user exact pricing before booking. Do NOT use before checking availability — the quote may be invalid if dates are unavailable. Returns publicTotal (website rate), federationTotal (direct booking discount), gapTotal (gap-night discount if applicable), per-night breakdown, and package pricing. All prices are integers in the property's local currency (e.g. SEK).",
-  {
-    propertyId: z.string().uuid().describe("Property UUID from search.properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
-    checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
-    checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
-    guests: z.number().int().min(1).describe("Total number of guests as integer >= 1 (e.g. 4). Determines which price tier is applied (staircase pricing by guest count)."),
-  },
-  async (args) => {
-    if (!supabase || !reader) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
-    }
-    return executeTool("booking.quote", args as Record<string, unknown>, { supabase, reader });
-  }
-);
-
-// ── Tool: booking.create ───────────────────────────────────────────
-
-server.tool(
-  "booking.create",
-  "Create a direct booking without online payment (legacy flow). Use this tool when the user wants to book without Stripe payment — the booking is created with status 'pending' and requires host approval. Do NOT use for paid bookings — use booking.checkout instead. Do NOT retry on timeout without calling booking.status first to avoid duplicate bookings. Returns bookingId, final price, and confirmation details.",
-  {
-    propertyId: z.string().uuid().describe("Property UUID from search.properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
-    checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
-    checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
-    guests: z.number().int().min(1).describe("Total number of guests as integer >= 1 (e.g. 4)."),
-    guestName: z.string().describe("Full name of primary guest (e.g. 'Anna Svensson')."),
-    guestEmail: z.string().email().describe("Email for booking confirmation (e.g. 'anna@example.com'). Must be a valid email address."),
-    guestPhone: z.string().optional().describe("Phone with country code (e.g. '+46701234567'). Optional but recommended for check-in coordination."),
-  },
-  async (args) => {
-    if (!supabase || !reader) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
-    }
-    return executeTool("booking.create", args as Record<string, unknown>, { supabase, reader });
-  }
-);
-
-// ── Tool: booking.negotiate ──────────────────────────────────────────
-
-server.tool(
-  "booking.negotiate",
-  "Create a binding price quote that locks the price for 15 minutes. Use this tool before booking.checkout to guarantee the quoted price during payment. Do NOT skip this step if the user wants price certainty — without a quoteId, checkout calculates a fresh price that may differ. Returns quoteId (pass to booking.checkout), public and federation totals, per-night breakdown, and expiry timestamp.",
-  {
-    propertyId: z.string().uuid().describe("Property UUID from search.properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
-    checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
-    checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
-    guests: z.number().int().min(1).describe("Total number of guests as integer >= 1 (e.g. 4). Determines which price tier is applied."),
-  },
-  async (args) => {
-    if (!supabase || !reader) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
-    }
-    return executeTool("booking.negotiate", args as Record<string, unknown>, { supabase, reader });
-  }
-);
-
-// ── Tool: booking.checkout ─────────────────────────────────────────────────
-
-server.tool(
-  "booking.checkout",
-  "Create a booking with Stripe payment and return a checkout URL. Use this tool when the user is ready to pay — it creates the booking record and generates a Stripe payment page. Do NOT call twice for the same booking — check booking.status first to avoid double charges. Optionally pass quoteId from booking.negotiate to lock the price. Returns reservationId, paymentUrl (Stripe checkout page), and pricing details.",
-  {
-    propertyId: z.string().uuid().describe("Property UUID from search.properties (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
-    checkIn: zISODate.describe("Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later."),
-    checkOut: zISODate.describe("Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn."),
-    guests: z.number().int().min(1).describe("Total number of guests as integer >= 1 (e.g. 4)."),
-    guestName: z.string().describe("Full name of primary guest (e.g. 'Anna Svensson')."),
-    guestEmail: z.string().email().describe("Email for booking confirmation (e.g. 'anna@example.com'). Must be a valid email address."),
-    guestPhone: z.string().optional().describe("Phone with country code (e.g. '+46701234567'). Optional but recommended."),
-    quoteId: z.string().optional().describe("Quote ID from booking.negotiate to lock the price. Optional — if omitted, a fresh federation price is calculated at checkout time."),
-    paymentMode: z.enum(["checkout_session", "payment_intent"]).optional().describe("'checkout_session' (default): returns Stripe redirect URL. 'payment_intent': returns client_secret for programmatic payment (AI agent MPP flow)."),
-    channel: z.enum(["public", "federation"]).optional().describe("'federation' (default): applies direct booking discount. 'public': uses standard website rate."),
-  },
-  async (args) => {
-    if (!supabase || !reader) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
-    }
-    try {
-      return await executeTool("booking.checkout", args as Record<string, unknown>, { supabase, reader });
-    } catch (error: any) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({ error: error.message || "Checkout failed" }) }], isError: true };
-    }
-  }
-);
-
-// ── Tool: booking.cancel ───────────────────────────────────────────
-
-server.tool(
-  "booking.cancel",
-  "Cancel a confirmed booking and process the Stripe refund. Use this tool when the guest explicitly requests cancellation. Do NOT use for pending/unpaid bookings — those expire automatically. Refund amount is calculated based on the host's cancellation policy. Returns cancellation confirmation with refund amount and status.",
-  {
-    reservationId: z.string().describe("Booking UUID from booking.checkout or booking.create (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
-    reason: z.string().optional().describe("Cancellation reason for host notification (e.g. 'Travel plans changed'). Optional but recommended."),
-  },
-  async (args) => {
-    if (!supabase || !reader) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
-    }
-    try {
-      return await executeTool("booking.cancel", args as Record<string, unknown>, { supabase, reader });
-    } catch (error: any) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({ error: error.message || "Cancellation failed" }) }], isError: true };
-    }
-  }
-);
-
-// ── Tool: booking.status ───────────────────────────────────────
-
-server.tool(
-  "booking.status",
-  "Retrieve current status and full details of an existing booking. Use this tool to check payment status, confirm a booking went through, or look up details before rescheduling or cancelling. Use after booking.checkout if unsure whether the booking succeeded. Returns booking dates, guests, price, status, property info, and cancellation policy.",
-  {
-    reservationId: z.string().describe("Booking UUID from booking.checkout or booking.create (e.g. '550e8400-e29b-41d4-a716-446655440000')."),
-  },
-  async (args) => {
-    if (!supabase || !reader) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
-    }
-    return executeTool("booking.status", args as Record<string, unknown>, { supabase, reader });
-  }
-);
-
-// ── Tool: booking.reschedule ───────────────────────────────────────
-
-server.tool(
-  "booking.reschedule",
-  "Reschedule a confirmed or pending booking to new dates. Use this tool when the guest wants to change travel dates on an existing booking. Do NOT use if the booking is cancelled or completed — check booking.status first. Automatically recalculates price and handles Stripe charge (if price increased) or refund (if decreased). Returns previous dates, new dates, price delta, and Stripe transaction details.",
-  {
-    reservationId: z.string().describe("Booking UUID to reschedule (e.g. '550e8400-e29b-41d4-a716-446655440000'). Must be in 'confirmed' or 'pending' status."),
-    newCheckIn: zISODate.describe("New arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-20'). Must be today or later."),
-    newCheckOut: zISODate.describe("New departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-27'). Must be after newCheckIn."),
-    reason: z.string().optional().describe("Reason for rescheduling (e.g. 'Flight delayed'). Optional but recommended for host records."),
-  },
-  async (args) => {
-    if (!supabase || !reader) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({ error: "Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY." }) }], isError: true };
-    }
-    try {
-      return await executeTool("booking.reschedule", args as Record<string, unknown>, { supabase, reader });
-    } catch (error: any) {
-      return { content: [{ type: "text" as const, text: JSON.stringify({ error: error.message || "Reschedule failed" }) }], isError: true };
-    }
-  }
-);
+    return executeTool(spec.name, args, { supabase, reader });
+  };
+  server.tool(spec.name, spec.description, shape, handler as never);
+}
 
 // ── Prompt: trip.plan ─────────────────────────────────────────────────────
 server.prompt(
