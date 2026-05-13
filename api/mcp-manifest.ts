@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "./_types.js";
 import { createRequire } from "module";
 import { ANON_TOOLS } from "./mcp.js";
+import { baseUrl } from "../lib/base-url.js";
 import { TOOL_NAMES } from "../lib/tool-definitions.js";
 
 // Read package.json at module load — single source of truth for `version`.
@@ -25,27 +26,27 @@ function authForTool(name: string): "none" | "bearer" {
  * stay aligned (covers all 11 tools, no extras).
  */
 const MANIFEST_SUMMARIES: Record<string, string> = {
-  "search.properties":
+  "hemmabo_search_properties":
     "Search available vacation rental properties by region, country, guest count and dates. Returns live availability and pricing.",
-  "search.availability":
+  "hemmabo_search_availability":
     "Check whether a specific property is available for given check-in and check-out dates.",
-  "search.similar":
+  "hemmabo_search_similar":
     "Find vacation rental properties similar to a given property on specific dates — same region, type, and capacity. Returns available alternatives with live pricing.",
-  "search.compare":
+  "hemmabo_compare_properties":
     "Compare availability and pricing for 2–10 specific properties on the same dates. Returns results sorted by federation price, unavailable properties last.",
-  "booking.quote":
+  "hemmabo_booking_quote":
     "Get a detailed live pricing quote: nightly rates, seasonal pricing, federation discount.",
-  "booking.create":
+  "hemmabo_booking_create":
     "Create a direct booking without online payment — for invoice or manual payment flows.",
-  "booking.negotiate":
+  "hemmabo_booking_negotiate":
     "Lock a price quote for 15 minutes. Returns a quoteId to use in checkout — guarantees the price won't change.",
-  "booking.checkout":
+  "hemmabo_booking_checkout":
     "Create a booking and Stripe payment. Returns a checkout URL (checkout_session) or client_secret (payment_intent) for AI agent payment flows.",
-  "booking.cancel":
+  "hemmabo_booking_cancel":
     "Cancel a booking and trigger a Stripe refund according to the host's cancellation policy.",
-  "booking.status":
+  "hemmabo_booking_status":
     "Get current booking status, dates, price, cancellation policy and refund rules.",
-  "booking.reschedule":
+  "hemmabo_booking_reschedule":
     "Move a confirmed booking to new dates with automatic repricing.",
 };
 
@@ -60,9 +61,10 @@ const MANIFEST_SUMMARIES: Record<string, string> = {
  * (see fix/mcp-manifest-single-sot). All discovery fields live here.
  * `version` is read dynamically from package.json so it cannot drift.
  */
-export default function handler(_req: VercelRequest, res: VercelResponse) {
+export default function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "public, max-age=3600");
+  const base = baseUrl(req);
   res.json({
     schema_version: "1.1",
     protocol: "mcp",
@@ -71,26 +73,26 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
     version: pkg.version,
     description:
       "Direct booking infrastructure for vacation rentals. Each host is a sovereign booking node — own domain, 0% commission, payment direct to host via Stripe. Search properties, get quotes, book without aggregator markup. Like Mirai for hotels, but for vacation rentals. From $39/month.",
-    mcp_endpoint: "https://hemmabo-mcp-server.vercel.app/mcp",
+    mcp_endpoint: `${base}/mcp`,
     transport: ["streamable-http", "stdio"],
     authentication: {
       type: "oauth2",
       flows: {
         clientCredentials: {
-          tokenUrl: "https://hemmabo-mcp-server.vercel.app/oauth/token",
+          tokenUrl: `${base}/oauth/token`,
           scopes: {
             mcp: "Full access to all MCP tools",
           },
         },
       },
       registration: {
-        endpoint: "https://hemmabo-mcp-server.vercel.app/oauth/register",
+        endpoint: `${base}/oauth/register`,
         description:
           "Register an OAuth client to obtain client_id and client_secret. Use POST /oauth/token with grant_type=client_credentials to get an access token.",
       },
     },
     homepage: "https://hemmabo.com",
-    icon: "https://hemmabo-mcp-server.vercel.app/icon.png",
+    icon: `${base}/icon.png`,
     // ── ChatGPT Apps directory fields ─────────────────────────────
     developer: {
       name: "HemmaBo AB",

@@ -11,7 +11,7 @@
 
 import type { VercelRequest, VercelResponse } from "./_types.js";
 import { createClient } from "@supabase/supabase-js";
-import { executeTool } from "../lib/tools.js";
+import { executeTool, normalizeToolName } from "../lib/tools.js";
 import { validateApiKey } from "../src/auth.js";
 import { anonIdentifier, bearerIdentifier, checkRateLimit } from "../lib/rate-limit.js";
 import { registerToolSchemas, validateToolArgs } from "../lib/validate-args.js";
@@ -315,7 +315,8 @@ async function handleJsonRpc(
       return { jsonrpc: "2.0", id, result: { tools: TOOLS } };
 
     case "tools/call": {
-      const toolName = (params as { name: string })?.name;
+      const rawToolName = (params as { name: string })?.name;
+      const toolName = typeof rawToolName === "string" ? normalizeToolName(rawToolName) : rawToolName;
       const toolArgs = (params as { arguments?: Record<string, unknown> })?.arguments ?? {};
       const start = Date.now();
       let ok = true;
@@ -422,18 +423,18 @@ registerToolSchemas(TOOLS);
 //   booking.create, booking.negotiate, booking.checkout, booking.cancel,
 //   booking.reschedule, booking.status (PII).
 export const ANON_TOOLS: ReadonlySet<string> = new Set([
-  // Canonical dot names
-  "search.properties",
-  "search.availability",
-  "search.similar",
-  "search.compare",
-  "booking.quote",
-  // Legacy aliases (mirror lib/tools.ts TOOL_NAME_ALIASES for the same five)
+  // Canonical snake_case names (#59 — claude.ai web rejects dots)
   "hemmabo_search_properties",
   "hemmabo_search_availability",
   "hemmabo_search_similar",
   "hemmabo_compare_properties",
   "hemmabo_booking_quote",
+  // Legacy dotted aliases (inbound compatibility — TOOL_NAME_ALIASES)
+  "search.properties",
+  "search.availability",
+  "search.similar",
+  "search.compare",
+  "booking.quote",
 ]);
 
 /**

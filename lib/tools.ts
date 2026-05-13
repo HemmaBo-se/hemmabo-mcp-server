@@ -60,7 +60,17 @@ const TOOL_NAME_ALIASES: Record<string, string> = {
   "booking.reschedule": "hemmabo_booking_reschedule",
 };
 
-function normalizeToolName(name: string): string {
+/**
+ * Normalize an inbound tool name to the canonical snake_case form.
+ *
+ * Background (#59): The wire-level canonical names are snake_case
+ * (`hemmabo_search_properties`) so they pass the claude.ai web frontend
+ * regex `^[a-zA-Z0-9_-]{1,64}$`. The original dotted names
+ * (`search.properties`) remain accepted as inbound aliases for backwards
+ * compatibility — every dispatcher, validator, and auth gate funnels
+ * names through this function so dotted callers continue to work.
+ */
+export function normalizeToolName(name: string): string {
   return TOOL_NAME_ALIASES[name] ?? name;
 }
 
