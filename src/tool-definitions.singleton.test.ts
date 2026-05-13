@@ -4,8 +4,8 @@
  *
  *   (a) TOOL_SPECS innehåller fler eller färre än de 11 förväntade tool-namnen
  *   (b) Något annan källfil (utöver lib/tool-definitions.ts) deklarerar ett tool
- *       genom statisk literal — t.ex. `name: "search.properties"` i en
- *       TOOLS-array eller `server.tool("search.properties", ...)` direktanrop.
+ *       genom statisk literal — t.ex. `name: "hemmabo_search_properties"` i en
+ *       TOOLS-array eller `server.tool("hemmabo_search_properties", ...)` direktanrop.
  *   (c) api/mcp.ts TOOLS exports inte exakt motsvarar TOOL_SPECS i ordning.
  *
  * Bakgrund (#63 / ADR-0001 §3): tidigare definierades samma 11 tools i tre
@@ -27,17 +27,17 @@ import { TOOLS } from "../api/mcp.js";
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const EXPECTED_TOOL_NAMES = [
-  "search.properties",
-  "search.availability",
-  "search.similar",
-  "search.compare",
-  "booking.quote",
-  "booking.create",
-  "booking.negotiate",
-  "booking.checkout",
-  "booking.cancel",
-  "booking.status",
-  "booking.reschedule",
+  "hemmabo_search_properties",
+  "hemmabo_search_availability",
+  "hemmabo_search_similar",
+  "hemmabo_compare_properties",
+  "hemmabo_booking_quote",
+  "hemmabo_booking_create",
+  "hemmabo_booking_negotiate",
+  "hemmabo_booking_checkout",
+  "hemmabo_booking_cancel",
+  "hemmabo_booking_status",
+  "hemmabo_booking_reschedule",
 ] as const;
 
 /**
@@ -82,10 +82,10 @@ describe("TOOL_SPECS singleton (#63)", () => {
 
   it("(c) no other source file declares a tool by static literal", () => {
     // Forbidden patterns indicating a tool is being re-declared elsewhere:
-    //   - `server.tool("search.properties"` (SDK registration of a dotted tool name)
-    //   - `name: "search.properties"` inside an object literal at the start
+    //   - `server.tool("hemmabo_search_properties"` (SDK registration of a dotted tool name)
+    //   - `name: "hemmabo_search_properties"` inside an object literal at the start
     //     of a `TOOLS = [` array. We look for the simpler exact substring
-    //     `name: "search.properties"` and require it to live only in
+    //     `name: "hemmabo_search_properties"` and require it to live only in
     //     lib/tool-definitions.ts.
     const forbiddenPatterns: { pattern: RegExp; reason: string }[] = [];
     for (const name of EXPECTED_TOOL_NAMES) {

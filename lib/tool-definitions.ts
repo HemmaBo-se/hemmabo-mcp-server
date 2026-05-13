@@ -221,7 +221,7 @@ const PROPERTY_LISTING_ITEM: JsonSchemaField = {
 
 export const TOOL_SPECS: readonly ToolSpec[] = [
   {
-    name: "search.properties",
+    name: "hemmabo_search_properties",
     description:
       "Search available vacation rental properties by location and travel dates. Use this tool when the user wants to find or browse properties — it is the entry point for all booking flows. Do NOT use if the user already has a specific propertyId; use search.availability or booking.quote instead. Returns a list of available properties with propertyId, live pricing (public and federation rates), and capacity info needed for subsequent tools.",
     inputSchema: {
@@ -263,7 +263,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
     },
   },
   {
-    name: "search.availability",
+    name: "hemmabo_search_availability",
     description:
       "Check whether a specific property is available for the requested dates. Use this tool after the user has selected a property from search.properties and wants to confirm availability before getting a quote. Do NOT use for general browsing — use search.properties instead. Returns available=true/false with conflict details (blocked dates, existing bookings, active locks) if unavailable.",
     inputSchema: {
@@ -297,7 +297,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
     },
   },
   {
-    name: "search.similar",
+    name: "hemmabo_search_similar",
     description:
       "Find vacation rental properties similar to a given property on specific dates. Use this tool after the user has selected a property (via search.properties) and wants to see alternatives — same region, same property type, same or larger capacity. Do NOT use for the initial search; use search.properties instead. Returns a list of similar available properties with live pricing, excluding the source property.",
     inputSchema: {
@@ -358,7 +358,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
     },
   },
   {
-    name: "search.compare",
+    name: "hemmabo_compare_properties",
     description:
       "Compare availability and pricing for 2–10 specific properties on the same dates. Use this tool when the user is deciding between multiple properties and wants to see price and availability side by side. Do NOT use for discovery — use search.properties first. Returns one entry per propertyId, sorted by federation price (cheapest first), with unavailable properties last.",
     inputSchema: {
@@ -426,7 +426,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
     },
   },
   {
-    name: "booking.quote",
+    name: "hemmabo_booking_quote",
     description:
       "Get a detailed pricing quote for a specific property, dates, and guest count. Use this tool after confirming availability to show the user exact pricing before booking. Do NOT use before checking availability — the quote may be invalid if dates are unavailable. Returns publicTotal (website rate), federationTotal (direct booking discount), gapTotal (gap-night discount if applicable), per-night breakdown, and package pricing. All prices are integers in the property's local currency (e.g. SEK).",
     inputSchema: {
@@ -473,7 +473,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
     },
   },
   {
-    name: "booking.create",
+    name: "hemmabo_booking_create",
     description:
       "Create a direct booking without online payment (legacy flow). Use this tool when the user wants to book without Stripe payment — the booking is created with status 'pending' and requires host approval. Do NOT use for paid bookings — use booking.checkout instead. Do NOT retry on timeout without calling booking.status first to avoid duplicate bookings. Returns bookingId, final price, and confirmation details.",
     inputSchema: {
@@ -520,7 +520,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
     },
   },
   {
-    name: "booking.negotiate",
+    name: "hemmabo_booking_negotiate",
     description:
       "Create a binding price quote that locks the price for 15 minutes. Use this tool before booking.checkout to guarantee the quoted price during payment. Do NOT skip this step if the user wants price certainty — without a quoteId, checkout calculates a fresh price that may differ. Returns quoteId (pass to booking.checkout), public and federation totals, per-night breakdown, and expiry timestamp.",
     inputSchema: {
@@ -566,7 +566,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
     },
   },
   {
-    name: "booking.checkout",
+    name: "hemmabo_booking_checkout",
     description:
       "Create a booking with Stripe payment and return a checkout URL. Use this tool when the user is ready to pay — it creates the booking record and generates a Stripe payment page. Do NOT call twice for the same booking — check booking.status first to avoid double charges. Optionally pass quoteId from booking.negotiate to lock the price. Returns reservationId, paymentUrl (Stripe checkout page), and pricing details.",
     inputSchema: {
@@ -615,7 +615,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
     },
   },
   {
-    name: "booking.cancel",
+    name: "hemmabo_booking_cancel",
     description:
       "Cancel a confirmed booking and process the Stripe refund. Use this tool when the guest explicitly requests cancellation. Do NOT use for pending/unpaid bookings — those expire automatically. Refund amount is calculated based on the host's cancellation policy. Returns cancellation confirmation with refund amount and status.",
     inputSchema: {
@@ -646,7 +646,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
     },
   },
   {
-    name: "booking.status",
+    name: "hemmabo_booking_status",
     description:
       "Retrieve current status and full details of an existing booking. Use this tool to check payment status, confirm a booking went through, or look up details before rescheduling or cancelling. Use after booking.checkout if unsure whether the booking succeeded. Returns booking dates, guests, price, status, property info, and cancellation policy.",
     inputSchema: {
@@ -688,7 +688,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
     },
   },
   {
-    name: "booking.reschedule",
+    name: "hemmabo_booking_reschedule",
     description:
       "Reschedule a confirmed or pending booking to new dates. Use this tool when the guest wants to change travel dates on an existing booking. Do NOT use if the booking is cancelled or completed — check booking.status first. Automatically recalculates price and handles Stripe charge (if price increased) or refund (if decreased). Returns previous dates, new dates, price delta, and Stripe transaction details.",
     inputSchema: {

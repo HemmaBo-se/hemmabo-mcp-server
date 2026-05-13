@@ -40,17 +40,17 @@ import { TOOLS } from "../api/mcp.js";
  * booking.reschedule — UPDATE booking + Stripe createPaymentIntent eller createRefund
  */
 const EXPECTED: Record<string, { readOnlyHint: boolean; openWorldHint: boolean; destructiveHint: boolean }> = {
-  "search.properties":   { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
-  "search.availability": { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
-  "search.similar":      { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
-  "search.compare":      { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
-  "booking.quote":       { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
-  "booking.create":      { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
-  "booking.negotiate":   { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
-  "booking.checkout":    { readOnlyHint: false, openWorldHint: true,  destructiveHint: false },
-  "booking.cancel":      { readOnlyHint: false, openWorldHint: true,  destructiveHint: true  },
-  "booking.status":      { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
-  "booking.reschedule":  { readOnlyHint: false, openWorldHint: true,  destructiveHint: true  },
+  "hemmabo_search_properties":   { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
+  "hemmabo_search_availability": { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
+  "hemmabo_search_similar":      { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
+  "hemmabo_compare_properties":      { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
+  "hemmabo_booking_quote":       { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
+  "hemmabo_booking_create":      { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
+  "hemmabo_booking_negotiate":   { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
+  "hemmabo_booking_checkout":    { readOnlyHint: false, openWorldHint: true,  destructiveHint: false },
+  "hemmabo_booking_cancel":      { readOnlyHint: false, openWorldHint: true,  destructiveHint: true  },
+  "hemmabo_booking_status":      { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
+  "hemmabo_booking_reschedule":  { readOnlyHint: false, openWorldHint: true,  destructiveHint: true  },
 };
 
 describe("mcp tool annotations contract", () => {
