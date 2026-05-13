@@ -18,6 +18,7 @@ import { createClient } from "@supabase/supabase-js";
 import { resolveQuote } from "../lib/pricing.js";
 import { checkAvailability } from "../lib/availability.js";
 import { validateApiKey } from "../src/auth.js";
+import { baseUrl } from "../lib/base-url.js";
 import {
   fingerprint as idemFingerprint,
   lookup as idemLookup,
@@ -97,7 +98,7 @@ interface ACPCheckoutState {
   metadata?: Record<string, unknown>;
 }
 
-async function buildACPState(bookingId: string): Promise<ACPCheckoutState | null> {
+async function buildACPState(bookingId: string, base: string): Promise<ACPCheckoutState | null> {
   const supabase = getSupabase();
   const { data: booking, error } = await supabase
     .from("bookings")
@@ -164,7 +165,7 @@ async function buildACPState(bookingId: string): Promise<ACPCheckoutState | null
       : [{ type: "info", text: "Booking created, awaiting details." }],
     links: [
       { rel: "property", href: prop?.domain ? `https://${prop.domain}` : "https://hemmabo.com" },
-      { rel: "booking_status", href: `https://hemmabo-mcp-server.vercel.app/acp/checkouts/${booking.id}` },
+      { rel: "booking_status", href: `${base}/acp/checkouts/${booking.id}` },
     ],
     metadata: {
       property_id: booking.property_id,
@@ -191,7 +192,7 @@ function mapStatus(dbStatus: string): ACPCheckoutState["status"] {
 
 // ── ACP Endpoints ────────────────────────────────────────────────
 
-async function createCheckout(body: Record<string, unknown>, res: VercelResponse) {
+async function createCheckout(body: Record<string, unknown>, res: VercelResponse, base: string) {
   const supabase = getSupabase();
   const reader = getSupabaseReader();
 
@@ -269,17 +270,17 @@ async function createCheckout(body: Record<string, unknown>, res: VercelResponse
 
   if (bookErr) return res.status(500).json({ error: bookErr.message });
 
-  const state = await buildACPState(booking.id);
+  const state = await buildACPState(booking.id, base);
   return res.status(201).json(state);
 }
 
-async function getCheckout(checkoutId: string, res: VercelResponse) {
-  const state = await buildACPState(checkoutId);
+async function getCheckout(checkoutId: string, res: VercelResponse, base: string) {
+  const state = await buildACPState(checkoutId, base);
   if (!state) return res.status(404).json({ error: "Checkout not found" });
   return res.json(state);
 }
 
-async function updateCheckout(checkoutId: string, body: Record<string, unknown>, res: VercelResponse) {
+async function updateCheckout(checkoutId: string, body: Record<string, unknown>, res: VercelResponse, base: string) {
   const supabase = getSupabase();
   const reader = getSupabaseReader();
 
@@ -347,11 +348,11 @@ async function updateCheckout(checkoutId: string, body: Record<string, unknown>,
     if (updateErr) return res.status(500).json({ error: updateErr.message });
   }
 
-  const state = await buildACPState(checkoutId);
+  const state = await buildACPState(checkoutId, base);
   return res.json(state);
 }
 
-async function completeCheckout(checkoutId: string, body: Record<string, unknown>, res: VercelResponse) {
+async function completeCheckout(checkoutId: string, body: Record<string, unknown>, res: VercelResponse, base: string) {
   const supabase = getSupabase();
   const stripeKey = getStripeKey();
 
@@ -421,11 +422,11 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
 
   if (updateErr) return res.status(500).json({ error: updateErr.message });
 
-  const state = await buildACPState(checkoutId);
+  const state = await buildACPState(checkoutId, base);
   return res.json(state);
 }
 
-async function cancelCheckout(checkoutId: string, res: VercelResponse) {
+async function cancelCheckout(checkoutId: string, res: VercelResponse, base: string) {
   const supabase = getSupabase();
 
   // Fetch booking — service role required (bookings table blocks anon reads)
@@ -466,7 +467,7 @@ async function cancelCheckout(checkoutId: string, res: VercelResponse) {
 
   if (updateErr) return res.status(500).json({ error: updateErr.message });
 
-  const state = await buildACPState(checkoutId);
+  const state = await buildACPState(checkoutId, base);
   if (state && refund) {
     state.messages.push({ type: "info", text: `Refund issued: ${refund.id}` });
   }
@@ -512,6 +513,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const checkoutId = pathParts[1];
   const action = pathParts[2]; // "complete" or "cancel" or undefined
   const isMutation = req.method === "POST" || req.method === "PUT";
+  const base = baseUrl(req);
 
   // Rate-limit (#65). Applied to ALL routed /acp/checkouts traffic, before
   // the auth gate, so unauthenticated probes are also throttled. The "kind"
@@ -632,23 +634,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // POST /acp/checkouts — Create
     if (!checkoutId && req.method === "POST") {
-      await createCheckout(req.body || {}, recordingRes);
+      await createCheckout(req.body || {}, recordingRes, base);
     }
     // GET /acp/checkouts/:id — Retrieve
     else if (checkoutId && !action && req.method === "GET") {
-      await getCheckout(checkoutId, recordingRes);
+      await getCheckout(checkoutId, recordingRes, base);
     }
     // PUT /acp/checkouts/:id — Update
     else if (checkoutId && !action && req.method === "PUT") {
-      await updateCheckout(checkoutId, req.body || {}, recordingRes);
+      await updateCheckout(checkoutId, req.body || {}, recordingRes, base);
     }
     // POST /acp/checkouts/:id/complete — Complete with payment
     else if (checkoutId && action === "complete" && req.method === "POST") {
-      await completeCheckout(checkoutId, req.body || {}, recordingRes);
+      await completeCheckout(checkoutId, req.body || {}, recordingRes, base);
     }
     // POST /acp/checkouts/:id/cancel — Cancel
     else if (checkoutId && action === "cancel" && req.method === "POST") {
-      await cancelCheckout(checkoutId, recordingRes);
+      await cancelCheckout(checkoutId, recordingRes, base);
     } else {
       return res.status(405).json({ error: "Method not allowed" });
     }
