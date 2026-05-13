@@ -17,7 +17,7 @@ import type { VercelRequest, VercelResponse } from "./_types.js";
 import { createClient } from "@supabase/supabase-js";
 import { resolveQuote } from "../lib/pricing.js";
 import { checkAvailability } from "../lib/availability.js";
-import { validateApiKey } from "../src/auth.js";
+import { validateAuth } from "../src/auth.js";
 import { baseUrl } from "../lib/base-url.js";
 import {
   fingerprint as idemFingerprint,
@@ -545,11 +545,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // from buildACPState() contains guest PII (name, email, phone, dates).
   // Without this gate, anyone holding (or guessing) a booking UUID can read
   // that PII — a GDPR exposure surface (#67). Discovery doc (no pathParts
-  // beyond "checkouts") stays public. Mutations still require auth via the
-  // same gate (the `isMutation` branch is now subsumed by `requiresAuth`).
+  // beyond "checkouts") stays public. Uses async validateAuth (#64) which
+  // resolves bearer tokens against the runtime OAuth registry rather than
+  // the legacy static MCP_API_KEY.
   const requiresAuth = isMutation || Boolean(checkoutId);
   if (requiresAuth) {
-    const authErr = validateApiKey(req.headers["authorization"]);
+    const authErr = await validateAuth(
+      Array.isArray(req.headers["authorization"])
+        ? req.headers["authorization"][0]
+        : req.headers["authorization"],
+    );
     if (authErr) {
       return res.status(401).json({
         error: `${authErr}. ACP agents must pass: Authorization: Bearer <key>`,
