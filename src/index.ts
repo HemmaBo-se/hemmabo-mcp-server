@@ -25,6 +25,7 @@ import { executeTool } from "../lib/tools.js";
 import { TOOL_SPECS, toZodShape } from "../lib/tool-definitions.js";
 import { validateAuth } from "./auth.js";
 import { anonIdentifier, bearerIdentifier, checkRateLimit } from "../lib/rate-limit.js";
+import rateLimit from "express-rate-limit";
 import { PROMPTS as CATALOG_PROMPTS, TOOLS as CATALOG_TOOLS } from "../api/mcp.js";
 
 // Tool execution is shared via lib/tools.ts (single source of truth for all
@@ -282,8 +283,20 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok", version: "3.2.8" });
 });
 
+// Standard Express-recognised rate-limit middleware on /mcp. This is the
+// pattern CodeQL's js/missing-rate-limiting query matches; the deeper
+// per-token Upstash limit (lib/rate-limit.ts, #65/#77) still runs inside
+// the handler for production accuracy. 600/min is a very loose safety net —
+// the real budgets (60 anon / 200 bearer) are enforced by checkRateLimit.
+const mcpIpLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 600,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+});
+
 // MCP endpoint
-app.all("/mcp", async (req, res) => {
+app.all("/mcp", mcpIpLimiter, async (req, res) => {
   // MCP-09: auth gate. Grövre än api/mcp.ts — där kontrolleras endast
   // tools/call via inspektion av den förparsade JSON-RPC-bodyn. Här kan vi
   // inte inspektera method före StreamableHTTPServerTransport tar över
