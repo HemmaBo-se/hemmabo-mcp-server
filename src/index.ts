@@ -24,6 +24,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { executeTool } from "../lib/tools.js";
 import { TOOL_SPECS, toZodShape } from "../lib/tool-definitions.js";
 import { validateAuth } from "./auth.js";
+import { anonIdentifier, bearerIdentifier, checkRateLimit } from "../lib/rate-limit.js";
 import { PROMPTS as CATALOG_PROMPTS, TOOLS as CATALOG_TOOLS } from "../api/mcp.js";
 
 // Tool execution is shared via lib/tools.ts (single source of truth for all
@@ -291,6 +292,33 @@ app.all("/mcp", async (req, res) => {
   // MCP_API_KEY är satt. GET/OPTIONS/DELETE och öppet läge (ingen nyckel
   // satt) lämnas oförändrade.
   if (req.method === "POST") {
+    // Rate-limit BEFORE the auth DB-lookup so an unauthenticated brute-force
+    // cannot DoS the OAuth registry. Same SoT as api/mcp.ts (#65/#77). We
+    // throttle every POST here (not just tools/call) because the JSON-RPC
+    // body has not been parsed yet at this transport layer.
+    const hasBearer = Boolean(req.headers["authorization"]);
+    const kind = hasBearer ? "bearer" : "anon";
+    const identifier = hasBearer
+      ? bearerIdentifier(req.headers["authorization"] as string | undefined)
+      : anonIdentifier(req.headers as Record<string, string | string[] | undefined>);
+    const rl = await checkRateLimit(kind, identifier);
+    if (!rl.ok) {
+      res.setHeader("Retry-After", String(rl.retryAfterSec ?? 60));
+      if (rl.limit !== undefined) res.setHeader("X-RateLimit-Limit", String(rl.limit));
+      res.setHeader("X-RateLimit-Remaining", "0");
+      return res.status(429).json({
+        jsonrpc: "2.0",
+        error: {
+          code: -32000,
+          message: `Rate limit exceeded — retry in ${rl.retryAfterSec ?? 60}s`,
+        },
+      });
+    }
+    if (rl.limit !== undefined && rl.remaining !== undefined) {
+      res.setHeader("X-RateLimit-Limit", String(rl.limit));
+      res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
+    }
+
     const authErr = await validateAuth(
       Array.isArray(req.headers["authorization"])
         ? req.headers["authorization"][0]
