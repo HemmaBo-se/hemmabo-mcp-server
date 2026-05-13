@@ -37,11 +37,11 @@ function captureJson(handler: (req: any, res: any) => unknown): Promise<unknown>
 describe("manifest per-tool auth contract", () => {
   it("ANON_TOOLS contains the canonical 5 read-only tools", () => {
     for (const name of [
-      "search.properties",
-      "search.availability",
-      "search.similar",
-      "search.compare",
-      "booking.quote",
+      "hemmabo_search_properties",
+      "hemmabo_search_availability",
+      "hemmabo_search_similar",
+      "hemmabo_compare_properties",
+      "hemmabo_booking_quote",
     ]) {
       assert.ok(ANON_TOOLS.has(name), `ANON_TOOLS missing ${name}`);
     }

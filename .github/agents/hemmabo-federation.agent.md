@@ -32,12 +32,15 @@ The federation MCP server connects AI agents (like Claude, ChatGPT) to independe
   - `gapTotal` — gap-night discount for calendar gaps (host-controlled %)
 
 ## Core Source Files
-- `src/index.ts` — MCP server, all tool definitions, Express app
-- `src/pricing.ts` — Pricing resolver (quote calculations)
-- `src/availability.ts` — Availability checker (three-layer: blocked dates, bookings, locks)
-- `api/acp.ts` — Agentic Commerce Protocol endpoints
+- `src/index.ts` — MCP server (Streamable HTTP transport), Express app
+- `src/stdio.ts` — MCP server (stdio transport, used by Glama/Smithery)
+- `lib/tool-definitions.ts` — Single source of truth for all 11 tool specs (#63)
+- `lib/tools.ts` — Tool dispatcher (executeTool) shared by all transports
+- `lib/pricing.ts` — Pricing resolver (quote calculations, federation/gap discounts)
+- `lib/availability.ts` — Availability checker (three-layer: blocked dates, bookings, locks). Fail-closed on DB error.
+- `api/acp.ts` — Agentic Commerce Protocol endpoints (Stripe)
 - `api/mcp.ts` — Vercel serverless MCP handler
-- `lib/pricing.ts` / `lib/availability.ts` — Shared library versions
+- `api/mcp-manifest.ts` — /.well-known/mcp.json discovery manifest
 
 ## Approach
 1. **Understand first**: Read the relevant file(s) before answering questions about logic

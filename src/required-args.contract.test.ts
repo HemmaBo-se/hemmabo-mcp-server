@@ -34,17 +34,17 @@ const MISSING_RE = /Missing required argument\(s\):/;
 const POSTGRES_LEAK_RE = /invalid input syntax|"undefined"|22P02|relation .* does not exist/i;
 
 const REQUIRED_BY_TOOL: ReadonlyArray<{ tool: string; required: readonly string[] }> = [
-  { tool: "search.properties",   required: ["guests", "checkIn", "checkOut"] },
-  { tool: "search.availability", required: ["propertyId", "checkIn", "checkOut"] },
-  { tool: "search.similar",      required: ["propertyId", "checkIn", "checkOut"] },
-  { tool: "search.compare",      required: ["propertyIds", "checkIn", "checkOut", "guests"] },
-  { tool: "booking.quote",       required: ["propertyId", "checkIn", "checkOut", "guests"] },
-  { tool: "booking.create",      required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"] },
-  { tool: "booking.negotiate",   required: ["propertyId", "checkIn", "checkOut", "guests"] },
-  { tool: "booking.checkout",    required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"] },
-  { tool: "booking.cancel",      required: ["reservationId"] },
-  { tool: "booking.status",      required: ["reservationId"] },
-  { tool: "booking.reschedule",  required: ["reservationId", "newCheckIn", "newCheckOut"] },
+  { tool: "hemmabo_search_properties",   required: ["guests", "checkIn", "checkOut"] },
+  { tool: "hemmabo_search_availability", required: ["propertyId", "checkIn", "checkOut"] },
+  { tool: "hemmabo_search_similar",      required: ["propertyId", "checkIn", "checkOut"] },
+  { tool: "hemmabo_compare_properties",      required: ["propertyIds", "checkIn", "checkOut", "guests"] },
+  { tool: "hemmabo_booking_quote",       required: ["propertyId", "checkIn", "checkOut", "guests"] },
+  { tool: "hemmabo_booking_create",      required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"] },
+  { tool: "hemmabo_booking_negotiate",   required: ["propertyId", "checkIn", "checkOut", "guests"] },
+  { tool: "hemmabo_booking_checkout",    required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"] },
+  { tool: "hemmabo_booking_cancel",      required: ["reservationId"] },
+  { tool: "hemmabo_booking_status",      required: ["reservationId"] },
+  { tool: "hemmabo_booking_reschedule",  required: ["reservationId", "newCheckIn", "newCheckOut"] },
 ];
 
 describe("validateRequiredArgs unit", () => {
@@ -95,7 +95,7 @@ describe("executeTool rejects empty args before reaching Supabase", () => {
   }
 
   it("search.properties with partial args (only region) is rejected — reproducer for the prod 200-wrapping-error incident", async () => {
-    const result = await executeTool("search.properties", { region: "Skane" }, stubClients());
+    const result = await executeTool("hemmabo_search_properties", { region: "Skane" }, stubClients());
     assert.equal(result.isError, true);
     const text = result.content[0]?.text ?? "";
     assert.match(text, MISSING_RE);
@@ -103,7 +103,7 @@ describe("executeTool rejects empty args before reaching Supabase", () => {
   });
 
   it("dot-notation and underscored alias share the same validation gate", async () => {
-    const dot = await executeTool("search.properties", {}, stubClients());
+    const dot = await executeTool("hemmabo_search_properties", {}, stubClients());
     const alias = await executeTool("hemmabo_search_properties", {}, stubClients());
     assert.equal(dot.isError, true);
     assert.equal(alias.isError, true);
