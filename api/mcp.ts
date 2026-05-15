@@ -16,6 +16,7 @@ import { validateAuth } from "../src/auth.js";
 import { anonIdentifier, bearerIdentifier, checkRateLimit } from "../lib/rate-limit.js";
 import { registerToolSchemas, validateToolArgs } from "../lib/validate-args.js";
 import { TOOL_SPECS } from "../lib/tool-definitions.js";
+import { baseUrl } from "../lib/base-url.js";
 
 // ── Structured logging ───────────────────────────────────────────
 
@@ -497,6 +498,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         : req.headers["authorization"],
     );
     if (authErr) {
+      // RFC 9728 §5.1 — point the client at the protected-resource metadata
+      // so it can discover the authorization server without prior
+      // configuration. Claude.ai depends on this header to start the
+      // authorization_code flow.
+      const resourceMetadataUrl = `${baseUrl(req)}/.well-known/oauth-protected-resource`;
+      res.setHeader(
+        "WWW-Authenticate",
+        `Bearer realm="hemmabo-mcp", resource_metadata="${resourceMetadataUrl}", error="invalid_token"`
+      );
       return res.status(401).json({
         jsonrpc: "2.0",
         error: { code: -32600, message: `${authErr}. Pass your API key as: Authorization: Bearer <key>` },
