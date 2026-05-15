@@ -18,6 +18,7 @@
     { "source": "/.well-known/oauth-protected-resource", "destination": "/api/oauth-protected-resource" },
     { "source": "/acp/:path*", "destination": "/api/acp" },
     { "source": "/oauth/token", "destination": "/api/oauth" },
+    { "source": "/oauth/authorize", "destination": "/api/oauth-authorize" },
     { "source": "/oauth/register", "destination": "/api/oauth-register" },
     { "source": "/stripe/webhook", "destination": "/api/stripe-webhook" }
   ]
