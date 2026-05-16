@@ -44,7 +44,7 @@ describe("availability — blocked dates", () => {
     };
   }
 
-  it("treats a one-day blocked date as unavailable for that night", async () => {
+  it("treats a legacy one-day blocked date as unavailable for that night", async () => {
     const { calls, supabase } = stubSupabaseForBlockedRows([
       {
         start_date: "2026-05-23",
@@ -70,7 +70,7 @@ describe("availability — blocked dates", () => {
           call.column === "end_date" &&
           call.value === "2026-05-23",
       ),
-      "property_blocked_dates must use inclusive end_date comparison",
+      "property_blocked_dates query must fetch legacy same-day rows before half-open filtering",
     );
   });
 
