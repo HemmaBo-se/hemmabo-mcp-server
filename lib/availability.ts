@@ -18,6 +18,20 @@ import { SupabaseClient } from "@supabase/supabase-js";
 // unaffected and continue to block regardless of age.
 const PENDING_BOOKING_TTL_MS = 24 * 60 * 60 * 1000;
 
+function addUtcDays(dateKey: string, days: number): string {
+  const d = new Date(`${dateKey}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function overlapsHalfOpen(startA: string, endA: string, startB: string, endB: string): boolean {
+  return startA < endB && startB < endA;
+}
+
+function blockedEndExclusive(startDate: string, endDate: string): string {
+  return endDate <= startDate ? addUtcDays(startDate, 1) : endDate;
+}
+
 export interface AvailabilityResult {
   propertyId: string;
   checkIn: string;
@@ -39,12 +53,21 @@ export async function checkAvailability(
     .select("start_date, end_date, source")
     .eq("property_id", propertyId)
     .lt("start_date", checkOut)
-    .gt("end_date", checkIn);
+    .gte("end_date", checkIn);
 
   // Fail-closed: DB error → treat as unavailable to avoid double-booking
   if (blockedErr) return { propertyId, checkIn, checkOut, available: false, reason: "Availability check failed (blocked dates query error)" };
 
-  if (blocked?.length) {
+  const blockedConflict = (blocked ?? []).some((row: { start_date: string; end_date: string }) =>
+    overlapsHalfOpen(
+      checkIn,
+      checkOut,
+      row.start_date,
+      blockedEndExclusive(row.start_date, row.end_date),
+    ),
+  );
+
+  if (blockedConflict) {
     return {
       propertyId,
       checkIn,
