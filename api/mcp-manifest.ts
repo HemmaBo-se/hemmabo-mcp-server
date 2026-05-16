@@ -29,7 +29,7 @@ const MANIFEST_SUMMARIES: Record<string, string> = {
   "hemmabo_search_properties":
     "Search available vacation rental properties by region, country, guest count and dates. Returns live availability and pricing.",
   "hemmabo_search_availability":
-    "Check whether a specific property is available for given check-in and check-out dates.",
+    "Check whether a specific property is available for given dates. If blocked, returns same-month alternatives so agents can keep the guest moving.",
   "hemmabo_search_similar":
     "Find vacation rental properties similar to a given property on specific dates — same region, type, and capacity. Returns available alternatives with live pricing.",
   "hemmabo_compare_properties":
