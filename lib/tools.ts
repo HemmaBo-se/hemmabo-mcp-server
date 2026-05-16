@@ -250,9 +250,18 @@ async function findAlternativeDates(
   checkIn: string,
   checkOut: string,
   guests?: number,
+  maxGuests?: number | null,
   max = 3
 ): Promise<Array<Record<string, unknown>>> {
   const alternatives: Array<Record<string, unknown>> = [];
+  if (
+    typeof guests === "number" &&
+    typeof maxGuests === "number" &&
+    guests > maxGuests
+  ) {
+    return alternatives;
+  }
+
   for (const window of buildSameMonthDateWindows(checkIn, checkOut)) {
     const avail = await checkAvailability(supabase, propertyId, window.checkIn, window.checkOut);
     if (!avail.available) continue;
@@ -540,7 +549,14 @@ export async function executeTool(
             propertyType: prop.property_type,
             available: false,
             reason: avail.reason ?? "Requested dates are not available",
-            alternativeDates: await findAlternativeDates(supabase, prop.id, checkIn, checkOut, guests),
+            alternativeDates: await findAlternativeDates(
+              supabase,
+              prop.id,
+              checkIn,
+              checkOut,
+              guests,
+              prop.max_guests,
+            ),
           });
           continue;
         }
@@ -586,6 +602,42 @@ export async function executeTool(
       if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }], isError: true };
       const orderErr = validateDateOrder(checkIn, checkOut);
       if (orderErr) return { content: [{ type: "text", text: JSON.stringify({ error: orderErr }) }], isError: true };
+
+      let maxGuests: number | null = null;
+      if (typeof guests === "number") {
+        const { data: property, error: propErr } = await reader
+          .from("properties")
+          .select("max_guests")
+          .eq("id", propertyId)
+          .single();
+        if (propErr || !property) {
+          return {
+            content: [{ type: "text", text: JSON.stringify({ error: "Property not found" }) }],
+            isError: true,
+          };
+        }
+        maxGuests = property.max_guests ?? null;
+        if (typeof maxGuests === "number" && guests > maxGuests) {
+          return {
+            content: [{
+              type: "text",
+              text: JSON.stringify({
+                propertyId,
+                checkIn,
+                checkOut,
+                guests,
+                maxGuests,
+                available: false,
+                reasonCode: "guests_exceed_max",
+                reason: `Property accommodates maximum ${maxGuests} guests`,
+                alternativeDates: [],
+                agentGuidance: "The requested guest count exceeds this property's capacity. Do not offer alternative dates for this property; ask for fewer guests or search for a larger property.",
+              }, null, 2),
+            }],
+          };
+        }
+      }
+
       // MCP-06: use service-role client so bookings table is visible to availability checks
       const result = await checkAvailability(supabase, propertyId, checkIn, checkOut);
       if (!result.available) {
@@ -594,7 +646,16 @@ export async function executeTool(
             type: "text",
             text: JSON.stringify({
               ...result,
-              alternativeDates: await findAlternativeDates(supabase, propertyId, checkIn, checkOut, guests),
+              guests,
+              maxGuests,
+              alternativeDates: await findAlternativeDates(
+                supabase,
+                propertyId,
+                checkIn,
+                checkOut,
+                guests,
+                maxGuests,
+              ),
               agentGuidance: "Requested dates are unavailable. If alternativeDates is non-empty, offer those date windows before ending the conversation.",
             }, null, 2),
           }],
