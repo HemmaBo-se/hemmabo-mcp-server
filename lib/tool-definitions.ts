@@ -269,13 +269,14 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_search_availability",
     description:
-      "Check whether a specific property is available for the requested dates. Use this tool after the user has selected a property from search.properties and wants to confirm availability before getting a quote. Do NOT use for general browsing — use search.properties instead. Returns available=true/false with conflict details (blocked dates, existing bookings, active locks) if unavailable.",
+      "Check whether a specific property is available for the requested dates. Use this tool after the user has selected a property from search.properties and wants to confirm availability before getting a quote. Do NOT use for general browsing — use search.properties instead. Returns available=true/false with conflict details and same-month alternative date windows when unavailable.",
     inputSchema: {
       type: "object",
       properties: {
         propertyId: { ...F.propertyId, description: "Property UUID returned by search.properties (e.g. '550e8400-e29b-41d4-a716-446655440000')." },
         checkIn: F.checkIn,
         checkOut: F.checkOut,
+        guests: { ...F.guests, description: "Optional guest count. When provided, alternative date windows include live pricing." },
       },
       required: ["propertyId", "checkIn", "checkOut"],
       additionalProperties: false,
@@ -288,6 +289,23 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         checkOut: { type: "string" },
         available: { type: "boolean", description: "True if the property is bookable for the entire range." },
         reason: { type: "string", description: "Reason when available=false." },
+        alternativeDates: {
+          type: "array",
+          description: "Nearby same-month date windows to offer when the requested dates are unavailable.",
+          items: {
+            type: "object",
+            properties: {
+              checkIn: { type: "string" },
+              checkOut: { type: "string" },
+              available: { type: "boolean" },
+              currency: { type: "string" },
+              publicTotal: { type: "number" },
+              federationTotal: { type: "number" },
+              federationDiscountPercent: { type: "number" },
+            },
+            additionalProperties: true,
+          },
+        },
         error: { type: "string", description: "Present only when isError=true." },
       },
       required: ["available"],

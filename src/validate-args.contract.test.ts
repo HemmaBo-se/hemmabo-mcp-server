@@ -47,6 +47,14 @@ describe("validateToolArgs happy paths", () => {
     });
     assert.equal(r.ok, true, JSON.stringify(r.errors));
   });
+
+  it("accepts optional guests for search.availability so unavailable dates can return priced alternatives", () => {
+    const r = validateToolArgs("hemmabo_search_availability", {
+      propertyId: "3ef1d46d-5c23-46fe-86cb-8e714abf734f",
+      ...VALID_SEARCH,
+    });
+    assert.equal(r.ok, true, JSON.stringify(r.errors));
+  });
 });
 
 describe("validateToolArgs strict typing", () => {

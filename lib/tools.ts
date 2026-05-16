@@ -118,6 +118,161 @@ function toolError(message: string): ToolResult {
   return { content: [{ type: "text", text: JSON.stringify({ error: message }) }], isError: true };
 }
 
+type SearchPropertyRow = {
+  id: string;
+  name: string;
+  domain: string | null;
+  region: string | null;
+  city: string | null;
+  country: string | null;
+  max_guests: number | null;
+  currency: string | null;
+  property_type: string | null;
+  direct_booking_discount: number | null;
+};
+
+const LOCATION_ALIASES: Record<string, readonly string[]> = {
+  se: ["sweden", "sverige"],
+  sverige: ["sweden"],
+  sweden: ["sverige"],
+  skane: ["skåne", "skane lan", "skåne län", "southern sweden", "south sweden", "sodra sverige"],
+  "skane lan": ["skåne län", "skane", "skåne"],
+  "southern sweden": ["skane", "skåne", "skåne län"],
+  "south sweden": ["skane", "skåne", "skåne län"],
+  "sodra sverige": ["skane", "skåne", "skåne län"],
+  kavlinge: ["kävlinge"],
+};
+
+export function normalizeLocationTerm(value: string | null | undefined): string {
+  return (value ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[øö]/g, "o")
+    .replace(/[æä]/g, "a")
+    .replace(/[å]/g, "a")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+export function expandLocationTerms(...values: Array<string | null | undefined>): string[] {
+  const terms = new Set<string>();
+  const visit = (value: string | null | undefined) => {
+    const normalized = normalizeLocationTerm(value);
+    if (!normalized || terms.has(normalized)) return;
+    terms.add(normalized);
+    for (const alias of LOCATION_ALIASES[normalized] ?? []) visit(alias);
+  };
+  for (const value of values) visit(value);
+  return [...terms];
+}
+
+function fieldMatchesAnyTerm(value: string | null | undefined, terms: readonly string[]): boolean {
+  const normalized = normalizeLocationTerm(value);
+  return normalized.length > 0 && terms.some((term) => normalized.includes(term));
+}
+
+export function propertyMatchesLocation(
+  property: Pick<SearchPropertyRow, "region" | "city" | "country">,
+  region?: string,
+  country?: string
+): boolean {
+  const searchable = [
+    property.region,
+    property.city,
+    property.country,
+    [property.city, property.region].filter(Boolean).join(" "),
+    [property.region, property.country].filter(Boolean).join(" "),
+  ];
+
+  const regionTerms = expandLocationTerms(region);
+  const countryTerms = expandLocationTerms(country);
+
+  const regionOk =
+    regionTerms.length === 0 ||
+    searchable.some((field) => fieldMatchesAnyTerm(field, regionTerms));
+  const countryOk =
+    countryTerms.length === 0 ||
+    fieldMatchesAnyTerm(property.country, countryTerms);
+
+  return regionOk && countryOk;
+}
+
+function parseIsoDate(date: string): Date {
+  return new Date(`${date}T00:00:00.000Z`);
+}
+
+function formatIsoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function addDays(date: Date, days: number): Date {
+  const out = new Date(date);
+  out.setUTCDate(out.getUTCDate() + days);
+  return out;
+}
+
+function nightsBetween(checkIn: string, checkOut: string): number {
+  const ms = parseIsoDate(checkOut).getTime() - parseIsoDate(checkIn).getTime();
+  return Math.max(1, Math.round(ms / 86_400_000));
+}
+
+export function buildSameMonthDateWindows(checkIn: string, checkOut: string, max = 12): Array<{ checkIn: string; checkOut: string }> {
+  const requestedStart = parseIsoDate(checkIn);
+  const nights = nightsBetween(checkIn, checkOut);
+  const month = requestedStart.getUTCMonth();
+  const year = requestedStart.getUTCFullYear();
+  const windows: Array<{ checkIn: string; checkOut: string }> = [];
+  const seen = new Set<string>();
+
+  for (let offset = 1; windows.length < max && offset <= 31; offset++) {
+    for (const direction of [1, -1]) {
+      const start = addDays(requestedStart, offset * direction);
+      const end = addDays(start, nights);
+      if (start.getUTCFullYear() !== year || start.getUTCMonth() !== month) continue;
+      if (end.getUTCFullYear() !== year || end.getUTCMonth() !== month) continue;
+      const window = { checkIn: formatIsoDate(start), checkOut: formatIsoDate(end) };
+      const key = `${window.checkIn}/${window.checkOut}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      windows.push(window);
+      if (windows.length >= max) break;
+    }
+  }
+
+  return windows;
+}
+
+async function findAlternativeDates(
+  supabase: SupabaseClient,
+  propertyId: string,
+  checkIn: string,
+  checkOut: string,
+  guests?: number,
+  max = 3
+): Promise<Array<Record<string, unknown>>> {
+  const alternatives: Array<Record<string, unknown>> = [];
+  for (const window of buildSameMonthDateWindows(checkIn, checkOut)) {
+    const avail = await checkAvailability(supabase, propertyId, window.checkIn, window.checkOut);
+    if (!avail.available) continue;
+    const alternative: Record<string, unknown> = { ...window, available: true };
+    if (typeof guests === "number") {
+      const quote = await resolveQuote(supabase, propertyId, window.checkIn, window.checkOut, guests);
+      if (!("error" in quote)) {
+        alternative.currency = quote.currency;
+        alternative.publicTotal = quote.publicTotal;
+        alternative.federationTotal = quote.federationTotal;
+        alternative.federationDiscountPercent = quote.federationDiscountPercent;
+        alternative.packageApplied = quote.packageApplied;
+      }
+    }
+    alternatives.push(alternative);
+    if (alternatives.length >= max) break;
+  }
+  return alternatives;
+}
+
 // ── booking_locks helpers ─────────────────────────────────────────────────────
 
 const LOCK_TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -362,17 +517,33 @@ export async function executeTool(
         .eq("published", true)
         .gte("max_guests", guests);
 
-      if (region) query = query.ilike("region", `%${region}%`);
-      if (country) query = query.ilike("country", `%${country}%`);
-
       const { data: properties, error } = await query;
       if (error) return { content: [{ type: "text", text: JSON.stringify({ error: error.message }) }], isError: true };
 
+      const matchedProperties = (properties ?? []).filter((prop: SearchPropertyRow) =>
+        propertyMatchesLocation(prop, region, country)
+      );
       const results = [];
-      for (const prop of properties ?? []) {
+      const unavailableMatches = [];
+      for (const prop of matchedProperties) {
         // MCP-06: use service-role client so bookings table is visible to availability/gap checks
         const avail = await checkAvailability(supabase, prop.id, checkIn, checkOut);
-        if (!avail.available) continue;
+        if (!avail.available) {
+          unavailableMatches.push({
+            propertyId: prop.id,
+            name: prop.name,
+            domain: prop.domain,
+            region: prop.region,
+            city: prop.city,
+            country: prop.country,
+            maxGuests: prop.max_guests,
+            propertyType: prop.property_type,
+            available: false,
+            reason: avail.reason ?? "Requested dates are not available",
+            alternativeDates: await findAlternativeDates(supabase, prop.id, checkIn, checkOut, guests),
+          });
+          continue;
+        }
         const quote = await resolveQuote(supabase, prop.id, checkIn, checkOut, guests);
         if ("error" in quote) continue;
         results.push({
@@ -386,19 +557,49 @@ export async function executeTool(
         });
       }
 
-      return { content: [{ type: "text", text: JSON.stringify({ checkIn, checkOut, guests, properties: results }, null, 2) }] };
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            checkIn,
+            checkOut,
+            guests,
+            properties: results,
+            unavailableMatches,
+            agentGuidance: results.length > 0
+              ? "Offer the available properties first."
+              : unavailableMatches.some((p) => Array.isArray(p.alternativeDates) && p.alternativeDates.length > 0)
+                ? "Requested dates are unavailable. Offer the alternativeDates for the matched property instead of ending the conversation."
+                : matchedProperties.length > 0
+                  ? "Matching properties were found, but the requested dates and nearby same-month alternatives are unavailable. Ask whether the guest can change month or guest count."
+                  : "No published property matched the location and capacity. Ask for a broader destination or fewer guests.",
+          }, null, 2),
+        }],
+      };
     }
 
     case "hemmabo_search_availability": {
       const reqErr = validateRequiredArgs(args, ["propertyId", "checkIn", "checkOut"]);
       if (reqErr) return toolError(reqErr);
-      const { propertyId, checkIn, checkOut } = args as { propertyId: string; checkIn: string; checkOut: string };
+      const { propertyId, checkIn, checkOut, guests } = args as { propertyId: string; checkIn: string; checkOut: string; guests?: number };
       const dateErr = validateDates(checkIn, checkOut);
       if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }], isError: true };
       const orderErr = validateDateOrder(checkIn, checkOut);
       if (orderErr) return { content: [{ type: "text", text: JSON.stringify({ error: orderErr }) }], isError: true };
       // MCP-06: use service-role client so bookings table is visible to availability checks
       const result = await checkAvailability(supabase, propertyId, checkIn, checkOut);
+      if (!result.available) {
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              ...result,
+              alternativeDates: await findAlternativeDates(supabase, propertyId, checkIn, checkOut, guests),
+              agentGuidance: "Requested dates are unavailable. If alternativeDates is non-empty, offer those date windows before ending the conversation.",
+            }, null, 2),
+          }],
+        };
+      }
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     }
 
