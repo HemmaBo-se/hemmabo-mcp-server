@@ -268,6 +268,62 @@ describe("tool parity", () => {
   });
 });
 
+describe("hemmabo_search_availability — capacity guard", () => {
+  it("rejects guest counts above property max before suggesting date alternatives", async () => {
+    const { executeTool } = await import("../lib/tools.js");
+
+    const makeQuery = (table: string) => {
+      const query: any = {
+        select: () => query,
+        eq: () => query,
+        lt: () => query,
+        gt: () => query,
+        gte: () => query,
+        or: () => query,
+        neq: () => query,
+        single: () => {
+          if (table === "properties") {
+            return Promise.resolve({
+              data: { id: "villa", max_guests: 6 },
+              error: null,
+            });
+          }
+          return Promise.resolve({
+            data: null,
+            error: { message: "unexpected single" },
+          });
+        },
+        then: (resolve: (value: unknown) => unknown) =>
+          Promise.resolve({ data: [], error: null }).then(resolve),
+      };
+      return query;
+    };
+
+    const stubSupabase: any = {
+      from: (table: string) => makeQuery(table),
+    };
+
+    const result = await executeTool(
+      "hemmabo_search_availability",
+      {
+        propertyId: "3ef1d46d-5c23-46fe-86cb-8e714abf734f",
+        checkIn: "2026-05-23",
+        checkOut: "2026-05-24",
+        guests: 7,
+      },
+      { supabase: stubSupabase, reader: stubSupabase },
+    );
+
+    assert.equal(result.isError, undefined);
+    const parsed = JSON.parse(result.content[0].text);
+    assert.equal(parsed.available, false);
+    assert.equal(parsed.reasonCode, "guests_exceed_max");
+    assert.equal(parsed.maxGuests, 6);
+    assert.deepEqual(parsed.alternativeDates, []);
+    assert.match(parsed.agentGuidance, /guest count exceeds/i);
+  });
+});
+
 // ── booking_locks: TOCTOU + guest_name masking ────────────────────
 
 describe("booking_locks — TOCTOU prevention", () => {
