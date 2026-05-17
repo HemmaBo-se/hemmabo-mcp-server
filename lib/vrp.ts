@@ -47,6 +47,14 @@ function toolError(message: string): ToolResult {
   return { content: [{ type: "text", text: JSON.stringify({ error: message }) }], isError: true };
 }
 
+function requirePresentArgs(args: Record<string, unknown>, keys: readonly string[]): void {
+  const missing = keys.filter((key) => {
+    const value = args[key];
+    return value === undefined || value === null || (typeof value === "string" && value.trim().length === 0);
+  });
+  if (missing.length > 0) throw new Error(`Missing required argument(s): ${missing.join(", ")}`);
+}
+
 function requireStringArg(args: Record<string, unknown>, key: string): string {
   const value = stringValue(args[key]);
   if (!value) throw new Error(`Missing required argument(s): ${key}`);
@@ -226,6 +234,7 @@ function mayQuoteOfficialOffer(offer: JsonRecord, response: JsonRecord): boolean
 }
 
 async function runVerifyNode(args: Record<string, unknown>): Promise<ToolResult> {
+  requirePresentArgs(args, ["domain"]);
   const domain = requireStringArg(args, "domain");
   const node = await verifyVacationRentalNode(domain);
   return toolOk({
@@ -246,6 +255,7 @@ async function runVerifyNode(args: Record<string, unknown>): Promise<ToolResult>
 }
 
 async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<ToolResult> {
+  requirePresentArgs(args, ["domain", "check_in", "check_out", "guests"]);
   const domain = requireStringArg(args, "domain");
   const checkIn = requireStringArg(args, "check_in");
   const checkOut = requireStringArg(args, "check_out");
