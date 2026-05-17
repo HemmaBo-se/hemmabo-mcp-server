@@ -2,7 +2,7 @@
   "name": "hemmabo-mcp-server",
   "version": "3.2.8",
   "mcpName": "com.hemmabo/hemmabo-mcp-server",
-  "description": "Vacation rental booking infrastructure for independent hosts. Own domain, Stripe direct payments, 0% commission. Each host is a sovereign booking node — own Supabase database, own Stripe account, never routed through a marketplace. AI-native: built on Model Context Protocol + Stripe ACP. 11 tools. Not an OTA. Not a marketplace. Infrastructure. Live: villaakerlyckan.se. From $39/month.",
+  "description": "Vacation rental booking infrastructure for independent hosts. Own domain, Stripe direct payments, 0% commission. Each host is a sovereign booking node. AI-native: built on Model Context Protocol, Stripe, and Vacation Rental Protocol. 13 tools including host-domain signed verified stay offers. Not an OTA. Not a marketplace. Infrastructure. Live: villaakerlyckan.se. From $39/month.",
   "main": "dist/index.js",
   "bin": {
     "hemmabo-mcp-server": "dist/stdio.js"
@@ -22,6 +22,9 @@
     "mcp-server",
     "model-context-protocol",
     "vacation-rental",
+    "vacation-rental-protocol",
+    "verified-stay-offer",
+    "host-domain-signature",
     "direct-booking",
     "booking-infrastructure",
     "property-management",

@@ -1,8 +1,10 @@
-# Smithery configuration — https://smithery.ai/docs/config
 name: hemmabo-mcp-server
-description: "Vacation rental booking infrastructure for independent hosts. Own domain, Stripe direct payments, 0% commission. Each host is a sovereign booking node — own Supabase database, own Stripe account, never routed through a marketplace. AI-native: built on Model Context Protocol + Stripe ACP. Search properties, check live availability, get pricing quotes, and complete bookings. 11 tools. Not an OTA. Not a marketplace. Infrastructure. Live: villaakerlyckan.se. From $39/month."
+description: "Vacation rental booking infrastructure for independent hosts. Own domain, Stripe direct payments, 0% commission. AI-native: built on Model Context Protocol plus Vacation Rental Protocol. Search properties, check live availability, get pricing quotes, complete bookings, verify host-domain VRP nodes, and fetch signed verified stay offers. 13 tools. Not an OTA. Not a marketplace. Infrastructure. Live: villaakerlyckan.se."
 keywords:
   - vacation-rental
+  - vacation-rental-protocol
+  - verified-stay-offer
+  - host-domain-signature
   - direct-booking
   - booking-infrastructure
   - model-context-protocol
@@ -24,20 +26,20 @@ repository: https://github.com/HemmaBo-se/hemmabo-mcp-server
 
 configSchema:
   type: object
-  description: "Optional configuration for HemmaBo MCP server. All fields optional — credentials managed server-side."
+  description: "Optional configuration for HemmaBo MCP server. All fields optional; credentials managed server-side."
   properties:
     propertyDomain:
       type: string
-      description: "Your vacation rental domain (e.g. 'villaakerlyckan.se'). Optional — used when connecting to a specific host node."
+      description: "Your vacation rental domain (e.g. 'villaakerlyckan.se'). Optional; used when connecting to a specific host node."
     region:
       type: string
-      description: "Default region to search in (e.g. 'Skåne', 'Toscana', 'Bavaria'). Can be overridden per request."
+      description: "Default region to search in. Can be overridden per request."
     currency:
       type: string
-      description: "Preferred display currency (ISO 4217, e.g. 'EUR', 'SEK', 'USD'). Defaults to the property's native currency."
+      description: "Preferred display currency (ISO 4217)."
     language:
       type: string
-      description: "Preferred response language (ISO 639-1, e.g. 'en', 'sv', 'de', 'it', 'fr', 'es'). Defaults to English."
+      description: "Preferred response language (ISO 639-1)."
   required: []
   additionalProperties: false
 
@@ -51,16 +53,16 @@ startCommand:
     properties:
       SUPABASE_URL:
         type: string
-        description: "Supabase project URL — Supabase Dashboard → Settings → API"
+        description: "Supabase project URL"
       SUPABASE_SERVICE_ROLE_KEY:
         type: string
-        description: "Supabase service role key — Supabase Dashboard → Settings → API"
+        description: "Supabase service role key"
       SUPABASE_ANON_KEY:
         type: string
-        description: "Supabase anon/public key — Supabase Dashboard → Settings → API"
+        description: "Supabase anon/public key"
       STRIPE_SECRET_KEY:
         type: string
-        description: "Stripe secret key — Stripe Dashboard → Developers → API keys"
+        description: "Stripe secret key"
     required: []
     additionalProperties: false
   commandFunction: |
