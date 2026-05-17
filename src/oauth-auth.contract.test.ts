@@ -1,19 +1,3 @@
-/**
- * Contract test for #64 — validateAuth() is wired into runtime.
- *
- * Locks the auth contract from ADR 0002 §2.1:
- *   The single canonical validator is validateAuth() in src/auth.ts.
- *
- * What this tests:
- *   - validateAuth() accepts MCP_API_KEY (legacy path stays working).
- *   - validateAuth() accepts an OAuth token stored in mcp_access_tokens.
- *   - validateAuth() rejects an expired OAuth token.
- *   - Production entrypoints (api/mcp.ts, api/acp.ts, src/index.ts) import
- *     validateAuth, not the deprecated validateApiKey.
- *
- * Run: npx tsx --test src/oauth-auth.contract.test.ts
- */
-
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -56,15 +40,12 @@ describe("validateAuth runtime contract (#64)", () => {
   });
 
   it("rejects a wrong key without crashing when Supabase env is absent", async () => {
-    // OAuth path requires Supabase. With no Supabase env set, validateAuth
-    // must short-circuit to "Invalid" rather than throw — otherwise an
-    // unauthenticated caller could DoS the auth path by sending random keys.
     const { validateAuth } = await import("./auth.js");
     const result = await validateAuth("Bearer not-the-key");
     assert.equal(result, "Invalid API key");
   });
 
-  it("opens auth when MCP_API_KEY is unset (dev / open mode)", async () => {
+  it("opens auth when MCP_API_KEY is unset", async () => {
     const saved = process.env.MCP_API_KEY;
     delete process.env.MCP_API_KEY;
     try {
@@ -78,12 +59,10 @@ describe("validateAuth runtime contract (#64)", () => {
 });
 
 describe("validateAuth wired into entrypoints (#64)", () => {
-  // Drift-guard: assert each entrypoint imports validateAuth from src/auth
-  // and does NOT import the deprecated validateApiKey. This prevents the
-  // exact regression #64 documented — a validator declared but never used.
-
   const entrypoints = [
-    { name: "api/mcp.ts", path: join(repoRoot, "api/mcp.ts") },
+    // api/mcp.ts is now a thin VRP-aware wrapper; the original transport and
+    // protected-tool auth gate live in api/mcp-base.ts.
+    { name: "api/mcp-base.ts", path: join(repoRoot, "api/mcp-base.ts") },
     { name: "api/acp.ts", path: join(repoRoot, "api/acp.ts") },
     { name: "src/index.ts", path: join(repoRoot, "src/index.ts") },
   ];
@@ -91,34 +70,16 @@ describe("validateAuth wired into entrypoints (#64)", () => {
   for (const { name, path } of entrypoints) {
     it(`${name} imports validateAuth (not validateApiKey)`, () => {
       const source = readFileSync(path, "utf8");
-      const importsValidateAuth = /import\s*{[^}]*\bvalidateAuth\b[^}]*}\s*from\s*["']\.{1,2}\/[^"']*auth(?:\.js)?["']/.test(
-        source,
-      );
-      const importsValidateApiKey = /import\s*{[^}]*\bvalidateApiKey\b[^}]*}\s*from\s*["']\.{1,2}\/[^"']*auth(?:\.js)?["']/.test(
-        source,
-      );
-      assert.equal(
-        importsValidateAuth,
-        true,
-        `${name} must import { validateAuth } from src/auth`,
-      );
-      assert.equal(
-        importsValidateApiKey,
-        false,
-        `${name} must NOT import the deprecated validateApiKey — replace with validateAuth (#64)`,
-      );
+      const importsValidateAuth = /import\s*{[^}]*\bvalidateAuth\b[^}]*}\s*from\s*["']\.{1,2}\/[^"']*auth(?:\.js)?["']/.test(source);
+      const importsValidateApiKey = /import\s*{[^}]*\bvalidateApiKey\b[^}]*}\s*from\s*["']\.{1,2}\/[^"']*auth(?:\.js)?["']/.test(source);
+      assert.equal(importsValidateAuth, true, `${name} must import { validateAuth } from src/auth`);
+      assert.equal(importsValidateApiKey, false, `${name} must NOT import the deprecated validateApiKey`);
     });
 
     it(`${name} calls validateAuth, not validateApiKey`, () => {
       const source = readFileSync(path, "utf8");
-      assert.ok(
-        /\bvalidateAuth\s*\(/.test(source),
-        `${name} must call validateAuth(...)`,
-      );
-      assert.ok(
-        !/\bvalidateApiKey\s*\(/.test(source),
-        `${name} must NOT call validateApiKey(...) — replace with validateAuth (#64)`,
-      );
+      assert.ok(/\bvalidateAuth\s*\(/.test(source), `${name} must call validateAuth(...)`);
+      assert.ok(!/\bvalidateApiKey\s*\(/.test(source), `${name} must NOT call validateApiKey(...)`);
     });
   }
 });
