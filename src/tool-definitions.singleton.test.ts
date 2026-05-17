@@ -1,17 +1,6 @@
 /**
- * Drift-skydd: TOOL_SPECS i lib/tool-definitions.ts är single source of truth
- * för de 11 federation-tools. Detta test failar om:
- *
- *   (a) TOOL_SPECS innehåller fler eller färre än de 11 förväntade tool-namnen
- *   (b) Något annan källfil (utöver lib/tool-definitions.ts) deklarerar ett tool
- *       genom statisk literal — t.ex. `name: "hemmabo_search_properties"` i en
- *       TOOLS-array eller `server.tool("hemmabo_search_properties", ...)` direktanrop.
- *   (c) api/mcp.ts TOOLS exports inte exakt motsvarar TOOL_SPECS i ordning.
- *
- * Bakgrund (#63 / ADR-0001 §3): tidigare definierades samma 11 tools i tre
- * separata filer (api/mcp.ts, src/index.ts, src/stdio.ts), vilket ledde till
- * att endast api/mcp.ts var kontrakt-testad och stdio/index kunde driva fritt.
- * Drift-skyddet här stänger ner möjligheten att återinföra dual-/tri-SoT.
+ * Drift-skydd: TOOL_SPECS i lib/tool-definitions.ts ar single source of truth
+ * for HemmaBo federation tools plus the neutral VRP v0.1 tools.
  *
  * Run: npx tsx --test src/tool-definitions.singleton.test.ts
  */
@@ -38,27 +27,21 @@ const EXPECTED_TOOL_NAMES = [
   "hemmabo_booking_cancel",
   "hemmabo_booking_status",
   "hemmabo_booking_reschedule",
+  "verify_vacation_rental_node",
+  "get_verified_stay_offer",
 ] as const;
 
-/**
- * Filer som FÅR nämna tool-namnen som strängliterals — varje annan källfil
- * måste hämta tools via TOOL_SPECS / TOOL_NAMES eller via api/mcp.ts TOOLS.
- *
- * Notera: tool-namnen får förekomma i descriptions, errors, kommentarer och
- * tester. Drift-checken nedan filtrerar enbart de mönster som indikerar att
- * ett tool RE-DEKLARERAS (TOOLS-literal, server.tool-anrop, executeTool när
- * det är hardkodat utanför lib/tools.ts dispatcher).
- */
 const ALLOWED_DECLARATION_FILES = new Set<string>([
   "lib/tool-definitions.ts",
+  "lib/tool-definitions-base.ts",
 ]);
 
-describe("TOOL_SPECS singleton (#63)", () => {
-  it("(a) exposes exactly the 11 expected canonical tool names in declaration order", () => {
+describe("TOOL_SPECS singleton (#63 + VRP v0.1)", () => {
+  it("(a) exposes exactly the 13 expected canonical tool names in declaration order", () => {
     assert.deepEqual(
       TOOL_NAMES,
       EXPECTED_TOOL_NAMES,
-      "TOOL_SPECS must declare exactly the 11 federation tools, in canonical order. Adding/removing a tool requires updating this test and chatgpt-app-submission.json."
+      "TOOL_SPECS must declare exactly the 11 HemmaBo tools plus 2 VRP tools, in canonical order."
     );
   });
 
@@ -67,7 +50,7 @@ describe("TOOL_SPECS singleton (#63)", () => {
     assert.deepEqual(
       wireNames,
       EXPECTED_TOOL_NAMES,
-      "api/mcp.ts TOOLS must derive from TOOL_SPECS in the same order — see comment block in api/mcp.ts Tools section."
+      "api/mcp.ts TOOLS must derive from TOOL_SPECS in the same order."
     );
 
     for (let i = 0; i < TOOL_SPECS.length; i++) {
@@ -81,33 +64,19 @@ describe("TOOL_SPECS singleton (#63)", () => {
   });
 
   it("(c) no other source file declares a tool by static literal", () => {
-    // Forbidden patterns indicating a tool is being re-declared elsewhere:
-    //   - `server.tool("hemmabo_search_properties"` (SDK registration of a dotted tool name)
-    //   - `name: "hemmabo_search_properties"` inside an object literal at the start
-    //     of a `TOOLS = [` array. We look for the simpler exact substring
-    //     `name: "hemmabo_search_properties"` and require it to live only in
-    //     lib/tool-definitions.ts.
     const forbiddenPatterns: { pattern: RegExp; reason: string }[] = [];
     for (const name of EXPECTED_TOOL_NAMES) {
-      // Full regex-metachar escape (CodeQL js/incomplete-sanitization).
-      // Our tool names today only contain letters and dots, but escaping
-      // every metacharacter keeps the guard correct if a future name uses
-      // characters like `_`, `-`, `+` or `?`.
       const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      // server.tool("foo.bar", — direct SDK registration
       forbiddenPatterns.push({
         pattern: new RegExp(`server\\.tool\\(\\s*"${escapedName}"`),
-        reason: `direct server.tool("${name}", ...) registration — must go through TOOL_SPECS loop`,
+        reason: `direct server.tool("${name}", ...) registration must go through TOOL_SPECS loop`,
       });
-      // name: "foo.bar" — tool-spec literal in a sibling TOOLS array
       forbiddenPatterns.push({
         pattern: new RegExp(`name:\\s*"${escapedName}"`),
-        reason: `static tool-spec literal { name: "${name}", ... } — must live only in TOOL_SPECS`,
+        reason: `static tool-spec literal { name: "${name}", ... } must live only in TOOL_SPECS`,
       });
     }
 
-    // Sweep src/ and api/ excluding the allow-list and test files (tests may
-    // reference tool names freely).
     const sourceFiles = collectSourceFiles(REPO_ROOT);
     for (const relPath of sourceFiles) {
       if (ALLOWED_DECLARATION_FILES.has(relPath)) continue;
@@ -124,8 +93,6 @@ describe("TOOL_SPECS singleton (#63)", () => {
     }
   });
 });
-
-// ── Helpers ─────────────────────────────────────────────────────
 
 function collectSourceFiles(root: string): string[] {
   const out: string[] = [];
@@ -147,7 +114,7 @@ function collectSourceFiles(root: string): string[] {
       }
       if (!entry.isFile()) continue;
       if (!entry.name.endsWith(".ts")) continue;
-      if (entry.name.endsWith(".test.ts")) continue; // tests may mention any name
+      if (entry.name.endsWith(".test.ts")) continue;
       out.push(childRel);
     }
   }
