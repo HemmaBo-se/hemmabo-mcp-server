@@ -1,6 +1,6 @@
 import { afterEach, describe, it, mock } from "node:test";
 import assert from "node:assert/strict";
-import { generateKeyPairSync, sign } from "node:crypto";
+import { generateKeyPairSync, sign, type KeyObject } from "node:crypto";
 import { executeTool } from "../lib/tools.js";
 
 afterEach(() => mock.restoreAll());
@@ -18,7 +18,7 @@ function b64url(value: Buffer | string): string {
   return Buffer.from(value).toString("base64url");
 }
 
-function compactJws(payload: Record<string, unknown>, privateKey: ReturnType<typeof generateKeyPairSync>["privateKey"]): string {
+function compactJws(payload: Record<string, unknown>, privateKey: KeyObject): string {
   const header = { alg: "EdDSA", kid: "vrp-test-key", typ: "JWT" };
   const signingInput = `${b64url(JSON.stringify(header))}.${b64url(JSON.stringify(payload))}`;
   const signature = sign(null, Buffer.from(signingInput), privateKey);
