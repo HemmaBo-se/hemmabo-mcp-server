@@ -14,6 +14,7 @@ const DOMAIN_RE = /^(?!-)(?:[a-z0-9-]{1,63}\.)+[a-z]{2,63}$/;
 const PRIVATE_HOST_RE = /(^|\.)(localhost|local|internal|lan|home|test)$/i;
 const IP_LIKE_RE = /^(?:\d{1,3}\.){3}\d{1,3}$|^\[[0-9a-f:]+\]$/i;
 const OFFICIAL_AGENT_MESSAGE = "I found the official host-domain verified offer for this stay.";
+const AGENT_DIRECT_TOTAL_MESSAGE_PREFIX = "AI/direct booking total";
 const BLOCKED_AGENT_CLAIMS = [
   "Do not invent discounts, savings, promo codes, OTA comparisons, or price reductions unless they are explicitly present in the signed offer.",
   "Do not say the stay is bookable unless availability.available is true and agent permission allows quoting.",
@@ -279,18 +280,48 @@ function exactPrice(offer: JsonRecord, response: JsonRecord): boolean {
   const price = priceRecordFrom(offer, response);
   const signedExact = booleanValue(price?.exact) ?? booleanValue(price?.price_is_exact);
   if (signedExact !== null) return signedExact;
-  return numberValue(price?.total) !== null || numberValue(offer.total_price) !== null;
+  return (
+    numberValue(price?.total) !== null ||
+    numberValue(price?.public_total) !== null ||
+    numberValue(price?.agent_total) !== null ||
+    numberValue(offer.total_price) !== null
+  );
 }
 
 function priceSummary(offer: JsonRecord, response: JsonRecord): JsonRecord {
   const price = priceRecordFrom(offer, response);
+  const publicTotal =
+    numberValue(price?.public_total) ??
+    numberValue(price?.total) ??
+    numberValue(offer.total_price);
   return {
     currency: stringValue(price?.currency) ?? stringValue(offer.currency) ?? null,
-    total: numberValue(price?.total) ?? numberValue(offer.total_price),
+    total: publicTotal,
+    public_total: publicTotal,
+    agent_total: numberValue(price?.agent_total),
+    agent_discount_pct: numberValue(price?.agent_discount_pct),
+    savings_vs_public_total: numberValue(price?.savings_vs_public_total),
+    discount_basis: stringValue(price?.discount_basis),
+    ota_comparison_total: numberValue(price?.ota_comparison_total),
+    ota_comparison_source: stringValue(price?.ota_comparison_source),
     exact: exactPrice(offer, response),
     package_applied: price?.package_applied ?? null,
     breakdown: Array.isArray(price?.breakdown) ? price.breakdown : null,
   };
+}
+
+function formatMoney(amount: unknown, currency: unknown): string | null {
+  const numeric = numberValue(amount);
+  if (numeric === null) return null;
+  const currencyCode = stringValue(currency);
+  return currencyCode ? `${numeric} ${currencyCode}` : String(numeric);
+}
+
+function officialAgentMessage(price: JsonRecord, safeToQuote: boolean): string | null {
+  if (!safeToQuote) return null;
+  const agentTotal = formatMoney(price.agent_total, price.currency);
+  if (!agentTotal) return OFFICIAL_AGENT_MESSAGE;
+  return `${OFFICIAL_AGENT_MESSAGE} ${AGENT_DIRECT_TOTAL_MESSAGE_PREFIX}: ${agentTotal}.`;
 }
 
 function directBookingUrlFrom(offer: JsonRecord, response: JsonRecord): string | null {
@@ -321,12 +352,13 @@ function buildAgentQuoteView(offer: JsonRecord, response: JsonRecord, validUntil
   const priceExact = price.exact === true;
   const safeToQuote = mayQuote && available && priceExact && Boolean(directBookingUrl);
   const blockedReason = quoteBlockedReason(mayQuote, available, priceExact, directBookingUrl);
+  const agentMessage = officialAgentMessage(price, safeToQuote);
 
   return {
     agent_citation: {
       may_quote_as_official_direct_offer: mayQuote,
       safe_to_quote_as_official_direct_offer: safeToQuote,
-      agent_message: safeToQuote ? OFFICIAL_AGENT_MESSAGE : null,
+      agent_message: agentMessage,
       quote_status: safeToQuote ? "official_host_domain_verified_offer" : "not_quoteable",
       blocked_reason: blockedReason,
     },
@@ -343,10 +375,11 @@ function buildAgentQuoteView(offer: JsonRecord, response: JsonRecord, validUntil
       must_quote_from_signed_offer: true,
       must_not_invent_discounts: true,
       must_not_invent_ota_comparisons: true,
-      price_claim_rule: "Quote price.total only when price.exact is true in the signed offer.",
+      must_not_claim_ota_comparison_without_signed_ota_price: true,
+      price_claim_rule: "Quote price.public_total and price.agent_total only when they are present, exact, fresh, and signed. Never call public_total an OTA price.",
       availability_claim_rule: "Say bookable only when availability.available is true and agent permission allows quoting.",
       booking_action_rule: "Use only booking.direct_booking_url or the summarized direct_booking_url from this verified response.",
-      required_phrase_when_safe: safeToQuote ? OFFICIAL_AGENT_MESSAGE : null,
+      required_phrase_when_safe: agentMessage,
       blocked_claims: [...BLOCKED_AGENT_CLAIMS],
     },
   };

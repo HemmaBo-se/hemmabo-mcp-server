@@ -92,6 +92,13 @@ describe("VRP MCP tools", () => {
       price: {
         currency: "SEK",
         total: 21000,
+        public_total: 21000,
+        agent_total: 17850,
+        agent_discount_pct: 15,
+        savings_vs_public_total: 3150,
+        discount_basis: "direct_booking_ai_agent",
+        ota_comparison_total: null,
+        ota_comparison_source: null,
         exact: true,
         package_applied: null,
         breakdown: [
@@ -156,11 +163,19 @@ describe("VRP MCP tools", () => {
     assert.equal(parsed.fresh, true);
     assert.equal(parsed.signed_verified_stay_offer, jws);
     assert.equal(parsed.offer.booking.direct_booking_url, offer.booking.direct_booking_url);
-    assert.equal(parsed.agent_citation.agent_message, "I found the official host-domain verified offer for this stay.");
+    assert.equal(parsed.agent_citation.agent_message, "I found the official host-domain verified offer for this stay. AI/direct booking total: 17850 SEK.");
     assert.equal(parsed.agent_citation.safe_to_quote_as_official_direct_offer, true);
     assert.equal(parsed.official_offer_summary.price.total, 21000);
+    assert.equal(parsed.official_offer_summary.price.public_total, 21000);
+    assert.equal(parsed.official_offer_summary.price.agent_total, 17850);
+    assert.equal(parsed.official_offer_summary.price.agent_discount_pct, 15);
+    assert.equal(parsed.official_offer_summary.price.savings_vs_public_total, 3150);
+    assert.equal(parsed.official_offer_summary.price.discount_basis, "direct_booking_ai_agent");
+    assert.equal(parsed.official_offer_summary.price.ota_comparison_total, null);
     assert.equal(parsed.official_offer_summary.direct_booking_url, offer.booking.direct_booking_url);
     assert.equal(parsed.agent_guardrails.must_not_invent_discounts, true);
+    assert.equal(parsed.agent_guardrails.must_not_claim_ota_comparison_without_signed_ota_price, true);
+    assert.match(parsed.agent_guardrails.price_claim_rule, /Never call public_total an OTA price/);
     assert.match(parsed.agent_guardrails.blocked_claims.join("\n"), /Do not invent discounts/);
   });
 
