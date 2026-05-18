@@ -14,6 +14,13 @@ const DOMAIN_RE = /^(?!-)(?:[a-z0-9-]{1,63}\.)+[a-z]{2,63}$/;
 const PRIVATE_HOST_RE = /(^|\.)(localhost|local|internal|lan|home|test)$/i;
 const IP_LIKE_RE = /^(?:\d{1,3}\.){3}\d{1,3}$|^\[[0-9a-f:]+\]$/i;
 const OFFICIAL_AGENT_MESSAGE = "I found the official host-domain verified offer for this stay.";
+const BLOCKED_AGENT_CLAIMS = [
+  "Do not invent discounts, savings, promo codes, OTA comparisons, or price reductions unless they are explicitly present in the signed offer.",
+  "Do not say the stay is bookable unless availability.available is true and agent permission allows quoting.",
+  "Do not quote a final total unless price.exact is true in the signed offer.",
+  "Do not derive weekday labels from memory; use signed offer breakdown dates or a deterministic date library.",
+  "Do not route booking action anywhere except the signed direct booking URL.",
+] as const;
 
 type JsonRecord = Record<string, unknown>;
 
@@ -37,6 +44,14 @@ function asRecord(value: unknown): JsonRecord | null {
 
 function stringValue(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function booleanValue(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
+
+function numberValue(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function toolOk(value: JsonRecord): ToolResult {
@@ -212,11 +227,13 @@ function stableStringify(value: unknown): string {
 }
 
 function extractSignedOffer(value: JsonRecord): string {
+  const signature = asRecord(value.signature);
   const jws =
     stringValue(value.signed_verified_stay_offer) ??
     stringValue(value.verified_stay_offer_jws) ??
-    stringValue(value.jws);
-  if (!jws) throw new Error("Offer response did not include signed_verified_stay_offer");
+    stringValue(value.jws) ??
+    stringValue(signature?.jws);
+  if (!jws) throw new Error("Offer response did not include signature.jws or signed_verified_stay_offer");
   return jws;
 }
 
@@ -231,6 +248,108 @@ function validUntilFrom(offer: JsonRecord, response: JsonRecord): string | null 
 function mayQuoteOfficialOffer(offer: JsonRecord, response: JsonRecord): boolean {
   const permission = asRecord(offer.agent_permission) ?? asRecord(response.agent_permission);
   return permission?.may_quote_as_official_direct_offer === true;
+}
+
+function availabilityRecordFrom(offer: JsonRecord, response: JsonRecord): JsonRecord | null {
+  return asRecord(offer.availability) ?? asRecord(response.availability);
+}
+
+function priceRecordFrom(offer: JsonRecord, response: JsonRecord): JsonRecord | null {
+  return asRecord(offer.price) ?? asRecord(response.price);
+}
+
+function bookingRecordFrom(offer: JsonRecord, response: JsonRecord): JsonRecord | null {
+  return asRecord(offer.booking) ?? asRecord(response.booking);
+}
+
+function offerAvailable(offer: JsonRecord, response: JsonRecord): boolean {
+  const availability = availabilityRecordFrom(offer, response);
+  const signedBoolean = booleanValue(availability?.available);
+  if (signedBoolean !== null) return signedBoolean;
+  const legacy = stringValue(offer.availability) ?? stringValue(response.availability);
+  return legacy === "available";
+}
+
+function availabilityReason(offer: JsonRecord, response: JsonRecord): string | null {
+  const availability = availabilityRecordFrom(offer, response);
+  return stringValue(availability?.reason);
+}
+
+function exactPrice(offer: JsonRecord, response: JsonRecord): boolean {
+  const price = priceRecordFrom(offer, response);
+  const signedExact = booleanValue(price?.exact) ?? booleanValue(price?.price_is_exact);
+  if (signedExact !== null) return signedExact;
+  return numberValue(price?.total) !== null || numberValue(offer.total_price) !== null;
+}
+
+function priceSummary(offer: JsonRecord, response: JsonRecord): JsonRecord {
+  const price = priceRecordFrom(offer, response);
+  return {
+    currency: stringValue(price?.currency) ?? stringValue(offer.currency) ?? null,
+    total: numberValue(price?.total) ?? numberValue(offer.total_price),
+    exact: exactPrice(offer, response),
+    package_applied: price?.package_applied ?? null,
+    breakdown: Array.isArray(price?.breakdown) ? price.breakdown : null,
+  };
+}
+
+function directBookingUrlFrom(offer: JsonRecord, response: JsonRecord): string | null {
+  const booking = bookingRecordFrom(offer, response);
+  return (
+    stringValue(booking?.direct_booking_url) ??
+    stringValue(booking?.booking_url) ??
+    stringValue(offer.direct_booking_url) ??
+    stringValue(offer.booking_url) ??
+    stringValue(response.direct_booking_url) ??
+    stringValue(response.booking_url)
+  );
+}
+
+function quoteBlockedReason(mayQuote: boolean, available: boolean, priceExact: boolean, directBookingUrl: string | null): string | null {
+  if (!mayQuote) return "agent_permission_denied";
+  if (!available) return "not_available";
+  if (!priceExact) return "price_not_exact";
+  if (!directBookingUrl) return "direct_booking_url_missing";
+  return null;
+}
+
+function buildAgentQuoteView(offer: JsonRecord, response: JsonRecord, validUntil: string | null): JsonRecord {
+  const mayQuote = mayQuoteOfficialOffer(offer, response);
+  const available = offerAvailable(offer, response);
+  const price = priceSummary(offer, response);
+  const directBookingUrl = directBookingUrlFrom(offer, response);
+  const priceExact = price.exact === true;
+  const safeToQuote = mayQuote && available && priceExact && Boolean(directBookingUrl);
+  const blockedReason = quoteBlockedReason(mayQuote, available, priceExact, directBookingUrl);
+
+  return {
+    agent_citation: {
+      may_quote_as_official_direct_offer: mayQuote,
+      safe_to_quote_as_official_direct_offer: safeToQuote,
+      agent_message: safeToQuote ? OFFICIAL_AGENT_MESSAGE : null,
+      quote_status: safeToQuote ? "official_host_domain_verified_offer" : "not_quoteable",
+      blocked_reason: blockedReason,
+    },
+    official_offer_summary: {
+      available,
+      availability_reason: availabilityReason(offer, response),
+      price,
+      direct_booking_url: directBookingUrl,
+      valid_until: validUntil,
+      bookable: safeToQuote,
+    },
+    agent_guardrails: {
+      safe_to_quote: safeToQuote,
+      must_quote_from_signed_offer: true,
+      must_not_invent_discounts: true,
+      must_not_invent_ota_comparisons: true,
+      price_claim_rule: "Quote price.total only when price.exact is true in the signed offer.",
+      availability_claim_rule: "Say bookable only when availability.available is true and agent permission allows quoting.",
+      booking_action_rule: "Use only booking.direct_booking_url or the summarized direct_booking_url from this verified response.",
+      required_phrase_when_safe: safeToQuote ? OFFICIAL_AGENT_MESSAGE : null,
+      blocked_claims: [...BLOCKED_AGENT_CLAIMS],
+    },
+  };
 }
 
 async function runVerifyNode(args: Record<string, unknown>): Promise<ToolResult> {
@@ -285,7 +404,7 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
   const fresh = Boolean(validUntil && Date.parse(validUntil) > Date.now());
   if (!fresh) throw new Error("verified_stay_offer is expired or missing valid_until");
 
-  const mayQuote = mayQuoteOfficialOffer(offer, response);
+  const quoteView = buildAgentQuoteView(offer, response, validUntil);
   return toolOk({
     domain: node.domain,
     check_in: checkIn,
@@ -301,10 +420,7 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
     fresh: true,
     signed_verified_stay_offer: signedOffer,
     offer,
-    agent_citation: {
-      may_quote_as_official_direct_offer: mayQuote,
-      agent_message: mayQuote ? OFFICIAL_AGENT_MESSAGE : null,
-    },
+    ...quoteView,
   });
 }
 
