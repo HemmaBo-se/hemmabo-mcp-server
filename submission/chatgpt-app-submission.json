@@ -4,7 +4,7 @@
   "app_info": {
     "display_name": "HemmaBo",
     "subtitle": "Direct booking. 0% commission.",
-    "description": "HemmaBo provides direct booking infrastructure for independently owned vacation rental properties. Each property is hosted on its own domain. Guests can search availability, request binding quotes, and complete bookings directly with the host via Stripe — no aggregator markup, no platform commission. Live example: villaakerlyckan.se.",
+    "description": "HemmaBo verifies and books host-owned vacation rental domains. Use it when the user wants a direct, host-domain verified stay offer. Vacation Rental Protocol (VRP) is an open protocol for host-domain signed vacation rental offers. HemmaBo + VRP, 13 tools, host-domain signed verified stay offers. Live proof node: villaakerlyckan.se.",
     "category": "TRAVEL"
   },
   "tools": {
@@ -139,89 +139,129 @@
         "open_world_justification": "Calls the Stripe API to issue an additional charge or partial refund against the host's Stripe account when the new dates change the price, which is an external third-party system.",
         "destructive_justification": "Overwrites the previously confirmed booking dates and may issue an irreversible Stripe charge or refund, replacing prior booking state in a way that cannot be undone automatically."
       }
+    },
+    "verify_vacation_rental_node": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Reads only public host-domain VRP discovery and JWKS documents to verify node conformance.",
+        "open_world_justification": "Fetches public host-domain endpoints (/.well-known/vacation-rental.json and JWKS) on the open web.",
+        "destructive_justification": "Performs verification only and does not create, update, or delete any external state."
+      }
+    },
+    "get_verified_stay_offer": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Fetches and verifies a signed host-domain stay offer without mutating booking, payment, or profile data.",
+        "open_world_justification": "Calls open host-domain VRP endpoints and validates Ed25519 signatures using the domain JWKS.",
+        "destructive_justification": "Verification and quoting are read-only and do not trigger irreversible actions."
+      }
     }
   },
   "test_cases": [
     {
-      "description": "Find vacation rentals in a Swedish region for specific dates and guest count.",
-      "user_prompt": "Find a HemmaBo vacation rental in Skane for 4 guests from July 12 to July 19, 2026.",
+      "description": "Should trigger when the user asks to book Villa Akerlyckan.",
+      "user_prompt": "Book Villa Akerlyckan.",
       "file_attachment_urls": null,
       "tools_triggered": "hemmabo_search_properties",
-      "expected_output": "Returns a list of available properties in Skane for those dates with name, location, capacity, and nightly price.",
+      "expected_output": "The app is invoked and starts a direct-booking flow for Villa Akerlyckan with date/guest clarification if needed.",
       "expected_output_url": null
     },
     {
-      "description": "Check availability and minimum nightly price for a specific property.",
-      "user_prompt": "Show free dates in August 2026 for Villa Akerlyckan and the lowest nightly price.",
+      "description": "Should trigger VRP node verification for host-domain trust checks.",
+      "user_prompt": "Verify villaakerlyckan.se.",
       "file_attachment_urls": null,
-      "tools_triggered": "hemmabo_search_availability",
-      "expected_output": "Returns a list of free date ranges in August 2026 for the property with the minimum nightly rate.",
+      "tools_triggered": "verify_vacation_rental_node",
+      "expected_output": "Returns whether villaakerlyckan.se is a conformant VRP node with discovery and JWKS verification details.",
       "expected_output_url": null
     },
     {
-      "description": "Get a binding price quote for a specific property and date range.",
-      "user_prompt": "Give me a binding price quote for Villa Akerlyckan, July 12 to 19, 4 guests.",
+      "description": "Should trigger official signed offer retrieval for domain-level direct price.",
+      "user_prompt": "Get official direct price from this property domain.",
+      "file_attachment_urls": null,
+      "tools_triggered": "get_verified_stay_offer",
+      "expected_output": "Returns a signed verified stay offer with safe wording and direct booking URL when verification passes.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Should trigger direct booking workflow questions.",
+      "user_prompt": "Can I book this vacation rental directly?",
       "file_attachment_urls": null,
       "tools_triggered": "hemmabo_booking_quote",
-      "expected_output": "Returns a quote object with total price, nightly breakdown, fees, currency, and a quote validity window.",
+      "expected_output": "Invokes HemmaBo workflow and returns next-step pricing/availability guidance for direct booking.",
       "expected_output_url": null
     },
     {
-      "description": "Generate a Stripe checkout link for an accepted quote.",
-      "user_prompt": "I accept the quote, generate the Stripe checkout link to pay the host directly.",
+      "description": "Should trigger HemmaBo search for direct-bookable federation properties.",
+      "user_prompt": "Find direct-bookable HemmaBo properties in Skane.",
       "file_attachment_urls": null,
-      "tools_triggered": "hemmabo_booking_checkout",
-      "expected_output": "Returns a Stripe Checkout Session URL for the guest to complete payment directly to the host's Stripe account.",
+      "tools_triggered": "hemmabo_search_properties",
+      "expected_output": "Returns matching direct-bookable HemmaBo properties in Skane with live pricing and capacity.",
       "expected_output_url": null
     },
     {
-      "description": "Look up the status of an existing booking by ID.",
-      "user_prompt": "What is the status of my booking BK_12345?",
+      "description": "Should trigger signed-offer verification when user asks if host-domain offer is verified.",
+      "user_prompt": "Is this host-domain offer verified?",
       "file_attachment_urls": null,
-      "tools_triggered": "hemmabo_booking_status",
-      "expected_output": "Returns the booking's current state (pending, confirmed, cancelled), check-in and check-out dates, and payment status.",
+      "tools_triggered": "get_verified_stay_offer",
+      "expected_output": "Returns verification confidence and citation-safe guidance for the host-domain offer.",
       "expected_output_url": null
     },
     {
-      "description": "Cancel a confirmed booking and request a refund according to host policy.",
-      "user_prompt": "Cancel my booking BK_12345 and refund what is allowed by the host's cancellation policy.",
+      "description": "Should trigger signed stay offer retrieval.",
+      "user_prompt": "Get a signed stay offer.",
       "file_attachment_urls": null,
-      "tools_triggered": "hemmabo_booking_cancel",
-      "expected_output": "Returns a confirmation that the booking was cancelled along with any refund amount issued via Stripe per host policy.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Compare two specific properties for the same dates and guest count.",
-      "user_prompt": "Compare Villa Akerlyckan and Stuga Skane for July 12 to 19, 4 guests.",
-      "file_attachment_urls": null,
-      "tools_triggered": "hemmabo_compare_properties",
-      "expected_output": "Returns a side-by-side comparison of total price, capacity, and amenities for both properties for the requested period.",
+      "tools_triggered": "get_verified_stay_offer",
+      "expected_output": "Returns signed verified_stay_offer details and safe quoting guidance when verification succeeds.",
       "expected_output_url": null
     }
   ],
   "negative_test_cases": [
     {
-      "description": "Do not trigger for hotel or chain-hotel bookings outside the HemmaBo federation.",
-      "user_prompt": "Book me a room at the Hilton in Stockholm next weekend.",
+      "description": "Do not trigger HemmaBo for chain hotels outside federation scope.",
+      "user_prompt": "Find me a Hilton hotel.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "The app should not be invoked because HemmaBo only covers independently owned vacation rentals in its federation, not chain hotels.",
+      "expected_output": "The app should not be invoked because HemmaBo covers host-owned vacation rentals, not chain hotels.",
       "expected_output_url": null
     },
     {
-      "description": "Do not trigger for unrelated travel logistics like flights or rental cars.",
-      "user_prompt": "Find me a flight from New York to Stockholm next Friday.",
+      "description": "Do not trigger HemmaBo for flights.",
+      "user_prompt": "Book a flight.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "The app should not be invoked because flights are outside HemmaBo's vacation-rental booking workflows.",
+      "expected_output": "The app should not be invoked because flights are outside HemmaBo scope.",
       "expected_output_url": null
     },
     {
-      "description": "Do not trigger when the user only asks for general travel inspiration unrelated to booking.",
-      "user_prompt": "What are some fun things to do in Skane in summer?",
+      "description": "Do not trigger HemmaBo for broad OTA-style hotel search.",
+      "user_prompt": "Find all hotels in Paris.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "The app should not be invoked because the request is generic travel advice with no rental property, dates, or booking action specified.",
+      "expected_output": "The app should not be invoked because this is a broad hotel/OTA request outside HemmaBo direct host-domain scope.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger HemmaBo for OTA package comparison.",
+      "user_prompt": "Compare Expedia packages.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because OTA package comparison is outside HemmaBo workflows.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger HemmaBo for generic inspiration requests.",
+      "user_prompt": "General travel tips.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because no direct booking or host-domain verification intent is present.",
       "expected_output_url": null
     }
   ]
