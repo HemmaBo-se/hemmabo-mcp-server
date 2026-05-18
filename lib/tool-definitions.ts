@@ -57,7 +57,7 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "get_verified_stay_offer",
     description:
-      "Fetch a signed VRP verified_stay_offer from a verified host-domain node and verify its Ed25519 compact JWS against that domain's JWKS. Returns the official host-domain offer only when the signature, payload match, freshness, and agent citation permission pass.",
+      "Fetch a signed VRP verified_stay_offer from a verified host-domain node and verify its Ed25519 compact JWS against that domain's JWKS. Reads the production signature.jws envelope, checks payload match and freshness, and returns agent guardrails so clients quote only signed availability, exact price, and direct booking URL. Never invent discounts or OTA comparisons outside the signed offer.",
     inputSchema: {
       type: "object",
       properties: {
@@ -102,7 +102,21 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
         fresh: { type: "boolean" },
         signed_verified_stay_offer: { type: "string" },
         offer: { type: "object", additionalProperties: true },
-        agent_citation: { type: "object", additionalProperties: true },
+        agent_citation: {
+          type: "object",
+          description: "Citation permission and safe-to-quote status derived from the signed offer.",
+          additionalProperties: true,
+        },
+        official_offer_summary: {
+          type: "object",
+          description: "Small signed-offer summary for agents to quote without inventing price, discount, availability, or booking details.",
+          additionalProperties: true,
+        },
+        agent_guardrails: {
+          type: "object",
+          description: "Rules the agent must follow when presenting or acting on this offer.",
+          additionalProperties: true,
+        },
         error: { type: "string" },
       },
       required: ["domain", "verified"],
