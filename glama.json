@@ -1,10 +1,13 @@
 {
   "$schema": "https://glama.ai/mcp/schemas/server.json",
-  "maintainers": ["HemmaBo-se", "kingen1"],
+  "maintainers": [
+    "HemmaBo-se",
+    "kingen1"
+  ],
   "name": "HemmaBo",
   "version": "3.2.8",
   "license": "MIT",
-  "description": "Vacation rental booking infrastructure for independent hosts. Own domain, Stripe direct payments, 0% commission. Each host is a sovereign booking node — own Supabase database, own Stripe account, never routed through a marketplace. AI-native: built on Model Context Protocol + Stripe ACP. 11 tools. Not an OTA. Not a marketplace. Infrastructure. Live: villaakerlyckan.se. From $39/month.",
+  "description": "HemmaBo verifies and books host-owned vacation rental domains. Use it when the user wants a direct, host-domain verified stay offer. Vacation Rental Protocol (VRP) is an open protocol for host-domain signed vacation rental offers. HemmaBo + VRP, 13 tools, host-domain signed verified stay offers.",
   "homepage": "https://hemmabo-mcp-server.vercel.app",
   "repository": "https://github.com/HemmaBo-se/hemmabo-mcp-server",
   "keywords": [
@@ -18,7 +21,11 @@
     "zero-commission",
     "own-domain",
     "stripe-payments",
-    "set-it-forget-it"
+    "set-it-forget-it",
+    "vrp",
+    "vacation-rental-protocol",
+    "verified-stay-offer",
+    "host-domain-signature"
   ],
   "tools": [
     {
@@ -27,13 +34,33 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "region": { "type": "string", "description": "Region, area, or destination name to search within." },
-          "country": { "type": "string", "description": "Country name to filter by." },
-          "guests": { "type": "integer", "minimum": 1, "description": "Total number of guests." },
-          "checkIn": { "type": "string", "description": "Arrival date (YYYY-MM-DD)." },
-          "checkOut": { "type": "string", "description": "Departure date (YYYY-MM-DD)." }
+          "region": {
+            "type": "string",
+            "description": "Region, area, or destination name to search within."
+          },
+          "country": {
+            "type": "string",
+            "description": "Country name to filter by."
+          },
+          "guests": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Total number of guests."
+          },
+          "checkIn": {
+            "type": "string",
+            "description": "Arrival date (YYYY-MM-DD)."
+          },
+          "checkOut": {
+            "type": "string",
+            "description": "Departure date (YYYY-MM-DD)."
+          }
         },
-        "required": ["guests", "checkIn", "checkOut"]
+        "required": [
+          "guests",
+          "checkIn",
+          "checkOut"
+        ]
       }
     },
     {
@@ -42,11 +69,25 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "propertyId": { "type": "string", "format": "uuid", "description": "Property UUID." },
-          "checkIn": { "type": "string", "description": "Arrival date (YYYY-MM-DD)." },
-          "checkOut": { "type": "string", "description": "Departure date (YYYY-MM-DD)." }
+          "propertyId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Property UUID."
+          },
+          "checkIn": {
+            "type": "string",
+            "description": "Arrival date (YYYY-MM-DD)."
+          },
+          "checkOut": {
+            "type": "string",
+            "description": "Departure date (YYYY-MM-DD)."
+          }
         },
-        "required": ["propertyId", "checkIn", "checkOut"]
+        "required": [
+          "propertyId",
+          "checkIn",
+          "checkOut"
+        ]
       }
     },
     {
@@ -55,12 +96,31 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "propertyId": { "type": "string", "format": "uuid", "description": "Property UUID." },
-          "checkIn": { "type": "string", "description": "Arrival date (YYYY-MM-DD)." },
-          "checkOut": { "type": "string", "description": "Departure date (YYYY-MM-DD)." },
-          "guests": { "type": "integer", "minimum": 1, "description": "Total number of guests." }
+          "propertyId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Property UUID."
+          },
+          "checkIn": {
+            "type": "string",
+            "description": "Arrival date (YYYY-MM-DD)."
+          },
+          "checkOut": {
+            "type": "string",
+            "description": "Departure date (YYYY-MM-DD)."
+          },
+          "guests": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Total number of guests."
+          }
         },
-        "required": ["propertyId", "checkIn", "checkOut", "guests"]
+        "required": [
+          "propertyId",
+          "checkIn",
+          "checkOut",
+          "guests"
+        ]
       }
     },
     {
@@ -69,15 +129,46 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "propertyId": { "type": "string", "format": "uuid", "description": "Property UUID." },
-          "checkIn": { "type": "string", "description": "Arrival date (YYYY-MM-DD)." },
-          "checkOut": { "type": "string", "description": "Departure date (YYYY-MM-DD)." },
-          "guests": { "type": "integer", "minimum": 1, "description": "Total number of guests." },
-          "guestName": { "type": "string", "description": "Full name of primary guest." },
-          "guestEmail": { "type": "string", "format": "email", "description": "Email for booking confirmation." },
-          "guestPhone": { "type": "string", "description": "Phone with country code." }
+          "propertyId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Property UUID."
+          },
+          "checkIn": {
+            "type": "string",
+            "description": "Arrival date (YYYY-MM-DD)."
+          },
+          "checkOut": {
+            "type": "string",
+            "description": "Departure date (YYYY-MM-DD)."
+          },
+          "guests": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Total number of guests."
+          },
+          "guestName": {
+            "type": "string",
+            "description": "Full name of primary guest."
+          },
+          "guestEmail": {
+            "type": "string",
+            "format": "email",
+            "description": "Email for booking confirmation."
+          },
+          "guestPhone": {
+            "type": "string",
+            "description": "Phone with country code."
+          }
         },
-        "required": ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"]
+        "required": [
+          "propertyId",
+          "checkIn",
+          "checkOut",
+          "guests",
+          "guestName",
+          "guestEmail"
+        ]
       }
     },
     {
@@ -86,12 +177,31 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "propertyId": { "type": "string", "format": "uuid", "description": "Property UUID." },
-          "checkIn": { "type": "string", "description": "Arrival date (YYYY-MM-DD)." },
-          "checkOut": { "type": "string", "description": "Departure date (YYYY-MM-DD)." },
-          "guests": { "type": "integer", "minimum": 1, "description": "Total number of guests." }
+          "propertyId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Property UUID."
+          },
+          "checkIn": {
+            "type": "string",
+            "description": "Arrival date (YYYY-MM-DD)."
+          },
+          "checkOut": {
+            "type": "string",
+            "description": "Departure date (YYYY-MM-DD)."
+          },
+          "guests": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Total number of guests."
+          }
         },
-        "required": ["propertyId", "checkIn", "checkOut", "guests"]
+        "required": [
+          "propertyId",
+          "checkIn",
+          "checkOut",
+          "guests"
+        ]
       }
     },
     {
@@ -100,18 +210,66 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "propertyId": { "type": "string", "format": "uuid", "description": "Property UUID." },
-          "checkIn": { "type": "string", "description": "Arrival date (YYYY-MM-DD)." },
-          "checkOut": { "type": "string", "description": "Departure date (YYYY-MM-DD)." },
-          "guests": { "type": "integer", "minimum": 1, "description": "Total number of guests." },
-          "guestName": { "type": "string", "description": "Full name of primary guest." },
-          "guestEmail": { "type": "string", "format": "email", "description": "Email for booking confirmation." },
-          "guestPhone": { "type": "string", "description": "Phone with country code." },
-          "quoteId": { "type": "string", "description": "Quote ID from booking.negotiate to lock the price." },
-          "paymentMode": { "type": "string", "enum": ["checkout_session", "payment_intent"], "description": "Payment flow type." },
-          "channel": { "type": "string", "enum": ["public", "federation"], "description": "Pricing channel." }
+          "propertyId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Property UUID."
+          },
+          "checkIn": {
+            "type": "string",
+            "description": "Arrival date (YYYY-MM-DD)."
+          },
+          "checkOut": {
+            "type": "string",
+            "description": "Departure date (YYYY-MM-DD)."
+          },
+          "guests": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Total number of guests."
+          },
+          "guestName": {
+            "type": "string",
+            "description": "Full name of primary guest."
+          },
+          "guestEmail": {
+            "type": "string",
+            "format": "email",
+            "description": "Email for booking confirmation."
+          },
+          "guestPhone": {
+            "type": "string",
+            "description": "Phone with country code."
+          },
+          "quoteId": {
+            "type": "string",
+            "description": "Quote ID from booking.negotiate to lock the price."
+          },
+          "paymentMode": {
+            "type": "string",
+            "enum": [
+              "checkout_session",
+              "payment_intent"
+            ],
+            "description": "Payment flow type."
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "public",
+              "federation"
+            ],
+            "description": "Pricing channel."
+          }
         },
-        "required": ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"]
+        "required": [
+          "propertyId",
+          "checkIn",
+          "checkOut",
+          "guests",
+          "guestName",
+          "guestEmail"
+        ]
       }
     },
     {
@@ -120,10 +278,18 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "reservationId": { "type": "string", "description": "Booking UUID." },
-          "reason": { "type": "string", "description": "Cancellation reason." }
+          "reservationId": {
+            "type": "string",
+            "description": "Booking UUID."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Cancellation reason."
+          }
         },
-        "required": ["reservationId"]
+        "required": [
+          "reservationId"
+        ]
       }
     },
     {
@@ -132,9 +298,14 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "reservationId": { "type": "string", "description": "Booking UUID." }
+          "reservationId": {
+            "type": "string",
+            "description": "Booking UUID."
+          }
         },
-        "required": ["reservationId"]
+        "required": [
+          "reservationId"
+        ]
       }
     },
     {
@@ -143,12 +314,28 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "reservationId": { "type": "string", "description": "Booking UUID to reschedule." },
-          "newCheckIn": { "type": "string", "description": "New arrival date (YYYY-MM-DD)." },
-          "newCheckOut": { "type": "string", "description": "New departure date (YYYY-MM-DD)." },
-          "reason": { "type": "string", "description": "Reason for rescheduling." }
+          "reservationId": {
+            "type": "string",
+            "description": "Booking UUID to reschedule."
+          },
+          "newCheckIn": {
+            "type": "string",
+            "description": "New arrival date (YYYY-MM-DD)."
+          },
+          "newCheckOut": {
+            "type": "string",
+            "description": "New departure date (YYYY-MM-DD)."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Reason for rescheduling."
+          }
         },
-        "required": ["reservationId", "newCheckIn", "newCheckOut"]
+        "required": [
+          "reservationId",
+          "newCheckIn",
+          "newCheckOut"
+        ]
       }
     },
     {
@@ -157,13 +344,36 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "propertyId": { "type": "string", "format": "uuid", "description": "UUID of the source property to find alternatives for." },
-          "checkIn": { "type": "string", "description": "Arrival date (YYYY-MM-DD)." },
-          "checkOut": { "type": "string", "description": "Departure date (YYYY-MM-DD)." },
-          "guests": { "type": "integer", "minimum": 1, "description": "Number of guests." },
-          "limit": { "type": "integer", "minimum": 1, "maximum": 20, "description": "Max results (default 5)." }
+          "propertyId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID of the source property to find alternatives for."
+          },
+          "checkIn": {
+            "type": "string",
+            "description": "Arrival date (YYYY-MM-DD)."
+          },
+          "checkOut": {
+            "type": "string",
+            "description": "Departure date (YYYY-MM-DD)."
+          },
+          "guests": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Number of guests."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "description": "Max results (default 5)."
+          }
         },
-        "required": ["propertyId", "checkIn", "checkOut"]
+        "required": [
+          "propertyId",
+          "checkIn",
+          "checkOut"
+        ]
       }
     },
     {
@@ -172,12 +382,90 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "propertyIds": { "type": "array", "items": { "type": "string", "format": "uuid" }, "minItems": 2, "maxItems": 10, "description": "Array of 2–10 property UUIDs to compare." },
-          "checkIn": { "type": "string", "description": "Arrival date (YYYY-MM-DD)." },
-          "checkOut": { "type": "string", "description": "Departure date (YYYY-MM-DD)." },
-          "guests": { "type": "integer", "minimum": 1, "description": "Total number of guests." }
+          "propertyIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "minItems": 2,
+            "maxItems": 10,
+            "description": "Array of 2–10 property UUIDs to compare."
+          },
+          "checkIn": {
+            "type": "string",
+            "description": "Arrival date (YYYY-MM-DD)."
+          },
+          "checkOut": {
+            "type": "string",
+            "description": "Departure date (YYYY-MM-DD)."
+          },
+          "guests": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Total number of guests."
+          }
         },
-        "required": ["propertyIds", "checkIn", "checkOut", "guests"]
+        "required": [
+          "propertyIds",
+          "checkIn",
+          "checkOut",
+          "guests"
+        ]
+      }
+    },
+    {
+      "name": "verify_vacation_rental_node",
+      "description": "Verify that a vacation rental host domain exposes VRP v0.1 discovery and an Ed25519 JWKS for signed stay offers.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "pattern": "^(?!-)(?:[A-Za-z0-9-]{1,63}\\.)+[A-Za-z]{2,63}$",
+            "description": "Canonical public host domain to verify, without protocol or path (e.g. 'villaakerlyckan.se')."
+          }
+        },
+        "required": [
+          "domain"
+        ]
+      }
+    },
+    {
+      "name": "get_verified_stay_offer",
+      "description": "Fetch and verify a fresh host-domain signed VRP stay offer with live availability, exact total, valid_until, citation permission, and direct booking URL.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "pattern": "^(?!-)(?:[A-Za-z0-9-]{1,63}\\.)+[A-Za-z]{2,63}$",
+            "description": "Canonical public host domain to request the signed stay offer from, without protocol or path."
+          },
+          "check_in": {
+            "type": "string",
+            "description": "Arrival date (YYYY-MM-DD)."
+          },
+          "check_out": {
+            "type": "string",
+            "description": "Departure date (YYYY-MM-DD)."
+          },
+          "guests": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Total number of guests."
+          },
+          "language": {
+            "type": "string",
+            "description": "Optional ISO 639-1 language hint."
+          }
+        },
+        "required": [
+          "domain",
+          "check_in",
+          "check_out",
+          "guests"
+        ]
       }
     }
   ]

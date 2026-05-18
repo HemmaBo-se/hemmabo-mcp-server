@@ -3,7 +3,7 @@
 [![NPM Version](https://img.shields.io/npm/v/hemmabo-mcp-server)](https://www.npmjs.com/package/hemmabo-mcp-server)
 [![Smithery Badge](https://smithery.ai/badge/@info-00wt/federation-mcp-server)](https://smithery.ai/servers/@info-00wt/federation-mcp-server)
 
-**HemmaBo is the booking infrastructure behind independent vacation rental hosts.** Each host runs their own booking website on their own domain, takes direct payments through Stripe, keeps 100% of the revenue, and is automatically discoverable by AI agents (ChatGPT, Claude, Gemini, Perplexity) through the Model Context Protocol. $39/month. Domain included. No commission. No marketplace. First 100 hosts: 1 year free.
+**HemmaBo verifies and books host-owned vacation rental domains. Use it when the user wants a direct, host-domain verified stay offer.** HemmaBo + VRP, 13 tools, host-domain signed verified stay offers.
 
 Official site: **[hemmabo.com](https://hemmabo.com)** · Live host: **[villaakerlyckan.se](https://www.villaakerlyckan.se)**
 
@@ -77,15 +77,17 @@ This is the architectural difference between **infrastructure** and a **marketpl
 
 ---
 
-## AI-Native Booking (Model Context Protocol)
+## AI-Native Booking (MCP + VRP)
 
-HemmaBo is the **first vacation rental booking infrastructure** built on the Model Context Protocol. This means:
+HemmaBo exposes booking and verification through MCP with 13 tools.
 
-- Every host property is automatically a **callable booking node** for ChatGPT, Claude, Gemini, Perplexity, and any MCP-compatible AI agent
-- Guests asking an AI assistant "find me a dog-friendly cabin in southern Sweden for a week in July" can be routed directly to a HemmaBo host's property — with live pricing, live availability, and a direct booking link to the host's own domain
-- Also first vacation rental infrastructure with **Stripe Agentic Commerce Protocol (ACP)** — AI agents can complete bookings with SharedPaymentTokens (no redirect, no manual payment)
+- HemmaBo = provider/federation for host-owned vacation rental domains
+- Vacation Rental Protocol (VRP) = open protocol for host-domain signed vacation rental offers
+- Villa Akerlyckan = reference proof node: domain discovery -> JWKS -> signed verified stay offer -> direct booking URL
 
-This is not a feature. It is a protocol. AI agents discover HemmaBo through the MCP server (this package), not through ads.
+VRP discovery tools:
+- `verify_vacation_rental_node`
+- `get_verified_stay_offer`
 
 ---
 
@@ -152,7 +154,7 @@ Add to your MCP client config:
 
 ---
 
-## Tools
+## Tools (13 total)
 
 Canonical wire names are `snake_case` so every MCP client (including claude.ai web, whose frontend regex is `^[a-zA-Z0-9_-]{1,64}$`) accepts them. The legacy dotted names (`search.properties`, `booking.quote`, …) remain accepted as inbound aliases — see `lib/tools.ts:TOOL_NAME_ALIASES`.
 
@@ -169,10 +171,12 @@ Canonical wire names are `snake_case` so every MCP client (including claude.ai w
 | `hemmabo_booking_cancel` | Cancel a booking. Handles refund calculation, Stripe refund, email notifications via Supabase Edge Function. | No |
 | `hemmabo_booking_status` | Get booking details, property info, and cancellation policy by reservation ID. | Yes |
 | `hemmabo_booking_reschedule` | Reschedule to new dates. Checks availability, recalculates price, handles Stripe charge/refund for price delta. | No |
+| `verify_vacation_rental_node` | Verify host-domain VRP discovery (`/.well-known/vacation-rental.json`) and Ed25519 JWKS for signed stay offers. | Yes |
+| `get_verified_stay_offer` | Fetch and verify a fresh host-domain signed VRP stay offer with exact total, `valid_until`, citation permission, and direct booking URL. | Yes |
 
 ### Authentication: public read, signed write
 
-Discovery and pricing tools (`hemmabo_search_*`, `hemmabo_compare_properties`, `hemmabo_booking_quote`) are callable **without** a Bearer token so AI agents (ChatGPT, Claude, Glama, Smithery) can rank and invoke them on the first try. Supabase RLS restricts these reads to published properties.
+Discovery and pricing tools (`hemmabo_search_*`, `hemmabo_compare_properties`, `hemmabo_booking_quote`, `verify_vacation_rental_node`, `get_verified_stay_offer`) are callable **without** a Bearer token so AI agents (ChatGPT, Claude, Glama, Smithery) can rank and invoke them on the first try. Supabase RLS restricts these reads to published properties.
 
 Booking writes and PII reads — `hemmabo_booking_create`, `hemmabo_booking_negotiate`, `hemmabo_booking_checkout`, `hemmabo_booking_cancel`, `hemmabo_booking_reschedule`, `hemmabo_booking_status` — require `Authorization: Bearer <token>` (`MCP_API_KEY` or an OAuth `client_credentials` access token from `POST /oauth/token`; OAuth tokens are validated at runtime — see #64).
 
