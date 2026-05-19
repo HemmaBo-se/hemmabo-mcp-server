@@ -1,7 +1,8 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "com.hemmabo/hemmabo-mcp-server",
-  "description": "HemmaBo verifies and books host-owned vacation rental domains. Use it when the user wants a direct, host-domain verified stay offer. Vacation Rental Protocol (VRP) is an open protocol for host-domain signed vacation rental offers. HemmaBo + VRP, 13 tools, host-domain signed verified stay offers.",
+  "title": "HemmaBo",
+  "description": "HemmaBo + VRP, 13 tools, host-domain signed verified stay offers.",
   "repository": {
     "url": "https://github.com/HemmaBo-se/hemmabo-mcp-server",
     "source": "github"
