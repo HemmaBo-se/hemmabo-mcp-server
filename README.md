@@ -1,7 +1,7 @@
 # HemmaBo — Booking Website Infrastructure for Vacation Rental Hosts
 
 [![NPM Version](https://img.shields.io/npm/v/hemmabo-mcp-server)](https://www.npmjs.com/package/hemmabo-mcp-server)
-[![Smithery Badge](https://smithery.ai/badge/@info-00wt/federation-mcp-server)](https://smithery.ai/servers/@info-00wt/federation-mcp-server)
+[![Smithery Badge](https://smithery.ai/badge/info-00wt/hemmabo-mcp-server)](https://smithery.ai/servers/info-00wt/hemmabo-mcp-server)
 
 **HemmaBo verifies and books host-owned vacation rental domains. Use it when the user wants a direct, host-domain verified stay offer.** HemmaBo + VRP, 13 tools, host-domain signed verified stay offers.
 
@@ -126,7 +126,7 @@ Connect directly to the live server. No installation, no environment variables.
 ### Install via Smithery
 
 ```bash
-npx -y @smithery/cli install @info-00wt/federation-mcp-server --client claude
+npx -y @smithery/cli install @info-00wt/hemmabo-mcp-server --client claude
 ```
 
 ### Install via NPM (stdio — for local use)
@@ -271,15 +271,15 @@ HemmaBo is distributed across multiple channels to maximize AI discovery:
 - **Keywords in package.json:** `mcp`, `mcp-server`, `model-context-protocol`, `vacation-rental`, `direct-booking`, `property-management`, `pricing`, `availability`, `federation`
 
 ### 2. **MCP Registry** (Official)
-- Listed in [Glama MCP Registry](https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server) and [Smithery](https://smithery.ai/server/@info-00wt/federation-mcp-server)
+- Listed in [Glama MCP Registry](https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server) and [Smithery](https://smithery.ai/servers/info-00wt/hemmabo-mcp-server)
 - Submission pending: Official MCP Registry (modelcontextprotocol.io)
 - Indexed by Claude and other MCP-aware systems
 - Submission: `glama.json` with comprehensive metadata
 
 ### 3. **Smithery Gateway**
 - Public MCP server directory
-- Badge: [![Smithery Badge](https://smithery.ai/badge/@info-00wt/federation-mcp-server)](https://smithery.ai/servers/@info-00wt/federation-mcp-server)
-- Install command: `npx -y @smithery/cli install @info-00wt/federation-mcp-server --client claude`
+- Badge: [![Smithery Badge](https://smithery.ai/badge/info-00wt/hemmabo-mcp-server)](https://smithery.ai/servers/info-00wt/hemmabo-mcp-server)
+- Install command: `npx -y @smithery/cli install @info-00wt/hemmabo-mcp-server --client claude`
 
 ### 4. **GitHub Repository**
 - **Repo:** [HemmaBo-se/hemmabo-mcp-server](https://github.com/HemmaBo-se/hemmabo-mcp-server)
