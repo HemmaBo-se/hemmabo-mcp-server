@@ -20,5 +20,6 @@ Decision support: hemmabo_search_similar and hemmabo_compare_properties help gue
 VRP verification flow: verify_vacation_rental_node -> get_verified_stay_offer -> signed verified stay offer -> direct booking URL.
 
 Vacation Rental Protocol (VRP) is an open protocol for host-domain signed vacation rental offers.
+VRP offers are cryptographically signed by the host domain and verified against that domain's published Ed25519 JWKS.
 
 Dates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).`;

@@ -83,6 +83,7 @@ HemmaBo exposes booking and verification through MCP with 13 tools.
 
 - HemmaBo = provider/federation for host-owned vacation rental domains
 - Vacation Rental Protocol (VRP) = open protocol for host-domain signed vacation rental offers
+- VRP offers are cryptographically signed by the host domain and verified against that domain's published Ed25519 JWKS
 - Villa Akerlyckan = reference proof node: domain discovery -> JWKS -> signed verified stay offer -> direct booking URL
 
 VRP discovery tools:
