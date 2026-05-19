@@ -34,7 +34,9 @@ function findFiles(dir, suffix, out = []) {
 let failures = 0;
 
 // ── Check 1: all *.test.ts files live under src/ ────────────────
-const allTests = findFiles(ROOT, ".test.ts").map((f) => relative(ROOT, f));
+const allTests = findFiles(ROOT, ".test.ts").map((f) =>
+  relative(ROOT, f).replaceAll("\\", "/")
+);
 const orphans = allTests.filter((f) => !f.startsWith("src/"));
 if (orphans.length > 0) {
   console.error("✗ Test files outside src/ — these will NOT be executed:");

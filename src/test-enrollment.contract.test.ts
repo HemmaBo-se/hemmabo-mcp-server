@@ -114,7 +114,9 @@ test("every *.test.ts file in the repo lives under src/", async () => {
     }
     return out;
   }
-  const found = (await walk(ROOT)).map((f) => relative(ROOT, f));
+  const found = (await walk(ROOT)).map((f) =>
+    relative(ROOT, f).replaceAll("\\", "/")
+  );
   const orphans = found.filter((f) => !f.startsWith("src/"));
   assert.deepEqual(
     orphans,
