@@ -51,12 +51,13 @@ if (files.length === 0) {
   process.exit(2);
 }
 
-const rel = files.map((f) => relative(ROOT, f));
+const rel = files.map((f) => relative(ROOT, f).replaceAll("\\", "/"));
 console.log(`▶ Running ${rel.length} test file(s):`);
 for (const f of rel) console.log(`  • ${f}`);
 console.log("");
 
-const child = spawn("npx", ["tsx", "--test", ...rel], {
+const tsxCli = join(ROOT, "node_modules", "tsx", "dist", "cli.mjs");
+const child = spawn(process.execPath, [tsxCli, "--test", ...rel], {
   cwd: ROOT,
   stdio: "inherit",
   env: process.env,
