@@ -17,6 +17,9 @@ import { anonIdentifier, bearerIdentifier, checkRateLimit } from "../lib/rate-li
 import { registerToolSchemas, validateToolArgs } from "../lib/validate-args.js";
 import { TOOL_SPECS } from "../lib/tool-definitions.js";
 import { baseUrl } from "../lib/base-url.js";
+import { SERVER_DESCRIPTION, SERVER_INSTRUCTIONS, SERVER_NAME, SERVER_VERSION } from "../lib/server-metadata.js";
+
+export { SERVER_DESCRIPTION, SERVER_INSTRUCTIONS } from "../lib/server-metadata.js";
 
 // ── Structured logging ───────────────────────────────────────────
 
@@ -32,17 +35,6 @@ function sanitizeParams(params: Record<string, unknown>): Record<string, unknown
 
 // Tool execution is shared via lib/tools.ts (single source of truth for all
 // 11 tools, used by api/mcp.ts, src/stdio.ts, and src/index.ts).
-
-// ── Server-level instructions for AI agents ──────────────────────
-export const SERVER_INSTRUCTIONS = `This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated.
-
-Full booking lifecycle: search.properties (find properties) -> booking.negotiate (binding quote with quoteId) -> booking.checkout (Stripe payment) -> booking.status (check details) -> booking.reschedule / booking.cancel (modify or cancel).
-
-Legacy shortcut: search.properties -> booking.quote -> booking.create (no payment, pending host approval).
-
-Pricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6). Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week) are applied automatically. Federation discount (direct booking rate) is host-controlled.
-
-Dates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).`;
 
 // ── Config schema (all fields optional — Smithery "Optional config" requirement) ──
 export const CONFIG_SCHEMA = {
@@ -130,7 +122,7 @@ export const PROMPTS = [
 //
 // Apps SDK requires `ui://` resources that ChatGPT renders inline. Tools bind
 // to a widget via `_meta["openai/outputTemplate"]`. This single widget renders
-// a property search-result card for `search.properties`. Other tools may
+// a property search-result card for `hemmabo_search_properties`. Other tools may
 // adopt their own widgets later — kept minimal per Gap 2 spec.
 
 const PROPERTY_CARD_HTML = `<!DOCTYPE html>
@@ -219,7 +211,7 @@ export const RESOURCES = [
     uri: "ui://hemmabo/property-card",
     name: "HemmaBo property card",
     description:
-      "ChatGPT Apps SDK widget that renders search.properties results as a grid of property cards with image, location, public vs federation (direct-booking) price, host-controlled discount badge, and a CTA linking to the property's own host-owned domain.",
+      "ChatGPT Apps SDK widget that renders hemmabo_search_properties results as a grid of property cards with image, location, public vs federation (direct-booking) price, host-controlled discount badge, and a CTA linking to the property's own host-owned domain.",
     mimeType: "text/html",
   },
 ];
@@ -247,7 +239,7 @@ function getPromptMessages(name: string, args: Record<string, string>) {
           role: "user",
           content: {
             type: "text",
-            text: `I want to plan a trip to ${args.destination || "a vacation destination"} from ${args.checkIn || "TBD"} to ${args.checkOut || "TBD"} for ${args.guests || "2"} guests. Please: (1) search for available properties, (2) show pricing with both public and direct booking rates, (3) create a binding quote with booking.negotiate, (4) proceed to booking.checkout with Stripe payment, and (5) confirm the booking status. If I need to change dates later, use booking.reschedule. If I need to cancel, use booking.cancel.`,
+            text: `I want to plan a trip to ${args.destination || "a vacation destination"} from ${args.checkIn || "TBD"} to ${args.checkOut || "TBD"} for ${args.guests || "2"} guests. Please: (1) search for available properties with hemmabo_search_properties, (2) show pricing with both public and direct booking rates, (3) create a binding quote with hemmabo_booking_negotiate, (4) proceed to hemmabo_booking_checkout with Stripe payment, and (5) confirm booking status with hemmabo_booking_status. If I need to change dates later, use hemmabo_booking_reschedule. If I need to cancel, use hemmabo_booking_cancel.`,
           },
         },
       ],
@@ -300,9 +292,9 @@ async function handleJsonRpc(
             resources: { listChanged: false },
           },
           serverInfo: {
-            name: "hemmabo-mcp-server",
-            version: "3.2.9",
-            description: "MCP server for vacation rental direct bookings. Search properties, check availability, get real-time pricing quotes, and create bookings through the federation protocol. Supports seasonal pricing, guest-count tiers, weekly and biweekly package discounts, gap-night discounts, and host-controlled federation discounts. All data is live — never cached, never estimated.",
+            name: SERVER_NAME,
+            version: SERVER_VERSION,
+            description: SERVER_DESCRIPTION,
           },
           configSchema: CONFIG_SCHEMA,
           instructions: SERVER_INSTRUCTIONS,

@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "./_types.js";
-import { ANON_TOOLS, PROMPTS, SERVER_INSTRUCTIONS, TOOLS } from "./mcp.js";
+import { ANON_TOOLS, PROMPTS, SERVER_DESCRIPTION, SERVER_INSTRUCTIONS, TOOLS } from "./mcp.js";
 
 export default function handler(_req: VercelRequest, res: VercelResponse) {
   // Annotate each tool with its runtime auth requirement so registries
@@ -15,6 +15,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
     serverInfo: {
       name: "hemmabo-mcp-server",
       version: "3.2.9",
+      description: SERVER_DESCRIPTION,
     },
     instructions: SERVER_INSTRUCTIONS,
     configSchema: {

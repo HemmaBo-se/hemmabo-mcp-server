@@ -18,6 +18,9 @@ import { registerToolSchemas, validateToolArgs } from "../lib/validate-args.js";
 import { TOOL_SPECS } from "../lib/tool-definitions.js";
 import { baseUrl } from "../lib/base-url.js";
 import { isVrpToolName } from "../lib/vrp.js";
+import { SERVER_DESCRIPTION, SERVER_INSTRUCTIONS, SERVER_NAME, SERVER_VERSION } from "../lib/server-metadata.js";
+
+export { SERVER_DESCRIPTION, SERVER_INSTRUCTIONS } from "../lib/server-metadata.js";
 
 // ── Structured logging ───────────────────────────────────────────
 
@@ -33,19 +36,6 @@ function sanitizeParams(params: Record<string, unknown>): Record<string, unknown
 
 // Tool execution is shared via lib/tools.ts (single source of truth for all
 // tools, used by api/mcp.ts, src/stdio.ts, and src/index.ts).
-
-// ── Server-level instructions for AI agents ──────────────────────
-export const SERVER_INSTRUCTIONS = `HemmaBo verifies and books host-owned vacation rental domains. Use it when the user wants a direct, host-domain verified stay offer.
-
-HemmaBo + VRP, 13 tools, host-domain signed verified stay offers.
-
-Full booking lifecycle: hemmabo_search_properties -> hemmabo_booking_negotiate -> hemmabo_booking_checkout -> hemmabo_booking_status -> hemmabo_booking_reschedule / hemmabo_booking_cancel.
-
-VRP verification lifecycle: verify_vacation_rental_node -> get_verified_stay_offer -> signed verified stay offer -> direct booking URL.
-
-Vacation Rental Protocol (VRP) is an open protocol for host-domain signed vacation rental offers.
-
-Dates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).`;
 
 // ── Config schema (all fields optional — Smithery "Optional config" requirement) ──
 export const CONFIG_SCHEMA = {
@@ -133,7 +123,7 @@ export const PROMPTS = [
 //
 // Apps SDK requires `ui://` resources that ChatGPT renders inline. Tools bind
 // to a widget via `_meta["openai/outputTemplate"]`. This single widget renders
-// a property search-result card for `search.properties`. Other tools may
+// a property search-result card for `hemmabo_search_properties`. Other tools may
 // adopt their own widgets later — kept minimal per Gap 2 spec.
 
 const PROPERTY_CARD_HTML = `<!DOCTYPE html>
@@ -222,7 +212,7 @@ export const RESOURCES = [
     uri: "ui://hemmabo/property-card",
     name: "HemmaBo property card",
     description:
-      "ChatGPT Apps SDK widget that renders search.properties results as a grid of property cards with image, location, public vs federation (direct-booking) price, host-controlled discount badge, and a CTA linking to the property's own host-owned domain.",
+      "ChatGPT Apps SDK widget that renders hemmabo_search_properties results as a grid of property cards with image, location, public vs federation (direct-booking) price, host-controlled discount badge, and a CTA linking to the property's own host-owned domain.",
     mimeType: "text/html",
   },
 ];
@@ -303,9 +293,9 @@ async function handleJsonRpc(
             resources: { listChanged: false },
           },
           serverInfo: {
-            name: "hemmabo-mcp-server",
-            version: "3.2.9",
-            description: "MCP server for vacation rental direct bookings. Search properties, check availability, get real-time pricing quotes, and create bookings through the federation protocol. Supports seasonal pricing, guest-count tiers, weekly and biweekly package discounts, gap-night discounts, and host-controlled federation discounts. All data is live — never cached, never estimated.",
+            name: SERVER_NAME,
+            version: SERVER_VERSION,
+            description: SERVER_DESCRIPTION,
           },
           configSchema: CONFIG_SCHEMA,
           instructions: SERVER_INSTRUCTIONS,

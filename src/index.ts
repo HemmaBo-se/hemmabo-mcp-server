@@ -23,6 +23,7 @@ import { z } from "zod";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { executeTool } from "../lib/tools.js";
 import { TOOL_SPECS, toZodShape } from "../lib/tool-definitions.js";
+import { SERVER_DESCRIPTION, SERVER_INSTRUCTIONS, SERVER_NAME, SERVER_VERSION } from "../lib/server-metadata.js";
 import { validateAuth } from "./auth.js";
 import { anonIdentifier, bearerIdentifier, checkRateLimit } from "../lib/rate-limit.js";
 import rateLimit from "express-rate-limit";
@@ -60,31 +61,14 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
 
 // ── MCP Server ─────────────────────────────────────────────────────
 
-/**
- * Server instructions (for documentation):
- * 
- * This MCP server provides real-time vacation rental data for independent property hosts.
- * All data is live from the property's own database — never cached, never estimated.
- *
- * Full booking lifecycle: search.properties (find properties) -> booking.negotiate (binding quote with quoteId)
- * -> booking.checkout (Stripe payment) -> booking.status (check details) -> booking.reschedule / booking.cancel (modify or cancel).
- *
- * Legacy shortcut: search.properties -> booking.quote -> booking.create (no payment, pending host approval).
- *
- * Pricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6).
- * Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week)
- * are applied automatically. Federation discount (direct booking rate) is host-controlled.
- *
- * Dates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).
- */
 const server = new McpServer(
   {
-    name: "hemmabo-mcp-server",
-    version: "3.2.9",
-    description: "MCP server for vacation rental direct bookings. Search properties, check availability, get real-time pricing quotes, and create bookings through the federation protocol. Supports seasonal pricing, guest-count tiers, weekly and biweekly package discounts, gap-night discounts, and host-controlled federation discounts. All data is live — never cached, never estimated.",
+    name: SERVER_NAME,
+    version: SERVER_VERSION,
+    description: SERVER_DESCRIPTION,
   },
   {
-    instructions: "This MCP server provides real-time vacation rental data for independent property hosts. All data is live from the property's own database — never cached, never estimated.\n\nFull booking lifecycle: search.properties (find properties) -> booking.negotiate (binding quote with quoteId) -> booking.checkout (Stripe payment) -> booking.status (check details) -> booking.reschedule / booking.cancel (modify or cancel).\n\nLegacy shortcut: search.properties -> booking.quote -> booking.create (no payment, pending host approval).\n\nPricing tiers: Prices scale by guest count (staircase model — e.g. 1-2 guests, 3-4, 5-6). Seasonal rates (high/low), weekend premiums (Fri+Sat only), and package discounts (7-night week, 14-night two-week) are applied automatically. Federation discount (direct booking rate) is host-controlled.\n\nDates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in the property's local currency (e.g. SEK, EUR).",
+    instructions: SERVER_INSTRUCTIONS,
   }
 );
 
@@ -266,7 +250,7 @@ server.prompt(
           role: "user" as const,
           content: {
             type: "text" as const,
-            text: `I want to plan a trip to ${destination || "a vacation destination"} from ${checkIn || "TBD"} to ${checkOut || "TBD"} for ${guests || "2"} guests. Please: (1) search for available properties, (2) show pricing with both public and direct booking rates, (3) create a binding quote with booking.negotiate, (4) proceed to booking.checkout with Stripe payment, and (5) confirm the booking status. If I need to change dates later, use booking.reschedule. If I need to cancel, use booking.cancel.`,
+            text: `I want to plan a trip to ${destination || "a vacation destination"} from ${checkIn || "TBD"} to ${checkOut || "TBD"} for ${guests || "2"} guests. Please: (1) search for available properties with hemmabo_search_properties, (2) show pricing with both public and direct booking rates, (3) create a binding quote with hemmabo_booking_negotiate, (4) proceed to hemmabo_booking_checkout with Stripe payment, and (5) confirm the booking status with hemmabo_booking_status. If I need to change dates later, use hemmabo_booking_reschedule. If I need to cancel, use hemmabo_booking_cancel.`,
           },
         },
       ],
@@ -366,9 +350,11 @@ app.all("/mcp", mcpIpLimiter, async (req, res) => {
 app.get("/.well-known/mcp/server-card.json", (_req, res) => {
   res.json({
     serverInfo: {
-      name: "hemmabo-mcp-server",
-      version: "3.2.9",
+      name: SERVER_NAME,
+      version: SERVER_VERSION,
+      description: SERVER_DESCRIPTION,
     },
+    instructions: SERVER_INSTRUCTIONS,
     configSchema: {
       type: "object",
       properties: {
