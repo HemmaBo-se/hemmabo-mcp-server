@@ -24,7 +24,7 @@ BADGE_TEXT="#34d399"  # mint badge text
 
 # Per-card: image color (warm overlay), country code accent, title, location, sleeps, list price, deal price, discount.
 declare -a CARDS=(
-  "1e3a8a|7dd3fc|SE|Villa Akerlyckan|Skane, Sweden|Sleeps 8|SEK 18,900|SEK 16,200|-14%"
+  "1e3a8a|7dd3fc|SE|Villa Åkerlyckan|Skåne, Sweden|Sleeps 8|SEK 18,900|SEK 16,200|-14%"
   "713f12|fbbf24|SE|Stuga Skane|Skane, Sweden|Sleeps 6|SEK 14,000|SEK 12,600|-10%"
   "14532d|86efac|IT|Casa Toscana|Toscana, Italy|Sleeps 10|EUR 2,400|EUR 2,040|-15%"
   "7f1d1d|fda4af|DE|Cabin Bavaria|Bavaria, Germany|Sleeps 4|EUR 1,800|EUR 1,548|-14%"
