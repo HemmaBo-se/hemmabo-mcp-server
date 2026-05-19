@@ -133,7 +133,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     ],
     registry: {
       glama: "https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server",
-      smithery: "https://smithery.ai/servers/@hemmabo-se/hemmabo",
+      smithery: "https://smithery.ai/servers/info-00wt/hemmabo-mcp-server",
       npm: "https://www.npmjs.com/package/hemmabo-mcp-server",
     },
     tools: TOOL_NAMES.map((toolName) => ({
