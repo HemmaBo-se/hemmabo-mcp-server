@@ -80,7 +80,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
 const server = new McpServer(
   {
     name: "hemmabo-mcp-server",
-    version: "3.2.8",
+    version: "3.2.9",
     description: "MCP server for vacation rental direct bookings. Search properties, check availability, get real-time pricing quotes, and create bookings through the federation protocol. Supports seasonal pricing, guest-count tiers, weekly and biweekly package discounts, gap-night discounts, and host-controlled federation discounts. All data is live — never cached, never estimated.",
   },
   {
@@ -280,7 +280,7 @@ const app = express();
 
 // Health check
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", version: "3.2.8" });
+  res.json({ status: "ok", version: "3.2.9" });
 });
 
 // Standard Express-recognised rate-limit middleware on /mcp. This is the
@@ -367,7 +367,7 @@ app.get("/.well-known/mcp/server-card.json", (_req, res) => {
   res.json({
     serverInfo: {
       name: "hemmabo-mcp-server",
-      version: "3.2.8",
+      version: "3.2.9",
     },
     configSchema: {
       type: "object",

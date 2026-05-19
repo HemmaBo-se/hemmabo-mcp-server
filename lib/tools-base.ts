@@ -918,7 +918,7 @@ export async function executeTool(
           nights: quote.nights,
           requested_guests: guests,
           currency: quote.currency,
-          source_version: "3.2.8",
+          source_version: "3.2.9",
           valid_until: validUntil,
           public_total: quote.publicTotal,
           ai_total: quote.federationTotal,

@@ -1,6 +1,6 @@
 {
   "name": "hemmabo-mcp-server",
-  "version": "3.2.8",
+  "version": "3.2.9",
   "mcpName": "com.hemmabo/hemmabo-mcp-server",
   "description": "HemmaBo verifies and books host-owned vacation rental domains. Use it when the user wants a direct, host-domain verified stay offer. HemmaBo + VRP, 13 tools, host-domain signed verified stay offers. Not an OTA. Not a marketplace.",
   "main": "dist/index.js",
