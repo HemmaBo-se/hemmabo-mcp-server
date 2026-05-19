@@ -85,7 +85,7 @@ If Smithery connection settings are added in a later task, all of these fields m
 | `language` | `string` | `query` | no | blank |
 | `currency` | `string` | `query` | no | blank |
 
-Villa Akerlyckan is the reference proof node, not a Smithery-wide connection default.
+Villa Åkerlyckan is the reference proof node, not a Smithery-wide connection default.
 
 ## Locked public description
 
@@ -107,7 +107,7 @@ Boundary:
 
 - HemmaBo = provider / federation / app / MCP server.
 - VRP = open protocol / neutral standard.
-- Villa Akerlyckan and future host domains = proof nodes with their own discovery, JWKS, and signed stay offers.
+- Villa Åkerlyckan and future host domains = proof nodes with their own discovery, JWKS, and signed stay offers.
 
 Do not describe VRP as HemmaBo-owned.
 

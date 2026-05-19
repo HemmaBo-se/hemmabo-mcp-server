@@ -167,11 +167,11 @@
   },
   "test_cases": [
     {
-      "description": "Should trigger when the user asks to book Villa Akerlyckan.",
-      "user_prompt": "Book Villa Akerlyckan.",
+      "description": "Should trigger when the user asks to book Villa Åkerlyckan.",
+      "user_prompt": "Book Villa Åkerlyckan.",
       "file_attachment_urls": null,
       "tools_triggered": "hemmabo_search_properties",
-      "expected_output": "The app is invoked and starts a direct-booking flow for Villa Akerlyckan with date/guest clarification if needed.",
+      "expected_output": "The app is invoked and starts a direct-booking flow for Villa Åkerlyckan with date/guest clarification if needed.",
       "expected_output_url": null
     },
     {

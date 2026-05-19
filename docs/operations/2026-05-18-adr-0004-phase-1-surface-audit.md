@@ -25,7 +25,7 @@ All public surfaces should align to:
 | `llms.txt` (repo copy) | stale: old positioning | Mentions VRP context but not consistently aligned to ADR 0004 three-layer doctrine lockstep wording. |
 | Custom GPT description | missing | Not versioned in this repo; needs separate operational update and proof capture. |
 | `vacationrentalprotocol.com` | missing | Not present in repo and not verified as published neutral standard site in this audit pass. |
-| Villa Akerlyckan proof page | missing | Not present in this repo; proof-page status must be validated on host node operations side. |
+| Villa Åkerlyckan proof page | missing | Not present in this repo; proof-page status must be validated on host node operations side. |
 | Glama live listing | stale: wrong tool count | Live page reflects README copy with 11-tool table (stale versus runtime 13-tool surface). |
 | Smithery live listing | stale: old positioning | Listing inherits older packaging copy; needs explicit HemmaBo+VRP lockstep language refresh after metadata updates/reindex. |
 | MCP.so live listing | stale: missing VRP | Indexed summary emphasizes booking tools and does not show VRP verification path as primary discovery positioning. |

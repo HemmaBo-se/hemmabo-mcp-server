@@ -84,7 +84,7 @@ HemmaBo exposes booking and verification through MCP with 13 tools.
 - HemmaBo = provider/federation for host-owned vacation rental domains
 - Vacation Rental Protocol (VRP) = open protocol for host-domain signed vacation rental offers
 - VRP offers are cryptographically signed by the host domain and verified against that domain's published Ed25519 JWKS
-- Villa Akerlyckan = reference proof node: domain discovery -> JWKS -> signed verified stay offer -> direct booking URL
+- Villa Åkerlyckan = reference proof node: domain discovery -> JWKS -> signed verified stay offer -> direct booking URL
 
 VRP discovery tools:
 - `verify_vacation_rental_node`
@@ -102,7 +102,7 @@ VRP discovery tools:
 - **AI protocols:** Model Context Protocol (MCP) + Stripe Agentic Commerce Protocol (ACP)
 - **Closest analog:** Mirai for hotels — own-domain booking infrastructure, no commission, direct payments
 - **Country of origin:** Sweden
-- **Live reference host:** villaakerlyckan.se (Kävlinge, Sweden)
+- **Live reference host:** Villa Åkerlyckan (`villaakerlyckan.se`, Kävlinge, Sweden)
 - **Official site:** hemmabo.com
 
 ---
@@ -167,7 +167,7 @@ Canonical wire names are `snake_case` so every MCP client (including claude.ai w
 | `hemmabo_compare_properties` | Compare availability and pricing for 2–10 specific properties on the same dates. Sorted by federation price, unavailable last. | Yes |
 | `hemmabo_booking_quote` | Get detailed pricing: publicTotal (website rate), federationTotal (direct booking rate), gapTotal (gap-night discount). Per-night breakdown included. | Yes |
 | `hemmabo_booking_create` | Create a direct booking at federation price. Validates availability, calculates price, creates pending booking for host approval. | No |
-| `hemmabo_booking_negotiate` | Create a binding price quote with quoteId. Stores immutable snapshot, expires after 15 minutes. Pass quoteId to checkout to lock the price. | Yes |
+| `hemmabo_booking_negotiate` | Create a binding price quote with quoteId. Stores immutable snapshot, expires after 15 minutes. Pass quoteId to checkout to lock the price. | No |
 | `hemmabo_booking_checkout` | Create a booking with Stripe payment. Supports MPP (payment_intent mode for programmatic payment). Optionally locks price via quoteId. | No |
 | `hemmabo_booking_cancel` | Cancel a booking. Handles refund calculation, Stripe refund, email notifications via Supabase Edge Function. | No |
 | `hemmabo_booking_status` | Get booking details, property info, and cancellation policy by reservation ID. | Yes |
@@ -230,7 +230,7 @@ cp .env.example .env
 
 ## Agentic Commerce Protocol (ACP)
 
-First vacation rental with [Stripe ACP](https://docs.stripe.com/agentic-commerce/protocol) support. AI agents can complete bookings with SharedPaymentTokens — no redirect, no manual payment.
+HemmaBo supports [Stripe ACP](https://docs.stripe.com/agentic-commerce/protocol) for agentic checkout. AI agents can complete bookings with SharedPaymentTokens — no redirect, no manual payment.
 
 All `/acp/*` endpoints share the global rate-limit policy (see #65). `GET /acp/checkouts/:id` requires `Authorization: Bearer <token>` to return guest PII (#67) — anonymous callers receive a 401 instead of buyer fields. ACP request bodies are deduplicated via the `Idempotency-Key` header (#66). Money amounts are computed in integer cents throughout (#69) and reconciled via Stripe webhook (#70) so refund/capture state cannot silently diverge from the host's Stripe account.
 
@@ -242,7 +242,7 @@ All `/acp/*` endpoints share the global rate-limit policy (see #65). `GET /acp/c
 | `/acp/checkouts/:id/complete` | POST | Complete with SharedPaymentToken (spt_) or PaymentMethod (pm_) |
 | `/acp/checkouts/:id/cancel` | POST | Cancel checkout + refund |
 
-Supports Stripe SharedPaymentTokens (SPT), Klarna, Swish, and card payments. Compatible with ChatGPT Instant Checkout, Google UCP, and any ACP-compliant agent.
+Supports Stripe SharedPaymentTokens (SPT), PaymentMethod (`pm_...`), Klarna, Swish, and card payments.
 
 ## MCP + ACP Endpoints
 
@@ -271,11 +271,11 @@ HemmaBo is distributed across multiple channels to maximize AI discovery:
 - **Discovery:** AI agents search NPM for "vacation rental MCP", "booking MCP", "property management MCP"
 - **Keywords in package.json:** `mcp`, `mcp-server`, `model-context-protocol`, `vacation-rental`, `direct-booking`, `property-management`, `pricing`, `availability`, `federation`
 
-### 2. **MCP Registry** (Official)
-- Listed in [Glama MCP Registry](https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server) and [Smithery](https://smithery.ai/servers/info-00wt/hemmabo-mcp-server)
-- Submission pending: Official MCP Registry (modelcontextprotocol.io)
-- Indexed by Claude and other MCP-aware systems
-- Submission: `glama.json` with comprehensive metadata
+### 2. **Official MCP Registry**
+- **Registry name:** `com.hemmabo/hemmabo-mcp-server`
+- **Canonical metadata:** `server.json`
+- **Remote endpoint:** `https://hemmabo-mcp-server.vercel.app/mcp`
+- **Package:** `hemmabo-mcp-server@3.2.9`
 
 ### 3. **Smithery Gateway**
 - Public MCP server directory

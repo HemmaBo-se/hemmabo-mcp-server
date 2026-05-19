@@ -536,7 +536,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       protocol: "agentic-commerce-protocol",
       version: "1.0",
       seller: "HemmaBo Federation",
-      description: "ACP-compatible vacation rental checkout. First vacation rental with agentic commerce support.",
+      description: "ACP-compatible vacation rental checkout for host-owned vacation rental domains.",
       endpoints: {
         create: "POST /acp/checkouts",
         retrieve: "GET /acp/checkouts/:id",

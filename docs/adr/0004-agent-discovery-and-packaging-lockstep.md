@@ -102,23 +102,23 @@ Meaning:
 - VRP must not be described as HemmaBo-only.
 - VRP v0.1 is not an OTA, marketplace, central registry, public traffic proxy, or central key issuer.
 
-#### Villa Akerlyckan
+#### Villa Åkerlyckan
 
 Canonical positioning:
 
 ```text
-Villa Akerlyckan is the reference proof node: villaakerlyckan.se -> discovery -> JWKS -> signed stay offer -> direct booking.
+Villa Åkerlyckan is the reference proof node: villaakerlyckan.se -> discovery -> JWKS -> signed stay offer -> direct booking.
 ```
 
 Role:
 
 ```text
-Villa Akerlyckan = proof node
+Villa Åkerlyckan = proof node
 ```
 
 Meaning:
 
-- Villa Akerlyckan is the live reference implementation for host-domain signed stay offers.
+- Villa Åkerlyckan is the live reference implementation for host-domain signed stay offers.
 - It proves that a real host-owned domain can publish a verifiable, AI-agent-readable, bookable offer.
 - It must not be framed as the whole product or the whole protocol.
 
@@ -138,7 +138,7 @@ The following surfaces must stay consistent with the doctrine above:
 | `llms.txt` | `hemmabo.com` / public web | Uses the three-layer doctrine and references VRP neutrally. |
 | Custom GPT description | ChatGPT GPT editor | Uses the three-layer doctrine and does not overclaim. |
 | `vacationrentalprotocol.com` | VRP standard site | Teaches neutral host-domain verification, not HemmaBo marketing. |
-| Villa Akerlyckan proof page | `villaakerlyckan.se` / host node | Shows the live proof path and safe agent wording. |
+| Villa Åkerlyckan proof page | `villaakerlyckan.se` / host node | Shows the live proof path and safe agent wording. |
 
 If any of these surfaces changes the tool count, VRP wording, proof path, or HemmaBo positioning, all affected surfaces must be reviewed in the same PR or operational task.
 
@@ -151,7 +151,7 @@ Agent-discovery copy must make clear when HemmaBo should and should not be selec
 Use HemmaBo when the user asks for direct host-domain booking, HemmaBo properties, or official direct offers:
 
 ```text
-Book Villa Akerlyckan
+Book Villa Åkerlyckan
 Verify villaakerlyckan.se
 Get official direct price from this property domain
 Can I book this vacation rental directly?
@@ -270,7 +270,7 @@ Create a public-surface audit that records current state for:
 - `llms.txt` on `hemmabo.com`
 - Custom GPT description
 - `vacationrentalprotocol.com`
-- Villa Akerlyckan proof page
+- Villa Åkerlyckan proof page
 - Glama live listing
 - Smithery live listing
 - MCP.so live listing
@@ -348,7 +348,7 @@ Minimum pages:
 - `/implement` - how another host/provider can implement VRP.
 - `/agent-guide` - when agents should use VRP and what wording is safe.
 
-### Phase 6 - Villa Akerlyckan proof page
+### Phase 6 - Villa Åkerlyckan proof page
 
 Add or update a proof page on `villaakerlyckan.se` explaining:
 
@@ -362,7 +362,7 @@ villaakerlyckan.se
 -> direct booking URL
 ```
 
-The page must show Villa Akerlyckan as a proof node, not as the whole standard.
+The page must show Villa Åkerlyckan as a proof node, not as the whole standard.
 
 ## 4. Consequences
 
@@ -371,7 +371,7 @@ The page must show Villa Akerlyckan as a proof node, not as the whole standard.
 - HemmaBo stops leaking trust through inconsistent public descriptions.
 - Agents and registries learn one coherent model.
 - VRP becomes legible as a standard rather than a product claim.
-- Villa Akerlyckan becomes a clear proof node.
+- Villa Åkerlyckan becomes a clear proof node.
 - Future feature work inherits a stable discovery story.
 
 ### Negative / cost
@@ -407,6 +407,6 @@ ADR 0004 may be marked **Accepted** when:
 - [ ] `/.well-known/mcp.json` and `/.well-known/mcp/server-card.json` are verified live and list 13 tools.
 - [ ] NPM, Glama, Smithery, and MCP.so live listings are checked after reindex/republication.
 - [ ] `vacationrentalprotocol.com` exists and teaches neutral host-domain VRP verification.
-- [ ] Villa Akerlyckan has a proof page or equivalent public proof surface.
+- [ ] Villa Åkerlyckan has a proof page or equivalent public proof surface.
 - [ ] No runtime code, endpoint, pricing, payment, calendar, or database logic changed as part of the packaging audit unless separately approved.
 - [ ] This ADR is updated to `Status: Accepted` with the acceptance date.

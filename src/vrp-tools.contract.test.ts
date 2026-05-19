@@ -81,7 +81,7 @@ describe("VRP MCP tools", () => {
       },
       property: {
         id: "prop-test",
-        name: "Villa Akerlyckan",
+        name: "Villa Åkerlyckan",
         domain: "villaakerlyckan.se",
       },
       availability: {
