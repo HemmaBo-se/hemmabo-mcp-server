@@ -3,9 +3,9 @@
   "version": "3.2.9",
   "mcpName": "com.hemmabo/hemmabo-mcp-server",
   "description": "HemmaBo verifies and books host-owned vacation rental domains. Use it when the user wants a direct, host-domain verified stay offer. HemmaBo + VRP, 13 tools, host-domain signed verified stay offers. Not an OTA. Not a marketplace.",
-  "main": "dist/index.js",
+  "main": "dist/src/index.js",
   "bin": {
-    "hemmabo-mcp-server": "dist/stdio.js"
+    "hemmabo-mcp-server": "dist/src/stdio.js"
   },
   "type": "module",
   "files": [
@@ -52,7 +52,7 @@
   "homepage": "https://hemmabo-mcp-server.vercel.app",
   "repository": {
     "type": "git",
-    "url": "https://github.com/HemmaBo-se/hemmabo-mcp-server"
+    "url": "git+https://github.com/HemmaBo-se/hemmabo-mcp-server.git"
   },
   "license": "MIT",
   "author": {
@@ -62,7 +62,7 @@
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm run build",
-    "start": "node dist/index.js",
+    "start": "node dist/src/index.js",
     "dev": "tsc --watch",
     "test": "node scripts/run-tests.mjs",
     "test:enrolled": "node scripts/check-tests-enrolled.mjs"
