@@ -5,7 +5,7 @@
     "kingen1"
   ],
   "name": "HemmaBo",
-  "version": "3.2.10",
+  "version": "3.2.11",
   "license": "MIT",
   "description": "HemmaBo verifies and books host-owned vacation rental domains. Use it when the user wants a direct, host-domain verified stay offer. Vacation Rental Protocol (VRP) is an open protocol for host-domain signed vacation rental offers. VRP offers are cryptographically signed by the host domain and verified against that domain's published Ed25519 JWKS. HemmaBo + VRP, 13 tools, host-domain signed verified stay offers.",
   "homepage": "https://hemmabo-mcp-server.vercel.app",
