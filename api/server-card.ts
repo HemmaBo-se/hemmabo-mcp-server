@@ -1,7 +1,11 @@
 import type { VercelRequest, VercelResponse } from "./_types.js";
+import { createRequire } from "node:module";
 import { ANON_TOOLS, PROMPTS, SERVER_DESCRIPTION, SERVER_INSTRUCTIONS, TOOLS } from "./mcp.js";
+import { baseUrl } from "../lib/base-url.js";
 
-export default function handler(_req: VercelRequest, res: VercelResponse) {
+const pkg = createRequire(import.meta.url)("../package.json") as { version: string };
+
+export default function handler(req: VercelRequest, res: VercelResponse) {
   // Annotate each tool with its runtime auth requirement so registries
   // (Glama, Smithery, ChatGPT directory) can render an accurate
   // "no key required" badge without first issuing a tools/call probe.
@@ -10,12 +14,17 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
     ...t,
     auth: ANON_TOOLS.has(t.name) ? "none" : "bearer",
   }));
+  const base = baseUrl(req);
 
   res.json({
     serverInfo: {
       name: "hemmabo-mcp-server",
-      version: "3.2.9",
+      title: "HemmaBo",
+      version: pkg.version,
       description: SERVER_DESCRIPTION,
+      homepage: "https://hemmabo.com",
+      icon: `${base}/icon.png`,
+      iconUrl: `${base}/icon.png`,
     },
     instructions: SERVER_INSTRUCTIONS,
     configSchema: {

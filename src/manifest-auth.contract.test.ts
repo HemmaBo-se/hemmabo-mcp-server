@@ -1,10 +1,23 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import { ANON_TOOLS, TOOLS } from "../api/mcp.js";
 import manifestHandler from "../api/mcp-manifest.js";
 import serverCardHandler from "../api/server-card.js";
 
+const pkg = createRequire(import.meta.url)("../package.json") as { version: string };
 type Tool = { name: string; auth?: "none" | "bearer"; annotations?: { readOnlyHint?: boolean } };
+type ServerCard = {
+  serverInfo: {
+    name: string;
+    title: string;
+    version: string;
+    homepage: string;
+    icon: string;
+    iconUrl: string;
+  };
+  tools: Tool[];
+};
 
 function captureJson(handler: (req: any, res: any) => unknown): Promise<unknown> {
   return new Promise((resolve, reject) => {
@@ -57,6 +70,16 @@ describe("manifest per-tool auth contract", () => {
       const expected: "none" | "bearer" = ANON_TOOLS.has(t.name) ? "none" : "bearer";
       assert.equal(t.auth, expected, `server-card tool ${t.name} expected auth=${expected}`);
     }
+  });
+
+  it("server-card endpoint exposes non-stale registry metadata", async () => {
+    const body = (await captureJson(serverCardHandler as never)) as ServerCard;
+    assert.equal(body.serverInfo.name, "hemmabo-mcp-server");
+    assert.equal(body.serverInfo.title, "HemmaBo");
+    assert.equal(body.serverInfo.version, pkg.version);
+    assert.equal(body.serverInfo.homepage, "https://hemmabo.com");
+    assert.equal(body.serverInfo.icon, "https://hemmabo-mcp-server.vercel.app/icon.png");
+    assert.equal(body.serverInfo.iconUrl, "https://hemmabo-mcp-server.vercel.app/icon.png");
   });
 
   it("anon manifest entries match readOnlyHint annotation", async () => {
