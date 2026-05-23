@@ -24,7 +24,7 @@ HemmaBo + VRP, 13 tools, host-domain signed verified stay offers.
 - `api/mcp.ts` (`SERVER_INSTRUCTIONS`, prompt wording for `/.well-known/mcp/server-card.json`)
 - `submission/chatgpt-app-submission.json`
 - `llms.txt`
-- `AI_CITATION_STRATEGY.md` (tool-count consistency fixes)
+- Internal citation-strategy notes were moved out of the public repo surface.
 
 ## Lockstep outcomes
 

@@ -21,7 +21,7 @@ All public surfaces should align to:
 | `/.well-known/mcp.json` (live) | current | Live manifest includes 13 tools, both VRP tools, and host-domain signed verified stay offer wording. |
 | `/.well-known/mcp/server-card.json` (live) | stale: old positioning | Lists 13 tools including VRP tools, but instructions still describe legacy dotted flow and not canonical HemmaBo+VRP lockstep phrasing. |
 | `submission/chatgpt-app-submission.json` | stale: wrong tool count | `tools` block includes 11 tools only (missing both VRP tools); test prompts not yet aligned to ADR 0004 Section 2.3 trigger doctrine. |
-| `AI_CITATION_STRATEGY.md` | stale: overclaim | Mixed 11/13 tool claims and marketing-first framing; not aligned to neutral VRP standard boundary. |
+| Internal citation-strategy notes | stale: overclaim | Mixed 11/13 tool claims and marketing-first framing; moved out of the public repo surface. |
 | `llms.txt` (repo copy) | stale: old positioning | Mentions VRP context but not consistently aligned to ADR 0004 three-layer doctrine lockstep wording. |
 | Custom GPT description | missing | Not versioned in this repo; needs separate operational update and proof capture. |
 | `vacationrentalprotocol.com` | missing | Not present in repo and not verified as published neutral standard site in this audit pass. |
