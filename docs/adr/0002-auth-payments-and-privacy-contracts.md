@@ -22,7 +22,7 @@ ADR 0001 captured five hygiene bugs (#59–#63). A subsequent audit pass on `ori
 | #67 | Privacy | **Critical** | `api/acp.ts:506` gates auth behind `if (isMutation)`. `GET /acp/checkouts/:id` returns `buyer.email`, `buyer.phone_number`, full name, dates, and price to any caller who holds (or guesses) a UUID. |
 | #69 | Money precision | High | Five sites convert `price * 100` without rounding (`api/acp.ts:100`, `api/acp.ts:362`, `src/stripe.ts:63`, `src/stripe.ts:123`, `src/stripe.ts:149`). `19.99 * 100 === 1998.9999999999998`. |
 | #70 | Money sync | High | No webhook handler exists. `cancelCheckout` swallows refund failures with `catch { /* refund is best-effort */ }` while still marking the booking `cancelled`. |
-| #71 | Docs drift | High | `README.md`, `llms.txt`, `api/mcp-manifest.ts`, `api/server-card.ts`, `LAUNCHGUIDE.md` claim things that are not true on `origin/main`. |
+| #71 | Docs drift | High | `README.md`, `llms.txt`, `api/mcp-manifest.ts`, and `api/server-card.ts` claim things that are not true on `origin/main`. |
 
 These are **runtime correctness** problems, not code-organisation problems. ADR 0001 does not cover them.
 
@@ -81,7 +81,6 @@ Every PR that changes an endpoint's auth, request shape, response shape, or beha
 - `llms.txt`
 - `api/mcp-manifest.ts`
 - `api/server-card.ts`
-- `LAUNCHGUIDE.md`
 - `submission/chatgpt-app-submission.json` (only when on a release branch)
 
 A grep-based CI check (`scripts/check-docs-drift.sh`) compares the canonical tool list in `lib/tool-specs.ts` (introduced by ADR 0001) against each document and fails the build on mismatch. This fixes #71 by making it impossible to drift further.
@@ -103,7 +102,7 @@ Order is by **risk reduction per unit of work**, not by dependency. Each item is
 | 9 | `chore: delete src/pricing.ts` | #60 | delete + new singleton guard | `pricing-singleton.test.ts` |
 | 10 | `chore: delete src/availability.ts` | #61 | delete + new singleton guard + fail-closed unit tests | `availability-singleton.test.ts` |
 | 11 | `feat: register canonical snake_case tool names` | #59 | `lib/tool-specs.ts`, docs | `tool-names-anthropic-strict.test.ts` |
-| 12 | `docs: lockstep update of public surface` | #71 | `README.md`, `llms.txt`, `LAUNCHGUIDE.md`, `api/mcp-manifest.ts`, `api/server-card.ts`, new `scripts/check-docs-drift.sh` | docs-drift script in CI |
+| 12 | `docs: lockstep update of public surface` | #71 | `README.md`, `llms.txt`, `api/mcp-manifest.ts`, `api/server-card.ts`, new `scripts/check-docs-drift.sh` | docs-drift script in CI |
 
 ## 4. Consequences
 

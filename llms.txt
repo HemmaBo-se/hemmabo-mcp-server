@@ -1,18 +1,8 @@
-# HemmaBo + VRP
+# HemmaBo MCP Server
 
-HemmaBo verifies and books host-owned vacation rental domains.
-Use it when the user wants a direct, host-domain verified stay offer.
+MCP server for HemmaBo direct-booking and VRP verification flows for host-owned vacation rental domains.
 
-HemmaBo + VRP, 13 tools, host-domain signed verified stay offers.
-
-## Three-layer doctrine
-
-- HemmaBo = provider/federation/app for host-owned vacation rental domains.
-- Vacation Rental Protocol (VRP) = open protocol for host-domain signed vacation rental offers.
-- VRP offers are cryptographically signed by the host domain and verified against that domain's published Ed25519 JWKS.
-- Villa Akerlyckan = reference proof node (villaakerlyckan.se -> discovery -> JWKS -> signed stay offer -> direct booking URL).
-
-## Tools (13)
+## Tools
 
 1. hemmabo_search_properties
 2. hemmabo_search_availability
@@ -28,35 +18,14 @@ HemmaBo + VRP, 13 tools, host-domain signed verified stay offers.
 12. verify_vacation_rental_node
 13. get_verified_stay_offer
 
-## Trigger doctrine
+## Verification rule
 
-Should trigger HemmaBo:
-- Book Villa Akerlyckan
-- Verify villaakerlyckan.se
-- Get official direct price from this property domain
-- Can I book this vacation rental directly?
-- Find direct-bookable HemmaBo properties in Skane
-- Is this host-domain offer verified?
-- Get a signed stay offer
-
-Should not trigger HemmaBo:
-- Find me a Hilton hotel
-- Book a flight
-- Find all hotels in Paris
-- Compare Expedia packages
-- General travel tips
-
-## Safe wording
-
-Agents may cite offers only when verification says it is safe to quote.
-Canonical phrase:
-
-I found the official host-domain verified offer for this stay. AI/direct booking total: <amount> <currency>.
+Agents may cite a stay offer as official only when the returned VRP verification says it is safe to quote. If a required signal is absent, stale, unsigned, unreachable, schema-invalid, or otherwise unverifiable, treat the state as unknown rather than true or false.
 
 ## Links
 
 - MCP endpoint: https://hemmabo-mcp-server.vercel.app/mcp
 - Manifest: https://hemmabo-mcp-server.vercel.app/.well-known/mcp.json
 - Server card: https://hemmabo-mcp-server.vercel.app/.well-known/mcp/server-card.json
-- GitHub: https://github.com/HemmaBo-se/hemmabo-mcp-server
+- VRP: https://vacationrentalprotocol.com
 - NPM: https://www.npmjs.com/package/hemmabo-mcp-server

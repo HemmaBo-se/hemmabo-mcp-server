@@ -146,7 +146,7 @@ Each item is a separate PR. Each PR ships with its own drift-guard test (§2.2).
 2. **#63 — Collapse triple-SoT for tool specs.** Create `lib/tool-specs.ts` exporting `TOOL_SPECS: ReadonlyArray<ToolSpec>`. Refactor `api/mcp.ts:TOOLS`, `src/index.ts:server.tool(...)` calls, and `src/stdio.ts:server.tool(...)` calls to consume it. Extend [`src/mcp-tool-annotations.contract.test.ts`](../../src/mcp-tool-annotations.contract.test.ts) to lock the single source and assert no other module redefines a tool name.
 3. **#60 — Delete `src/pricing.ts`.** Add singleton guard mirroring `mcp-manifest-singleton.test.ts`.
 4. **#61 — Delete `src/availability.ts`.** Add singleton guard. Add explicit unit tests for the three fail-closed branches in `lib/availability.ts` (blocked_dates, bookings, locks query errors).
-5. **#59 — Rename to canonical snake_case.** Register snake_case names in the now-single `lib/tool-specs.ts`. Keep dotted names alive via existing `TOOL_NAME_ALIASES` in `lib/tools.ts` until 4.0.0. Update `README.md`, `llms.txt`, `glama.json`, `LAUNCHGUIDE.md`. **Do not** update `submission/chatgpt-app-submission.json` yet (per §3 risk note).
+5. **#59 — Rename to canonical snake_case.** Register snake_case names in the now-single `lib/tool-specs.ts`. Keep dotted names alive via existing `TOOL_NAME_ALIASES` in `lib/tools.ts` until 4.0.0. Update `README.md`, `llms.txt`, `glama.json`, and external launch metadata if applicable. **Do not** update `submission/chatgpt-app-submission.json` yet (per §3 risk note).
 6. **Smoke test on a real claude.ai web account** that the orange `FrontendRemoteMcpToolDefinition.name` warning is gone. Document the verified working URL in the PR description.
 
 ## 5. Non-goals (explicitly out of scope for this ADR)
