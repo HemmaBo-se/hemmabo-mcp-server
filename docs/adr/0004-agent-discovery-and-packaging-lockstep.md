@@ -266,7 +266,7 @@ Create a public-surface audit that records current state for:
 - `/.well-known/mcp.json`
 - `/.well-known/mcp/server-card.json`
 - `submission/chatgpt-app-submission.json`
-- `AI_CITATION_STRATEGY.md`
+- Internal citation-strategy notes, no longer kept in this public repo.
 - `llms.txt` on `hemmabo.com`
 - Custom GPT description
 - `vacationrentalprotocol.com`

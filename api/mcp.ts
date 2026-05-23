@@ -485,9 +485,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // - tools/call for any other tool (booking writes, status with PII): requires
   //   Bearer token (MCP_API_KEY or OAuth client_credentials access token).
   //
-  // This allows ChatGPT/Claude/Glama/Smithery to rank and call HemmaBo discovery
-  // tools without provisioning credentials, while keeping all stateful actions
-  // and PII reads behind authentication.
+  // This keeps read-only public discovery separate from protected stateful actions
+  // and PII reads, which remain behind authentication.
   const requestMessages = Array.isArray(req.body) ? req.body : [req.body];
   const requiresAuth = requestMessages.some(isAuthRequiredMessage);
   if (requiresAuth) {
