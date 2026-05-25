@@ -115,4 +115,20 @@ describe("Webhook handler refund contract drift guard (#70)", () => {
       `api/acp.ts must not contain empty / comment-only catch blocks (#70 silent-failure regression):\n${matches.join("\n")}`,
     );
   });
+
+  it("api/stripe-webhook.ts does not claim unimplemented dispute handling", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { fileURLToPath } = await import("node:url");
+    const { dirname, join } = await import("node:path");
+    const here = dirname(fileURLToPath(import.meta.url));
+    const source = readFileSync(join(here, "..", "api/stripe-webhook.ts"), "utf8");
+    const handledSection = source.match(/\* Events handled:\n(?<section>(?: \*   - .+\n)+)/)?.groups?.section ?? "";
+    const declaresDisputeHandled = handledSection.includes("charge.dispute.created");
+    const implementsDisputeCase = /case\s+["']charge\.dispute\.created["']/.test(source);
+
+    assert.ok(
+      !declaresDisputeHandled || implementsDisputeCase,
+      "api/stripe-webhook.ts must not list charge.dispute.created as handled until the switch implements it.",
+    );
+  });
 });

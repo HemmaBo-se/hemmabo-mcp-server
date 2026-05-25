@@ -14,7 +14,10 @@
  *   - payment_intent.payment_failed → bookings.status = 'cancelled'
  *   - charge.refunded              → bookings.refund_status = 'succeeded'
  *   - charge.refund.updated        → may set 'failed'
- *   - charge.dispute.created       → bookings.status = 'disputed' (if column exists; else logged only)
+ *
+ * Known gap:
+ *   - charge.dispute.created is not handled yet; it needs an explicit
+ *     bookings status / schema contract before enabling.
  *
  * Endpoint: POST /api/stripe-webhook
  * Vercel rewrite: see vercel.json. Configure the URL in Stripe Dashboard
