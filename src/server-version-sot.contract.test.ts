@@ -18,7 +18,7 @@ describe("server version single source of truth", () => {
     const projectFaf = readFileSync(resolve(REPO_ROOT, "project.faf"), "utf8");
     assert.match(
       projectFaf,
-      new RegExp(`\\n\\s+version: "${pkg.version.replaceAll(".", "\\.")}"\\n`),
+      new RegExp(`\\r?\\n\\s+version: "${pkg.version.replaceAll(".", "\\.")}"\\r?\\n`),
       "project.faf project.version must match package.json.version",
     );
   });
