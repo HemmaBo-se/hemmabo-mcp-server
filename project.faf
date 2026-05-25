@@ -9,16 +9,19 @@ project:
 
 one_liner: >
   MCP server for vacation rental direct booking.
-  11 tools. Streamable HTTP. Live data only — never cached, never estimated.
+  13 tools: 11 HemmaBo booking tools plus 2 VRP verification tools.
+  Streamable HTTP. Live data only — never cached, never estimated.
   0% commission. Stripe direct to host.
 
 description: >
   Federation MCP server for HemmaBo booking infrastructure.
-  Exposes 11 tools covering the complete booking lifecycle:
+  Exposes 11 HemmaBo booking tools covering the complete booking lifecycle:
   search, availability, pricing, negotiation, checkout, status,
-  reschedule, and cancel. All data is live from Supabase —
-  never cached, never estimated. Stripe payments go direct to host.
-  Each property is its own node on its own domain.
+  reschedule, and cancel, plus 2 Vacation Rental Protocol (VRP)
+  verification tools for host-domain discovery and signed stay offers.
+  All data is live from Supabase — never cached, never estimated.
+  Stripe payments go direct to host. Each property is its own node
+  on its own domain.
 
 stack:
   language: "TypeScript"
@@ -43,7 +46,7 @@ registries:
     url: "https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server"
 
 tools:
-  count: 11
+  count: 13
   list:
     - name: "hemmabo_search_properties"
       description: "Search available properties by region, country, dates, guest count. Entry point for all booking flows."
@@ -67,6 +70,10 @@ tools:
       description: "Retrieve current status and full details of an existing booking."
     - name: "hemmabo_booking_reschedule"
       description: "Reschedule an existing booking to new dates."
+    - name: "verify_vacation_rental_node"
+      description: "Verify a host-domain VRP discovery document and Ed25519 JWKS."
+    - name: "get_verified_stay_offer"
+      description: "Fetch and verify a fresh host-domain signed VRP stay offer."
 
 booking_flow:
   recommended: "hemmabo_search_properties -> hemmabo_booking_negotiate -> hemmabo_booking_checkout -> hemmabo_booking_status"
