@@ -67,13 +67,33 @@ interface ClientRow {
   grant_types: string[];
 }
 
+function queryParamsFromUrl(req: VercelRequest): AuthorizeParams {
+  const host = req.headers.host;
+  const baseHost = Array.isArray(host) ? host[0] : host;
+  const parsed = new URL(req.url || "", `https://${baseHost || "localhost"}`);
+  const params: Record<string, string | string[]> = {};
+
+  for (const [key, value] of parsed.searchParams) {
+    const existing = params[key];
+    if (existing === undefined) {
+      params[key] = value;
+    } else if (Array.isArray(existing)) {
+      existing.push(value);
+    } else {
+      params[key] = [existing, value];
+    }
+  }
+
+  return params as AuthorizeParams;
+}
+
 /**
  * Read params from either query string (GET) or form body (POST).
  * application/x-www-form-urlencoded is the only POST content-type we accept
  * — this matches RFC 6749 §3.1 and what every OAuth library sends.
  */
 function readParams(req: VercelRequest): AuthorizeParams {
-  if (req.method === "GET") return (req.query ?? {}) as AuthorizeParams;
+  if (req.method === "GET") return queryParamsFromUrl(req);
 
   const ct = (req.headers["content-type"] || "").toString();
   if (ct.includes("application/x-www-form-urlencoded")) {
