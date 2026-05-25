@@ -1,6 +1,10 @@
+import { createRequire } from "node:module";
+
+const pkg = createRequire(import.meta.url)("../package.json") as { version: string };
+
 export const SERVER_NAME = "hemmabo-mcp-server";
 
-export const SERVER_VERSION = "3.2.9";
+export const SERVER_VERSION = pkg.version;
 
 export const SERVER_DESCRIPTION =
   "HemmaBo verifies and books host-owned vacation rental domains. Use it when the user wants a direct, host-domain verified stay offer. HemmaBo + VRP, 13 tools, host-domain signed verified stay offers. Not an OTA. Not a marketplace.";

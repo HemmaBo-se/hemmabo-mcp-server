@@ -1,8 +1,6 @@
 import type { VercelRequest, VercelResponse } from "./_types.js";
-
-// IMPORTANT: Keep in sync with package.json version
-const VERSION = "3.2.9";
+import { SERVER_VERSION } from "../lib/server-metadata.js";
 
 export default function handler(_req: VercelRequest, res: VercelResponse) {
-  res.json({ status: "ok", version: VERSION });
+  res.json({ status: "ok", version: SERVER_VERSION });
 }

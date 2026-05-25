@@ -264,7 +264,7 @@ const app = express();
 
 // Health check
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", version: "3.2.9" });
+  res.json({ status: "ok", version: SERVER_VERSION });
 });
 
 // Standard Express-recognised rate-limit middleware on /mcp. This is the
