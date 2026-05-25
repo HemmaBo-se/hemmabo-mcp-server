@@ -25,6 +25,7 @@ import {
   createRefund,
   createPaymentIntent,
 } from "../src/stripe.js";
+import { SERVER_VERSION } from "./server-metadata.js";
 
 export interface ToolClients {
   /** Service-role client — bypasses RLS. Required for bookings reads + all writes. */
@@ -918,7 +919,7 @@ export async function executeTool(
           nights: quote.nights,
           requested_guests: guests,
           currency: quote.currency,
-          source_version: "3.2.9",
+          source_version: SERVER_VERSION,
           valid_until: validUntil,
           public_total: quote.publicTotal,
           ai_total: quote.federationTotal,
