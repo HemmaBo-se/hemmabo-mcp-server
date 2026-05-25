@@ -4,6 +4,7 @@ import type { ToolResult } from "./tools-base.js";
 export const VRP_PROTOCOL = "vacation-rental-protocol";
 export const VRP_PROTOCOL_VERSION = "0.1";
 export const VRP_JWS_ALG = "EdDSA";
+export const VRP_FETCH_TIMEOUT_MS = 5_000;
 export const VRP_TOOL_NAMES = [
   "verify_vacation_rental_node",
   "get_verified_stay_offer",
@@ -111,10 +112,19 @@ function sameDomainUrl(value: string | null, domain: string, fallbackPath: strin
 }
 
 async function fetchJson(url: string): Promise<unknown> {
-  const res = await fetch(url, {
-    headers: { Accept: "application/json" },
-    cache: "no-store",
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(VRP_FETCH_TIMEOUT_MS),
+    });
+  } catch (error) {
+    if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+      throw new Error(`VRP fetch timed out for ${url} after ${VRP_FETCH_TIMEOUT_MS}ms`);
+    }
+    throw error;
+  }
   if (!res.ok) throw new Error(`Fetch failed for ${url}: HTTP ${res.status}`);
   return res.json() as Promise<unknown>;
 }

@@ -2,6 +2,7 @@ import { afterEach, describe, it, mock } from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign, type KeyObject } from "node:crypto";
 import { executeTool } from "../lib/tools.js";
+import { VRP_FETCH_TIMEOUT_MS } from "../lib/vrp.js";
 
 afterEach(() => mock.restoreAll());
 
@@ -26,6 +27,40 @@ function compactJws(payload: Record<string, unknown>, privateKey: KeyObject): st
 }
 
 describe("VRP MCP tools", () => {
+  it("uses a bounded fetch timeout for host-domain VRP calls", async () => {
+    assert.equal(VRP_FETCH_TIMEOUT_MS, 5_000);
+    const { publicKey } = generateKeyPairSync("ed25519");
+    const jwk = publicKey.export({ format: "jwk" }) as Record<string, unknown>;
+    jwk.kid = "vrp-test-key";
+    jwk.alg = "EdDSA";
+    jwk.use = "sig";
+    const signals: AbortSignal[] = [];
+
+    mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+      assert.ok(init?.signal instanceof AbortSignal, "VRP fetch must include an AbortSignal timeout");
+      signals.push(init.signal);
+      const url = new URL(String(input));
+      if (url.pathname === "/.well-known/vacation-rental.json") {
+        return jsonResponse({
+          protocol: "vacation-rental-protocol",
+          protocol_version: "0.1",
+          canonical_domain: "villaakerlyckan.se",
+          jwks_uri: "https://villaakerlyckan.se/.well-known/jwks.json",
+          verified_stay_offer_endpoint: "https://villaakerlyckan.se/api/verified-stay-offer",
+        });
+      }
+      if (url.pathname === "/.well-known/jwks.json") {
+        return jsonResponse({ keys: [jwk] });
+      }
+      return new Response("not found", { status: 404 });
+    });
+
+    const result = await executeTool("verify_vacation_rental_node", { domain: "villaakerlyckan.se" }, clients);
+    assert.equal(result.isError, undefined);
+    assert.equal(signals.length, 2, "VRP node verification fetches discovery and JWKS");
+    assert.ok(signals.every((signal) => !signal.aborted), "timeout signals should not abort successful fast responses");
+  });
+
   it("verify_vacation_rental_node verifies discovery and Ed25519 JWKS without Supabase", async () => {
     const { publicKey } = generateKeyPairSync("ed25519");
     const jwk = publicKey.export({ format: "jwk" }) as Record<string, unknown>;
