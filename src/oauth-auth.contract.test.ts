@@ -60,9 +60,8 @@ describe("validateAuth runtime contract (#64)", () => {
 
 describe("validateAuth wired into entrypoints (#64)", () => {
   const entrypoints = [
-    // api/mcp.ts is now a thin VRP-aware wrapper; the original transport and
-    // protected-tool auth gate live in api/mcp-base.ts.
-    { name: "api/mcp-base.ts", path: join(repoRoot, "api/mcp-base.ts") },
+    // api/mcp.ts is the deployed MCP endpoint behind /mcp and /api/mcp.
+    { name: "api/mcp.ts", path: join(repoRoot, "api/mcp.ts") },
     { name: "api/acp.ts", path: join(repoRoot, "api/acp.ts") },
     { name: "src/index.ts", path: join(repoRoot, "src/index.ts") },
   ];

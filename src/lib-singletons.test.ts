@@ -51,4 +51,12 @@ describe("lib/* singletons (#60, #61)", () => {
     const mod = await import("../lib/availability.js");
     assert.equal(typeof mod.checkAvailability, "function", "lib/availability.ts must export checkAvailability");
   });
+
+  it("(e) api/mcp-base.ts must not exist — api/mcp.ts is the deployed MCP endpoint", () => {
+    assert.equal(
+      existsSync(resolve(REPO_ROOT, "api/mcp-base.ts")),
+      false,
+      "api/mcp-base.ts would deploy an unadvertised duplicate MCP endpoint. Keep the MCP transport in api/mcp.ts."
+    );
+  });
 });
