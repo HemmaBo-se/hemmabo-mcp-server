@@ -34,7 +34,7 @@ function sanitizeParams(params: Record<string, unknown>): Record<string, unknown
 }
 
 // Tool execution is shared via lib/tools.ts (single source of truth for all
-// 11 tools, used by api/mcp.ts, src/stdio.ts, and src/index.ts).
+// runtime tools used by api/mcp.ts, src/stdio.ts, and src/index.ts).
 
 // ── Config schema (all fields optional — Smithery "Optional config" requirement) ──
 export const CONFIG_SCHEMA = {
@@ -63,9 +63,10 @@ export const CONFIG_SCHEMA = {
 // ── Tools ────────────────────────────────────────────────────────
 //
 // Derived from lib/tool-definitions.ts — single source of truth for the
-// 11 federation tools (#63). src/index.ts and src/stdio.ts read the same
-// TOOL_SPECS via toZodShape(). Do NOT redeclare tools here; add or modify
-// them in lib/tool-definitions.ts.
+// 13 runtime tools: 11 HemmaBo federation tools plus 2 VRP verification
+// tools. src/index.ts and src/stdio.ts read the same TOOL_SPECS via
+// toZodShape(). Do NOT redeclare tools here; add or modify them in
+// lib/tool-definitions.ts.
 
 export const TOOLS = TOOL_SPECS.map((t) => {
   const wire: {

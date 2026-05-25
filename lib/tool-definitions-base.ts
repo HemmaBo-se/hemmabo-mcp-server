@@ -1,5 +1,5 @@
 /**
- * Single source of truth for the 11 federation MCP tools.
+ * Single source of truth for the 11 HemmaBo federation MCP tools.
  *
  * Background (#63 / ADR-0001 §3):
  *   Tool definitions used to live in three places — api/mcp.ts TOOLS array,
@@ -769,5 +769,5 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
 
 // ── Convenience exports ──────────────────────────────────────────
 
-/** All 11 canonical tool names in declaration order. */
+/** All 11 HemmaBo federation canonical tool names in declaration order. */
 export const TOOL_NAMES: readonly string[] = TOOL_SPECS.map((t) => t.name);

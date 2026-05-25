@@ -1,5 +1,5 @@
 /**
- * Shared tool execution — single source of truth for all 11 federation tools.
+ * Shared tool execution — single source of truth for all 11 HemmaBo federation tools.
  *
  * Transports (api/mcp.ts, src/stdio.ts, src/index.ts) are thin wrappers that:
  *  1. Construct their own Supabase clients (service-role + anon reader).

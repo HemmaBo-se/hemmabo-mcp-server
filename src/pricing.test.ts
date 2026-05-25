@@ -5,7 +5,7 @@
  *
  * These tests cover pure helpers exported from lib/pricing.ts,
  * mocked resolveQuote for package / gap rules, and tool parity
- * (all 11 federation tools must be handled by executeTool).
+ * (all 11 HemmaBo federation tools must be handled by executeTool).
  */
 
 import { describe, it, mock } from "node:test";
@@ -175,7 +175,7 @@ describe("validateDateOrder", () => {
   });
 });
 
-// ── Tool parity — all 11 federation tools must be handled ─────────
+// ── Tool parity — all 11 HemmaBo federation tools must be handled ──
 
 describe("tool parity", () => {
   const EXPECTED_TOOLS = [
@@ -195,7 +195,7 @@ describe("tool parity", () => {
   // We verify parity by calling executeTool with dummy args and checking
   // that the response is NOT the "Unknown tool" fallback. We use a stub
   // Supabase client that returns empty data to avoid real DB calls.
-  it("all 11 tools are handled by executeTool (not unknown)", async () => {
+  it("all 11 HemmaBo federation tools are handled by executeTool (not unknown)", async () => {
     // Lazy import to avoid loading at module level (avoids env var requirements at import time)
     const { executeTool } = await import("../lib/tools.js");
 
