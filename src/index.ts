@@ -30,7 +30,7 @@ import rateLimit from "express-rate-limit";
 import { PROMPTS as CATALOG_PROMPTS, TOOLS as CATALOG_TOOLS } from "../api/mcp.js";
 
 // Tool execution is shared via lib/tools.ts (single source of truth for all
-// 11 tools, used by api/mcp.ts, src/stdio.ts, and src/index.ts).
+// runtime tools used by api/mcp.ts, src/stdio.ts, and src/index.ts).
 
 // ── Shared validators ──────────────────────────────────────────────
 
@@ -194,7 +194,7 @@ const _originalServerTool = server.tool.bind(server);
 
 // ── Tool registration ──────────────────────────────────────────────
 //
-// All 11 tools come from lib/tool-definitions.ts — single source of truth
+// All runtime tools come from lib/tool-definitions.ts — single source of truth
 // (#63). server.tool() is called from a loop so adding or removing a tool
 // requires editing only TOOL_SPECS.
 
