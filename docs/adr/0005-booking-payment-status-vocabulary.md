@@ -96,7 +96,9 @@ states without an accepted decision.
    the `disputed` value on `bookings.status` as cleanup work.
 7. `completed` remains a public MCP compatibility output value only. It must
    not be introduced as a direct `bookings.status` write or described to
-   agents as the host-node booking lifecycle truth.
+   agents as the host-node booking lifecycle truth. Do not remove or reclassify
+   it without smart-stays live row audit proof, review-flow proof, and a
+   compatibility plan.
 
 ## 5. Follow-Up Work
 
@@ -104,3 +106,6 @@ states without an accepted decision.
 2. If the Stripe chargeback operating model changes, write a new accepted ADR
    first. The default remains: the host operates chargebacks in Stripe
    Dashboard, not HemmaBo.
+3. If `completed` is removed from public MCP compatibility output, first prove
+   that smart-stays live rows, review flows, and legacy/protocol clients no
+   longer depend on it.
