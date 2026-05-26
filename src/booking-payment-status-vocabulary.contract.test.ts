@@ -248,6 +248,9 @@ describe("MCP booking/payment status vocabulary contract", () => {
     assert.match(source, /must not introduce a HemmaBo-owned dispute workflow/);
     assert.match(source, /`completed` remains a public MCP compatibility output value only/);
     assert.match(source, /not a host-node booking lifecycle status/);
+    assert.match(source, /smart-stays live row audit proof/);
+    assert.match(source, /review-flow proof/);
+    assert.match(source, /legacy\/protocol clients/);
     assert.doesNotMatch(source, /known gap/);
     assert.doesNotMatch(source, /payment\/dispute schema\s+contract exists for dispute handling/);
     assert.doesNotMatch(source, /schema\/status contract/);
