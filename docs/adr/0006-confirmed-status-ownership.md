@@ -62,6 +62,7 @@ the webhook `confirmed` write, or adds a payment/refund/dispute word such as
 `paid`, `disputed`, `refund_status`, or refund-state words to
 `bookings.status` must update the status vocabulary guard in the same PR.
 
-`charge.dispute.created` remains unimplemented by HemmaBo. Hosts handle Stripe
+`charge.dispute.created` stays outside HemmaBo-owned handling unless a new
+accepted chargeback-boundary ADR changes that model. Hosts handle Stripe
 chargebacks in their Stripe Dashboard. Do not model Stripe chargebacks as
 `bookings.status`, `refund_status`, or a HemmaBo-owned dispute workflow.

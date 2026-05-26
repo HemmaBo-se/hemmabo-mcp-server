@@ -116,7 +116,7 @@ describe("Webhook handler refund contract drift guard (#70)", () => {
     );
   });
 
-  it("api/stripe-webhook.ts does not claim unimplemented dispute handling", async () => {
+  it("api/stripe-webhook.ts keeps charge.dispute.created behind the chargeback boundary", async () => {
     const { readFileSync } = await import("node:fs");
     const { fileURLToPath } = await import("node:url");
     const { dirname, join } = await import("node:path");
@@ -128,7 +128,7 @@ describe("Webhook handler refund contract drift guard (#70)", () => {
 
     assert.ok(
       !declaresDisputeHandled || implementsDisputeCase,
-      "api/stripe-webhook.ts must not list charge.dispute.created as handled until the switch implements it.",
+      "api/stripe-webhook.ts must not list charge.dispute.created as handled without matching implementation and a new accepted chargeback-boundary ADR.",
     );
 
     assert.match(source, /Stripe chargebacks\s+\*\s+are operated by the host in the host's Stripe Dashboard/);

@@ -304,6 +304,7 @@ describe("MCP booking/payment status vocabulary contract", () => {
       "`refund_status`",
       "Do not introduce `paid`, `disputed`, or refund-state words as",
       "adds a payment/refund/dispute word such as",
+      "accepted chargeback-boundary ADR",
       "Hosts handle Stripe",
       "HemmaBo-owned dispute workflow",
       "No runtime behavior changes are made by this ADR.",
