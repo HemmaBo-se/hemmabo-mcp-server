@@ -159,7 +159,7 @@ describe("MCP booking/payment status vocabulary contract", () => {
     assert.doesNotMatch(
       source,
       /case\s+["']charge\.dispute\.created["']/,
-      "Do not implement charge.dispute.created without a payment/dispute schema contract.",
+      "Do not implement charge.dispute.created as a HemmaBo-owned dispute flow.",
     );
 
     assert.match(source, /\.update\(\{\s*status:\s*"confirmed"/);
@@ -229,8 +229,32 @@ describe("MCP booking/payment status vocabulary contract", () => {
       assert.match(source, new RegExp(`\\\`${status}\\\``));
     }
 
-    assert.match(source, /payment\/dispute schema\s+contract exists for dispute handling/);
+    assert.match(source, /Hosts handle\s+Stripe chargebacks in Stripe Dashboard/);
+    assert.match(source, /must stay unclaimed by HemmaBo/);
+    assert.match(source, /must not introduce a HemmaBo-owned dispute workflow/);
+    assert.doesNotMatch(source, /payment\/dispute schema\s+contract exists for dispute handling/);
     assert.doesNotMatch(source, /schema\/status contract/);
+  });
+
+  it("keeps Stripe chargebacks host-owned, not HemmaBo-owned", () => {
+    const webhook = readRepoFile("api/stripe-webhook.ts");
+    const adr0005 = readRepoFile("docs/adr/0005-booking-payment-status-vocabulary.md");
+    const adr0006 = readRepoFile(CONFIRMED_OWNERSHIP_ADR);
+    const runtimeAndSchemaFiles = [
+      ...walkFiles("api", [".ts", ".js"]),
+      ...walkFiles("lib", [".ts", ".js"]),
+      ...walkFiles("supabase", [".sql"]),
+    ];
+
+    for (const source of [webhook, adr0005, adr0006]) {
+      assert.match(source, /Stripe chargebacks[\s\S]*host|host operates Stripe chargebacks|Hosts handle Stripe\s+chargebacks[\s\S]*Stripe Dashboard/i);
+      assert.doesNotMatch(source, /bookings\.status\s*=\s*["'`]?disputed/);
+      assert.doesNotMatch(source, /payment_disputes|stripe_disputes/);
+    }
+
+    for (const path of runtimeAndSchemaFiles) {
+      assert.doesNotMatch(readRepoFile(path), /payment_disputes|stripe_disputes/, `${path} must not introduce HemmaBo-owned Stripe dispute storage.`);
+    }
   });
 
   it("locks confirmed ownership wording to current code without OTA ownership", () => {
@@ -263,6 +287,8 @@ describe("MCP booking/payment status vocabulary contract", () => {
       "`refund_status`",
       "Do not introduce `paid`, `disputed`, or refund-state words as",
       "adds a payment/refund/dispute word such as",
+      "Hosts handle Stripe",
+      "HemmaBo-owned dispute workflow",
       "No runtime behavior changes are made by this ADR.",
       "ADR 0002's webhook-only terminal-status clause is superseded for",
       "This does not make HemmaBo an OTA, marketplace",
