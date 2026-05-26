@@ -83,6 +83,26 @@ describe("validateToolArgs strict typing", () => {
     });
     assert.equal(r.ok, false);
   });
+
+  it("rejects invalid propertyId uuid values", () => {
+    const r = validateToolArgs("hemmabo_booking_quote", {
+      propertyId: "not-a-uuid",
+      ...VALID_SEARCH,
+    });
+    assert.equal(r.ok, false);
+    assert.ok(r.errors!.some((e) => e.path === "/propertyId" && /uuid/.test(e.message)));
+  });
+
+  it("rejects invalid guestEmail values", () => {
+    const r = validateToolArgs("hemmabo_booking_create", {
+      propertyId: "3ef1d46d-5c23-46fe-86cb-8e714abf734f",
+      ...VALID_SEARCH,
+      guestName: "Anna Svensson",
+      guestEmail: "not-an-email",
+    });
+    assert.equal(r.ok, false);
+    assert.ok(r.errors!.some((e) => e.path === "/guestEmail" && /email/.test(e.message)));
+  });
 });
 
 describe("validateToolArgs missing required fields", () => {
