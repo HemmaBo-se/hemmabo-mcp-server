@@ -159,7 +159,7 @@ describe("MCP booking/payment status vocabulary contract", () => {
     assert.doesNotMatch(
       source,
       /case\s+["']charge\.dispute\.created["']/,
-      "Do not implement charge.dispute.created without a booking/payment status contract.",
+      "Do not implement charge.dispute.created without a payment/dispute schema contract.",
     );
 
     assert.match(source, /\.update\(\{\s*status:\s*"confirmed"/);
@@ -228,6 +228,9 @@ describe("MCP booking/payment status vocabulary contract", () => {
     for (const status of TRACKED_STATUS_WORDS) {
       assert.match(source, new RegExp(`\\\`${status}\\\``));
     }
+
+    assert.match(source, /payment\/dispute schema\s+contract exists for dispute handling/);
+    assert.doesNotMatch(source, /schema\/status contract/);
   });
 
   it("locks confirmed ownership wording to current code without OTA ownership", () => {
