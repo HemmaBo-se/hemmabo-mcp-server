@@ -108,6 +108,19 @@ describe("oauth-authorize endpoint — wire-level drift guards", () => {
     assert.match(SRC, /checkRateLimit\(\s*"strict"/, "Authorize endpoint must use the strict rate-limit tier (#65).");
   });
 
+  it("parses GET query params with WHATWG URL, not Vercel req.query", () => {
+    assert.match(
+      SRC,
+      /new URL\(\s*req\.url\s*\|\|\s*""/,
+      "GET /oauth/authorize must parse query params from req.url with the WHATWG URL API."
+    );
+    assert.doesNotMatch(
+      SRC,
+      /req\.query/,
+      "Do not read Vercel req.query in oauth-authorize; it can trigger Node DEP0169 url.parse warnings."
+    );
+  });
+
   it("sets X-Frame-Options DENY + CSP frame-ancestors 'none' on the consent page (anti-clickjacking)", () => {
     assert.match(SRC, /X-Frame-Options[\s\S]{0,40}DENY/);
     assert.match(SRC, /frame-ancestors\s+'none'/);
