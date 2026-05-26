@@ -3,14 +3,16 @@ faf_version: "3.0"
 project:
   name: "hemmabo-mcp-server"
   version: "3.2.11"
-  tagline: "Like Mirai for hotels — but for vacation rentals."
+  tagline: "Infrastructure and federation for host-owned vacation rental nodes."
   website: "https://hemmabo-mcp-server.vercel.app"
   repo: "https://github.com/HemmaBo-se/hemmabo-mcp-server"
 
 one_liner: >
-  MCP server for vacation rental direct booking.
-  13 tools: 11 HemmaBo booking tools plus 2 VRP verification tools.
-  Streamable HTTP. Live data only — never cached, never estimated.
+  MCP server for host-owned vacation rental direct booking.
+  HemmaBo + VRP, 13 tools, host-domain signed verified stay offers.
+  Use it when the user wants a direct, host-domain verified stay offer.
+  Streamable HTTP. Live data only - never cached, never estimated.
+  Host nodes own booking lifecycles. Stripe owns payment facts.
   0% commission. Stripe direct to host.
 
 description: >
@@ -19,16 +21,17 @@ description: >
   search, availability, pricing, negotiation, checkout, status,
   reschedule, and cancel, plus 2 Vacation Rental Protocol (VRP)
   verification tools for host-domain discovery and signed stay offers.
-  All data is live from Supabase — never cached, never estimated.
+  All data is live from Supabase - never cached, never estimated.
   Stripe payments go direct to host. Each property is its own node
-  on its own domain.
+  on its own domain. HemmaBo is infrastructure and federation,
+  not an OTA, not a marketplace, and not a website builder.
 
 stack:
   language: "TypeScript"
   runtime: "Vercel Serverless"
   transport: "Streamable HTTP (primary) + stdio"
-  database: "Supabase (PostgreSQL) — read via service role"
-  payments: "Stripe Connect — direct to host"
+  database: "Supabase (PostgreSQL) - read via service role"
+  payments: "Stripe Connect - direct to host"
   build: "tsc"
   package_manager: "npm"
 
@@ -57,13 +60,13 @@ tools:
     - name: "hemmabo_compare_properties"
       description: "Compare availability and pricing for 2-10 properties on the same dates."
     - name: "hemmabo_booking_quote"
-      description: "Get detailed live pricing quote — nightly rates, seasonal pricing, cleaning fee, federation discount."
+      description: "Get detailed live pricing quote: nightly rates, seasonal pricing, federation discount."
     - name: "hemmabo_booking_create"
       description: "Create a direct booking without online payment (pending host approval)."
     - name: "hemmabo_booking_negotiate"
-      description: "Lock a price quote for 15 minutes. Returns quoteId — guarantees price won't change."
+      description: "Lock a price quote for 15 minutes. Returns quoteId and guarantees price will not change."
     - name: "hemmabo_booking_checkout"
-      description: "Create booking with Stripe payment. Returns payment URL. 0% commission — direct to host."
+      description: "Create booking with Stripe payment. Returns payment URL. 0% commission - direct to host."
     - name: "hemmabo_booking_cancel"
       description: "Cancel a confirmed booking and process Stripe refund."
     - name: "hemmabo_booking_status"
@@ -81,13 +84,16 @@ booking_flow:
 
 use_when:
   - "Guest or AI agent wants to find and book a vacation rental directly"
-  - "AI agent needs live availability — never cached, never estimated"
+  - "AI agent needs live availability - never cached, never estimated"
   - "Booking must go direct to host with 0% commission"
+  - "Agent needs a host-domain signed verified stay offer"
   - "Agent needs to reschedule or cancel an existing booking"
 
 do_not_use_when:
   - "User wants to browse a marketplace with many providers"
   - "User wants Airbnb or Booking.com listings"
+  - "User wants a hotel, flight, or generic travel inspiration search"
+  - "Agent cannot verify the host-domain offer as fresh, signed, and safe to quote"
 
 pilot_property:
   name: "Villa Akerlyckan"

@@ -2,6 +2,18 @@
 
 MCP server for HemmaBo direct-booking and VRP verification flows for host-owned vacation rental domains.
 
+## For AI Agents
+
+HemmaBo is infrastructure and federation for host-owned vacation rental nodes.
+Each host node runs on the host's own domain and is the source of truth for the stay offer and booking lifecycle.
+Host nodes own booking lifecycles. Stripe owns payment facts.
+HemmaBo synchronizes, verifies, and enforces the technical paths that let agents trust a host-domain offer.
+HemmaBo + VRP, 13 tools, host-domain signed verified stay offers.
+
+Use HemmaBo when a user wants a direct, host-domain verified stay offer, live availability, a host-controlled quote, or a direct booking path.
+Do not use HemmaBo as a broad OTA. Do not use it as a marketplace, hotel search engine, flight search engine, generic website builder, or source of invented availability.
+Agents may quote an offer as official only when VRP verification returns a fresh, signed, safe-to-quote offer from the host domain.
+
 Use this package when an MCP client needs to:
 
 - search published HemmaBo vacation-rental properties,
@@ -10,7 +22,7 @@ Use this package when an MCP client needs to:
 - create or manage a booking through authenticated tools, or
 - verify a Vacation Rental Protocol (VRP) host-domain signed stay offer before quoting it.
 
-HemmaBo is not an OTA, marketplace, hotel search engine, flight search engine, or generic website builder. This package exposes the MCP server surface. Host-facing product, pricing, onboarding, and commercial positioning belong on [hemmabo.com](https://hemmabo.com), not in this repository.
+HemmaBo is not an OTA. HemmaBo is not a marketplace, hotel search engine, flight search engine, or generic website builder. This package exposes the MCP server surface. Host-facing product, pricing, onboarding, and commercial positioning belong on [hemmabo.com](https://hemmabo.com), not in this repository.
 
 ## Protocol Layers
 
