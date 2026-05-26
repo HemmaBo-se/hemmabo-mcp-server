@@ -13,8 +13,9 @@ domains. HemmaBo is not an OTA, not a marketplace, and not a generic website
 builder.
 
 The host node owns the booking lifecycle record. Stripe owns payment event
-facts. HemmaBo infrastructure verifies, syncs, and enforces technical state
-changes through approved paths.
+facts. The host operates Stripe chargebacks in the host's Stripe Dashboard.
+HemmaBo infrastructure verifies, syncs, and enforces technical state changes
+through approved paths, but does not mediate or operate chargebacks.
 
 This repository exposes the MCP and ACP surfaces that agents call. It must not
 silently drift from the host-node booking vocabulary in `hemmabo-smart-stays`,
@@ -73,7 +74,7 @@ states without an accepted decision.
 | `paid` | Payment fact, not booking lifecycle | Must not be added as `bookings.status` without a decision. |
 | `checked_in` | Stay operational state | Must not be added as `bookings.status` without a decision. |
 | `checked_out` | Stay operational state | Must not be added as `bookings.status` without a decision. |
-| `disputed` | Payment/dispute fact | Not implemented. Should be modelled deliberately as payment/dispute state if added. |
+| `disputed` | Stripe chargeback fact, host-operated in Stripe Dashboard | Not implemented in HemmaBo. Must not be modelled as booking lifecycle status. |
 | `refund_status` | Payment/refund state | Separate from booking lifecycle status. Current values are `none`, `pending`, `succeeded`, `failed`. |
 
 ## 4. Decision
@@ -84,14 +85,18 @@ states without an accepted decision.
 3. `confirmed` remains the current compatibility bridge for successful ACP
    payment completion and Stripe webhook reconciliation. ADR 0006 locks this
    behavior without changing runtime.
-4. `charge.dispute.created` must stay unclaimed until a payment/dispute schema
-   contract exists for dispute handling.
+4. `charge.dispute.created` must stay unclaimed by HemmaBo. Hosts handle
+   Stripe chargebacks in Stripe Dashboard.
 5. Payment facts (`paid`, `disputed`, refund states) and stay operations
    (`checked_in`, `checked_out`) must not be introduced as `bookings.status`
    values without a new accepted ADR.
+6. This repository must not introduce a HemmaBo-owned dispute workflow,
+   dedicated HemmaBo chargeback table, or
+   the `disputed` value on `bookings.status` as cleanup work.
 
 ## 5. Follow-Up Work
 
 1. Decide whether booking lifecycle and payment state need separate fields.
-2. If disputes are implemented, prefer an explicit payment/dispute field over
-   overloading `bookings.status` without a new contract.
+2. If the Stripe chargeback operating model changes, write a new accepted ADR
+   first. The default remains: the host operates chargebacks in Stripe
+   Dashboard, not HemmaBo.

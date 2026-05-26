@@ -14,9 +14,9 @@
  *   - charge.refund.updated        → may set 'failed'
  *
  * Known gap:
- *   - charge.dispute.created is not handled yet; it needs an explicit
- *     payment/dispute schema contract before enabling. Do not model disputes
- *     as bookings.status without a new accepted ADR.
+ *   - charge.dispute.created is not handled by HemmaBo. Stripe chargebacks
+ *     are operated by the host in the host's Stripe Dashboard. Do not model
+ *     disputes as bookings.status or as a HemmaBo-owned dispute workflow.
  *
  * Endpoint: POST /api/stripe-webhook
  * Vercel rewrite: see vercel.json. Configure the URL in Stripe Dashboard
