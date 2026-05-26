@@ -1,13 +1,11 @@
 /**
- * Stripe webhook handler — single authoritative source for terminal
- * payment / refund state on bookings.
+ * Stripe webhook handler — authoritative Stripe-event reconciliation path
+ * for payment and refund state on bookings.
  *
- * ADR 0002 §2.2 clause 3:
- *   "A Stripe webhook handler at api/stripe-webhook.ts verifies
- *    Stripe-Signature (constant-time HMAC against STRIPE_WEBHOOK_SECRET)
- *    and is the single writer of bookings.status = confirmed and
- *    bookings.refund_status. The synchronous HTTP path may write
- *    pending / processing but must not write a terminal status."
+ * ADR 0006 supersedes ADR 0002's old webhook-only claim for
+ * bookings.status = confirmed. The current ACP complete path may also write
+ * confirmed after Stripe confirms the payment intent. This webhook remains
+ * authoritative for Stripe-sent event reconciliation and refund_status.
  *
  * Events handled:
  *   - payment_intent.succeeded     → bookings.status = 'confirmed'

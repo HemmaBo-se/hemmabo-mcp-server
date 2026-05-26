@@ -42,6 +42,8 @@ const TRACKED_STATUS_WORDS = [
   "refund_status",
 ] as const;
 
+const CONFIRMED_OWNERSHIP_ADR = "docs/adr/0006-confirmed-status-ownership.md";
+
 function readRepoFile(path: string): string {
   return readFileSync(join(root, path), "utf8");
 }
@@ -135,6 +137,42 @@ describe("MCP booking/payment status vocabulary contract", () => {
 
     for (const status of TRACKED_STATUS_WORDS) {
       assert.match(source, new RegExp(`\\\`${status}\\\``));
+    }
+  });
+
+  it("locks confirmed ownership wording to current code without OTA ownership", () => {
+    const acp = readRepoFile("api/acp.ts");
+    const webhook = readRepoFile("api/stripe-webhook.ts");
+    const adr0002 = readRepoFile("docs/adr/0002-auth-payments-and-privacy-contracts.md");
+    const adr0005 = readRepoFile("docs/adr/0005-booking-payment-status-vocabulary.md");
+    const adr0006 = readRepoFile(CONFIRMED_OWNERSHIP_ADR);
+
+    assert.match(
+      acp,
+      /\/\/ Update booking to confirmed[\s\S]*?\.from\("bookings"\)\s*\.update\(\{[\s\S]*?status:\s*"confirmed"/,
+    );
+    assert.match(
+      webhook,
+      /case "payment_intent\.succeeded":[\s\S]*?\.update\(\{\s*status:\s*"confirmed"/,
+    );
+
+    assert.doesNotMatch(
+      adr0002,
+      /single writer of `?bookings\.status = confirmed/i,
+      "ADR 0002 must not keep claiming webhook-only confirmed ownership after ADR 0006.",
+    );
+    assert.match(adr0005, /ADR 0006 locks this current behavior/);
+
+    for (const requiredLine of [
+      "HemmaBo is infrastructure and federation, not an OTA or marketplace.",
+      "The host node owns the booking lifecycle.",
+      "Stripe owns payment event facts.",
+      "No runtime behavior changes are made by this ADR.",
+      "ADR 0002's webhook-only terminal-status clause is superseded for",
+      "This does not make HemmaBo an OTA, marketplace",
+      "Do not introduce",
+    ]) {
+      assert.match(adr0006, new RegExp(requiredLine.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     }
   });
 });
