@@ -130,5 +130,9 @@ describe("Webhook handler refund contract drift guard (#70)", () => {
       !declaresDisputeHandled || implementsDisputeCase,
       "api/stripe-webhook.ts must not list charge.dispute.created as handled until the switch implements it.",
     );
+
+    assert.match(source, /payment\/dispute schema contract/);
+    assert.match(source, /Do not model disputes\s+\*\s+as bookings\.status without a new accepted ADR/);
+    assert.doesNotMatch(source, /bookings status \/ schema contract/);
   });
 });
