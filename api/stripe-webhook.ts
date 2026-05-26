@@ -13,7 +13,7 @@
  *   - charge.refunded              → bookings.refund_status = 'succeeded'
  *   - charge.refund.updated        → may set 'failed'
  *
- * Known gap:
+ * Chargeback boundary:
  *   - charge.dispute.created is not handled by HemmaBo. Stripe chargebacks
  *     are operated by the host in the host's Stripe Dashboard. Do not model
  *     disputes as bookings.status or as a HemmaBo-owned dispute workflow.
