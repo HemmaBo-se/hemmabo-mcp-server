@@ -532,7 +532,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         federationDiscountPercent: { type: "integer" },
         gapDiscountPercent: { type: "integer" },
         createdAt: { type: "string", format: "date-time" },
-        status: { type: "string", enum: ["pending", "confirmed", "cancelled", "completed"], description: "Booking status — typically 'pending' until host approves." },
+        status: { type: "string", enum: ["pending", "confirmed", "cancelled", "completed"], description: "Host-node booking status. 'completed' is a legacy/protocol compatibility output only, not a status this tool writes." },
         error: { type: "string", description: "Present only when isError=true." },
       },
       required: ["bookingId", "status"],
@@ -701,7 +701,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         guestEmail: { type: "string" },
         currency: { type: "string" },
         totalPrice: { type: "integer", description: "Total amount in minor currency units." },
-        status: { type: "string", enum: ["pending", "confirmed", "cancelled", "completed"] },
+        status: { type: "string", enum: ["pending", "confirmed", "cancelled", "completed"], description: "Host-node booking status. 'completed' is a legacy/protocol compatibility output only, not the active lifecycle truth." },
         cancellationPolicy: { type: "object", additionalProperties: true },
         createdAt: { type: "string", format: "date-time" },
         updatedAt: { type: "string", format: "date-time" },
@@ -721,7 +721,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_reschedule",
     description:
-      "Reschedule a confirmed or pending booking to new dates. Use this tool when the guest wants to change travel dates on an existing booking. Do NOT use if the booking is cancelled or completed — check hemmabo_booking_status first. Automatically recalculates price and handles Stripe charge (if price increased) or refund (if decreased). Returns previous dates, new dates, price delta, and Stripe transaction details.",
+      "Reschedule a confirmed or pending booking to new dates. Use this tool when the guest wants to change travel dates on an existing booking. Do NOT use if the booking is cancelled, or if a legacy/protocol client reports completed — check hemmabo_booking_status first. Automatically recalculates price and handles Stripe charge (if price increased) or refund (if decreased). Returns previous dates, new dates, price delta, and Stripe transaction details.",
     inputSchema: {
       type: "object",
       properties: {

@@ -205,6 +205,18 @@ describe("MCP booking/payment status vocabulary contract", () => {
       ["cancelled"],
       [...MCP_COMPAT_BOOKING_STATUS_ENUM],
     ]);
+
+    const bookingCreateStatus = sectionFrom(source, 'name: "hemmabo_booking_create"', 2_500);
+    const bookingStatusStatus = sectionFrom(source, 'name: "hemmabo_booking_status"', 2_500);
+    const rescheduleTool = sectionFrom(source, 'name: "hemmabo_booking_reschedule"', 1_000);
+
+    for (const schemaSection of [bookingCreateStatus, bookingStatusStatus]) {
+      assert.match(schemaSection, /completed/);
+      assert.match(schemaSection, /legacy\/protocol compatibility output only/);
+      assert.doesNotMatch(schemaSection, /completed[^.]+host-node booking lifecycle truth/i);
+    }
+
+    assert.match(rescheduleTool, /legacy\/protocol client reports completed/);
   });
 
   it("snapshots MCP runtime booking write and reschedule vocabulary", () => {
@@ -232,6 +244,8 @@ describe("MCP booking/payment status vocabulary contract", () => {
     assert.match(source, /Hosts handle\s+Stripe chargebacks in Stripe Dashboard/);
     assert.match(source, /must stay unclaimed by HemmaBo/);
     assert.match(source, /must not introduce a HemmaBo-owned dispute workflow/);
+    assert.match(source, /`completed` remains a public MCP compatibility output value only/);
+    assert.match(source, /not a host-node booking lifecycle status/);
     assert.doesNotMatch(source, /payment\/dispute schema\s+contract exists for dispute handling/);
     assert.doesNotMatch(source, /schema\/status contract/);
   });
