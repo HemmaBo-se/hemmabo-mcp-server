@@ -84,8 +84,8 @@ states without an accepted decision.
 3. `confirmed` remains the current compatibility bridge for successful ACP
    payment completion and Stripe webhook reconciliation. ADR 0006 locks this
    behavior without changing runtime.
-4. `charge.dispute.created` must stay unclaimed until a schema/status contract
-   exists for dispute handling.
+4. `charge.dispute.created` must stay unclaimed until a payment/dispute schema
+   contract exists for dispute handling.
 5. Payment facts (`paid`, `disputed`, refund states) and stay operations
    (`checked_in`, `checked_out`) must not be introduced as `bookings.status`
    values without a new accepted ADR.
