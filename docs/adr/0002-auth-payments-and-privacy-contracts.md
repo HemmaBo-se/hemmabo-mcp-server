@@ -1,6 +1,6 @@
 # ADR 0002 — Authentication, Payments and Privacy Contracts
 
-- **Status:** Proposed
+- **Status:** Proposed (partially superseded by ADR 0006 for `bookings.status = confirmed`)
 - **Date:** 2026-05-12
 - **Deciders:** HemmaBo core
 - **Verified against:** `origin/main` @ `ebc498a`
@@ -55,7 +55,7 @@ Every code path that moves money or stores money state must satisfy all six clau
 
 1. **Integer minor units only.** Any conversion from a decimal price to Stripe minor units uses `Math.round(price * 100)`. A unit test fixture proves `19.99 → 1999`, `1495.50 → 149550`, `0.10 → 10`.
 2. **Idempotency.** `POST /acp/checkouts` and `POST /acp/checkouts/:id/complete` read `Idempotency-Key`. Same key + same body hash → replay cached response. Same key + different body hash → 409 `idempotency_key_in_use`. Key TTL: 24 h. Storage: Supabase table `acp_idempotency_keys` (created in same PR).
-3. **Webhook authoritative.** A Stripe webhook handler at `api/stripe-webhook.ts` verifies `Stripe-Signature` (constant-time HMAC against `STRIPE_WEBHOOK_SECRET`) and is the single writer of `bookings.status = confirmed` and `bookings.refund_status`. The synchronous HTTP path may write `pending` / `processing` but **must not** write a terminal status.
+3. **Stripe-event reconciliation.** A Stripe webhook handler at `api/stripe-webhook.ts` verifies `Stripe-Signature` (constant-time HMAC against `STRIPE_WEBHOOK_SECRET`) and is the authoritative Stripe-event reconciliation path. ADR 0006 supersedes the old webhook-only claim for `bookings.status = confirmed`: the current ACP complete path may also write `confirmed` synchronously after Stripe confirms the payment intent. The webhook remains authoritative for Stripe-sent events and `bookings.refund_status`.
 4. **No silent payment failures.** No `catch { }` with empty/comment-only body in any file under `api/` or `lib/`. Every caught error is logged with structured context and either re-thrown, surfaced as a non-2xx response, or persisted to the booking row as `refund_failed / refund_error`.
 5. **Refund completion before status flip.** `cancelCheckout` does not write `status = cancelled` until either (a) refund succeeded, (b) no refund was needed, or (c) operator manually overrides via an explicit flag. A failed refund returns 502 with the Stripe error code.
 6. **Currency stays a string.** No `number` typed currency values. Currency code is always a 3-letter ISO 4217 string compared case-insensitively.

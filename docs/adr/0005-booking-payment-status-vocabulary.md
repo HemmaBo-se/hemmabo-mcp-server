@@ -4,7 +4,7 @@
 - **Date:** 2026-05-26
 - **Deciders:** HemmaBo core
 - **Scope:** Audit and guard only. No runtime behaviour changes.
-- **Related:** ADR 0002, `hemmabo-smart-stays` ADR `2026-05-26-booking-status-vocabulary-audit.md`
+- **Related:** ADR 0002, ADR 0006, `hemmabo-smart-stays` ADR `2026-05-26-booking-status-vocabulary-audit.md`
 
 ## 1. Context
 
@@ -63,7 +63,7 @@ states without an accepted decision.
 | Word | Current classification | Notes |
 | --- | --- | --- |
 | `pending` | Booking lifecycle | Used for created unpaid/pending rows. |
-| `confirmed` | Booking lifecycle, overloaded | Used by ACP sync completion and webhook payment success. Needs follow-up with ADR 0002. |
+| `confirmed` | Booking lifecycle, compatibility-bridged | Used by ACP sync completion and webhook payment success. ADR 0006 locks this current behavior without making HemmaBo the booking-status owner. |
 | `cancelled` | Booking lifecycle | Used by ACP cancel and webhook failure/refund paths. |
 | `completed` | Public MCP compatibility value | Present in MCP output schemas, not currently a write path in this repository. |
 | `declined` | Host decision vocabulary in smart-stays | Not currently an MCP-server write or public MCP enum. |
@@ -78,8 +78,9 @@ states without an accepted decision.
 1. This ADR does not change runtime behaviour.
 2. MCP/ACP booking vocabulary is locked by a contract test so new status words
    cannot be introduced silently.
-3. `confirmed` remains a known overloaded word until a follow-up decision
-   decides whether host approval and payment completion should be separated.
+3. `confirmed` remains the current compatibility bridge for successful ACP
+   payment completion and Stripe webhook reconciliation. ADR 0006 locks this
+   behavior without changing runtime.
 4. `charge.dispute.created` must stay unclaimed until a schema/status contract
    exists for dispute handling.
 5. Payment facts (`paid`, `disputed`, refund states) and stay operations
@@ -88,9 +89,6 @@ states without an accepted decision.
 
 ## 5. Follow-Up Work
 
-1. Resolve ADR 0002 vs `api/acp.ts`: decide whether ACP synchronous completion
-   may write `confirmed`, or whether only the webhook may write payment-derived
-   terminal state.
-2. Decide whether booking lifecycle and payment state need separate fields.
-3. If disputes are implemented, prefer an explicit payment/dispute field over
+1. Decide whether booking lifecycle and payment state need separate fields.
+2. If disputes are implemented, prefer an explicit payment/dispute field over
    overloading `bookings.status` without a new contract.
