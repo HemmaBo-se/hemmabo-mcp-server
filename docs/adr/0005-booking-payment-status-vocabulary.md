@@ -51,7 +51,8 @@ states without an accepted decision.
 - `charge.refunded` writes `bookings.status = cancelled` and
   `refund_status = succeeded`.
 - `charge.refund.updated` may write `refund_status = failed`.
-- `charge.dispute.created` is still a known gap and is not implemented.
+- `charge.dispute.created` is outside HemmaBo-owned handling unless a new
+  accepted chargeback-boundary ADR changes that model.
 
 ### Public MCP booking schemas
 

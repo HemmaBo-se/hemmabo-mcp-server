@@ -243,9 +243,12 @@ describe("MCP booking/payment status vocabulary contract", () => {
 
     assert.match(source, /Hosts handle\s+Stripe chargebacks in Stripe Dashboard/);
     assert.match(source, /must stay unclaimed by HemmaBo/);
+    assert.match(source, /outside HemmaBo-owned handling/);
+    assert.match(source, /accepted chargeback-boundary ADR/);
     assert.match(source, /must not introduce a HemmaBo-owned dispute workflow/);
     assert.match(source, /`completed` remains a public MCP compatibility output value only/);
     assert.match(source, /not a host-node booking lifecycle status/);
+    assert.doesNotMatch(source, /known gap/);
     assert.doesNotMatch(source, /payment\/dispute schema\s+contract exists for dispute handling/);
     assert.doesNotMatch(source, /schema\/status contract/);
   });
