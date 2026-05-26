@@ -41,9 +41,10 @@ The current MCP/ACP compatibility contract is:
   path and may also write `confirmed` for `payment_intent.succeeded`.
 - `confirmed` remains a booking lifecycle status on the host-node booking row,
   not a standalone payment fact.
-- Stripe payment facts must remain explicit Stripe facts, such as
-  `stripe_payment_intent_id` and webhook event handling. Do not introduce
-  `paid` as `bookings.status`.
+- Stripe payment/refund facts must remain explicit Stripe facts, such as
+  `stripe_payment_intent_id`, `refund_status`, and webhook event handling.
+  Do not introduce `paid`, `disputed`, or refund-state words as
+  `bookings.status`.
 
 This does not make HemmaBo an OTA, marketplace, merchant-of-record owner of
 the stay, or central booking-status owner. It documents the current
@@ -57,9 +58,9 @@ fields. That requires a new accepted ADR, schema/migration plan, webhook
 contract, and compatibility plan for existing rows.
 
 Any future change that removes the ACP synchronous `confirmed` write, removes
-the webhook `confirmed` write, or adds a payment word such as `paid` or
-`disputed` to `bookings.status` must update the status vocabulary guard in
-the same PR.
+the webhook `confirmed` write, or adds a payment/refund/dispute word such as
+`paid`, `disputed`, `refund_status`, or refund-state words to
+`bookings.status` must update the status vocabulary guard in the same PR.
 
 `charge.dispute.created` remains unimplemented. If dispute handling is added,
 it should be modeled as an explicit payment/dispute fact unless a future ADR
