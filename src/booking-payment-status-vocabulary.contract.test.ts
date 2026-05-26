@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -52,6 +52,14 @@ const TRACKED_STATUS_WORDS = [
   "failed",
 ] as const;
 
+const FORBIDDEN_DIRECT_BOOKINGS_STATUS_WRITES = [
+  "completed",
+  "paid",
+  "disputed",
+  "checked_in",
+  "checked_out",
+] as const;
+
 const CONFIRMED_OWNERSHIP_ADR = "docs/adr/0006-confirmed-status-ownership.md";
 
 function readRepoFile(path: string): string {
@@ -70,6 +78,47 @@ function sectionFrom(source: string, marker: string, length = 2_000): string {
   const index = source.indexOf(marker);
   assert.ok(index >= 0, `Could not find marker: ${marker}`);
   return source.slice(index, index + length);
+}
+
+function walkFiles(relativeDir: string, extensions: readonly string[]): string[] {
+  const dir = join(root, relativeDir);
+  const files: string[] = [];
+
+  for (const entry of readdirSync(dir)) {
+    const relativePath = `${relativeDir}/${entry}`;
+    const fullPath = join(root, relativePath);
+    const stat = statSync(fullPath);
+
+    if (stat.isDirectory()) {
+      if (entry !== "node_modules") {
+        files.push(...walkFiles(relativePath, extensions));
+      }
+      continue;
+    }
+
+    if (extensions.some((extension) => relativePath.endsWith(extension))) {
+      files.push(relativePath);
+    }
+  }
+
+  return files;
+}
+
+function directBookingsStatusWrites(statuses: readonly string[]): string[] {
+  const statusAlternation = statuses.join("|");
+  const writePattern = new RegExp(
+    String.raw`\.from\(["']bookings["']\)[\s\S]{0,1500}\.(insert|update|upsert)\([\s\S]{0,600}status:\s*["'](${statusAlternation})["']`,
+    "m",
+  );
+
+  return [
+    ...walkFiles("api", [".ts", ".js"]),
+    ...walkFiles("lib", [".ts", ".js"]),
+    ...walkFiles("src", [".ts", ".js"]),
+  ].flatMap((path) => {
+    const match = readRepoFile(path).match(writePattern);
+    return match ? [`${path}:${match[2]}`] : [];
+  });
 }
 
 describe("MCP booking/payment status vocabulary contract", () => {
@@ -167,6 +216,10 @@ describe("MCP booking/payment status vocabulary contract", () => {
     assert.match(source, /status:\s*"cancelled"/, "MCP cancel response currently returns cancelled.");
     assert.ok(reschedulableStates, "Reschedulable state list must stay reviewable.");
     sameMembers(quotedStrings(reschedulableStates), ["confirmed", "pending"]);
+  });
+
+  it("prevents payment, stay, dispute, and compatibility words from direct bookings.status writes", () => {
+    assert.deepEqual(directBookingsStatusWrites(FORBIDDEN_DIRECT_BOOKINGS_STATUS_WRITES), []);
   });
 
   it("keeps ADR 0005 tied to every tracked status word", () => {
