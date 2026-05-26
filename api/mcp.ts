@@ -7,6 +7,7 @@
  * Endpoints:
  *   POST /mcp  — JSON-RPC (initialize, tools/list, tools/call, prompts/list, prompts/get)
  *   GET  /mcp  — transport info
+ *   HEAD /mcp  — transport liveness for uptime monitors
  */
 
 import type { VercelRequest, VercelResponse } from "./_types.js";
@@ -466,11 +467,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // preflight response does not grant credentials, so unauthenticated cross-site
   // POSTs are blocked at the browser level.
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE");
+  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS, DELETE");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept, Mcp-Session-Id, Authorization");
   res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
 
   if (req.method === "OPTIONS") return res.status(204).end();
+  if (req.method === "HEAD") return res.status(200).end();
   if (req.method === "GET") return res.json({ status: "ok", transport: "streamable-http", version: SERVER_VERSION });
   if (req.method === "DELETE") return res.status(202).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
