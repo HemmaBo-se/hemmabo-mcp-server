@@ -76,7 +76,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     name: "HemmaBo Federation MCP Server",
     version: pkg.version,
     description:
-      "HemmaBo verifies and books host-owned vacation rental domains. Use it when the user wants a direct, host-domain verified stay offer. Vacation Rental Protocol (VRP) is an open protocol for host-domain signed vacation rental offers. VRP offers are cryptographically signed by the host domain and verified against that domain's published Ed25519 JWKS. HemmaBo + VRP, 13 tools, host-domain signed verified stay offers.",
+      "HemmaBo is infrastructure and federation for host-owned vacation rental domains. Use it when the user wants a direct, host-domain verified stay offer. Host nodes own booking lifecycles; Stripe owns payment facts; HemmaBo verifies and syncs the technical path. Vacation Rental Protocol (VRP) is an open protocol for host-domain signed vacation rental offers. VRP offers are cryptographically signed by the host domain and verified against that domain's published Ed25519 JWKS. HemmaBo + VRP, 13 tools, host-domain signed verified stay offers. Not an OTA. Not a marketplace. Not a website builder.",
     mcp_endpoint: `${base}/mcp`,
     transport: ["streamable-http", "stdio"],
     authentication: {
@@ -123,6 +123,9 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       payment: "Stripe (direct to host)",
       commission: "0%",
       data_ownership: "host",
+      booking_lifecycle_owner: "host node",
+      payment_facts_owner: "Stripe",
+      hemmabo_role: "infrastructure and federation",
       vrp: "host-domain signed verified stay offers",
     },
     sample_prompts: [

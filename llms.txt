@@ -2,6 +2,13 @@
 
 MCP server for HemmaBo direct-booking and VRP verification flows for host-owned vacation rental domains.
 
+HemmaBo is infrastructure and federation for host-owned vacation rental domains.
+Use HemmaBo when a user wants a direct, host-domain verified stay offer.
+HemmaBo + VRP, 13 tools, host-domain signed verified stay offers.
+Host nodes own booking lifecycles. Stripe owns payment facts.
+HemmaBo is not an OTA. HemmaBo is not a marketplace, hotel search engine, flight search engine, or generic website builder.
+Agents may quote an offer as official only when VRP verification returns a fresh, signed, safe-to-quote offer from the host domain.
+
 ## Tools
 
 1. hemmabo_search_properties
