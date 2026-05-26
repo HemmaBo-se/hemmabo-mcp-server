@@ -15,7 +15,8 @@
  *
  * Known gap:
  *   - charge.dispute.created is not handled yet; it needs an explicit
- *     bookings status / schema contract before enabling.
+ *     payment/dispute schema contract before enabling. Do not model disputes
+ *     as bookings.status without a new accepted ADR.
  *
  * Endpoint: POST /api/stripe-webhook
  * Vercel rewrite: see vercel.json. Configure the URL in Stripe Dashboard
