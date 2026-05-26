@@ -17,6 +17,7 @@
  */
 
 import { Ajv, type ErrorObject, type ValidateFunction } from "ajv";
+import addFormatsModule from "ajv-formats";
 
 const ajv = new Ajv({
   allErrors: true,         // collect every validation problem in one pass
@@ -25,6 +26,8 @@ const ajv = new Ajv({
   useDefaults: false,
   removeAdditional: false,
 });
+const addFormats = addFormatsModule as unknown as (ajv: Ajv) => Ajv;
+addFormats(ajv);
 
 const compiledByTool = new Map<string, ValidateFunction>();
 
