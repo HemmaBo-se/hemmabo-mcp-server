@@ -39,6 +39,9 @@ states without an accepted decision.
 
 ### Stripe webhook writes
 
+- `supabase/migrations/2026-05-12-bookings-refund-status.sql` defines
+  `bookings.refund_status` as a payment/refund field with values:
+  `none`, `pending`, `succeeded`, `failed`.
 - `api/stripe-webhook.ts` handles:
   `payment_intent.succeeded`, `payment_intent.payment_failed`,
   `charge.refunded`, `charge.refund.updated`.
@@ -71,7 +74,7 @@ states without an accepted decision.
 | `checked_in` | Stay operational state | Must not be added as `bookings.status` without a decision. |
 | `checked_out` | Stay operational state | Must not be added as `bookings.status` without a decision. |
 | `disputed` | Payment/dispute fact | Not implemented. Should be modelled deliberately as payment/dispute state if added. |
-| `refund_status` | Payment/refund state | Separate from booking lifecycle status. Current values are `pending`, `succeeded`, `failed`. |
+| `refund_status` | Payment/refund state | Separate from booking lifecycle status. Current values are `none`, `pending`, `succeeded`, `failed`. |
 
 ## 4. Decision
 
