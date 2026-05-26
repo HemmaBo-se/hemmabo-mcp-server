@@ -29,6 +29,13 @@ const STRIPE_WEBHOOK_EVENTS = [
   "charge.refund.updated",
 ] as const;
 
+const REFUND_STATUS_SCHEMA_VALUES = [
+  "none",
+  "pending",
+  "succeeded",
+  "failed",
+] as const;
+
 const TRACKED_STATUS_WORDS = [
   "pending",
   "confirmed",
@@ -40,6 +47,9 @@ const TRACKED_STATUS_WORDS = [
   "checked_out",
   "disputed",
   "refund_status",
+  "none",
+  "succeeded",
+  "failed",
 ] as const;
 
 const CONFIRMED_OWNERSHIP_ADR = "docs/adr/0006-confirmed-status-ownership.md";
@@ -107,6 +117,33 @@ describe("MCP booking/payment status vocabulary contract", () => {
     assert.match(source, /\.update\(\{\s*status:\s*"cancelled"/);
     assert.match(source, /refund_status:\s*"succeeded"/);
     assert.match(source, /refund_status:\s*"failed"/);
+  });
+
+  it("snapshots bookings refund status schema separately from booking lifecycle", () => {
+    const migration = readRepoFile("supabase/migrations/2026-05-12-bookings-refund-status.sql");
+    const acp = readRepoFile("api/acp.ts");
+    const webhook = readRepoFile("api/stripe-webhook.ts");
+    const adr0002 = readRepoFile("docs/adr/0002-auth-payments-and-privacy-contracts.md");
+    const adr0005 = readRepoFile("docs/adr/0005-booking-payment-status-vocabulary.md");
+
+    const checkValues = migration.match(/CHECK \(refund_status IN \(([^)]+)\)\)/)?.[1];
+    assert.ok(checkValues, "refund_status schema values must stay reviewable.");
+    sameMembers(quotedStrings(checkValues), REFUND_STATUS_SCHEMA_VALUES);
+
+    assert.match(migration, /ADD COLUMN IF NOT EXISTS refund_id text/);
+    assert.match(migration, /ADD COLUMN IF NOT EXISTS refund_error text/);
+
+    assert.match(acp, /refund_status:\s*"pending"/);
+    assert.match(acp, /refund_status:\s*"failed"/);
+    assert.doesNotMatch(acp, /refund_status:\s*"succeeded"/);
+    assert.match(webhook, /refund_status:\s*"succeeded"/);
+    assert.match(webhook, /refund_status:\s*"failed"/);
+
+    assert.match(adr0002, /refund_status = failed/);
+    assert.doesNotMatch(adr0002, /refund_failed/);
+    for (const status of REFUND_STATUS_SCHEMA_VALUES) {
+      assert.match(adr0005, new RegExp(`\\\`${status}\\\``));
+    }
   });
 
   it("snapshots public MCP booking status output enums", () => {
