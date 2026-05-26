@@ -69,7 +69,7 @@ states without an accepted decision.
 | `pending` | Booking lifecycle | Used for created unpaid/pending rows. |
 | `confirmed` | Booking lifecycle, compatibility-bridged | Used by ACP sync completion and webhook payment success. ADR 0006 locks this current behavior without making HemmaBo the booking-status owner. |
 | `cancelled` | Booking lifecycle | Used by ACP cancel and webhook failure/refund paths. |
-| `completed` | Public MCP compatibility value | Present in MCP output schemas, not currently a write path in this repository. |
+| `completed` | Public MCP compatibility value | Present in MCP output schemas for older/protocol clients only. It is read-only compatibility wording here, not a host-node booking lifecycle status and not a write path in this repository. |
 | `declined` | Host decision vocabulary in smart-stays | Not currently an MCP-server write or public MCP enum. |
 | `paid` | Payment fact, not booking lifecycle | Must not be added as `bookings.status` without a decision. |
 | `checked_in` | Stay operational state | Must not be added as `bookings.status` without a decision. |
@@ -93,6 +93,9 @@ states without an accepted decision.
 6. This repository must not introduce a HemmaBo-owned dispute workflow,
    dedicated HemmaBo chargeback table, or
    the `disputed` value on `bookings.status` as cleanup work.
+7. `completed` remains a public MCP compatibility output value only. It must
+   not be introduced as a direct `bookings.status` write or described to
+   agents as the host-node booking lifecycle truth.
 
 ## 5. Follow-Up Work
 
