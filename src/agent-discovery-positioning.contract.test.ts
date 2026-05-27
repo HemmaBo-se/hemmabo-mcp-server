@@ -16,6 +16,24 @@ function lower(value: string): string {
   return value.toLowerCase();
 }
 
+function normalizeNewlines(value: string): string {
+  return value.replace(/\r\n/g, "\n");
+}
+
+function extractProjectFafSection(content: string, sectionName: string): string {
+  const normalized = normalizeNewlines(content);
+  const start = normalized.indexOf(`${sectionName}:\n`);
+  assert.notEqual(start, -1, `project.faf must include ${sectionName}`);
+
+  const afterStart = start + sectionName.length + 2;
+  const nextTopLevelSection = normalized.slice(afterStart).match(/\n[a-z_]+:\n/);
+  const end = nextTopLevelSection
+    ? afterStart + nextTopLevelSection.index!
+    : normalized.length;
+
+  return normalized.slice(afterStart, end);
+}
+
 const TEXT_SURFACES: Record<string, string> = {
   "README.md": read("README.md"),
   "llms.txt": read("llms.txt"),
@@ -90,9 +108,15 @@ describe("agent discovery positioning contract", () => {
   });
 
   it("does not revive broad hotel/OTA positioning in project metadata", () => {
-    const project = lower(read("project.faf"));
+    const rawProject = normalizeNewlines(read("project.faf"));
+    const project = lower(rawProject);
+    const rawDoNotUseWhen = extractProjectFafSection(rawProject, "do_not_use_when");
+    const doNotUseWhen = lower(rawDoNotUseWhen);
+    const projectWithoutDoNotUseWhen = lower(rawProject.replace(rawDoNotUseWhen, ""));
+
     assert.equal(project.includes("mirai for hotels"), false);
     assert.equal(project.includes("hotel search engine"), false);
-    assert.equal(project.includes("marketplace with many providers"), true);
+    assert.equal(doNotUseWhen.includes("marketplace with many providers"), true);
+    assert.equal(projectWithoutDoNotUseWhen.includes("marketplace with many providers"), false);
   });
 });
