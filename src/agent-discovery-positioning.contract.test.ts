@@ -34,6 +34,23 @@ function extractProjectFafSection(content: string, sectionName: string): string 
   return normalized.slice(afterStart, end);
 }
 
+function jsonKeywords(relPath: string): string[] {
+  const parsed = JSON.parse(read(relPath)) as { keywords?: unknown };
+  assert.ok(Array.isArray(parsed.keywords), `${relPath} must define keywords`);
+  return parsed.keywords.map((keyword) => String(keyword).toLowerCase());
+}
+
+function smitheryKeywords(): string[] {
+  const source = normalizeNewlines(read("smithery.yaml"));
+  const match = source.match(/\nkeywords:\n(?<block>(?:\s+-\s+.+\n)+)/);
+  assert.ok(match?.groups?.block, "smithery.yaml must define keywords");
+
+  return match.groups.block
+    .trim()
+    .split("\n")
+    .map((line) => line.replace(/^\s+-\s+/, "").trim().toLowerCase());
+}
+
 const TEXT_SURFACES: Record<string, string> = {
   "README.md": read("README.md"),
   "llms.txt": read("llms.txt"),
@@ -118,5 +135,35 @@ describe("agent discovery positioning contract", () => {
     assert.equal(project.includes("hotel search engine"), false);
     assert.equal(doNotUseWhen.includes("marketplace with many providers"), true);
     assert.equal(projectWithoutDoNotUseWhen.includes("marketplace with many providers"), false);
+  });
+
+  it("registry keywords do not use OTA or vendor-alternative positioning", () => {
+    const keywordSurfaces: Record<string, string[]> = {
+      "package.json": jsonKeywords("package.json"),
+      "glama.json": jsonKeywords("glama.json"),
+      "smithery.yaml": smitheryKeywords(),
+    };
+
+    const forbiddenFragments = [
+      "airbnb",
+      "booking.com",
+      "bookingcom",
+      "lodgify",
+      "wix",
+      "ota",
+      "marketplace",
+    ];
+
+    for (const [surface, keywords] of Object.entries(keywordSurfaces)) {
+      for (const keyword of keywords) {
+        for (const fragment of forbiddenFragments) {
+          assert.equal(
+            keyword.includes(fragment),
+            false,
+            `${surface} keyword "${keyword}" must not position HemmaBo as ${fragment}`,
+          );
+        }
+      }
+    }
   });
 });
