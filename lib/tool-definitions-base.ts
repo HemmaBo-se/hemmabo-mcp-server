@@ -26,6 +26,7 @@
  */
 
 import { z } from "zod";
+import { HEMMABO_WIDGET_TOOL_META } from "./apps-widget.js";
 
 // ── JSON-Schema field type (the subset we use) ───────────────────
 
@@ -226,7 +227,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_search_properties",
     description:
-      "Search available vacation rental properties by location and travel dates. Use this tool when the user wants to find or browse properties — it is the entry point for all booking flows. Do NOT use if the user already has a specific propertyId; use hemmabo_search_availability or hemmabo_booking_quote instead. Returns a list of available properties with propertyId, live pricing (public and federation rates), and capacity info needed for subsequent tools.",
+      "Search available vacation rental properties by location and travel dates. Use this tool when the user wants to find or browse properties — it is the entry point for all booking flows. Do NOT use if the user already has a specific propertyId; use hemmabo_search_availability or hemmabo_booking_quote instead. Returns a list of available properties with propertyId, live availability, final host-source pricing, and capacity info needed for subsequent tools.",
     inputSchema: {
       type: "object",
       properties: {
@@ -262,8 +263,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       openWorldHint: false,
     },
     _meta: {
-      // ChatGPT Apps SDK: bind this tool's output to the property-card widget.
-      "openai/outputTemplate": "ui://hemmabo/property-card",
+      ...HEMMABO_WIDGET_TOOL_META,
     },
   },
   {
@@ -317,6 +317,9 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: false,
+    },
+    _meta: {
+      ...HEMMABO_WIDGET_TOOL_META,
     },
   },
   {
@@ -379,6 +382,9 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: false,
+    },
+    _meta: {
+      ...HEMMABO_WIDGET_TOOL_META,
     },
   },
   {
@@ -449,11 +455,14 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       idempotentHint: true,
       openWorldHint: false,
     },
+    _meta: {
+      ...HEMMABO_WIDGET_TOOL_META,
+    },
   },
   {
     name: "hemmabo_booking_quote",
     description:
-      "Get a detailed pricing quote for a specific property, dates, and guest count. Use this tool after confirming availability to show the user exact pricing before booking. Do NOT use before checking availability — the quote may be invalid if dates are unavailable. Returns publicTotal (website rate), federationTotal (direct booking discount), gapTotal (gap-night discount if applicable), per-night breakdown, and package pricing. All prices are integers in the property's local currency (e.g. SEK).",
+      "Get a detailed pricing quote for a specific property, dates, and guest count. Use this tool after confirming availability to show the user exact pricing before booking. Do NOT use before checking availability — the quote may be invalid if dates are unavailable. Returns the final host-source total for the booking flow, per-night breakdown, and package pricing context. All prices are integers in the property's local currency (e.g. SEK).",
     inputSchema: {
       type: "object",
       properties: {
@@ -496,6 +505,9 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: false,
+    },
+    _meta: {
+      ...HEMMABO_WIDGET_TOOL_META,
     },
   },
   {
@@ -545,11 +557,14 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       idempotentHint: false,
       openWorldHint: false,
     },
+    _meta: {
+      ...HEMMABO_WIDGET_TOOL_META,
+    },
   },
   {
     name: "hemmabo_booking_negotiate",
     description:
-      "Create a binding price quote that locks the price for 15 minutes. Use this tool before hemmabo_booking_checkout to guarantee the quoted price during payment. Do NOT skip this step if the user wants price certainty — without a quoteId, checkout calculates a fresh price that may differ. Returns quoteId (pass to hemmabo_booking_checkout), public and federation totals, per-night breakdown, and expiry timestamp.",
+      "Create a binding price quote that locks the price for 15 minutes. Use this tool before hemmabo_booking_checkout to guarantee the quoted price during payment. Do NOT skip this step if the user wants price certainty — without a quoteId, checkout calculates a fresh price that may differ. Returns quoteId (pass to hemmabo_booking_checkout), final host-source total, per-night breakdown, and expiry timestamp.",
     inputSchema: {
       type: "object",
       properties: {
@@ -591,6 +606,9 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       destructiveHint: false,
       idempotentHint: false,
       openWorldHint: false,
+    },
+    _meta: {
+      ...HEMMABO_WIDGET_TOOL_META,
     },
   },
   {
@@ -642,6 +660,9 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       idempotentHint: false,
       openWorldHint: true,
     },
+    _meta: {
+      ...HEMMABO_WIDGET_TOOL_META,
+    },
   },
   {
     name: "hemmabo_booking_cancel",
@@ -673,6 +694,9 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       destructiveHint: true,
       idempotentHint: true,
       openWorldHint: true,
+    },
+    _meta: {
+      ...HEMMABO_WIDGET_TOOL_META,
     },
   },
   {
@@ -716,6 +740,9 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: false,
+    },
+    _meta: {
+      ...HEMMABO_WIDGET_TOOL_META,
     },
   },
   {
@@ -763,6 +790,9 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       destructiveHint: true,
       idempotentHint: false,
       openWorldHint: true,
+    },
+    _meta: {
+      ...HEMMABO_WIDGET_TOOL_META,
     },
   },
 ];

@@ -33,9 +33,9 @@ const MANIFEST_SUMMARIES: Record<string, string> = {
   "hemmabo_search_similar":
     "Find vacation rental properties similar to a given property on specific dates — same region, type, and capacity. Returns available alternatives with live pricing.",
   "hemmabo_compare_properties":
-    "Compare availability and pricing for 2–10 specific properties on the same dates. Returns results sorted by federation price, unavailable properties last.",
+    "Compare availability and final host-source pricing for 2-10 specific properties on the same dates. Returns available properties first and unavailable properties last.",
   "hemmabo_booking_quote":
-    "Get a detailed live pricing quote: nightly rates, seasonal pricing, federation discount.",
+    "Get a detailed live pricing quote with final host-source total, nightly rates, seasonal pricing and package context.",
   "hemmabo_booking_create":
     "Create a direct booking without online payment — for invoice or manual payment flows.",
   "hemmabo_booking_negotiate":

@@ -28,7 +28,7 @@
   "tools": [
     {
       "name": "hemmabo_search_properties",
-      "description": "Search available vacation rental properties by location and travel dates. Returns properties with live pricing (public and federation rates) and capacity info.",
+      "description": "Search available vacation rental properties by location and travel dates. Returns properties with live availability, final host-source pricing and capacity info.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -90,7 +90,7 @@
     },
     {
       "name": "hemmabo_booking_quote",
-      "description": "Get a detailed pricing quote for a specific property, dates, and guest count. Returns public, federation, and gap-night totals with per-night breakdown.",
+      "description": "Get a detailed pricing quote for a specific property, dates, and guest count. Returns final host-source total, package context and per-night breakdown.",
       "inputSchema": {
         "type": "object",
         "properties": {

@@ -60,7 +60,7 @@ tools:
     - name: "hemmabo_compare_properties"
       description: "Compare availability and pricing for 2-10 properties on the same dates."
     - name: "hemmabo_booking_quote"
-      description: "Get detailed live pricing quote: nightly rates, seasonal pricing, federation discount."
+      description: "Get detailed live pricing quote with final host-source total, nightly rates, seasonal pricing and package context."
     - name: "hemmabo_booking_create"
       description: "Create a direct booking without online payment (pending host approval)."
     - name: "hemmabo_booking_negotiate"

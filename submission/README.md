@@ -45,11 +45,11 @@ If reviewers want to exercise `tools/call` end-to-end (search → quote → chec
 
 ## Test prompt set (matches manifest `sample_prompts`)
 
-1. *"Find a pet-friendly villa in Sweden for 6 guests in July"* → `search.properties` → property-card widget
-2. *"Show me direct-booking vacation rentals in Skåne for August 2026"* → `search.properties` → widget shows villaakerlyckan.se
-3. *"What's the price for Villa Åkerlyckan for 4 guests, 5 nights starting 2026-08-10?"* → `search.properties` + `booking.quote`
-4. *"Compare these properties on the same dates and book the cheapest one"* → `search.compare` → `booking.negotiate` → `booking.checkout`
-5. *"I need to cancel booking abc-123 — what's the refund?"* → `booking.status` → `booking.cancel`
+1. *"Find a pet-friendly villa in Sweden for 6 guests in July"* -> `hemmabo_search_properties` -> verified stay offer widget
+2. *"Show me direct-booking vacation rentals in Skane for August 2026"* -> `hemmabo_search_properties` -> verified stay offer widget shows villaakerlyckan.se
+3. *"What's the price for Villa Akerlyckan for 4 guests, 5 nights starting 2026-08-10?"* -> `hemmabo_search_properties` + `hemmabo_booking_quote`
+4. *"Compare these properties on the same dates and book the cheapest one"* -> `hemmabo_compare_properties` -> `hemmabo_booking_negotiate` -> `hemmabo_booking_checkout`
+5. *"I need to cancel booking abc-123 - what's the refund?"* -> `hemmabo_booking_status` -> `hemmabo_booking_cancel`
 
 ## Open issue disclosed in submission
 
@@ -58,4 +58,4 @@ If reviewers want to exercise `tools/call` end-to-end (search → quote → chec
 ## Repo discipline
 
 - All submission artifacts live in this folder (`submission/`).
-- `hemmabo-smart-stays` is **not** touched. If screenshots are requested later, they come from that repo's webapp UI, not from here.
+- `hemmabo-smart-stays` is **not** touched. Screenshots for OpenAI review must come from the live ChatGPT App response after the widget renders, not from a static mock.
