@@ -51,7 +51,7 @@ const MANIFEST_SUMMARIES: Record<string, string> = {
   "verify_vacation_rental_node":
     "Verify that a host domain exposes VRP v0.1 discovery and an Ed25519 JWKS for signed stay offers.",
   "get_verified_stay_offer":
-    "Fetch and verify a fresh host-domain signed VRP stay offer with live availability, exact price, citation permission and direct booking URL.",
+    "Fetch, verify, and render a fresh host-domain signed VRP stay offer widget with live availability, exact price, citation permission and direct booking URL.",
 };
 
 /**

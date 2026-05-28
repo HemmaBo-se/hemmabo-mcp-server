@@ -26,7 +26,6 @@
  */
 
 import { z } from "zod";
-import { HEMMABO_WIDGET_TOOL_META } from "./apps-widget.js";
 
 // ── JSON-Schema field type (the subset we use) ───────────────────
 
@@ -262,9 +261,6 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       idempotentHint: true,
       openWorldHint: false,
     },
-    _meta: {
-      ...HEMMABO_WIDGET_TOOL_META,
-    },
   },
   {
     name: "hemmabo_search_availability",
@@ -317,9 +313,6 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: false,
-    },
-    _meta: {
-      ...HEMMABO_WIDGET_TOOL_META,
     },
   },
   {
@@ -382,9 +375,6 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: false,
-    },
-    _meta: {
-      ...HEMMABO_WIDGET_TOOL_META,
     },
   },
   {
@@ -455,9 +445,6 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       idempotentHint: true,
       openWorldHint: false,
     },
-    _meta: {
-      ...HEMMABO_WIDGET_TOOL_META,
-    },
   },
   {
     name: "hemmabo_booking_quote",
@@ -505,9 +492,6 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: false,
-    },
-    _meta: {
-      ...HEMMABO_WIDGET_TOOL_META,
     },
   },
   {
@@ -557,9 +541,6 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       idempotentHint: false,
       openWorldHint: false,
     },
-    _meta: {
-      ...HEMMABO_WIDGET_TOOL_META,
-    },
   },
   {
     name: "hemmabo_booking_negotiate",
@@ -606,9 +587,6 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       destructiveHint: false,
       idempotentHint: false,
       openWorldHint: false,
-    },
-    _meta: {
-      ...HEMMABO_WIDGET_TOOL_META,
     },
   },
   {
@@ -660,9 +638,6 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       idempotentHint: false,
       openWorldHint: true,
     },
-    _meta: {
-      ...HEMMABO_WIDGET_TOOL_META,
-    },
   },
   {
     name: "hemmabo_booking_cancel",
@@ -694,9 +669,6 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       destructiveHint: true,
       idempotentHint: true,
       openWorldHint: true,
-    },
-    _meta: {
-      ...HEMMABO_WIDGET_TOOL_META,
     },
   },
   {
@@ -740,9 +712,6 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: false,
-    },
-    _meta: {
-      ...HEMMABO_WIDGET_TOOL_META,
     },
   },
   {
@@ -790,9 +759,6 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       destructiveHint: true,
       idempotentHint: false,
       openWorldHint: true,
-    },
-    _meta: {
-      ...HEMMABO_WIDGET_TOOL_META,
     },
   },
 ];

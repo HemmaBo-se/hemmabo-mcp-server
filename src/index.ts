@@ -250,7 +250,7 @@ server.prompt(
           role: "user" as const,
           content: {
             type: "text" as const,
-            text: `I want to plan a trip to ${destination || "a vacation destination"} from ${checkIn || "TBD"} to ${checkOut || "TBD"} for ${guests || "2"} guests. Please: (1) search for available properties with hemmabo_search_properties, (2) show the final host-source price only, (3) create a binding quote with hemmabo_booking_negotiate, (4) proceed to hemmabo_booking_checkout with Stripe payment after I confirm, and (5) confirm the booking status with hemmabo_booking_status. If I need to change dates later, use hemmabo_booking_reschedule. If I need to cancel, use hemmabo_booking_cancel.`,
+            text: `I want to plan a trip to ${destination || "a vacation destination"} from ${checkIn || "TBD"} to ${checkOut || "TBD"} for ${guests || "2"} guests. Please: (1) search for available properties with hemmabo_search_properties, (2) if a host domain is known, call get_verified_stay_offer to render the verified stay offer widget and show the final host-source price only, (3) create a binding quote with hemmabo_booking_negotiate, (4) proceed to hemmabo_booking_checkout with Stripe payment after I confirm, and (5) confirm the booking status with hemmabo_booking_status. If I need to change dates later, use hemmabo_booking_reschedule. If I need to cancel, use hemmabo_booking_cancel.`,
           },
         },
       ],

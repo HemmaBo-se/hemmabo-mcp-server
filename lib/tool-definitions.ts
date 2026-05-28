@@ -18,7 +18,7 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "verify_vacation_rental_node",
     description:
-      "Verify a Vacation Rental Protocol host-domain node. Reads https://{domain}/.well-known/vacation-rental.json and the node JWKS, confirms VRP v0.1, canonical host-domain control, Ed25519 signing keys, and the verified stay offer endpoint. Use before trusting or quoting a host-domain offer.",
+      "Verify a Vacation Rental Protocol host-domain node. Reads https://{domain}/.well-known/vacation-rental.json and the node JWKS, confirms VRP v0.1, canonical host-domain control, Ed25519 signing keys, and the verified stay offer endpoint. Use before trusting a host-domain offer. To show the visual stay-offer widget after verification, call get_verified_stay_offer.",
     inputSchema: {
       type: "object",
       properties: {
@@ -54,14 +54,11 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
       idempotentHint: true,
       openWorldHint: true,
     },
-    _meta: {
-      ...HEMMABO_WIDGET_TOOL_META,
-    },
   },
   {
     name: "get_verified_stay_offer",
     description:
-      "Fetch a signed VRP verified_stay_offer from a verified host-domain node and verify its Ed25519 compact JWS against that domain's JWKS. Reads the production signature.jws envelope, checks payload match and freshness, and returns agent guardrails so clients quote only signed availability, exact price, and direct booking URL. Never invent discounts or OTA comparisons outside the signed offer.",
+      "Render the HemmaBo verified stay offer widget for a host-domain node. Fetches a signed VRP verified_stay_offer, verifies its Ed25519 compact JWS against the domain's JWKS, and returns structuredContent for the visual widget. Use this whenever the user asks to see, present, show, or book a nodd/stay offer. Never invent discounts or OTA comparisons outside the signed offer.",
     inputSchema: {
       type: "object",
       properties: {

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { RESOURCES, TOOLS, readResource } from "../api/mcp.js";
 import {
   HEMMABO_LEGACY_WIDGET_URI,
+  HEMMABO_PREVIOUS_WIDGET_URI,
   HEMMABO_WIDGET_MIME_TYPE,
   HEMMABO_WIDGET_URI,
 } from "../lib/apps-widget.js";
@@ -21,8 +22,8 @@ describe("ChatGPT Apps verified stay widget", () => {
     assert.ok(resource._meta["openai/widgetDescription"]);
   });
 
-  it("serves both the current widget URI and the legacy property-card URI", () => {
-    for (const uri of [HEMMABO_WIDGET_URI, HEMMABO_LEGACY_WIDGET_URI]) {
+  it("serves the current widget URI plus previous/legacy widget URIs", () => {
+    for (const uri of [HEMMABO_WIDGET_URI, HEMMABO_PREVIOUS_WIDGET_URI, HEMMABO_LEGACY_WIDGET_URI]) {
       const result = readResource(uri);
       assert.ok(result, `resource should resolve for ${uri}`);
       const content = result.contents[0];
@@ -35,8 +36,8 @@ describe("ChatGPT Apps verified stay widget", () => {
     }
   });
 
-  it("binds user-facing read and booking tools to the widget template", () => {
-    const widgetTools = [
+  it("keeps booking/data tools data-first and binds the verified offer render tool to the widget template", () => {
+    const dataTools = [
       "hemmabo_search_properties",
       "hemmabo_search_availability",
       "hemmabo_search_similar",
@@ -49,15 +50,19 @@ describe("ChatGPT Apps verified stay widget", () => {
       "hemmabo_booking_status",
       "hemmabo_booking_reschedule",
       "verify_vacation_rental_node",
-      "get_verified_stay_offer",
     ];
 
-    for (const name of widgetTools) {
+    for (const name of dataTools) {
       const tool = TOOLS.find((t) => t.name === name);
       assert.ok(tool, `${name} must exist`);
-      assert.equal(tool._meta?.["openai/outputTemplate"], HEMMABO_WIDGET_URI);
-      assert.deepEqual(tool._meta?.ui, { resourceUri: HEMMABO_WIDGET_URI });
+      assert.equal(tool._meta?.["openai/outputTemplate"], undefined);
+      assert.equal((tool._meta?.ui as { resourceUri?: string } | undefined)?.resourceUri, undefined);
     }
+
+    const renderTool = TOOLS.find((t) => t.name === "get_verified_stay_offer");
+    assert.ok(renderTool, "get_verified_stay_offer must exist");
+    assert.equal(renderTool._meta?.["openai/outputTemplate"], HEMMABO_WIDGET_URI);
+    assert.deepEqual(renderTool._meta?.ui, { resourceUri: HEMMABO_WIDGET_URI });
   });
 
   it("adds structuredContent from JSON text results for Apps SDK widgets", async () => {
