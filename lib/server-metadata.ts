@@ -17,7 +17,9 @@ Host nodes own booking lifecycles. Stripe owns payment facts. HemmaBo verifies, 
 
 HemmaBo is not an OTA, not a marketplace, and not a generic website builder.
 
-Discovery and quote flow: hemmabo_search_properties -> hemmabo_search_availability -> hemmabo_booking_quote.
+Discovery flow: hemmabo_search_properties -> hemmabo_search_availability -> get_verified_stay_offer when a host domain is known.
+
+Quote-lock and paid booking tools are opt-in after explicit user confirmation to lock a price, book, pay, or start checkout.
 
 Paid booking flow: hemmabo_booking_negotiate -> hemmabo_booking_checkout -> hemmabo_booking_status -> hemmabo_booking_reschedule / hemmabo_booking_cancel.
 

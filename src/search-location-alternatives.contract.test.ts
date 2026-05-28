@@ -17,19 +17,22 @@ import {
 
 describe("location normalization", () => {
   it("normalizes accents and Swedish country aliases", () => {
-    assert.equal(normalizeLocationTerm("Skåne län"), "skane lan");
-    assert.equal(normalizeLocationTerm("Kävlinge"), "kavlinge");
+    assert.equal(normalizeLocationTerm("Sk\u00e5ne l\u00e4n"), "skane lan");
+    assert.equal(normalizeLocationTerm("K\u00e4vlinge"), "kavlinge");
+    assert.equal(normalizeLocationTerm("Sk\u00c3\u00a5ne"), "skane");
     assert.deepEqual(expandLocationTerms("SE").sort(), ["se", "sverige", "sweden"].sort());
   });
 
-  it("matches Villa Åkerlyckan for agent-style destination terms", () => {
+  it("matches Villa \u00c5kerlyckan for agent-style destination terms", () => {
     const villa = {
-      region: "Skåne län",
-      city: "Kävlinge",
+      region: "Sk\u00e5ne l\u00e4n",
+      city: "K\u00e4vlinge",
       country: "Sweden",
     };
 
     assert.equal(propertyMatchesLocation(villa, "Skane"), true);
+    assert.equal(propertyMatchesLocation(villa, "Sk\u00e5ne"), true);
+    assert.equal(propertyMatchesLocation(villa, "Sk\u00c3\u00a5ne"), true);
     assert.equal(propertyMatchesLocation(villa, "Kavlinge"), true);
     assert.equal(propertyMatchesLocation(villa, "southern Sweden"), true);
     assert.equal(propertyMatchesLocation(villa, undefined, "Sverige"), true);

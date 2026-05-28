@@ -102,7 +102,7 @@ export const TOOLS = TOOL_SPECS.map((t) => {
 export const PROMPTS = [
   {
     name: "trip.plan",
-    description: "Help plan a vacation rental trip. Guides the agent through the full booking lifecycle: searching properties, getting a binding quote, completing payment via Stripe checkout, and managing the booking (status checks, rescheduling, cancellation). Provide destination, dates, and guest count to get started.",
+    description: "Help plan a vacation rental trip through host-domain discovery and verified offers. Search first, show a verified host-domain stay offer when possible, and only move to quote-lock or checkout after explicit user confirmation.",
     arguments: [
       {
         name: "destination",
@@ -170,7 +170,7 @@ function getPromptMessages(name: string, args: Record<string, string>) {
           role: "user",
           content: {
             type: "text",
-            text: `I want to plan a trip to ${args.destination || "a vacation destination"} from ${args.checkIn || "TBD"} to ${args.checkOut || "TBD"} for ${args.guests || "2"} guests. Please: (1) search for available properties, (2) if a host domain is known, call get_verified_stay_offer to render the verified stay offer widget and show the final host-source price only, (3) create a binding quote with hemmabo_booking_negotiate, (4) proceed to hemmabo_booking_checkout with Stripe payment after I confirm, and (5) confirm booking status with hemmabo_booking_status. If I need to change dates later, use hemmabo_booking_reschedule. If I need to cancel, use hemmabo_booking_cancel.`,
+            text: `I want to plan a trip to ${args.destination || "a vacation destination"} from ${args.checkIn || "TBD"} to ${args.checkOut || "TBD"} for ${args.guests || "2"} guests. Please: (1) search for available host-owned properties, (2) if a host domain is known, call get_verified_stay_offer to render the host-domain verified stay offer widget and show only live availability, final host-source price, and the direct booking path, and (3) stop before quote-lock, booking, or checkout unless I explicitly confirm that I want to lock a price, book, pay, or start checkout.`,
           },
         },
       ],

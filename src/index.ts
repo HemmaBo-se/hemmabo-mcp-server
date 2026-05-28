@@ -236,7 +236,7 @@ for (const spec of TOOL_SPECS) {
 // ── Prompt: trip.plan ─────────────────────────────────────────────────────
 server.prompt(
   "trip.plan",
-  "Help plan a vacation rental trip. Guides the agent through the full booking lifecycle: searching properties, getting a binding quote, completing payment via Stripe checkout, and managing the booking (status checks, rescheduling, cancellation). Provide destination, dates, and guest count to get started.",
+  "Help plan a vacation rental trip through host-domain discovery and verified offers. Search first, show a verified host-domain stay offer when possible, and only move to quote-lock or checkout after explicit user confirmation.",
   {
     destination: z.string().describe("Where the guest wants to travel (region, city, or country). Example: 'Skane', 'Sweden', 'Toscana'."),
     checkIn: zISODate.describe("Desired check-in date in YYYY-MM-DD format."),
@@ -250,7 +250,7 @@ server.prompt(
           role: "user" as const,
           content: {
             type: "text" as const,
-            text: `I want to plan a trip to ${destination || "a vacation destination"} from ${checkIn || "TBD"} to ${checkOut || "TBD"} for ${guests || "2"} guests. Please: (1) search for available properties with hemmabo_search_properties, (2) if a host domain is known, call get_verified_stay_offer to render the verified stay offer widget and show the final host-source price only, (3) create a binding quote with hemmabo_booking_negotiate, (4) proceed to hemmabo_booking_checkout with Stripe payment after I confirm, and (5) confirm the booking status with hemmabo_booking_status. If I need to change dates later, use hemmabo_booking_reschedule. If I need to cancel, use hemmabo_booking_cancel.`,
+            text: `I want to plan a trip to ${destination || "a vacation destination"} from ${checkIn || "TBD"} to ${checkOut || "TBD"} for ${guests || "2"} guests. Please: (1) search for available host-owned properties with hemmabo_search_properties, (2) if a host domain is known, call get_verified_stay_offer to render the host-domain verified stay offer widget and show only live availability, final host-source price, and the direct booking path, and (3) stop before quote-lock, booking, or checkout unless I explicitly confirm that I want to lock a price, book, pay, or start checkout.`,
           },
         },
       ],

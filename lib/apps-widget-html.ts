@@ -496,10 +496,12 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       data.finalTotal,
       data.totalPrice,
       data.gapTotal,
+      data.directBookingTotal,
       data.federationTotal,
       listing.finalTotal,
       listing.totalPrice,
       listing.gapTotal,
+      listing.directBookingTotal,
       listing.federationTotal,
       data.publicTotal,
       listing.publicTotal
@@ -582,7 +584,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     var root = document.getElementById("root");
     if (!data) {
       root.className = "empty";
-      root.textContent = "Run a HemmaBo search, quote, or verified stay offer tool to show the stay widget.";
+      root.textContent = "Run a host-domain search, quote, or verified stay offer tool to show the stay widget.";
       return;
     }
     var offer = normalizeOffer(data);
@@ -603,7 +605,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
         offer.checkIn = alt.checkIn || alt.check_in || offer.checkIn;
         offer.checkOut = alt.checkOut || alt.check_out || offer.checkOut;
         offer.nights = alt.nights || nightsBetween(offer.checkIn, offer.checkOut);
-        offer.finalAmount = pickAmount([alt.finalTotal, alt.totalPrice, alt.gapTotal, alt.federationTotal, alt.publicTotal, offer.finalAmount]);
+        offer.finalAmount = pickAmount([alt.finalTotal, alt.totalPrice, alt.gapTotal, alt.directBookingTotal, alt.federationTotal, alt.publicTotal, offer.finalAmount]);
         offer.currency = alt.currency || offer.currency;
       }
     }
@@ -628,7 +630,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
         notice +
         '<div class="offer">' +
           '<div class="offerPanel">' +
-            '<p class="label">Verified stay offer</p>' +
+            '<p class="label">' + (offer.verified ? "Verified stay offer" : "Host-domain stay option") + '</p>' +
             '<p class="dates">' + esc(formatRange(offer.checkIn, offer.checkOut)) + '</p>' +
             '<div class="facts">' + facts.map(function (f) { return '<span class="fact">' + esc(f) + '</span>'; }).join("") + '</div>' +
             '<div class="priceBox">' +
@@ -647,7 +649,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
         '</div>' +
       '</section>' +
       '<section class="tools">' +
-        '<div class="toolHead"><strong>HemmaBo MCP tools</strong><span class="toolCount">13 tools - VRP + booking lifecycle</span></div>' +
+        '<div class="toolHead"><strong>Host-domain tools</strong><span class="toolCount">13 tools - VRP + booking lifecycle</span></div>' +
         '<div class="toolGrid">' + TOOL_LABELS.map(function (label) { return '<span class="toolChip">' + esc(label) + '</span>'; }).join("") + '</div>' +
       '</section>';
     var bookBtn = document.getElementById("bookBtn");

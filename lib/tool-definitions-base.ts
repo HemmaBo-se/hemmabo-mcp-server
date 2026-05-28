@@ -26,6 +26,7 @@
  */
 
 import { z } from "zod";
+import { HEMMABO_WIDGET_TOOL_META } from "./apps-widget.js";
 
 // ── JSON-Schema field type (the subset we use) ───────────────────
 
@@ -211,8 +212,11 @@ const PROPERTY_LISTING_ITEM: JsonSchemaField = {
     currency: { type: "string", description: "ISO 4217 currency code (e.g. 'SEK', 'EUR')." },
     nights: { type: "integer", description: "Number of nights between check-in and check-out." },
     publicTotal: { type: "integer", description: "Standard website total for the date range, in minor currency units." },
-    federationTotal: { type: "integer", description: "Direct-booking total for AI agents (with host discount), in minor currency units." },
-    federationDiscountPercent: { type: "integer", description: "Host-configured federation discount percentage." },
+    federationTotal: { type: "integer", description: "Legacy field: direct/agent total from the host source, in minor currency units. Do not label this as a HemmaBo platform price in user-facing copy." },
+    federationDiscountPercent: { type: "integer", description: "Legacy field: host-configured direct/agent discount percentage." },
+    directBookingTotal: { type: "integer", description: "Preferred field for user-facing copy: direct/agent total from the host source, in minor currency units." },
+    hostSourcePublicTotal: { type: "integer", description: "Preferred field for user-facing copy: public host-source total for the date range, in minor currency units." },
+    directBookingDiscountPercent: { type: "integer", description: "Preferred field for user-facing copy: host-configured direct/agent discount percentage." },
     packageApplied: { type: "string", description: "Package applied (e.g. week or two_weeks), if any." },
     available: { type: "boolean", description: "Always true in search results because unavailable properties are filtered out." },
   },
@@ -226,7 +230,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_search_properties",
     description:
-      "Search available vacation rental properties by location and travel dates. Use this tool when the user wants to find or browse properties — it is the entry point for all booking flows. Do NOT use if the user already has a specific propertyId; use hemmabo_search_availability or hemmabo_booking_quote instead. Returns a list of available properties with propertyId, live availability, final host-source pricing, and capacity info needed for subsequent tools.",
+      "Search available vacation rental properties by location and travel dates. Use this tool when the user wants to find or browse properties - it is the entry point for discovery and should render the stay widget when results are available. Do NOT use if the user already has a specific propertyId; use hemmabo_search_availability, hemmabo_booking_quote, or get_verified_stay_offer instead. Returns available properties with propertyId, host domain, live availability, final host-source pricing, and capacity info. Do not proceed to quote-lock, booking, or checkout unless the user explicitly asks to lock a price, book, pay, or start checkout.",
     inputSchema: {
       type: "object",
       properties: {
@@ -247,7 +251,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         guests: { type: "integer", description: "Echoed guest count." },
         properties: {
           type: "array",
-          description: "Available properties matching the search criteria, with live federation pricing.",
+          description: "Available properties matching the search criteria, with live host-source pricing.",
           items: PROPERTY_LISTING_ITEM,
         },
         error: { type: "string", description: "Present only when isError=true." },
@@ -260,6 +264,9 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: false,
+    },
+    _meta: {
+      ...HEMMABO_WIDGET_TOOL_META,
     },
   },
   {
@@ -341,7 +348,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         count: { type: "integer", description: "Number of similar properties returned." },
         similarProperties: {
           type: "array",
-          description: "Similar available properties (same region, same type, same/larger capacity), sorted by federation price.",
+          description: "Similar available properties (same region, same type, same/larger capacity), sorted by direct/agent total from the host source.",
           items: {
             type: "object",
             properties: {
@@ -380,7 +387,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_compare_properties",
     description:
-      "Compare availability and pricing for 2–10 specific properties on the same dates. Use this tool when the user is deciding between multiple properties and wants to see price and availability side by side. Do NOT use for discovery — use hemmabo_search_properties first. Returns one entry per propertyId, sorted by federation price (cheapest first), with unavailable properties last.",
+      "Compare availability and pricing for 2–10 specific properties on the same dates. Use this tool when the user is deciding between multiple properties and wants to see price and availability side by side. Do NOT use for discovery — use hemmabo_search_properties first. Returns one entry per propertyId, sorted by direct/agent total from the host source (cheapest first), with unavailable properties last.",
     inputSchema: {
       type: "object",
       properties: {
@@ -407,7 +414,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         count: { type: "integer", description: "Number of compared properties returned." },
         comparison: {
           type: "array",
-          description: "One entry per requested propertyId, sorted by federation price (cheapest first), unavailable last.",
+          description: "One entry per requested propertyId, sorted by direct/agent total from the host source (cheapest first), unavailable last.",
           items: {
             type: "object",
             properties: {
@@ -423,7 +430,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
               currency: { type: "string" },
               nights: { type: "integer" },
               publicTotal: { type: "integer", description: "Standard website total. Absent if unavailable." },
-              federationTotal: { type: "integer", description: "Direct-booking total. Absent if unavailable." },
+              federationTotal: { type: "integer", description: "Legacy field: direct/agent total from the host source. Absent if unavailable." },
               gapTotal: { type: "integer" },
               federationDiscountPercent: { type: "integer" },
               packageApplied: { type: "string" },
@@ -471,8 +478,11 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         nights: { type: "integer", description: "Number of nights in the range." },
         currency: { type: "string", description: "ISO 4217 currency code." },
         publicTotal: { type: "integer", description: "Website rate total in minor currency units." },
-        federationTotal: { type: "integer", description: "Direct-booking total (host-controlled discount applied)." },
-        federationDiscountPercent: { type: "integer", description: "Host-configured federation discount percentage." },
+        federationTotal: { type: "integer", description: "Legacy field: direct/agent total from the host source. Prefer directBookingTotal in user-facing copy." },
+        directBookingTotal: { type: "integer", description: "Preferred user-facing field: direct/agent total from the host source." },
+        hostSourcePublicTotal: { type: "integer", description: "Preferred user-facing field: public host-source total." },
+        federationDiscountPercent: { type: "integer", description: "Legacy field: host-configured direct/agent discount percentage." },
+        directBookingDiscountPercent: { type: "integer", description: "Preferred user-facing field: host-configured direct/agent discount percentage." },
         packageApplied: { type: "string", description: "Applied package, if any." },
         gapNight: { type: "boolean", description: "True when the stay qualifies as a gap fill." },
         gapTotal: { type: "integer", description: "Gap-night discounted total when applicable; otherwise null." },
@@ -545,7 +555,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_negotiate",
     description:
-      "Create a binding price quote that locks the price for 15 minutes. Use this tool before hemmabo_booking_checkout to guarantee the quoted price during payment. Do NOT skip this step if the user wants price certainty — without a quoteId, checkout calculates a fresh price that may differ. Returns quoteId (pass to hemmabo_booking_checkout), final host-source total, per-night breakdown, and expiry timestamp.",
+      "Create a binding price quote that locks the price for 15 minutes. Use this tool only when the user explicitly asks to lock/hold a price, proceed toward checkout, pay, or book after seeing the stay details. Do NOT use for ordinary search, availability checks, or showing a verified host-domain offer. Returns quoteId (pass to hemmabo_booking_checkout), final host-source total, per-night breakdown, and expiry timestamp.",
     inputSchema: {
       type: "object",
       properties: {
@@ -592,7 +602,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_checkout",
     description:
-      "Create a booking with Stripe payment and return a checkout URL. Use this tool when the user is ready to pay — it creates the booking record and generates a Stripe payment page. Do NOT call twice for the same booking — check hemmabo_booking_status first to avoid double charges. Optionally pass quoteId from hemmabo_booking_negotiate to lock the price. Returns reservationId, paymentUrl (Stripe checkout page), and pricing details.",
+      "Create a booking with Stripe payment and return a checkout URL. Use this tool only after the user explicitly confirms they are ready to book/pay and has provided the required guest name and email. Do NOT use for search, browsing, availability, verified-offer display, Loom/demo proof, or direct host-domain link presentation. Do NOT call twice for the same booking - check hemmabo_booking_status first to avoid double charges. Optionally pass quoteId from hemmabo_booking_negotiate to lock the price. Returns reservationId, paymentUrl (Stripe checkout page), and pricing details.",
     inputSchema: {
       type: "object",
       properties: {
@@ -603,9 +613,9 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         guestName: F.guestName,
         guestEmail: F.guestEmail,
         guestPhone: { ...F.guestPhone, description: "Phone with country code (e.g. '+46701234567'). Optional but recommended." },
-        quoteId: { type: "string", description: "Quote ID from hemmabo_booking_negotiate to lock the price. Optional — if omitted, a fresh federation price is calculated at checkout time." },
+        quoteId: { type: "string", description: "Quote ID from hemmabo_booking_negotiate to lock the price. Optional — if omitted, a fresh direct/agent price is calculated at checkout time." },
         paymentMode: { type: "string", enum: ["checkout_session", "payment_intent"], description: "'checkout_session' (default): returns Stripe redirect URL. 'payment_intent': returns client_secret for programmatic payment (AI agent MPP flow)." },
-        channel: { type: "string", enum: ["public", "federation"], description: "'federation' (default): applies direct booking discount. 'public': uses standard website rate." },
+        channel: { type: "string", enum: ["public", "federation"], description: "'federation' is the legacy internal channel name for direct/agent pricing from the host source. 'public': uses standard website rate." },
       },
       required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"],
       additionalProperties: false,
