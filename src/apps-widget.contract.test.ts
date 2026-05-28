@@ -36,9 +36,8 @@ describe("ChatGPT Apps verified stay widget", () => {
     }
   });
 
-  it("keeps booking/data tools data-first and binds the verified offer render tool to the widget template", () => {
+  it("binds search and verified-offer tools to the widget template while keeping other tools data-first", () => {
     const dataTools = [
-      "hemmabo_search_properties",
       "hemmabo_search_availability",
       "hemmabo_search_similar",
       "hemmabo_compare_properties",
@@ -58,6 +57,11 @@ describe("ChatGPT Apps verified stay widget", () => {
       assert.equal(tool._meta?.["openai/outputTemplate"], undefined);
       assert.equal((tool._meta?.ui as { resourceUri?: string } | undefined)?.resourceUri, undefined);
     }
+
+    const searchTool = TOOLS.find((t) => t.name === "hemmabo_search_properties");
+    assert.ok(searchTool, "hemmabo_search_properties must exist");
+    assert.equal(searchTool._meta?.["openai/outputTemplate"], HEMMABO_WIDGET_URI);
+    assert.deepEqual(searchTool._meta?.ui, { resourceUri: HEMMABO_WIDGET_URI });
 
     const renderTool = TOOLS.find((t) => t.name === "get_verified_stay_offer");
     assert.ok(renderTool, "get_verified_stay_offer must exist");

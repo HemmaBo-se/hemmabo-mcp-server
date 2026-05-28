@@ -140,22 +140,35 @@ const LOCATION_ALIASES: Record<string, readonly string[]> = {
   se: ["sweden", "sverige"],
   sverige: ["sweden"],
   sweden: ["sverige"],
-  skane: ["skåne", "skane lan", "skåne län", "southern sweden", "south sweden", "sodra sverige"],
-  "skane lan": ["skåne län", "skane", "skåne"],
-  "southern sweden": ["skane", "skåne", "skåne län"],
-  "south sweden": ["skane", "skåne", "skåne län"],
-  "sodra sverige": ["skane", "skåne", "skåne län"],
-  kavlinge: ["kävlinge"],
+  skane: ["skane lan", "southern sweden", "south sweden", "sodra sverige"],
+  "skane lan": ["skane"],
+  "southern sweden": ["skane", "skane lan"],
+  "south sweden": ["skane", "skane lan"],
+  "sodra sverige": ["skane", "skane lan"],
+  kavlinge: [],
 };
 
+function repairCommonLocationMojibake(value: string): string {
+  return value
+    .replace(/\u00c3\u00a5/g, "\u00e5")
+    .replace(/\u00c3\u00a4/g, "\u00e4")
+    .replace(/\u00c3\u00b6/g, "\u00f6")
+    .replace(/\u00c3\u2026/g, "\u00c5")
+    .replace(/\u00c3\u0085/g, "\u00c5")
+    .replace(/\u00c3\u201e/g, "\u00c4")
+    .replace(/\u00c3\u0084/g, "\u00c4")
+    .replace(/\u00c3\u2013/g, "\u00d6")
+    .replace(/\u00c3\u0096/g, "\u00d6");
+}
+
 export function normalizeLocationTerm(value: string | null | undefined): string {
-  return (value ?? "")
+  return repairCommonLocationMojibake(value ?? "")
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[øö]/g, "o")
-    .replace(/[æä]/g, "a")
-    .replace(/[å]/g, "a")
+    .replace(/[\u00f8\u00f6]/g, "o")
+    .replace(/[\u00e6\u00e4]/g, "a")
+    .replace(/\u00e5/g, "a")
     .replace(/[^a-z0-9]+/g, " ")
     .trim()
     .replace(/\s+/g, " ");
@@ -278,6 +291,7 @@ async function findAlternativeDates(
         alternative.publicTotal = quote.publicTotal;
         alternative.federationTotal = quote.federationTotal;
         alternative.federationDiscountPercent = quote.federationDiscountPercent;
+        Object.assign(alternative, directBookingPriceFields(quote));
         alternative.packageApplied = quote.packageApplied;
       }
     }
@@ -288,6 +302,18 @@ async function findAlternativeDates(
 }
 
 // ── booking_locks helpers ─────────────────────────────────────────────────────
+
+function directBookingPriceFields(quote: {
+  publicTotal: number;
+  federationTotal: number;
+  federationDiscountPercent: number;
+}): Record<string, number> {
+  return {
+    hostSourcePublicTotal: quote.publicTotal,
+    directBookingTotal: quote.federationTotal,
+    directBookingDiscountPercent: quote.federationDiscountPercent,
+  };
+}
 
 const LOCK_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -572,7 +598,9 @@ export async function executeTool(
           region: prop.region, city: prop.city, country: prop.country,
           maxGuests: prop.max_guests, propertyType: prop.property_type,
           currency: quote.currency, nights: quote.nights,
-          publicTotal: quote.publicTotal, federationTotal: quote.federationTotal,
+          publicTotal: quote.publicTotal,
+          ...directBookingPriceFields(quote),
+          federationTotal: quote.federationTotal,
           federationDiscountPercent: quote.federationDiscountPercent,
           packageApplied: quote.packageApplied, available: true,
         });
@@ -587,8 +615,14 @@ export async function executeTool(
             guests,
             properties: results,
             unavailableMatches,
+            priceFieldGuidance: {
+              preferredTotalField: "directBookingTotal",
+              preferredPublicTotalField: "hostSourcePublicTotal",
+              legacyTotalField: "federationTotal",
+              userFacingRule: "Describe directBookingTotal as the direct/agent total from the host source. Do not call it a HemmaBo platform, federation, OTA, marketplace, or comparison price.",
+            },
             agentGuidance: results.length > 0
-              ? "Offer the available properties first."
+              ? "Offer the available properties first. For pricing, use directBookingTotal as the direct/agent total from the host source and hostSourcePublicTotal as the public host-source total. Do not describe any price as a HemmaBo platform price, OTA comparison, or marketplace discount."
               : unavailableMatches.some((p) => Array.isArray(p.alternativeDates) && p.alternativeDates.length > 0)
                 ? "Requested dates are unavailable. Offer the alternativeDates for the matched property instead of ending the conversation."
                 : matchedProperties.length > 0
@@ -719,7 +753,9 @@ export async function executeTool(
           region: prop.region, city: prop.city, country: prop.country,
           maxGuests: prop.max_guests, propertyType: prop.property_type,
           currency: quote.currency, nights: quote.nights,
-          publicTotal: quote.publicTotal, federationTotal: quote.federationTotal,
+          publicTotal: quote.publicTotal,
+          ...directBookingPriceFields(quote),
+          federationTotal: quote.federationTotal,
           federationDiscountPercent: quote.federationDiscountPercent,
           packageApplied: quote.packageApplied, available: true,
         });
@@ -776,7 +812,9 @@ export async function executeTool(
             region: prop.region, city: prop.city, country: prop.country,
             maxGuests: prop.max_guests, propertyType: prop.property_type,
             currency: quote.currency, nights: quote.nights,
-            publicTotal: quote.publicTotal, federationTotal: quote.federationTotal,
+            publicTotal: quote.publicTotal,
+            ...directBookingPriceFields(quote),
+            federationTotal: quote.federationTotal,
             gapTotal: quote.gapTotal,
             federationDiscountPercent: quote.federationDiscountPercent,
             packageApplied: quote.packageApplied, available: true,
@@ -812,7 +850,21 @@ export async function executeTool(
       const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
       // MCP-05: resolveQuote may return { error: ... } — surface as MCP tool error, not success.
       if ("error" in quote) return { content: [{ type: "text", text: JSON.stringify(quote) }], isError: true };
-      return { content: [{ type: "text", text: JSON.stringify(quote, null, 2) }] };
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            ...quote,
+            ...directBookingPriceFields(quote),
+            priceFieldGuidance: {
+              preferredTotalField: "directBookingTotal",
+              preferredPublicTotalField: "hostSourcePublicTotal",
+              legacyTotalField: "federationTotal",
+              userFacingRule: "Describe directBookingTotal as the direct/agent total from the host source. Do not call it a HemmaBo platform, federation, OTA, marketplace, or comparison price.",
+            },
+          }, null, 2),
+        }],
+      };
     }
 
     case "hemmabo_booking_create": {
@@ -952,8 +1004,15 @@ export async function executeTool(
             nights: quote.nights,
             currency: quote.currency,
             publicTotal: quote.publicTotal,
+            ...directBookingPriceFields(quote),
             federationTotal: quote.federationTotal,
             federationDiscountPercent: quote.federationDiscountPercent,
+            priceFieldGuidance: {
+              preferredTotalField: "directBookingTotal",
+              preferredPublicTotalField: "hostSourcePublicTotal",
+              legacyTotalField: "federationTotal",
+              userFacingRule: "Describe directBookingTotal as the direct/agent total from the host source. Do not call it a HemmaBo platform, federation, OTA, marketplace, or comparison price.",
+            },
             breakdown: quote.breakdown,
             packageApplied: quote.packageApplied,
             gapNight: quote.gapNight,
