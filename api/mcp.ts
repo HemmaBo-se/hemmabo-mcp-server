@@ -22,6 +22,7 @@ import { isVrpToolName } from "../lib/vrp.js";
 import { SERVER_DESCRIPTION, SERVER_INSTRUCTIONS, SERVER_NAME, SERVER_VERSION } from "../lib/server-metadata.js";
 import {
   HEMMABO_LEGACY_WIDGET_URI,
+  HEMMABO_PREVIOUS_WIDGET_URI,
   HEMMABO_WIDGET_MIME_TYPE,
   HEMMABO_WIDGET_RESOURCE_META,
   HEMMABO_WIDGET_URI,
@@ -129,9 +130,8 @@ export const PROMPTS = [
 
 // ── Resources (ChatGPT Apps SDK UI widgets) ──────────────────────
 //
-// Apps SDK requires `ui://` resources that ChatGPT renders inline. Tools bind
-// to this widget via `_meta.ui.resourceUri` plus the OpenAI compatibility
-// `_meta["openai/outputTemplate"]` field.
+// Apps SDK requires `ui://` resources that ChatGPT renders inline.
+// get_verified_stay_offer is the render tool that points to this template.
 
 export const RESOURCES = [
   {
@@ -147,7 +147,7 @@ export const RESOURCES = [
 export function readResource(
   uri: string
 ): { contents: { uri: string; mimeType: string; text: string; _meta?: Record<string, unknown> }[] } | null {
-  if (uri === HEMMABO_WIDGET_URI || uri === HEMMABO_LEGACY_WIDGET_URI) {
+  if (uri === HEMMABO_WIDGET_URI || uri === HEMMABO_PREVIOUS_WIDGET_URI || uri === HEMMABO_LEGACY_WIDGET_URI) {
     return {
       contents: [
         {
@@ -170,7 +170,7 @@ function getPromptMessages(name: string, args: Record<string, string>) {
           role: "user",
           content: {
             type: "text",
-            text: `I want to plan a trip to ${args.destination || "a vacation destination"} from ${args.checkIn || "TBD"} to ${args.checkOut || "TBD"} for ${args.guests || "2"} guests. Please: (1) search for available properties, (2) show the final host-source price only, (3) create a binding quote with hemmabo_booking_negotiate, (4) proceed to hemmabo_booking_checkout with Stripe payment after I confirm, and (5) confirm booking status with hemmabo_booking_status. If I need to change dates later, use hemmabo_booking_reschedule. If I need to cancel, use hemmabo_booking_cancel.`,
+            text: `I want to plan a trip to ${args.destination || "a vacation destination"} from ${args.checkIn || "TBD"} to ${args.checkOut || "TBD"} for ${args.guests || "2"} guests. Please: (1) search for available properties, (2) if a host domain is known, call get_verified_stay_offer to render the verified stay offer widget and show the final host-source price only, (3) create a binding quote with hemmabo_booking_negotiate, (4) proceed to hemmabo_booking_checkout with Stripe payment after I confirm, and (5) confirm booking status with hemmabo_booking_status. If I need to change dates later, use hemmabo_booking_reschedule. If I need to cancel, use hemmabo_booking_cancel.`,
           },
         },
       ],
