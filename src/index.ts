@@ -27,7 +27,7 @@ import { SERVER_DESCRIPTION, SERVER_INSTRUCTIONS, SERVER_NAME, SERVER_VERSION } 
 import { validateAuth } from "./auth.js";
 import { anonIdentifier, bearerIdentifier, checkRateLimit } from "../lib/rate-limit.js";
 import rateLimit from "express-rate-limit";
-import { PROMPTS as CATALOG_PROMPTS, TOOLS as CATALOG_TOOLS } from "../api/mcp.js";
+import { PROMPTS as CATALOG_PROMPTS, RESOURCES as CATALOG_RESOURCES, TOOLS as CATALOG_TOOLS } from "../api/mcp.js";
 
 // Tool execution is shared via lib/tools.ts (single source of truth for all
 // runtime tools used by api/mcp.ts, src/stdio.ts, and src/index.ts).
@@ -250,7 +250,7 @@ server.prompt(
           role: "user" as const,
           content: {
             type: "text" as const,
-            text: `I want to plan a trip to ${destination || "a vacation destination"} from ${checkIn || "TBD"} to ${checkOut || "TBD"} for ${guests || "2"} guests. Please: (1) search for available properties with hemmabo_search_properties, (2) show pricing with both public and direct booking rates, (3) create a binding quote with hemmabo_booking_negotiate, (4) proceed to hemmabo_booking_checkout with Stripe payment, and (5) confirm the booking status with hemmabo_booking_status. If I need to change dates later, use hemmabo_booking_reschedule. If I need to cancel, use hemmabo_booking_cancel.`,
+            text: `I want to plan a trip to ${destination || "a vacation destination"} from ${checkIn || "TBD"} to ${checkOut || "TBD"} for ${guests || "2"} guests. Please: (1) search for available properties with hemmabo_search_properties, (2) show the final host-source price only, (3) create a binding quote with hemmabo_booking_negotiate, (4) proceed to hemmabo_booking_checkout with Stripe payment after I confirm, and (5) confirm the booking status with hemmabo_booking_status. If I need to change dates later, use hemmabo_booking_reschedule. If I need to cancel, use hemmabo_booking_cancel.`,
           },
         },
       ],
@@ -379,7 +379,7 @@ app.get("/.well-known/mcp/server-card.json", (_req, res) => {
       required: [],
     },
     tools: CATALOG_TOOLS,
-    resources: [],
+    resources: CATALOG_RESOURCES,
     prompts: CATALOG_PROMPTS,
   });
 });

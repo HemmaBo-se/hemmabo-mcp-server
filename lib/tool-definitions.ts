@@ -1,5 +1,6 @@
 import { TOOL_SPECS as HEMMABO_TOOL_SPECS, toZodShape } from "./tool-definitions-base.js";
 import type { ToolSpec as ToolSpecType } from "./tool-definitions-base.js";
+import { HEMMABO_WIDGET_TOOL_META } from "./apps-widget.js";
 
 export { toZodShape };
 export type {
@@ -52,6 +53,9 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: true,
+    },
+    _meta: {
+      ...HEMMABO_WIDGET_TOOL_META,
     },
   },
   {
@@ -128,6 +132,9 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: true,
+    },
+    _meta: {
+      ...HEMMABO_WIDGET_TOOL_META,
     },
   },
 ];

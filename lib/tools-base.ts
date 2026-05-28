@@ -36,6 +36,10 @@ export interface ToolClients {
 
 export type ToolResult = {
   content: { type: "text"; text: string }[];
+  /** Machine-readable data shared with the model and Apps SDK widget. */
+  structuredContent?: Record<string, unknown>;
+  /** Widget-only metadata, when a transport or UI needs non-model context. */
+  _meta?: Record<string, unknown>;
   /**
    * MCP-05: when true, the client must treat this as a tool-level failure
    * rather than a successful tool call whose `content` happens to describe

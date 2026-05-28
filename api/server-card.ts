@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "./_types.js";
 import { createRequire } from "node:module";
-import { ANON_TOOLS, PROMPTS, SERVER_DESCRIPTION, SERVER_INSTRUCTIONS, TOOLS } from "./mcp.js";
+import { ANON_TOOLS, PROMPTS, RESOURCES, SERVER_DESCRIPTION, SERVER_INSTRUCTIONS, TOOLS } from "./mcp.js";
 import { baseUrl } from "../lib/base-url.js";
 
 const pkg = createRequire(import.meta.url)("../package.json") as { version: string };
@@ -50,7 +50,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       required: [],
     },
     tools: toolsWithAuth,
-    resources: [],
+    resources: RESOURCES,
     prompts: PROMPTS,
   });
 }
