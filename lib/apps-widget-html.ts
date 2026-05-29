@@ -305,8 +305,8 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
   var VILLA_IMAGE = "https://vfalgymbhyfqsyxkvpqg.supabase.co/storage/v1/object/public/property-images/properties/3ef1d46d-5c23-46fe-86cb-8e714abf734f/other/1777524437024-rewm-2-desktop.jpg?quality=75&resize=cover&width=800";
   var TOOL_LABELS = [
     "Search", "Availability", "Similar", "Compare",
-    "Quote", "Direct link", "Host booking", "Host payment",
-    "Cancel", "Status", "Reschedule", "Verify node", "Stay offer"
+    "Host price", "Direct URL", "Host domain", "Stripe host",
+    "Policy", "Status", "VRP", "Verify node", "Stay offer"
   ];
 
   function getData() {

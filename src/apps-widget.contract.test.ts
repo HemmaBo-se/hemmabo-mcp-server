@@ -5,6 +5,7 @@ import { RESOURCES, TOOLS, readResource } from "../api/mcp.js";
 import {
   HEMMABO_LEGACY_WIDGET_URI,
   HEMMABO_PREVIOUS_WIDGET_URI,
+  HEMMABO_V1_WIDGET_URI,
   HEMMABO_WIDGET_MIME_TYPE,
   HEMMABO_WIDGET_URI,
 } from "../lib/apps-widget.js";
@@ -24,7 +25,7 @@ describe("ChatGPT Apps verified stay widget", () => {
   });
 
   it("serves the current widget URI plus previous/legacy widget URIs", () => {
-    for (const uri of [HEMMABO_WIDGET_URI, HEMMABO_PREVIOUS_WIDGET_URI, HEMMABO_LEGACY_WIDGET_URI]) {
+    for (const uri of [HEMMABO_WIDGET_URI, HEMMABO_PREVIOUS_WIDGET_URI, HEMMABO_V1_WIDGET_URI, HEMMABO_LEGACY_WIDGET_URI]) {
       const result = readResource(uri);
       assert.ok(result, `resource should resolve for ${uri}`);
       const content = result.contents[0];
@@ -37,11 +38,13 @@ describe("ChatGPT Apps verified stay widget", () => {
       assert.doesNotMatch(content.text, /ACP checkout/i);
       assert.doesNotMatch(content.text, /Ask agent to book/i);
       assert.doesNotMatch(content.text, /Confirm guest details before payment/i);
+      assert.doesNotMatch(content.text, /booking lifecycle/i);
     }
   });
 
-  it("binds search and verified-offer tools to the widget template while keeping other tools data-first", () => {
+  it("binds only the render tool to the widget template while keeping data tools data-first", () => {
     const dataTools = [
+      "hemmabo_search_properties",
       "hemmabo_search_availability",
       "hemmabo_search_similar",
       "hemmabo_compare_properties",
@@ -61,11 +64,6 @@ describe("ChatGPT Apps verified stay widget", () => {
       assert.equal(tool._meta?.["openai/outputTemplate"], undefined);
       assert.equal((tool._meta?.ui as { resourceUri?: string } | undefined)?.resourceUri, undefined);
     }
-
-    const searchTool = TOOLS.find((t) => t.name === "hemmabo_search_properties");
-    assert.ok(searchTool, "hemmabo_search_properties must exist");
-    assert.equal(searchTool._meta?.["openai/outputTemplate"], HEMMABO_WIDGET_URI);
-    assert.deepEqual(searchTool._meta?.ui, { resourceUri: HEMMABO_WIDGET_URI });
 
     const renderTool = TOOLS.find((t) => t.name === "get_verified_stay_offer");
     assert.ok(renderTool, "get_verified_stay_offer must exist");
@@ -99,6 +97,8 @@ describe("ChatGPT Apps verified stay widget", () => {
     assert.doesNotMatch(widgetHtml, /search, quote, or verified stay offer tool/);
     assert.match(widgetHtml, /Open direct booking URL/);
     assert.doesNotMatch(widgetHtml, /Stripe ACP checkout/);
+    assert.doesNotMatch(widgetHtml, /Agent-ready checkout/i);
+    assert.doesNotMatch(widgetHtml, /booking lifecycle/i);
   });
 
   it("hydrates from both MCP Apps notifications and ChatGPT globals", () => {
