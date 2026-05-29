@@ -480,7 +480,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         directBookingDiscountPercent: { type: "integer", description: "Legacy internal field. Do not present this as a guest-facing discount, savings, or comparison." },
         packageApplied: { type: "string", description: "Applied package, if any." },
         gapNight: { type: "boolean", description: "True when the stay qualifies as a gap fill." },
-        gapTotal: { type: "integer", description: "Gap-night discounted total when applicable; otherwise null." },
+    gapTotal: { type: "integer", description: "Gap-night adjusted total when applicable; otherwise null." },
         gapDiscountPercent: { type: "integer", description: "Gap-night discount percentage when applied." },
         breakdown: {
           type: "object",
@@ -597,7 +597,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_checkout",
     description:
-      "Create a booking with Stripe payment and return a checkout URL for legacy non-VRP flows. Do not use this when get_verified_stay_offer returns a signed direct_booking_url; route the guest to that host-domain URL instead and do not collect guest contact details in chat. Do NOT use for search, browsing, availability, verified-offer display, Loom/demo proof, or direct host-domain link presentation. Do NOT call twice for the same booking - check hemmabo_booking_status first to avoid double charges. Returns reservationId, paymentUrl (Stripe checkout page), and pricing details.",
+      "Create a legacy non-VRP booking and return a host-configured checkout URL. Do not use this when get_verified_stay_offer returns a signed direct_booking_url; route the guest to that host-domain URL instead and do not collect guest contact details in chat. Do NOT use for search, browsing, availability, verified-offer display, Loom/demo proof, or direct host-domain link presentation. Do NOT call twice for the same booking - check hemmabo_booking_status first to avoid duplicate charges. Returns reservationId, paymentUrl, and pricing details.",
     inputSchema: {
       type: "object",
       properties: {
@@ -609,8 +609,8 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         guestEmail: F.guestEmail,
         guestPhone: { ...F.guestPhone, description: "Phone with country code (e.g. '+46701234567'). Optional but recommended." },
         quoteId: { type: "string", description: "Quote ID from hemmabo_booking_negotiate to lock the price. Optional - if omitted, a fresh direct host-source price is calculated at checkout time." },
-        paymentMode: { type: "string", enum: ["checkout_session", "payment_intent"], description: "'checkout_session' (default): returns Stripe redirect URL. 'payment_intent': returns client_secret for programmatic payment (AI agent MPP flow)." },
-        channel: { type: "string", enum: ["public", "federation"], description: "'federation' is the legacy internal channel name for direct host-source pricing. 'public': uses standard website rate." },
+        paymentMode: { type: "string", enum: ["checkout_session", "payment_intent"], description: "'checkout_session' (default): returns a host-configured Stripe redirect URL. 'payment_intent': returns client_secret for configured legacy non-VRP payment integrations." },
+        channel: { type: "string", enum: ["public", "federation"], description: "'federation' is the legacy compatibility name for direct host-source pricing. 'public': uses standard website rate." },
       },
       required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"],
       additionalProperties: false,

@@ -19,15 +19,18 @@ Use this package when an MCP client needs to:
 - search published HemmaBo vacation-rental properties,
 - check availability for requested dates,
 - get a live quote from published property data,
-- create or manage a booking through authenticated tools, or
+- verify a signed host-domain offer and route the guest to the host's own booking URL, or
+- operate legacy authenticated booking-management helpers in self-hosted, non-VRP deployments, and
 - verify a Vacation Rental Protocol (VRP) host-domain signed stay offer before quoting it.
 
 HemmaBo is not an OTA. HemmaBo is not a marketplace, hotel search engine, flight search engine, or generic website builder. This package exposes the MCP server surface. Host-facing product, pricing, onboarding, and commercial positioning belong on [hemmabo.com](https://hemmabo.com), not in this repository.
 
 ## Protocol Layers
 
-- **HemmaBo MCP tools** expose search, availability, quote, checkout, booking status, rescheduling, and cancellation flows for published HemmaBo property data.
+- **HemmaBo MCP tools** expose search, availability, quote, booking-status, and VRP verification flows for published HemmaBo property data. Legacy authenticated booking helpers are available only for configured non-VRP deployments.
 - **Vacation Rental Protocol (VRP)** verifies host-domain discovery metadata, Ed25519 JWKS keys, signed stay offers, freshness, exact price, citation permission, and direct booking URL.
+
+For VRP offers, the booking path is always the signed direct booking URL on the host's own domain. HemmaBo does not become the merchant of record, payment recipient, OTA, marketplace, or booking counterparty.
 
 Related links:
 
@@ -76,6 +79,8 @@ Example local MCP client config:
 }
 ```
 
+Use service-role credentials only for a Supabase project owned by the host/operator of that MCP server. Never put production service-role keys into untrusted client configs.
+
 ### Install via Smithery
 
 ```bash
@@ -93,12 +98,12 @@ Canonical tool names use `snake_case`. Legacy dotted aliases are accepted inboun
 | `hemmabo_search_similar` | Find available alternatives after a user has selected a source property and asked for alternatives. Do not use for initial discovery. | Yes |
 | `hemmabo_compare_properties` | Compare availability and pricing for 2-10 known property IDs on the same dates. | Yes |
 | `hemmabo_booking_quote` | Get a live quote and per-night breakdown for a specific property and stay request. | Yes |
-| `hemmabo_booking_create` | Create a pending direct booking for host review. | No |
-| `hemmabo_booking_negotiate` | Create a quote snapshot with a `quoteId` for checkout. | No |
-| `hemmabo_booking_checkout` | Create a booking with Stripe-powered payment. | No |
-| `hemmabo_booking_cancel` | Cancel a booking and handle refund flow according to policy. | No |
+| `hemmabo_booking_create` | Legacy non-VRP helper: create a pending host-review booking when no signed VRP direct booking URL is available. | No |
+| `hemmabo_booking_negotiate` | Legacy non-VRP helper: create a short-lived quote snapshot only after explicit user confirmation. | No |
+| `hemmabo_booking_checkout` | Legacy non-VRP helper: create a host-configured Stripe checkout URL. Do not use for signed VRP offers. | No |
+| `hemmabo_booking_cancel` | Legacy authenticated helper: cancel an existing booking according to host policy. | No |
 | `hemmabo_booking_status` | Get booking details by reservation ID. Requires auth because booking data may include PII. | Yes |
-| `hemmabo_booking_reschedule` | Reschedule a booking to new dates. | No |
+| `hemmabo_booking_reschedule` | Legacy authenticated helper: reschedule an existing booking according to host policy. | No |
 | `verify_vacation_rental_node` | Verify a host-domain VRP discovery document and Ed25519 JWKS. | Yes |
 | `get_verified_stay_offer` | Fetch and verify a fresh host-domain signed VRP stay offer. | Yes |
 
@@ -116,6 +121,8 @@ Rate limits apply per source IP for anonymous requests and per token hash for au
 ## Pricing and Availability
 
 Quotes are computed from HemmaBo property data at request time. Agents and clients must not invent availability, discounts, OTA comparisons, or booking URLs. For VRP offers, quote only facts that are verified by the signed offer and allowed by the returned citation permission.
+
+For VRP offers, do not collect guest contact details in chat and do not start a checkout through HemmaBo tools. Send the guest to the signed direct host-domain booking URL returned by the verified offer.
 
 ## Setup
 
@@ -136,7 +143,7 @@ Required environment variables:
 
 Optional environment variables:
 
-- `STRIPE_SECRET_KEY` - enables checkout, cancellation, refund, and reschedule payment flows.
+- `STRIPE_SECRET_KEY` - enables legacy non-VRP checkout, cancellation, refund, and reschedule helpers for the host/operator's own Stripe account. VRP offers should route to the signed host-domain booking URL instead.
 - `MCP_API_KEY` - enables Bearer-token auth for protected tools.
 - `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` - enable shared rate limiting.
 
@@ -152,7 +159,7 @@ Optional environment variables:
 | `/oauth/register` | POST | Dynamic client registration |
 | `/oauth/token` | POST | OAuth token endpoint |
 | `/oauth/authorize` | GET/POST | Authorization-code consent flow |
-| `/acp/checkouts` | POST/GET/PUT | Agentic checkout lifecycle where configured |
+| `/acp/checkouts` | POST/GET/PUT | Legacy authenticated checkout lifecycle where explicitly configured; not the VRP booking path |
 
 ## Transports
 

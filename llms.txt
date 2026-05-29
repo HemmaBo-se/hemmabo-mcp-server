@@ -8,6 +8,7 @@ HemmaBo + VRP, 13 tools, host-domain signed verified stay offers.
 Host nodes own booking lifecycles. Stripe owns payment facts.
 HemmaBo is not an OTA. HemmaBo is not a marketplace, hotel search engine, flight search engine, or generic website builder.
 Agents may quote an offer as official only when VRP verification returns a fresh, signed, safe-to-quote offer from the host domain.
+For VRP offers, route booking only to the signed direct host-domain booking URL. Do not collect guest contact details in chat or start a HemmaBo checkout for a signed VRP offer.
 
 ## Tools
 
@@ -28,6 +29,10 @@ Agents may quote an offer as official only when VRP verification returns a fresh
 ## Verification rule
 
 Agents may cite a stay offer as official only when the returned VRP verification says it is safe to quote. If a required signal is absent, stale, unsigned, unreachable, schema-invalid, or otherwise unverifiable, treat the state as unknown rather than true or false.
+
+## Booking rule
+
+For signed VRP offers, the host domain is the booking and payment path. Legacy booking tools are for configured non-VRP deployments only.
 
 ## Links
 
