@@ -8,11 +8,11 @@
  * Data: Supabase (property, pricing, availability, bookings)
  *
  * Pricing flow:
- *   Google/website visitor → public_total
- *   Vera AI / federation partner (at booking) → federation_total
- *   Gap night (calendar context) → gap_total
+ *   Google/website visitor -> public_total
+ *   Vera AI / federation partner (at booking) -> federation_total
+ *   Gap night (calendar context) -> gap_total
  *
- * The host controls the federation discount via direct_booking_discount.
+ * User-facing VRP copy should present direct host-source totals, not discounts.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -237,7 +237,7 @@ for (const spec of TOOL_SPECS) {
 // ── Prompt: trip.plan ─────────────────────────────────────────────────────
 server.prompt(
   "trip.plan",
-  "Help plan a vacation rental trip through host-domain discovery and verified offers. Search first, show a verified host-domain stay offer when possible, and only move to quote-lock or checkout after explicit user confirmation.",
+  "Help plan a vacation rental trip through host-domain discovery and verified offers. Search first, show a verified host-domain stay offer when possible, and route booking only to the signed direct host-domain URL.",
   {
     destination: z.string().describe("Where the guest wants to travel (region, city, or country). Example: 'Skane', 'Sweden', 'Toscana'."),
     checkIn: zISODate.describe("Desired check-in date in YYYY-MM-DD format."),
@@ -251,7 +251,7 @@ server.prompt(
           role: "user" as const,
           content: {
             type: "text" as const,
-            text: `I want to plan a trip to ${destination || "a vacation destination"} from ${checkIn || "TBD"} to ${checkOut || "TBD"} for ${guests || "2"} guests. Please: (1) search for available host-owned properties with hemmabo_search_properties, (2) if a host domain is known, call get_verified_stay_offer to render the host-domain verified stay offer widget and show only live availability, final host-source price, and the direct booking path, and (3) stop before quote-lock, booking, or checkout unless I explicitly confirm that I want to lock a price, book, pay, or start checkout.`,
+            text: `I want to plan a trip to ${destination || "a vacation destination"} from ${checkIn || "TBD"} to ${checkOut || "TBD"} for ${guests || "2"} guests. Please: (1) search for available host-owned properties with hemmabo_search_properties, (2) if a host domain is known, call get_verified_stay_offer to render the host-domain verified stay offer widget and show only live availability, final host-source price, and the signed direct booking path, and (3) if I ask to book or pay, send me only to the signed direct host-domain booking URL; do not collect guest contact details or start checkout in chat.`,
           },
         },
       ],

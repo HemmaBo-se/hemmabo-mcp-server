@@ -15,9 +15,9 @@ const DOMAIN_RE = /^(?!-)(?:[a-z0-9-]{1,63}\.)+[a-z]{2,63}$/;
 const PRIVATE_HOST_RE = /(^|\.)(localhost|local|internal|lan|home|test)$/i;
 const IP_LIKE_RE = /^(?:\d{1,3}\.){3}\d{1,3}$|^\[[0-9a-f:]+\]$/i;
 const OFFICIAL_AGENT_MESSAGE = "I found the official host-domain verified offer for this stay.";
-const AGENT_DIRECT_TOTAL_MESSAGE_PREFIX = "AI/direct booking total";
+const AGENT_DIRECT_TOTAL_MESSAGE_PREFIX = "Direct host-domain total";
 const BLOCKED_AGENT_CLAIMS = [
-  "Do not invent discounts, savings, promo codes, OTA comparisons, or price reductions unless they are explicitly present in the signed offer.",
+  "Do not present discounts, savings, promo codes, OTA comparisons, or price reductions in guest-facing copy.",
   "Do not say the stay is bookable unless availability.available is true and agent permission allows quoting.",
   "Do not quote a final total unless price.exact is true in the signed offer.",
   "Do not derive weekday labels from memory; use signed offer breakdown dates or a deterministic date library.",
@@ -56,8 +56,12 @@ function numberValue(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-function toolOk(value: JsonRecord): ToolResult {
-  return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
+function toolOk(value: JsonRecord, meta?: Record<string, unknown>): ToolResult {
+  return {
+    content: [{ type: "text", text: JSON.stringify(value, null, 2) }],
+    structuredContent: value,
+    ...(meta ? { _meta: meta } : {}),
+  };
 }
 
 function toolError(message: string): ToolResult {
@@ -309,14 +313,24 @@ function priceSummary(offer: JsonRecord, response: JsonRecord): JsonRecord {
     total: publicTotal,
     public_total: publicTotal,
     agent_total: numberValue(price?.agent_total),
-    agent_discount_pct: numberValue(price?.agent_discount_pct),
-    savings_vs_public_total: numberValue(price?.savings_vs_public_total),
-    discount_basis: stringValue(price?.discount_basis),
-    ota_comparison_total: numberValue(price?.ota_comparison_total),
-    ota_comparison_source: stringValue(price?.ota_comparison_source),
     exact: exactPrice(offer, response),
     package_applied: price?.package_applied ?? null,
     breakdown: Array.isArray(price?.breakdown) ? price.breakdown : null,
+  };
+}
+
+function propertySummary(offer: JsonRecord): JsonRecord {
+  const property = asRecord(offer.property) ?? {};
+  return {
+    id: stringValue(property.id),
+    name: stringValue(property.name),
+    domain:
+      stringValue(property.domain) ??
+      stringValue(offer.canonical_domain) ??
+      stringValue(offer.node_id),
+    city: stringValue(property.city),
+    region: stringValue(property.region),
+    country: stringValue(property.country),
   };
 }
 
@@ -373,6 +387,7 @@ function buildAgentQuoteView(offer: JsonRecord, response: JsonRecord, validUntil
       blocked_reason: blockedReason,
     },
     official_offer_summary: {
+      property: propertySummary(offer),
       available,
       availability_reason: availabilityReason(offer, response),
       price,
@@ -384,9 +399,10 @@ function buildAgentQuoteView(offer: JsonRecord, response: JsonRecord, validUntil
       safe_to_quote: safeToQuote,
       must_quote_from_signed_offer: true,
       must_not_invent_discounts: true,
+      must_not_present_discounts_or_savings: true,
       must_not_invent_ota_comparisons: true,
       must_not_claim_ota_comparison_without_signed_ota_price: true,
-      price_claim_rule: "Quote price.public_total and price.agent_total only when they are present, exact, fresh, and signed. Never call public_total an OTA price.",
+      price_claim_rule: "Quote price.agent_total as the direct host-domain total when it is present, exact, fresh, and signed; otherwise quote price.public_total. Do not describe the difference as a discount, savings, promotion, marketplace comparison, or OTA comparison.",
       availability_claim_rule: "Say bookable only when availability.available is true and agent permission allows quoting.",
       booking_action_rule: "Use only booking.direct_booking_url or the summarized direct_booking_url from this verified response.",
       required_phrase_when_safe: agentMessage,
@@ -461,9 +477,10 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
     },
     payload_matches_offer: true,
     fresh: true,
+    ...quoteView,
+  }, {
     signed_verified_stay_offer: signedOffer,
     offer,
-    ...quoteView,
   });
 }
 

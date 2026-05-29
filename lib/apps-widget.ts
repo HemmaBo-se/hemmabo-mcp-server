@@ -5,7 +5,7 @@ export const HEMMABO_WIDGET_MIME_TYPE = "text/html;profile=mcp-app";
 
 export const HEMMABO_WIDGET_RESOURCE_META = {
   "openai/widgetDescription":
-    "Renders a verified HemmaBo stay offer from MCP tool results with host-domain trust, live availability, final price, and booking lifecycle actions.",
+    "Renders a verified HemmaBo stay offer from MCP tool results with host-domain trust, live availability, final price, and the signed direct host-domain booking URL.",
   "openai/widgetPrefersBorder": true,
   "openai/widgetDomain": "https://hemmabo-mcp-server.vercel.app",
   "openai/widgetCSP": {
