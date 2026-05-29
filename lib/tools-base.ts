@@ -622,7 +622,7 @@ export async function executeTool(
               userFacingRule: "Describe directBookingTotal as the direct/agent total from the host source. Do not call it a HemmaBo platform, federation, OTA, marketplace, or comparison price.",
             },
             agentGuidance: results.length > 0
-              ? "Offer the available properties first. For pricing, use directBookingTotal as the direct/agent total from the host source and hostSourcePublicTotal as the public host-source total. Do not describe any price as a HemmaBo platform price, OTA comparison, or marketplace discount."
+              ? "Call get_verified_stay_offer for the best matching property's domain with the same check-in, check-out, and guest count before the final answer so ChatGPT can render the verified stay offer widget. Then offer the available properties first. For pricing, use directBookingTotal as the direct/agent total from the host source and hostSourcePublicTotal as the public host-source total. Do not describe any price as a HemmaBo platform price, OTA comparison, or marketplace discount."
               : unavailableMatches.some((p) => Array.isArray(p.alternativeDates) && p.alternativeDates.length > 0)
                 ? "Requested dates are unavailable. Offer the alternativeDates for the matched property instead of ending the conversation."
                 : matchedProperties.length > 0

@@ -230,7 +230,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_search_properties",
     description:
-      "Search available vacation rental properties by location and travel dates. Use this tool when the user wants to find or browse properties - it is the entry point for discovery and should render the stay widget when results are available. Do NOT use if the user already has a specific propertyId; use hemmabo_search_availability, hemmabo_booking_quote, or get_verified_stay_offer instead. Returns available properties with propertyId, host domain, live availability, final host-source pricing, and capacity info. Do not proceed to quote-lock, booking, or checkout unless the user explicitly asks to lock a price, book, pay, or start checkout.",
+      "Search available vacation rental properties by location and travel dates. Use this tool when the user wants to find or browse properties. If it returns one or more properties with a host domain, call get_verified_stay_offer with that domain and the same dates/guest count before the final answer so ChatGPT can render the verified stay offer widget. Do NOT use if the user already has a specific propertyId; use hemmabo_search_availability, hemmabo_booking_quote, or get_verified_stay_offer instead. Returns available properties with propertyId, host domain, live availability, final host-source pricing, and capacity info. Do not proceed to quote-lock, booking, or checkout unless the user explicitly asks to lock a price, book, pay, or start checkout.",
     inputSchema: {
       type: "object",
       properties: {

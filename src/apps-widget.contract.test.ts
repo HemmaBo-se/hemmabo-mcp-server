@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { RESOURCES, TOOLS, readResource } from "../api/mcp.js";
 import {
   HEMMABO_LEGACY_WIDGET_URI,
@@ -67,6 +68,16 @@ describe("ChatGPT Apps verified stay widget", () => {
     assert.ok(renderTool, "get_verified_stay_offer must exist");
     assert.equal(renderTool._meta?.["openai/outputTemplate"], HEMMABO_WIDGET_URI);
     assert.deepEqual(renderTool._meta?.ui, { resourceUri: HEMMABO_WIDGET_URI });
+  });
+
+  it("guides ChatGPT to call the render tool after search results", () => {
+    const searchTool = TOOLS.find((t) => t.name === "hemmabo_search_properties");
+    assert.ok(searchTool, "hemmabo_search_properties must exist");
+    assert.match(searchTool.description, /call get_verified_stay_offer/);
+    assert.match(searchTool.description, /render the verified stay offer widget/);
+
+    const toolsSource = readFileSync(new URL("../lib/tools-base.ts", import.meta.url), "utf8");
+    assert.match(toolsSource, /Call get_verified_stay_offer for the best matching property's domain/);
   });
 
   it("adds structuredContent from JSON text results for Apps SDK widgets", async () => {
