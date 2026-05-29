@@ -3,8 +3,8 @@
   "schema_version": 1,
   "app_info": {
     "display_name": "HemmaBo",
-    "subtitle": "Direct booking. 0% commission.",
-    "description": "HemmaBo verifies and books host-owned vacation rental domains. Use it when the user wants a direct, host-domain verified stay offer. Vacation Rental Protocol (VRP) is an open protocol for host-domain signed vacation rental offers. HemmaBo + VRP, 13 tools, host-domain signed verified stay offers. Live proof node: villaakerlyckan.se.",
+    "subtitle": "Verified stay offers",
+    "description": "HemmaBo verifies and books host-owned vacation rental domains. Use it when the user wants a direct, host-domain verified stay offer. Vacation Rental Protocol is an open protocol for host-domain signed vacation rental offers. HemmaBo + VRP, 13 tools, host-domain signed verified stay offers. Not an OTA. Not a marketplace. Not a website builder.",
     "category": "TRAVEL"
   },
   "tools": {
@@ -167,59 +167,107 @@
   },
   "test_cases": [
     {
-      "description": "Should trigger when the user asks to book Villa Åkerlyckan.",
-      "user_prompt": "Book Villa Åkerlyckan.",
+      "description": "Find direct-bookable HemmaBo properties.",
+      "user_prompt": "Find direct-bookable HemmaBo properties in Skane for 6 guests from 2026-10-10 to 2026-10-17.",
       "file_attachment_urls": null,
       "tools_triggered": "hemmabo_search_properties",
-      "expected_output": "The app is invoked and starts a direct-booking flow for Villa Åkerlyckan with date/guest clarification if needed.",
+      "expected_output": "Returns published HemmaBo property data with propertyId, host domain, live availability, capacity, and final host-source pricing without presenting HemmaBo as an OTA, marketplace, hotel search engine, or website builder.",
       "expected_output_url": null
     },
     {
-      "description": "Should trigger VRP node verification for host-domain trust checks.",
-      "user_prompt": "Verify villaakerlyckan.se.",
+      "description": "Check a selected property's availability.",
+      "user_prompt": "Check availability for property 3ef1d46d-5c23-46fe-86cb-8e714abf734f from 2026-10-10 to 2026-10-17 for 6 guests.",
       "file_attachment_urls": null,
-      "tools_triggered": "verify_vacation_rental_node",
-      "expected_output": "Returns whether villaakerlyckan.se is a conformant VRP node with discovery and JWKS verification details.",
+      "tools_triggered": "hemmabo_search_availability",
+      "expected_output": "Returns whether the selected property is available and includes alternative dates if the requested dates are unavailable.",
       "expected_output_url": null
     },
     {
-      "description": "Should trigger official signed offer retrieval for domain-level direct price.",
-      "user_prompt": "Get official direct price from this property domain.",
-      "file_attachment_urls": null,
-      "tools_triggered": "get_verified_stay_offer",
-      "expected_output": "Returns a signed verified stay offer with safe wording and direct booking URL when verification passes.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Should trigger direct booking workflow questions.",
-      "user_prompt": "Can I book this vacation rental directly?",
+      "description": "Get a host-source quote before booking.",
+      "user_prompt": "Get the final quote for property 3ef1d46d-5c23-46fe-86cb-8e714abf734f from 2026-10-10 to 2026-10-17 for 6 guests.",
       "file_attachment_urls": null,
       "tools_triggered": "hemmabo_booking_quote",
-      "expected_output": "Invokes HemmaBo workflow and returns next-step pricing/availability guidance for direct booking.",
+      "expected_output": "Returns the final total, currency, package context, discount context, and per-night breakdown without creating a booking.",
       "expected_output_url": null
     },
     {
-      "description": "Should trigger HemmaBo search for direct-bookable federation properties.",
-      "user_prompt": "Find direct-bookable HemmaBo properties in Skane.",
+      "description": "Find similar alternatives after a property is selected.",
+      "user_prompt": "Show similar available HemmaBo properties to property 3ef1d46d-5c23-46fe-86cb-8e714abf734f for 6 guests from 2026-10-10 to 2026-10-17.",
       "file_attachment_urls": null,
-      "tools_triggered": "hemmabo_search_properties",
-      "expected_output": "Returns matching direct-bookable HemmaBo properties in Skane with live pricing and capacity.",
+      "tools_triggered": "hemmabo_search_similar",
+      "expected_output": "Returns similar available properties with IDs and live pricing, excluding the source property.",
       "expected_output_url": null
     },
     {
-      "description": "Should trigger signed-offer verification when user asks if host-domain offer is verified.",
-      "user_prompt": "Is this host-domain offer verified?",
+      "description": "Compare properties and show unavailable entries last.",
+      "user_prompt": "Compare these HemmaBo property IDs for 6 guests from 2026-10-10 to 2026-10-17: 3ef1d46d-5c23-46fe-86cb-8e714abf734f and 00000000-0000-4000-8000-000000000000.",
+      "file_attachment_urls": null,
+      "tools_triggered": "hemmabo_compare_properties",
+      "expected_output": "Returns a side-by-side comparison with the published property priced first and the missing or unavailable property clearly marked last.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Verify host-domain VRP trust metadata.",
+      "user_prompt": "Verify the vacation rental node villaakerlyckan.se before I trust its offer.",
+      "file_attachment_urls": null,
+      "tools_triggered": "verify_vacation_rental_node",
+      "expected_output": "Returns VRP protocol version, discovery URL, JWKS URL, stay-offer endpoint, and signing-key details if verification succeeds.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Render the verified stay offer widget from a signed host-domain offer.",
+      "user_prompt": "Show the verified stay offer for villaakerlyckan.se from 2026-10-10 to 2026-10-17 for 6 guests.",
       "file_attachment_urls": null,
       "tools_triggered": "get_verified_stay_offer",
-      "expected_output": "Returns verification confidence and citation-safe guidance for the host-domain offer.",
+      "expected_output": "Returns a fresh signed offer, signature verification, safe-to-quote summary, direct booking URL, and the visual stay-offer widget.",
       "expected_output_url": null
     },
     {
-      "description": "Should trigger signed stay offer retrieval.",
-      "user_prompt": "Get a signed stay offer.",
+      "description": "Create a pending no-payment booking when explicitly requested.",
+      "user_prompt": "Using review credentials, create a pending host-approval booking without online payment for property 3ef1d46d-5c23-46fe-86cb-8e714abf734f from 2026-10-10 to 2026-10-17 for 6 guests for Review Guest using reviewer@example.com.",
       "file_attachment_urls": null,
-      "tools_triggered": "get_verified_stay_offer",
-      "expected_output": "Returns signed verified_stay_offer details and safe quoting guidance when verification succeeds.",
+      "tools_triggered": "hemmabo_booking_create",
+      "expected_output": "Creates a pending booking record for host approval and returns a booking ID, status, final price, and confirmation details.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Lock a quoted price before payment.",
+      "user_prompt": "Lock the direct-booking price for property 3ef1d46d-5c23-46fe-86cb-8e714abf734f from 2026-10-10 to 2026-10-17 for 6 guests before checkout.",
+      "file_attachment_urls": null,
+      "tools_triggered": "hemmabo_booking_negotiate",
+      "expected_output": "Creates a short-lived quote snapshot and returns a quote ID, final total, currency, and expiration time.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Create a Stripe checkout link after the user confirms details.",
+      "user_prompt": "Using review credentials, create a Stripe checkout link for property 3ef1d46d-5c23-46fe-86cb-8e714abf734f from 2026-10-10 to 2026-10-17 for 6 guests for Review Guest using reviewer@example.com.",
+      "file_attachment_urls": null,
+      "tools_triggered": "hemmabo_booking_checkout",
+      "expected_output": "Creates a booking record and Stripe checkout session, then returns reservation ID, payment URL, total price, currency, and status.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Check booking status using a reservation ID.",
+      "user_prompt": "Using review credentials, check HemmaBo booking status for reservation ID 550e8400-e29b-41d4-a716-446655440000.",
+      "file_attachment_urls": null,
+      "tools_triggered": "hemmabo_booking_status",
+      "expected_output": "Calls the booking status tool with the supplied reservation ID and returns booking details with masked guest contact fields when found, or a clear not-found response without exposing PII.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Reschedule a booking when the user asks to change dates.",
+      "user_prompt": "Using review credentials, reschedule HemmaBo reservation ID 550e8400-e29b-41d4-a716-446655440000 to new dates 2026-10-17 through 2026-10-24.",
+      "file_attachment_urls": null,
+      "tools_triggered": "hemmabo_booking_reschedule",
+      "expected_output": "Calls the reschedule tool with the supplied reservation ID and new dates, then returns updated dates and price/refund details when allowed, or a clear not-found or not-reschedulable response.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Cancel a booking and handle refund details.",
+      "user_prompt": "Using review credentials, cancel HemmaBo reservation ID 550e8400-e29b-41d4-a716-446655440000 because my travel plans changed.",
+      "file_attachment_urls": null,
+      "tools_triggered": "hemmabo_booking_cancel",
+      "expected_output": "Calls the cancellation tool with the supplied reservation ID and reason, then returns cancellation and refund details when allowed, or a clear not-found or already-cancelled response.",
       "expected_output_url": null
     }
   ],
