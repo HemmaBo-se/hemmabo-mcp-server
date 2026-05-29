@@ -97,7 +97,7 @@ Canonical tool names use `snake_case`. Legacy dotted aliases are accepted inboun
 | `hemmabo_booking_negotiate` | Create a quote snapshot with a `quoteId` for checkout. | No |
 | `hemmabo_booking_checkout` | Create a booking with Stripe-powered payment. | No |
 | `hemmabo_booking_cancel` | Cancel a booking and handle refund flow according to policy. | No |
-| `hemmabo_booking_status` | Get booking details by reservation ID. Requires auth because booking data may include PII. | No |
+| `hemmabo_booking_status` | Get booking details by reservation ID. Requires auth because booking data may include PII. | Yes |
 | `hemmabo_booking_reschedule` | Reschedule a booking to new dates. | No |
 | `verify_vacation_rental_node` | Verify a host-domain VRP discovery document and Ed25519 JWKS. | Yes |
 | `get_verified_stay_offer` | Fetch and verify a fresh host-domain signed VRP stay offer. | Yes |
