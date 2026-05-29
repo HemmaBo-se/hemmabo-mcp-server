@@ -65,6 +65,7 @@ const _originalServerTool = server.tool.bind(server);
   name: string,
   description: string,
   schema: unknown,
+  annotations: unknown,
   handler: (args: Record<string, unknown>, extra: unknown) => Promise<unknown>
 ) => {
   const wrapped = async (args: Record<string, unknown>, extra: unknown) => {
@@ -92,8 +93,8 @@ const _originalServerTool = server.tool.bind(server);
     }
   };
   return (_originalServerTool as unknown as (
-    n: string, d: string, s: unknown, h: typeof wrapped
-  ) => unknown)(name, description, schema, wrapped);
+    n: string, d: string, s: unknown, a: unknown, h: typeof wrapped
+  ) => unknown)(name, description, schema, annotations, wrapped);
 };
 
 // ── Tool registration ──────────────────────────────────────────────
@@ -141,7 +142,7 @@ for (const spec of TOOL_SPECS) {
     }
     return executeTool(spec.name, args, { supabase, reader });
   };
-  server.tool(spec.name, spec.description, shape, handler as never);
+  server.tool(spec.name, spec.description, shape, spec.annotations, handler as never);
 }
 
 // ── Start stdio transport ──────────────────────────────────────────
