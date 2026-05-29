@@ -101,6 +101,14 @@ describe("ChatGPT Apps verified stay widget", () => {
     assert.doesNotMatch(widgetHtml, /Stripe ACP checkout/);
   });
 
+  it("hydrates from both MCP Apps notifications and ChatGPT globals", () => {
+    const widgetHtml = readFileSync(new URL("../lib/apps-widget-html.ts", import.meta.url), "utf8");
+    assert.match(widgetHtml, /ui\/notifications\/tool-result/);
+    assert.match(widgetHtml, /openai:set_globals/);
+    assert.match(widgetHtml, /globals\.toolOutput/);
+    assert.match(widgetHtml, /globals\.toolResponseMetadata/);
+  });
+
   it("adds structuredContent from JSON text results for Apps SDK widgets", async () => {
     const result = await executeTool("unknown_tool_for_structured_content_test", {}, {
       supabase: null as never,

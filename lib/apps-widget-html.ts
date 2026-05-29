@@ -675,6 +675,20 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     }
   }, { passive: true });
 
+  window.addEventListener("openai:set_globals", function (event) {
+    var globals = event && event.detail && event.detail.globals;
+    if (!globals) return;
+    if (globals.toolOutput) {
+      render(globals.toolOutput);
+      return;
+    }
+    if (globals.toolResponseMetadata) {
+      var meta = globals.toolResponseMetadata;
+      var full = meta.mcp_tool_result || meta.call_tool_result || meta;
+      render(full && (full.structuredContent || parseContent(full.content)));
+    }
+  }, { passive: true });
+
   render(getData());
 </script>
 </body>

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync, sign, type KeyObject } from "node:crypto";
 import { executeTool } from "../lib/tools.js";
 import { VRP_FETCH_TIMEOUT_MS } from "../lib/vrp.js";
+import { HEMMABO_WIDGET_URI } from "../lib/apps-widget.js";
 
 afterEach(() => mock.restoreAll());
 
@@ -196,6 +197,8 @@ describe("VRP MCP tools", () => {
     assert.equal(parsed.signature.verified, true);
     assert.equal(parsed.payload_matches_offer, true);
     assert.equal(parsed.fresh, true);
+    assert.equal(result._meta?.["openai/outputTemplate"], HEMMABO_WIDGET_URI);
+    assert.deepEqual(result._meta?.ui, { resourceUri: HEMMABO_WIDGET_URI });
     assert.equal(result._meta?.signed_verified_stay_offer, jws);
     assert.deepEqual(result._meta?.offer, offer);
     assert.equal(parsed.signed_verified_stay_offer, undefined);
