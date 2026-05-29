@@ -551,6 +551,9 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       data.direct_booking_url ||
       (domain ? hostUrl(domain) : "");
     var images = [
+      data.widget_media && data.widget_media.images,
+      data.media && data.media.images,
+      summary.media && summary.media.images,
       property.image, property.heroImage, property.hero_image, property.image_url,
       property.photos, property.images, property.gallery,
       listing.image, listing.heroImage, listing.hero_image, listing.image_url, listing.photos, listing.images

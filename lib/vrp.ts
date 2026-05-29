@@ -334,6 +334,30 @@ function propertySummary(offer: JsonRecord): JsonRecord {
   };
 }
 
+function mediaImagesFromDiscovery(discovery: JsonRecord): JsonRecord[] {
+  const media = asRecord(discovery.media);
+  const images = Array.isArray(media?.images) ? media.images : [];
+  const collected: JsonRecord[] = [];
+  for (const item of images) {
+    const record = asRecord(item);
+    const url = stringValue(record?.url) ?? (typeof item === "string" ? stringValue(item) : null);
+    if (!url) continue;
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== "https:") continue;
+    } catch {
+      continue;
+    }
+    collected.push({
+      url,
+      alt: stringValue(record?.alt),
+      category: stringValue(record?.category),
+    });
+    if (collected.length >= 8) break;
+  }
+  return collected;
+}
+
 function formatMoney(amount: unknown, currency: unknown): string | null {
   const numeric = numberValue(amount);
   if (numeric === null) return null;
@@ -368,7 +392,12 @@ function quoteBlockedReason(mayQuote: boolean, available: boolean, priceExact: b
   return null;
 }
 
-function buildAgentQuoteView(offer: JsonRecord, response: JsonRecord, validUntil: string | null): JsonRecord {
+function buildAgentQuoteView(
+  offer: JsonRecord,
+  response: JsonRecord,
+  validUntil: string | null,
+  discovery: JsonRecord,
+): JsonRecord {
   const mayQuote = mayQuoteOfficialOffer(offer, response);
   const available = offerAvailable(offer, response);
   const price = priceSummary(offer, response);
@@ -377,6 +406,9 @@ function buildAgentQuoteView(offer: JsonRecord, response: JsonRecord, validUntil
   const safeToQuote = mayQuote && available && priceExact && Boolean(directBookingUrl);
   const blockedReason = quoteBlockedReason(mayQuote, available, priceExact, directBookingUrl);
   const agentMessage = officialAgentMessage(price, safeToQuote);
+  const widgetImages = mediaImagesFromDiscovery(discovery);
+  const summaryProperty = propertySummary(offer);
+  if (widgetImages.length) summaryProperty.images = widgetImages;
 
   return {
     agent_citation: {
@@ -387,13 +419,17 @@ function buildAgentQuoteView(offer: JsonRecord, response: JsonRecord, validUntil
       blocked_reason: blockedReason,
     },
     official_offer_summary: {
-      property: propertySummary(offer),
+      property: summaryProperty,
       available,
       availability_reason: availabilityReason(offer, response),
       price,
       direct_booking_url: directBookingUrl,
       valid_until: validUntil,
       bookable: safeToQuote,
+    },
+    widget_media: {
+      source: "vacation-rental.json",
+      images: widgetImages,
     },
     agent_guardrails: {
       safe_to_quote: safeToQuote,
@@ -463,7 +499,7 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
   const fresh = Boolean(validUntil && Date.parse(validUntil) > Date.now());
   if (!fresh) throw new Error("verified_stay_offer is expired or missing valid_until");
 
-  const quoteView = buildAgentQuoteView(offer, response, validUntil);
+  const quoteView = buildAgentQuoteView(offer, response, validUntil, node.discovery);
   return toolOk({
     domain: node.domain,
     check_in: checkIn,

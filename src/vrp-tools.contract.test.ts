@@ -48,6 +48,15 @@ describe("VRP MCP tools", () => {
           canonical_domain: "villaakerlyckan.se",
           jwks_uri: "https://villaakerlyckan.se/.well-known/jwks.json",
           verified_stay_offer_endpoint: "https://villaakerlyckan.se/api/verified-stay-offer",
+          media: {
+            images: [
+              {
+                url: "https://vfalgymbhyfqsyxkvpqg.supabase.co/storage/v1/object/public/property-images/properties/3ef1d46d-5c23-46fe-86cb-8e714abf734f/other/hero.jpg",
+                alt: "Villa Akerlyckan exterior",
+                category: "exterior",
+              },
+            ],
+          },
         });
       }
       if (url.pathname === "/.well-known/jwks.json") {
@@ -78,6 +87,15 @@ describe("VRP MCP tools", () => {
           canonical_domain: "villaakerlyckan.se",
           jwks_uri: "https://villaakerlyckan.se/.well-known/jwks.json",
           verified_stay_offer_endpoint: "https://villaakerlyckan.se/api/verified-stay-offer",
+          media: {
+            images: [
+              {
+                url: "https://vfalgymbhyfqsyxkvpqg.supabase.co/storage/v1/object/public/property-images/properties/3ef1d46d-5c23-46fe-86cb-8e714abf734f/other/hero.jpg",
+                alt: "Villa Akerlyckan exterior",
+                category: "exterior",
+              },
+            ],
+          },
         });
       }
       if (url.pathname === "/.well-known/jwks.json") {
@@ -160,6 +178,15 @@ describe("VRP MCP tools", () => {
           canonical_domain: "villaakerlyckan.se",
           jwks_uri: "https://villaakerlyckan.se/.well-known/jwks.json",
           verified_stay_offer_endpoint: "https://villaakerlyckan.se/api/verified-stay-offer",
+          media: {
+            images: [
+              {
+                url: "https://vfalgymbhyfqsyxkvpqg.supabase.co/storage/v1/object/public/property-images/properties/3ef1d46d-5c23-46fe-86cb-8e714abf734f/other/hero.jpg",
+                alt: "Villa Akerlyckan exterior",
+                category: "exterior",
+              },
+            ],
+          },
         });
       }
       if (url.pathname === "/.well-known/jwks.json") {
@@ -207,6 +234,9 @@ describe("VRP MCP tools", () => {
     assert.equal(parsed.agent_citation.safe_to_quote_as_official_direct_offer, true);
     assert.equal(parsed.official_offer_summary.property.name, "Villa Åkerlyckan");
     assert.equal(parsed.official_offer_summary.property.domain, "villaakerlyckan.se");
+    assert.equal(parsed.official_offer_summary.property.images[0].url, "https://vfalgymbhyfqsyxkvpqg.supabase.co/storage/v1/object/public/property-images/properties/3ef1d46d-5c23-46fe-86cb-8e714abf734f/other/hero.jpg");
+    assert.equal(parsed.widget_media.source, "vacation-rental.json");
+    assert.equal(parsed.widget_media.images[0].category, "exterior");
     assert.equal(parsed.official_offer_summary.price.total, 21000);
     assert.equal(parsed.official_offer_summary.price.public_total, 21000);
     assert.equal(parsed.official_offer_summary.price.agent_total, 17850);
