@@ -26,8 +26,6 @@
  */
 
 import { z } from "zod";
-import { HEMMABO_WIDGET_TOOL_META } from "./apps-widget.js";
-
 // ── JSON-Schema field type (the subset we use) ───────────────────
 
 export interface JsonSchemaField {
@@ -264,9 +262,6 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: false,
-    },
-    _meta: {
-      ...HEMMABO_WIDGET_TOOL_META,
     },
   },
   {

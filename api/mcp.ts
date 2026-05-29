@@ -23,6 +23,7 @@ import { SERVER_DESCRIPTION, SERVER_INSTRUCTIONS, SERVER_NAME, SERVER_VERSION } 
 import {
   HEMMABO_LEGACY_WIDGET_URI,
   HEMMABO_PREVIOUS_WIDGET_URI,
+  HEMMABO_V1_WIDGET_URI,
   HEMMABO_WIDGET_MIME_TYPE,
   HEMMABO_WIDGET_RESOURCE_META,
   HEMMABO_WIDGET_URI,
@@ -147,7 +148,12 @@ export const RESOURCES = [
 export function readResource(
   uri: string
 ): { contents: { uri: string; mimeType: string; text: string; _meta?: Record<string, unknown> }[] } | null {
-  if (uri === HEMMABO_WIDGET_URI || uri === HEMMABO_PREVIOUS_WIDGET_URI || uri === HEMMABO_LEGACY_WIDGET_URI) {
+  if (
+    uri === HEMMABO_WIDGET_URI ||
+    uri === HEMMABO_PREVIOUS_WIDGET_URI ||
+    uri === HEMMABO_V1_WIDGET_URI ||
+    uri === HEMMABO_LEGACY_WIDGET_URI
+  ) {
     return {
       contents: [
         {
