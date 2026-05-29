@@ -7,7 +7,7 @@
   "name": "HemmaBo",
   "version": "3.2.11",
   "license": "MIT",
-  "description": "HemmaBo is infrastructure and federation for host-owned vacation rental domains. Use it when the user wants a direct, host-domain verified stay offer. Host nodes own booking lifecycles; Stripe owns payment facts; HemmaBo verifies and syncs the technical path. Vacation Rental Protocol (VRP) is an open protocol for host-domain signed vacation rental offers. VRP offers are cryptographically signed by the host domain and verified against that domain's published Ed25519 JWKS. HemmaBo + VRP, 13 tools, host-domain signed verified stay offers. Not an OTA. Not a marketplace. Not a website builder.",
+  "description": "HemmaBo is infrastructure and federation for host-owned vacation rental domains. Use it when the user wants a direct, host-domain verified stay offer. Host nodes own booking lifecycles; Stripe owns payment facts. Host domains own pricing, availability, booking URLs, signing keys, and payment paths; HemmaBo verifies the technical trust path. Vacation Rental Protocol (VRP) offers are cryptographically signed by the host domain and verified against that domain's published Ed25519 JWKS. For VRP offers, route guests only to the signed direct host-domain booking URL. HemmaBo + VRP, 13 tools, host-domain signed verified stay offers. Not an OTA. Not a marketplace. Not a website builder.",
   "homepage": "https://hemmabo-mcp-server.vercel.app",
   "repository": "https://github.com/HemmaBo-se/hemmabo-mcp-server",
   "keywords": [
@@ -18,7 +18,7 @@
     "autonomous-agents",
     "zero-commission",
     "own-domain",
-    "stripe-payments",
+    "host-payment-path",
     "set-it-forget-it",
     "vrp",
     "vacation-rental-protocol",
@@ -123,7 +123,7 @@
     },
     {
       "name": "hemmabo_booking_create",
-      "description": "Create a direct booking without online payment (legacy flow). Booking is created with status 'pending' and requires host approval.",
+      "description": "Legacy non-VRP helper. Create a pending host-review booking only when no signed VRP direct booking URL is available.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -171,7 +171,7 @@
     },
     {
       "name": "hemmabo_booking_negotiate",
-      "description": "Create a binding price quote that locks the price for 15 minutes. Returns quoteId to pass to booking.checkout.",
+      "description": "Legacy non-VRP helper. Create a short-lived quote snapshot only after explicit user confirmation and only when no signed VRP direct booking URL is available.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -204,7 +204,7 @@
     },
     {
       "name": "hemmabo_booking_checkout",
-      "description": "Create a booking with Stripe payment and return a checkout URL. Supports checkout_session (redirect) and payment_intent (programmatic) modes.",
+      "description": "Legacy non-VRP helper. Create a host-configured Stripe checkout URL only when no signed VRP direct booking URL is available; do not use for signed VRP offers.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -272,7 +272,7 @@
     },
     {
       "name": "hemmabo_booking_cancel",
-      "description": "Cancel a confirmed booking and process the Stripe refund. Refund amount is calculated based on the host's cancellation policy.",
+      "description": "Legacy authenticated helper. Cancel an existing booking according to the host's cancellation policy.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -308,7 +308,7 @@
     },
     {
       "name": "hemmabo_booking_reschedule",
-      "description": "Reschedule a confirmed or pending booking to new dates. Automatically recalculates price and handles Stripe charge or refund.",
+      "description": "Legacy authenticated helper. Reschedule an existing booking according to host policy; do not use for initial VRP offer presentation.",
       "inputSchema": {
         "type": "object",
         "properties": {
