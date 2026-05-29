@@ -290,7 +290,6 @@ async function findAlternativeDates(
         alternative.currency = quote.currency;
         alternative.publicTotal = quote.publicTotal;
         alternative.federationTotal = quote.federationTotal;
-        alternative.federationDiscountPercent = quote.federationDiscountPercent;
         Object.assign(alternative, directBookingPriceFields(quote));
         alternative.packageApplied = quote.packageApplied;
       }
@@ -306,12 +305,10 @@ async function findAlternativeDates(
 function directBookingPriceFields(quote: {
   publicTotal: number;
   federationTotal: number;
-  federationDiscountPercent: number;
 }): Record<string, number> {
   return {
     hostSourcePublicTotal: quote.publicTotal,
     directBookingTotal: quote.federationTotal,
-    directBookingDiscountPercent: quote.federationDiscountPercent,
   };
 }
 
@@ -601,7 +598,6 @@ export async function executeTool(
           publicTotal: quote.publicTotal,
           ...directBookingPriceFields(quote),
           federationTotal: quote.federationTotal,
-          federationDiscountPercent: quote.federationDiscountPercent,
           packageApplied: quote.packageApplied, available: true,
         });
       }
@@ -619,10 +615,10 @@ export async function executeTool(
               preferredTotalField: "directBookingTotal",
               preferredPublicTotalField: "hostSourcePublicTotal",
               legacyTotalField: "federationTotal",
-              userFacingRule: "Describe directBookingTotal as the direct/agent total from the host source. Do not call it a HemmaBo platform, federation, OTA, marketplace, or comparison price.",
+              userFacingRule: "Describe directBookingTotal as the direct host-source total. Do not present discounts, savings, percentage comparisons, HemmaBo platform prices, federation prices, OTA prices, marketplace prices, or comparison prices.",
             },
             agentGuidance: results.length > 0
-              ? "Call get_verified_stay_offer for the best matching property's domain with the same check-in, check-out, and guest count before the final answer so ChatGPT can render the verified stay offer widget. Then offer the available properties first. For pricing, use directBookingTotal as the direct/agent total from the host source and hostSourcePublicTotal as the public host-source total. Do not describe any price as a HemmaBo platform price, OTA comparison, or marketplace discount."
+              ? "Call get_verified_stay_offer for the best matching property's domain with the same check-in, check-out, and guest count before the final answer so ChatGPT can render the verified stay offer widget. Then offer the available properties first. For pricing, use directBookingTotal as the direct host-source total and hostSourcePublicTotal only as source context. Do not present discounts, savings, percentage comparisons, HemmaBo platform prices, OTA comparisons, or marketplace discounts. If the guest wants to book, route only to the signed direct host-domain booking URL from the verified offer; do not collect contact details or start checkout in chat."
               : unavailableMatches.some((p) => Array.isArray(p.alternativeDates) && p.alternativeDates.length > 0)
                 ? "Requested dates are unavailable. Offer the alternativeDates for the matched property instead of ending the conversation."
                 : matchedProperties.length > 0
@@ -756,7 +752,6 @@ export async function executeTool(
           publicTotal: quote.publicTotal,
           ...directBookingPriceFields(quote),
           federationTotal: quote.federationTotal,
-          federationDiscountPercent: quote.federationDiscountPercent,
           packageApplied: quote.packageApplied, available: true,
         });
       }
@@ -816,7 +811,6 @@ export async function executeTool(
             ...directBookingPriceFields(quote),
             federationTotal: quote.federationTotal,
             gapTotal: quote.gapTotal,
-            federationDiscountPercent: quote.federationDiscountPercent,
             packageApplied: quote.packageApplied, available: true,
           };
         })
@@ -860,7 +854,7 @@ export async function executeTool(
               preferredTotalField: "directBookingTotal",
               preferredPublicTotalField: "hostSourcePublicTotal",
               legacyTotalField: "federationTotal",
-              userFacingRule: "Describe directBookingTotal as the direct/agent total from the host source. Do not call it a HemmaBo platform, federation, OTA, marketplace, or comparison price.",
+              userFacingRule: "Describe directBookingTotal as the direct host-source total. Do not present discounts, savings, percentage comparisons, HemmaBo platform prices, federation prices, OTA prices, marketplace prices, or comparison prices.",
             },
           }, null, 2),
         }],
@@ -1006,12 +1000,11 @@ export async function executeTool(
             publicTotal: quote.publicTotal,
             ...directBookingPriceFields(quote),
             federationTotal: quote.federationTotal,
-            federationDiscountPercent: quote.federationDiscountPercent,
             priceFieldGuidance: {
               preferredTotalField: "directBookingTotal",
               preferredPublicTotalField: "hostSourcePublicTotal",
               legacyTotalField: "federationTotal",
-              userFacingRule: "Describe directBookingTotal as the direct/agent total from the host source. Do not call it a HemmaBo platform, federation, OTA, marketplace, or comparison price.",
+              userFacingRule: "Describe directBookingTotal as the direct host-source total. Do not present discounts, savings, percentage comparisons, HemmaBo platform prices, federation prices, OTA prices, marketplace prices, or comparison prices.",
             },
             breakdown: quote.breakdown,
             packageApplied: quote.packageApplied,

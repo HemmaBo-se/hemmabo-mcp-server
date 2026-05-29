@@ -34,6 +34,9 @@ describe("ChatGPT Apps verified stay widget", () => {
       assert.doesNotMatch(content.text, /discount badge/i);
       assert.doesNotMatch(content.text, /public vs federation/i);
       assert.doesNotMatch(content.text, /Direct -/);
+      assert.doesNotMatch(content.text, /ACP checkout/i);
+      assert.doesNotMatch(content.text, /Ask agent to book/i);
+      assert.doesNotMatch(content.text, /Confirm guest details before payment/i);
     }
   });
 
@@ -94,6 +97,8 @@ describe("ChatGPT Apps verified stay widget", () => {
 
     const widgetHtml = readFileSync(new URL("../lib/apps-widget-html.ts", import.meta.url), "utf8");
     assert.doesNotMatch(widgetHtml, /search, quote, or verified stay offer tool/);
+    assert.match(widgetHtml, /Open direct booking URL/);
+    assert.doesNotMatch(widgetHtml, /Stripe ACP checkout/);
   });
 
   it("adds structuredContent from JSON text results for Apps SDK widgets", async () => {

@@ -58,7 +58,7 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "get_verified_stay_offer",
     description:
-      "Render the host-domain verified stay offer widget for a VRP node. Fetches a signed VRP verified_stay_offer, verifies its Ed25519 compact JWS against the domain's JWKS, and returns structuredContent for the visual widget. Use this whenever the user asks to see, present, show, verify, or render a stay offer or widget. This is read-only: it must not lock a quote, create a booking, start checkout, or ask for payment confirmation. Never invent discounts or OTA comparisons outside the signed offer.",
+      "Render the host-domain verified stay offer widget for a VRP node. Fetches a signed VRP verified_stay_offer, verifies its Ed25519 compact JWS against the domain's JWKS, and returns structuredContent for the visual widget. Use this whenever the user asks to see, present, show, verify, or render a stay offer or widget. This is read-only: it must not lock a quote, create a booking, start checkout, ask for payment confirmation, or collect guest contact details. If the guest wants to book, use only the signed direct host-domain booking URL from the verified offer. Do not present discounts, savings, or OTA comparisons in guest-facing copy.",
     inputSchema: {
       type: "object",
       properties: {
@@ -101,8 +101,6 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
         signature: { type: "object", additionalProperties: true },
         payload_matches_offer: { type: "boolean" },
         fresh: { type: "boolean" },
-        signed_verified_stay_offer: { type: "string" },
-        offer: { type: "object", additionalProperties: true },
         agent_citation: {
           type: "object",
           description: "Citation permission and safe-to-quote status derived from the signed offer.",
@@ -110,7 +108,7 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
         },
         official_offer_summary: {
           type: "object",
-          description: "Small signed-offer summary for agents to quote without inventing price, discount, availability, or booking details.",
+          description: "Small signed-offer summary for agents to quote without inventing price, availability, discounts, savings, comparisons, or booking details.",
           additionalProperties: true,
         },
         agent_guardrails: {

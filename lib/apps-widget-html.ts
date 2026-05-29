@@ -305,7 +305,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
   var VILLA_IMAGE = "https://vfalgymbhyfqsyxkvpqg.supabase.co/storage/v1/object/public/property-images/properties/3ef1d46d-5c23-46fe-86cb-8e714abf734f/other/1777524437024-rewm-2-desktop.jpg?quality=75&resize=cover&width=800";
   var TOOL_LABELS = [
     "Search", "Availability", "Similar", "Compare",
-    "Quote", "Lock quote", "Create booking", "ACP checkout",
+    "Quote", "Direct link", "Host booking", "Host payment",
     "Cancel", "Status", "Reschedule", "Verify node", "Stay offer"
   ];
 
@@ -484,7 +484,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     var offer = data.offer || {};
     var summary = data.official_offer_summary || {};
     var price = summary.price || offer.price || data.price || {};
-    var property = offer.property || data.property || listing || {};
+    var property = summary.property || offer.property || data.property || listing || {};
     var domain = cleanDomain(property.domain || listing.domain || data.propertyDomain || data.domain || offer.canonical_domain || offer.node_id || "");
     var checkIn = data.checkIn || data.check_in || offer.check_in || (offer.request && offer.request.check_in) || listing.checkIn || listing.check_in;
     var checkOut = data.checkOut || data.check_out || offer.check_out || (offer.request && offer.request.check_out) || listing.checkOut || listing.check_out;
@@ -623,8 +623,8 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       '<section class="trust">' +
         '<div class="trustItem"><span class="icon">V</span><span>Host node<br>' + esc(offer.domain || "verified domain") + '</span></div>' +
         '<div class="trustItem"><span class="icon">L</span><span>Live availability<br>from source</span></div>' +
-        '<div class="trustItem"><span class="icon">A</span><span>Agent can<br>book and manage</span></div>' +
-        '<div class="trustItem"><span class="icon">S</span><span><span class="stripe">stripe</span><br>ACP checkout</span></div>' +
+        '<div class="trustItem"><span class="icon">D</span><span>Direct booking<br>host domain</span></div>' +
+        '<div class="trustItem"><span class="icon">S</span><span><span class="stripe">stripe</span><br>host payment path</span></div>' +
       '</section>' +
       '<section class="content">' +
         notice +
@@ -640,23 +640,23 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
           '</div>' +
           '<div class="offerPanel actions">' +
             '<div class="acp">' +
-              '<div class="acpTitle"><span>Agent-ready checkout</span><span class="stripe">stripe</span></div>' +
-              '<div class="acpCopy">The agent can prepare booking details, then the guest confirms before payment.</div>' +
+              '<div class="acpTitle"><span>Signed direct booking</span><span class="stripe">host</span></div>' +
+              '<div class="acpCopy">Open the signed host-domain booking URL. Payment happens on the host payment path.</div>' +
             '</div>' +
-            '<button class="primary" id="bookBtn">Ask agent to book this stay</button>' +
+            '<button class="primary" id="bookBtn">Open direct booking URL</button>' +
             '<button class="secondary" id="openBtn">Open host node</button>' +
           '</div>' +
         '</div>' +
       '</section>' +
       '<section class="tools">' +
-        '<div class="toolHead"><strong>Host-domain tools</strong><span class="toolCount">13 tools - VRP + booking lifecycle</span></div>' +
+        '<div class="toolHead"><strong>Host-domain tools</strong><span class="toolCount">VRP + direct host-domain booking</span></div>' +
         '<div class="toolGrid">' + TOOL_LABELS.map(function (label) { return '<span class="toolChip">' + esc(label) + '</span>'; }).join("") + '</div>' +
       '</section>';
     var bookBtn = document.getElementById("bookBtn");
     var openBtn = document.getElementById("openBtn");
     if (bookBtn) {
       bookBtn.addEventListener("click", function () {
-        sendFollowUp("Use HemmaBo to book " + offer.name + " for " + formatRange(offer.checkIn, offer.checkOut) + " for " + (offer.guests || "the selected guests") + ". Confirm guest details before payment, then use Stripe ACP checkout.");
+        openExternal(offer.directUrl || hostUrl(offer.domain));
       });
     }
     if (openBtn) {

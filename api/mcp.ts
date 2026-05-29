@@ -102,7 +102,7 @@ export const TOOLS = TOOL_SPECS.map((t) => {
 export const PROMPTS = [
   {
     name: "trip.plan",
-    description: "Help plan a vacation rental trip through host-domain discovery and verified offers. Search first, show a verified host-domain stay offer when possible, and only move to quote-lock or checkout after explicit user confirmation.",
+    description: "Help plan a vacation rental trip through host-domain discovery and verified offers. Search first, show a verified host-domain stay offer when possible, and route booking only to the signed direct host-domain URL.",
     arguments: [
       {
         name: "destination",
@@ -138,7 +138,7 @@ export const RESOURCES = [
     uri: HEMMABO_WIDGET_URI,
     name: "HemmaBo verified stay offer widget",
     description:
-      "ChatGPT Apps SDK widget that renders a host-domain verified stay offer with live availability, final price, Stripe ACP checkout context, and booking lifecycle actions.",
+      "ChatGPT Apps SDK widget that renders a host-domain verified stay offer with live availability, final price, and the signed direct host-domain booking URL.",
     mimeType: HEMMABO_WIDGET_MIME_TYPE,
     _meta: HEMMABO_WIDGET_RESOURCE_META,
   },
@@ -170,7 +170,7 @@ function getPromptMessages(name: string, args: Record<string, string>) {
           role: "user",
           content: {
             type: "text",
-            text: `I want to plan a trip to ${args.destination || "a vacation destination"} from ${args.checkIn || "TBD"} to ${args.checkOut || "TBD"} for ${args.guests || "2"} guests. Please: (1) search for available host-owned properties, (2) if a host domain is known, call get_verified_stay_offer to render the host-domain verified stay offer widget and show only live availability, final host-source price, and the direct booking path, and (3) stop before quote-lock, booking, or checkout unless I explicitly confirm that I want to lock a price, book, pay, or start checkout.`,
+            text: `I want to plan a trip to ${args.destination || "a vacation destination"} from ${args.checkIn || "TBD"} to ${args.checkOut || "TBD"} for ${args.guests || "2"} guests. Please: (1) search for available host-owned properties, (2) if a host domain is known, call get_verified_stay_offer to render the host-domain verified stay offer widget and show only live availability, final host-source price, and the signed direct booking path, and (3) if I ask to book or pay, send me only to the signed direct host-domain booking URL; do not collect guest contact details or start checkout in chat.`,
           },
         },
       ],

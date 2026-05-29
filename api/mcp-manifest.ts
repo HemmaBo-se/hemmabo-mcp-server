@@ -39,9 +39,9 @@ const MANIFEST_SUMMARIES: Record<string, string> = {
   "hemmabo_booking_create":
     "Create a direct booking without online payment — for invoice or manual payment flows.",
   "hemmabo_booking_negotiate":
-    "Lock a price quote for 15 minutes only after the user explicitly asks to hold a price, book, pay, or start checkout. Do not use for showing the verified stay offer widget.",
+    "Legacy quote-lock tool for non-VRP checkout flows only. Do not use when a signed direct host-domain booking URL is available.",
   "hemmabo_booking_checkout":
-    "Create a booking and Stripe payment. Returns a checkout URL (checkout_session) or client_secret (payment_intent) for AI agent payment flows.",
+    "Legacy in-chat checkout tool for non-VRP flows only. For signed VRP offers, route guests to the direct host-domain booking URL instead.",
   "hemmabo_booking_cancel":
     "Cancel a booking and trigger a Stripe refund according to the host's cancellation policy.",
   "hemmabo_booking_status":
@@ -132,7 +132,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       "Find a pet-friendly villa in Sweden for 6 guests in July",
       "Verify villaakerlyckan.se as a Vacation Rental Protocol node",
       "Get the official signed stay offer from villaakerlyckan.se for my dates",
-      "Compare these properties on the same dates and book the cheapest one",
+      "Compare these properties on the same dates and show the direct host-domain booking link",
     ],
     registry: {
       glama: "https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server",

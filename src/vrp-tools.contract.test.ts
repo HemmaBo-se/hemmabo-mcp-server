@@ -196,22 +196,27 @@ describe("VRP MCP tools", () => {
     assert.equal(parsed.signature.verified, true);
     assert.equal(parsed.payload_matches_offer, true);
     assert.equal(parsed.fresh, true);
-    assert.equal(parsed.signed_verified_stay_offer, jws);
-    assert.equal(parsed.offer.booking.direct_booking_url, offer.booking.direct_booking_url);
-    assert.equal(parsed.agent_citation.agent_message, "I found the official host-domain verified offer for this stay. AI/direct booking total: 17850 SEK.");
+    assert.equal(result._meta?.signed_verified_stay_offer, jws);
+    assert.deepEqual(result._meta?.offer, offer);
+    assert.equal(parsed.signed_verified_stay_offer, undefined);
+    assert.equal(parsed.offer, undefined);
+    assert.equal(parsed.agent_citation.agent_message, "I found the official host-domain verified offer for this stay. Direct host-domain total: 17850 SEK.");
     assert.equal(parsed.agent_citation.safe_to_quote_as_official_direct_offer, true);
+    assert.equal(parsed.official_offer_summary.property.name, "Villa Åkerlyckan");
+    assert.equal(parsed.official_offer_summary.property.domain, "villaakerlyckan.se");
     assert.equal(parsed.official_offer_summary.price.total, 21000);
     assert.equal(parsed.official_offer_summary.price.public_total, 21000);
     assert.equal(parsed.official_offer_summary.price.agent_total, 17850);
-    assert.equal(parsed.official_offer_summary.price.agent_discount_pct, 15);
-    assert.equal(parsed.official_offer_summary.price.savings_vs_public_total, 3150);
-    assert.equal(parsed.official_offer_summary.price.discount_basis, "direct_booking_ai_agent");
-    assert.equal(parsed.official_offer_summary.price.ota_comparison_total, null);
+    assert.equal(parsed.official_offer_summary.price.agent_discount_pct, undefined);
+    assert.equal(parsed.official_offer_summary.price.savings_vs_public_total, undefined);
+    assert.equal(parsed.official_offer_summary.price.discount_basis, undefined);
+    assert.equal(parsed.official_offer_summary.price.ota_comparison_total, undefined);
     assert.equal(parsed.official_offer_summary.direct_booking_url, offer.booking.direct_booking_url);
     assert.equal(parsed.agent_guardrails.must_not_invent_discounts, true);
+    assert.equal(parsed.agent_guardrails.must_not_present_discounts_or_savings, true);
     assert.equal(parsed.agent_guardrails.must_not_claim_ota_comparison_without_signed_ota_price, true);
-    assert.match(parsed.agent_guardrails.price_claim_rule, /Never call public_total an OTA price/);
-    assert.match(parsed.agent_guardrails.blocked_claims.join("\n"), /Do not invent discounts/);
+    assert.match(parsed.agent_guardrails.price_claim_rule, /Do not describe the difference as a discount/);
+    assert.match(parsed.agent_guardrails.blocked_claims.join("\n"), /Do not present discounts/);
   });
 
   it("get_verified_stay_offer refuses quoteable status for signed but unavailable offers", async () => {
