@@ -7,6 +7,7 @@ import {
   HEMMABO_PREVIOUS_WIDGET_URI,
   HEMMABO_V1_WIDGET_URI,
   HEMMABO_V2_WIDGET_URI,
+  HEMMABO_V3_WIDGET_URI,
   HEMMABO_WIDGET_MIME_TYPE,
   HEMMABO_WIDGET_URI,
 } from "../lib/apps-widget.js";
@@ -34,7 +35,7 @@ describe("ChatGPT Apps verified stay widget", () => {
   });
 
   it("serves the current widget URI plus previous/legacy widget URIs", () => {
-    for (const uri of [HEMMABO_WIDGET_URI, HEMMABO_PREVIOUS_WIDGET_URI, HEMMABO_V2_WIDGET_URI, HEMMABO_V1_WIDGET_URI, HEMMABO_LEGACY_WIDGET_URI]) {
+    for (const uri of [HEMMABO_WIDGET_URI, HEMMABO_PREVIOUS_WIDGET_URI, HEMMABO_V3_WIDGET_URI, HEMMABO_V2_WIDGET_URI, HEMMABO_V1_WIDGET_URI, HEMMABO_LEGACY_WIDGET_URI]) {
       const result = readResource(uri);
       assert.ok(result, `resource should resolve for ${uri}`);
       const content = result.contents[0];
