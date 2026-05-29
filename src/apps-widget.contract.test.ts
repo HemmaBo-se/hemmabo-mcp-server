@@ -6,26 +6,35 @@ import {
   HEMMABO_LEGACY_WIDGET_URI,
   HEMMABO_PREVIOUS_WIDGET_URI,
   HEMMABO_V1_WIDGET_URI,
+  HEMMABO_V2_WIDGET_URI,
   HEMMABO_WIDGET_MIME_TYPE,
   HEMMABO_WIDGET_URI,
 } from "../lib/apps-widget.js";
 import { executeTool } from "../lib/tools.js";
 
+const VILLA_AKERLYCKAN_SUPABASE_ORIGIN = "https://vfalgymbhyfqsyxkvpqg.supabase.co";
+
 describe("ChatGPT Apps verified stay widget", () => {
+  function exactDomainCount(domains: readonly string[], origin: string): number {
+    return domains.filter((domain) => domain === origin).length;
+  }
+
   it("exposes a current MCP Apps HTML resource with UI metadata", () => {
     const resource = RESOURCES.find((r) => r.uri === HEMMABO_WIDGET_URI);
     assert.ok(resource, "verified stay offer widget must be listed");
     assert.equal(resource.mimeType, HEMMABO_WIDGET_MIME_TYPE);
     assert.equal(resource._meta.ui.prefersBorder, true);
     assert.equal(resource._meta.ui.domain, "https://hemmabo-mcp-server.vercel.app");
+    assert.equal(exactDomainCount(resource._meta.ui.csp.resourceDomains, VILLA_AKERLYCKAN_SUPABASE_ORIGIN), 1);
     assert.equal(resource._meta["openai/widgetPrefersBorder"], true);
     assert.equal(resource._meta["openai/widgetDomain"], "https://hemmabo-mcp-server.vercel.app");
     assert.ok(resource._meta["openai/widgetCSP"]);
+    assert.equal(exactDomainCount(resource._meta["openai/widgetCSP"].resource_domains, VILLA_AKERLYCKAN_SUPABASE_ORIGIN), 1);
     assert.ok(resource._meta["openai/widgetDescription"]);
   });
 
   it("serves the current widget URI plus previous/legacy widget URIs", () => {
-    for (const uri of [HEMMABO_WIDGET_URI, HEMMABO_PREVIOUS_WIDGET_URI, HEMMABO_V1_WIDGET_URI, HEMMABO_LEGACY_WIDGET_URI]) {
+    for (const uri of [HEMMABO_WIDGET_URI, HEMMABO_PREVIOUS_WIDGET_URI, HEMMABO_V2_WIDGET_URI, HEMMABO_V1_WIDGET_URI, HEMMABO_LEGACY_WIDGET_URI]) {
       const result = readResource(uri);
       assert.ok(result, `resource should resolve for ${uri}`);
       const content = result.contents[0];
@@ -39,6 +48,8 @@ describe("ChatGPT Apps verified stay widget", () => {
       assert.doesNotMatch(content.text, /Ask agent to book/i);
       assert.doesNotMatch(content.text, /Confirm guest details before payment/i);
       assert.doesNotMatch(content.text, /booking lifecycle/i);
+      assert.match(content.text, /addEventListener\("error"/);
+      assert.match(content.text, /referrerpolicy="no-referrer"/);
     }
   });
 
@@ -107,6 +118,7 @@ describe("ChatGPT Apps verified stay widget", () => {
     assert.match(widgetHtml, /openai:set_globals/);
     assert.match(widgetHtml, /globals\.toolOutput/);
     assert.match(widgetHtml, /globals\.toolResponseMetadata/);
+    assert.match(widgetHtml, /enrichData/);
   });
 
   it("adds structuredContent from JSON text results for Apps SDK widgets", async () => {

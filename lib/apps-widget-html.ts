@@ -46,7 +46,10 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     width: 100%;
     height: 100%;
     object-fit: cover;
+    opacity: 0;
+    transition: opacity 420ms ease;
   }
+  .hero img.active { opacity: 1; }
   .hero::after {
     content: "";
     position: absolute;
@@ -312,12 +315,12 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
   function getData() {
     try {
       var w = window;
-      if (w.openai && w.openai.toolOutput) return w.openai.toolOutput;
+      if (w.openai && w.openai.toolOutput) return enrichData(w.openai.toolOutput, w.openai.toolResponseMetadata);
       if (w.openai && w.openai.toolResponseMetadata) {
         var meta = w.openai.toolResponseMetadata;
         var full = meta.mcp_tool_result || meta.call_tool_result || meta;
-        if (full && full.structuredContent) return full.structuredContent;
-        if (full && full.content) return parseContent(full.content);
+        if (full && full.structuredContent) return enrichData(full.structuredContent, full._meta || meta);
+        if (full && full.content) return enrichData(parseContent(full.content), full._meta || meta);
       }
     } catch (e) {}
     try {
@@ -327,6 +330,22 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       if (raw) return JSON.parse(decodeURIComponent(raw));
     } catch (e) {}
     return null;
+  }
+
+  function objectValue(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  }
+
+  function enrichData(data, meta) {
+    var base = objectValue(data);
+    var sourceMeta = objectValue(meta);
+    if (!base || !sourceMeta) return data;
+    var enriched = Object.assign({}, base);
+    if (!enriched.offer && sourceMeta.offer) enriched.offer = sourceMeta.offer;
+    if (!enriched.signed_verified_stay_offer && sourceMeta.signed_verified_stay_offer) {
+      enriched.signed_verified_stay_offer = sourceMeta.signed_verified_stay_offer;
+    }
+    return enriched;
   }
 
   function parseContent(content) {
@@ -478,6 +497,22 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     return "";
   }
 
+  function collectImagesFrom(value, out) {
+    if (!value) return out;
+    if (typeof value === "string") {
+      if (value && out.indexOf(value) === -1) out.push(value);
+      return out;
+    }
+    if (Array.isArray(value)) {
+      for (var i = 0; i < value.length; i += 1) collectImagesFrom(value[i], out);
+      return out;
+    }
+    if (typeof value === "object") {
+      collectImagesFrom(value.url || value.src || value.image || value.href || "", out);
+    }
+    return out;
+  }
+
   function normalizeOffer(data) {
     data = data || {};
     var listing = bestListing(data);
@@ -520,12 +555,13 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       property.photos, property.images, property.gallery,
       listing.image, listing.heroImage, listing.hero_image, listing.image_url, listing.photos, listing.images
     ];
-    var image = "";
+    var imageList = [];
     for (var i = 0; i < images.length; i += 1) {
-      image = firstImageFrom(images[i]);
+      collectImagesFrom(images[i], imageList);
+      var image = firstImageFrom(images[i]);
       if (image) break;
     }
-    if (!image && domain === "villaakerlyckan.se") image = VILLA_IMAGE;
+    if (!imageList.length && domain === "villaakerlyckan.se") imageList.push(VILLA_IMAGE);
     var alternatives = asArray(data.alternativeDates);
     if (!alternatives.length) alternatives = asArray(listing.alternativeDates);
     if (!alternatives.length && asArray(data.unavailableMatches).length) {
@@ -547,7 +583,8 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       finalAmount: finalAmount,
       available: available !== false,
       directUrl: directUrl,
-      image: image,
+      image: imageList[0] || "",
+      images: imageList,
       alternatives: alternatives,
       verified: data.verified === true || data.fresh === true || (data.signature && data.signature.verified === true),
       bookable: summary.bookable !== false && available !== false,
@@ -609,7 +646,10 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
         offer.currency = alt.currency || offer.currency;
       }
     }
-    var heroImage = offer.image ? '<img src="' + esc(offer.image) + '" alt="' + esc(offer.name) + '" loading="eager">' : "";
+    var heroImages = asArray(offer.images).length ? asArray(offer.images) : (offer.image ? [offer.image] : []);
+    var heroImage = heroImages.map(function (src, index) {
+      return '<img class="' + (index === 0 ? "active" : "") + '" src="' + esc(src) + '" alt="" aria-hidden="true" loading="' + (index === 0 ? "eager" : "lazy") + '" referrerpolicy="no-referrer">';
+    }).join("");
     root.className = "shell";
     root.innerHTML =
       '<section class="hero">' +
@@ -664,6 +704,22 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
         openExternal(offer.directUrl || hostUrl(offer.domain));
       });
     }
+    var slides = root.querySelectorAll(".hero img");
+    slides.forEach(function (slide) {
+      slide.addEventListener("error", function () {
+        slide.remove();
+      }, { once: true });
+    });
+    if (window.__hemmaboHeroTimer) window.clearInterval(window.__hemmaboHeroTimer);
+    if (slides.length > 1) {
+      var activeIndex = 0;
+      window.__hemmaboHeroTimer = window.setInterval(function () {
+        if (!slides.length) return;
+        slides[activeIndex % slides.length].classList.remove("active");
+        activeIndex = (activeIndex + 1) % slides.length;
+        slides[activeIndex].classList.add("active");
+      }, 4500);
+    }
   }
 
   window.addEventListener("message", function (event) {
@@ -671,7 +727,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     var message = event.data;
     if (!message || message.jsonrpc !== "2.0") return;
     if (message.method === "ui/notifications/tool-result") {
-      render(message.params && (message.params.structuredContent || parseContent(message.params.content)));
+      render(message.params && enrichData(message.params.structuredContent || parseContent(message.params.content), message.params._meta));
     }
   }, { passive: true });
 
@@ -679,13 +735,13 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     var globals = event && event.detail && event.detail.globals;
     if (!globals) return;
     if (globals.toolOutput) {
-      render(globals.toolOutput);
+      render(enrichData(globals.toolOutput, globals.toolResponseMetadata));
       return;
     }
     if (globals.toolResponseMetadata) {
       var meta = globals.toolResponseMetadata;
       var full = meta.mcp_tool_result || meta.call_tool_result || meta;
-      render(full && (full.structuredContent || parseContent(full.content)));
+      render(full && enrichData(full.structuredContent || parseContent(full.content), full._meta || meta));
     }
   }, { passive: true });
 
