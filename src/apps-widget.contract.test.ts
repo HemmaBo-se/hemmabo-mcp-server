@@ -80,6 +80,22 @@ describe("ChatGPT Apps verified stay widget", () => {
     assert.match(toolsSource, /Call get_verified_stay_offer for the best matching property's domain/);
   });
 
+  it("keeps widget requests away from quote-lock tools", () => {
+    const renderTool = TOOLS.find((t) => t.name === "get_verified_stay_offer");
+    assert.ok(renderTool, "get_verified_stay_offer must exist");
+    assert.match(renderTool.description, /read-only/i);
+    assert.match(renderTool.description, /must not lock a quote/i);
+    assert.doesNotMatch(renderTool.description, /book a node\/stay offer/i);
+
+    const negotiateTool = TOOLS.find((t) => t.name === "hemmabo_booking_negotiate");
+    assert.ok(negotiateTool, "hemmabo_booking_negotiate must exist");
+    assert.equal(negotiateTool.annotations.title, "Lock Price Quote");
+    assert.match(negotiateTool.description, /Never use this .*rendering a stay-offer widget/);
+
+    const widgetHtml = readFileSync(new URL("../lib/apps-widget-html.ts", import.meta.url), "utf8");
+    assert.doesNotMatch(widgetHtml, /search, quote, or verified stay offer tool/);
+  });
+
   it("adds structuredContent from JSON text results for Apps SDK widgets", async () => {
     const result = await executeTool("unknown_tool_for_structured_content_test", {}, {
       supabase: null as never,

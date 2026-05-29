@@ -584,7 +584,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     var root = document.getElementById("root");
     if (!data) {
       root.className = "empty";
-      root.textContent = "Run a host-domain search, quote, or verified stay offer tool to show the stay widget.";
+      root.textContent = "Run a host-domain search or verified stay offer tool to show the stay widget.";
       return;
     }
     var offer = normalizeOffer(data);
