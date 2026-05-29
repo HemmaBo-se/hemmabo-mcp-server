@@ -28,7 +28,7 @@ function compactJws(payload: Record<string, unknown>, privateKey: KeyObject): st
 
 describe("VRP MCP tools", () => {
   it("uses a bounded fetch timeout for host-domain VRP calls", async () => {
-    assert.equal(VRP_FETCH_TIMEOUT_MS, 5_000);
+    assert.equal(VRP_FETCH_TIMEOUT_MS, 8_000);
     const { publicKey } = generateKeyPairSync("ed25519");
     const jwk = publicKey.export({ format: "jwk" }) as Record<string, unknown>;
     jwk.kid = "vrp-test-key";

@@ -4,7 +4,7 @@ import type { ToolResult } from "./tools-base.js";
 export const VRP_PROTOCOL = "vacation-rental-protocol";
 export const VRP_PROTOCOL_VERSION = "0.1";
 export const VRP_JWS_ALG = "EdDSA";
-export const VRP_FETCH_TIMEOUT_MS = 5_000;
+export const VRP_FETCH_TIMEOUT_MS = 8_000;
 export const VRP_TOOL_NAMES = [
   "verify_vacation_rental_node",
   "get_verified_stay_offer",
