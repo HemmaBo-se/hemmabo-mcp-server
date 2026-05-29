@@ -555,7 +555,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_negotiate",
     description:
-      "Create a binding price quote that locks the price for 15 minutes. Use this tool only when the user explicitly asks to lock/hold a price, proceed toward checkout, pay, or book after seeing the stay details. Do NOT use for ordinary search, availability checks, or showing a verified host-domain offer. Returns quoteId (pass to hemmabo_booking_checkout), final host-source total, per-night breakdown, and expiry timestamp.",
+      "Create a binding price quote that locks the price for 15 minutes. Use this tool only when the user explicitly asks to lock or hold a price, proceed toward checkout, pay, or book after seeing the stay details. Never use this for ordinary search, availability checks, demo/review proof, showing a verified host-domain offer, or rendering a stay-offer widget; those requests must use get_verified_stay_offer instead. Returns quoteId (pass to hemmabo_booking_checkout), final host-source total, per-night breakdown, and expiry timestamp.",
     inputSchema: {
       type: "object",
       properties: {
@@ -592,7 +592,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       additionalProperties: true,
     },
     annotations: {
-      title: "Negotiate Offer",
+      title: "Lock Price Quote",
       readOnlyHint: false,
       destructiveHint: false,
       idempotentHint: false,

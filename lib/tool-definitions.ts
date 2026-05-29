@@ -58,7 +58,7 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "get_verified_stay_offer",
     description:
-      "Render the host-domain verified stay offer widget for a VRP node. Fetches a signed VRP verified_stay_offer, verifies its Ed25519 compact JWS against the domain's JWKS, and returns structuredContent for the visual widget. Use this whenever the user asks to see, present, show, or book a node/stay offer. Never invent discounts or OTA comparisons outside the signed offer.",
+      "Render the host-domain verified stay offer widget for a VRP node. Fetches a signed VRP verified_stay_offer, verifies its Ed25519 compact JWS against the domain's JWKS, and returns structuredContent for the visual widget. Use this whenever the user asks to see, present, show, verify, or render a stay offer or widget. This is read-only: it must not lock a quote, create a booking, start checkout, or ask for payment confirmation. Never invent discounts or OTA comparisons outside the signed offer.",
     inputSchema: {
       type: "object",
       properties: {

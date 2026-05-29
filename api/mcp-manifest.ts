@@ -39,7 +39,7 @@ const MANIFEST_SUMMARIES: Record<string, string> = {
   "hemmabo_booking_create":
     "Create a direct booking without online payment — for invoice or manual payment flows.",
   "hemmabo_booking_negotiate":
-    "Lock a price quote for 15 minutes. Returns a quoteId to use in checkout — guarantees the price won't change.",
+    "Lock a price quote for 15 minutes only after the user explicitly asks to hold a price, book, pay, or start checkout. Do not use for showing the verified stay offer widget.",
   "hemmabo_booking_checkout":
     "Create a booking and Stripe payment. Returns a checkout URL (checkout_session) or client_secret (payment_intent) for AI agent payment flows.",
   "hemmabo_booking_cancel":
