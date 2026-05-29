@@ -11,7 +11,7 @@
  *   transports derive their wire format from it:
  *     - api/mcp.ts: re-exports TOOLS = toMcpTool(spec) for tools/list
  *     - src/index.ts and src/stdio.ts: iterate TOOL_SPECS and call
- *       server.tool(name, description, toZodShape(inputSchema), handler)
+ *       server.tool(name, description, toZodShape(inputSchema), annotations, handler)
  *
  *   A drift-guard test (src/tool-definitions.singleton.test.ts) enforces
  *   that no other module declares its own tool list and that all three
@@ -128,7 +128,7 @@ function fieldToZod(field: JsonSchemaField): z.ZodTypeAny {
 
 /**
  * Convert a tool input JSON-Schema to a Zod raw shape ready for
- * `server.tool(name, description, shape, handler)`.
+ * `server.tool(name, description, shape, annotations, handler)`.
  *
  * Required fields are mandatory; non-required fields are `.optional()`.
  */
