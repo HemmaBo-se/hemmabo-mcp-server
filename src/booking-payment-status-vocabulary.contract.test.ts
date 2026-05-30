@@ -206,8 +206,8 @@ describe("MCP booking/payment status vocabulary contract", () => {
       [...MCP_COMPAT_BOOKING_STATUS_ENUM],
     ]);
 
-    const bookingCreateStatus = sectionFrom(source, 'name: "hemmabo_booking_create"', 2_500);
-    const bookingStatusStatus = sectionFrom(source, 'name: "hemmabo_booking_status"', 2_500);
+    const bookingCreateStatus = sectionFrom(source, 'name: "hemmabo_booking_create"', 4_000);
+    const bookingStatusStatus = sectionFrom(source, 'name: "hemmabo_booking_status"', 4_000);
     const rescheduleTool = sectionFrom(source, 'name: "hemmabo_booking_reschedule"', 1_000);
 
     for (const schemaSection of [bookingCreateStatus, bookingStatusStatus]) {

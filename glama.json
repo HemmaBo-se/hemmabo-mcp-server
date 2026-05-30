@@ -28,30 +28,30 @@
   "tools": [
     {
       "name": "hemmabo_search_properties",
-      "description": "Search available vacation rental properties by location and travel dates. Returns properties with live availability, final host-source pricing and capacity info.",
+      "description": "Search available host-owned vacation rental properties by location, travel dates, and guest count. Use for initial discovery. Returns available properties with propertyId, host domain, live availability, final host-source pricing, and capacity info; after a result includes a host domain, use get_verified_stay_offer to fetch the signed VRP offer before quoting final details.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "region": {
             "type": "string",
-            "description": "Region, area, or destination name to search within."
+            "description": "Region, area, city, or destination to search within, e.g. Skane, Kavlinge, Toscana, or Bavaria. At least one of region or country should be provided."
           },
           "country": {
             "type": "string",
-            "description": "Country name to filter by."
+            "description": "Country name to filter by, e.g. Sweden or Italy. Use with region when the user gives both."
           },
           "guests": {
             "type": "integer",
             "minimum": 1,
-            "description": "Total number of guests."
+            "description": "Total number of guests as an integer >= 1. Used for capacity filtering and guest-based pricing."
           },
           "checkIn": {
             "type": "string",
-            "description": "Arrival date (YYYY-MM-DD)."
+            "description": "Requested arrival date in YYYY-MM-DD format. Must be before checkOut."
           },
           "checkOut": {
             "type": "string",
-            "description": "Departure date (YYYY-MM-DD)."
+            "description": "Requested departure date in YYYY-MM-DD format. Must be after checkIn."
           }
         },
         "required": [
@@ -123,40 +123,40 @@
     },
     {
       "name": "hemmabo_booking_create",
-      "description": "Legacy non-VRP helper. Create a pending host-review booking only when no signed VRP direct booking URL is available.",
+      "description": "Legacy non-VRP helper. Create a pending direct booking without online payment only after explicit user confirmation and only when no signed VRP direct booking URL is available. Do not use for signed VRP offers; route those to the host-domain direct_booking_url.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "propertyId": {
             "type": "string",
             "format": "uuid",
-            "description": "Property UUID."
+            "description": "Property UUID returned by hemmabo_search_properties. Use the exact UUID, not a property name, domain, or booking URL."
           },
           "checkIn": {
             "type": "string",
-            "description": "Arrival date (YYYY-MM-DD)."
+            "description": "Arrival date for the legacy booking in YYYY-MM-DD format."
           },
           "checkOut": {
             "type": "string",
-            "description": "Departure date (YYYY-MM-DD)."
+            "description": "Departure date for the legacy booking in YYYY-MM-DD format. Must be after checkIn."
           },
           "guests": {
             "type": "integer",
             "minimum": 1,
-            "description": "Total number of guests."
+            "description": "Total number of guests as an integer >= 1."
           },
           "guestName": {
             "type": "string",
-            "description": "Full name of primary guest."
+            "description": "Full legal or preferred name of the primary guest for host confirmation."
           },
           "guestEmail": {
             "type": "string",
             "format": "email",
-            "description": "Email for booking confirmation."
+            "description": "Primary guest email for booking confirmation and host contact."
           },
           "guestPhone": {
             "type": "string",
-            "description": "Phone with country code."
+            "description": "Primary guest phone number with country code for check-in coordination. Optional but recommended."
           }
         },
         "required": [
@@ -292,13 +292,13 @@
     },
     {
       "name": "hemmabo_booking_status",
-      "description": "Retrieve current status and full details of an existing booking. Returns dates, guests, price, status, property info, and cancellation policy.",
+      "description": "Retrieve current status and full details of an existing booking or reservation by id. Use this read-only tool after checkout/create if unsure whether a booking succeeded, or before cancel/reschedule. Returns dates, guests, price, host property info, status, and cancellation policy.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "reservationId": {
             "type": "string",
-            "description": "Booking UUID."
+            "description": "Booking or reservation UUID returned by hemmabo_booking_checkout or hemmabo_booking_create."
           }
         },
         "required": [
@@ -376,7 +376,7 @@
     },
     {
       "name": "hemmabo_compare_properties",
-      "description": "Compare availability and pricing for 2–10 specific properties on the same dates. Returns one entry per propertyId sorted by federation price (cheapest first), unavailable properties last.",
+      "description": "Compare availability and pricing for 2-10 specific properties on the same dates and guest count. Use after discovery when the user is deciding between known property UUIDs. Returns one entry per propertyId sorted by direct host-source total, with unavailable properties last.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -388,7 +388,7 @@
             },
             "minItems": 2,
             "maxItems": 10,
-            "description": "Array of 2–10 property UUIDs to compare."
+            "description": "Array of 2-10 property UUIDs returned by hemmabo_search_properties. Use UUIDs only; do not pass names, domains, or booking URLs."
           },
           "checkIn": {
             "type": "string",
@@ -414,14 +414,14 @@
     },
     {
       "name": "verify_vacation_rental_node",
-      "description": "Verify that a vacation rental host domain exposes VRP v0.1 discovery and an Ed25519 JWKS for signed stay offers.",
+      "description": "Verify that a vacation rental host domain is a valid Vacation Rental Protocol (VRP) node before trusting it. Reads the domain's .well-known/vacation-rental.json and JWKS, confirms protocol identity, host-domain control, Ed25519 signing keys, and the verified stay-offer endpoint. This read-only trust check does not check dates, price, booking rules, booking, or payment.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "domain": {
             "type": "string",
             "pattern": "^(?!-)(?:[A-Za-z0-9-]{1,63}\\.)+[A-Za-z]{2,63}$",
-            "description": "Canonical public host domain to verify, without protocol or path (e.g. 'villaakerlyckan.se')."
+            "description": "Canonical public host-owned vacation-rental domain to verify, without protocol, path, query string, port, or booking URL (e.g. villaakerlyckan.se)."
           }
         },
         "required": [
@@ -431,31 +431,31 @@
     },
     {
       "name": "get_verified_stay_offer",
-      "description": "Fetch and verify a fresh host-domain signed VRP stay offer with live availability, exact total, valid_until, citation permission, and direct booking URL.",
+      "description": "Fetch, verify, and render a live host-domain signed VRP stay offer for exact dates and guest count. Verifies the Ed25519 compact JWS against the domain JWKS and returns the ChatGPT widget data, live availability, exact host-source price, booking rules, freshness status, citation permission, and signed direct host-domain booking URL. This is read-only and must not lock a quote, create a booking, collect guest details, or start checkout.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "domain": {
             "type": "string",
             "pattern": "^(?!-)(?:[A-Za-z0-9-]{1,63}\\.)+[A-Za-z]{2,63}$",
-            "description": "Canonical public host domain to request the signed stay offer from, without protocol or path."
+            "description": "Canonical public host-owned vacation-rental domain returned by search or verify_vacation_rental_node, without protocol, path, query string, or booking URL."
           },
           "check_in": {
             "type": "string",
-            "description": "Arrival date (YYYY-MM-DD)."
+            "description": "Requested arrival date in YYYY-MM-DD format, e.g. 2026-11-14. Must be before check_out."
           },
           "check_out": {
             "type": "string",
-            "description": "Departure date (YYYY-MM-DD)."
+            "description": "Requested departure date in YYYY-MM-DD format, e.g. 2026-11-15. Must be after check_in."
           },
           "guests": {
             "type": "integer",
             "minimum": 1,
-            "description": "Total number of guests."
+            "description": "Total guest count for the stay as an integer >= 1. Used by the host node for capacity checks and guest-based pricing."
           },
           "language": {
             "type": "string",
-            "description": "Optional ISO 639-1 language hint."
+            "description": "Optional BCP-47/RFC 5646 language hint for labels and formatting, e.g. en, sv, de, or sv-SE."
           }
         },
         "required": [
