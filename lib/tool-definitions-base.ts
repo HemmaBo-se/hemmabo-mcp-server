@@ -170,12 +170,12 @@ const F = {
     type: "string" as const,
     format: "uuid",
     description:
-      "Property UUID from hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000').",
+      "Stable property UUID returned by hemmabo_search_properties. Use the exact UUID, not the property name, domain, or booking URL.",
   },
   reservationId: {
     type: "string" as const,
     description:
-      "Booking UUID from hemmabo_booking_checkout or hemmabo_booking_create (e.g. '550e8400-e29b-41d4-a716-446655440000').",
+      "Booking or reservation UUID returned by hemmabo_booking_checkout or hemmabo_booking_create. Use this exact id for status, cancellation, or rescheduling.",
   },
   guestName: {
     type: "string" as const,
@@ -233,7 +233,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       type: "object",
       properties: {
         region: { type: "string", description: "Region, area, or destination name to search within. Partial match (e.g. 'Skane', 'Toscana', 'Bavaria'). At least one of region or country should be provided." },
-        country: { type: "string", description: "Country name to filter by (e.g. 'Sweden', 'Italy'). Partial match. At least one of region or country should be provided." },
+        country: { type: "string", description: "Country name to filter by (e.g. 'Sweden', 'Italy'). Partial match. At least one of region or country should be provided; omit only when the user has given a specific region." },
         guests: { ...F.guests, description: "Total number of guests as integer >= 1 (e.g. 4). Determines price tier and filters out properties with insufficient capacity." },
         checkIn: F.checkIn,
         checkOut: F.checkOut,
@@ -388,10 +388,10 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       properties: {
         propertyIds: {
           type: "array",
-          items: { type: "string", format: "uuid" },
+          items: { type: "string", format: "uuid", description: "Property UUID returned by hemmabo_search_properties." },
           minItems: 2,
           maxItems: 10,
-          description: "Array of 2 to 10 property UUIDs to compare side by side.",
+          description: "Array of 2 to 10 property UUIDs returned by hemmabo_search_properties. Use UUIDs only; do not pass domains, names, or booking URLs.",
         },
         checkIn: { ...F.checkIn, description: "Arrival date in ISO 8601 format (YYYY-MM-DD). Must be today or later." },
         checkOut: { ...F.checkOut, description: "Departure date in ISO 8601 format (YYYY-MM-DD). Must be after checkIn." },
@@ -502,17 +502,17 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_create",
     description:
-      "Create a direct booking without online payment (legacy flow). Do not use this for VRP signed offers that provide a direct_booking_url; route those bookings to the signed direct host-domain URL instead. Use this tool only for legacy non-VRP manual-payment flows after explicit user confirmation. Do NOT retry on timeout without calling hemmabo_booking_status first to avoid duplicate bookings. Returns bookingId, final price, and confirmation details.",
+      "Create a direct booking without online payment for a legacy non-VRP manual-payment flow. Use only after explicit user confirmation and only when no signed VRP direct_booking_url is available. Do not use for VRP signed offers; route those to the signed host-domain URL. Do NOT retry on timeout without hemmabo_booking_status. Returns bookingId, final price, confirmation details, and status.",
     inputSchema: {
       type: "object",
       properties: {
-        propertyId: F.propertyId,
-        checkIn: F.checkIn,
-        checkOut: F.checkOut,
+        propertyId: { ...F.propertyId, description: "Property UUID returned by hemmabo_search_properties for this legacy non-VRP booking." },
+        checkIn: { ...F.checkIn, description: "Legacy booking arrival date in YYYY-MM-DD format." },
+        checkOut: { ...F.checkOut, description: "Legacy booking departure date in YYYY-MM-DD format; must be after checkIn." },
         guests: { ...F.guests, description: "Total number of guests as integer >= 1 (e.g. 4)." },
-        guestName: F.guestName,
-        guestEmail: F.guestEmail,
-        guestPhone: F.guestPhone,
+        guestName: { ...F.guestName, description: "Primary guest name for host confirmation." },
+        guestEmail: { ...F.guestEmail, description: "Primary guest email for confirmation and host contact." },
+        guestPhone: { ...F.guestPhone, description: "Primary guest phone with country code; optional but recommended." },
       },
       required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"],
       additionalProperties: false,
@@ -679,11 +679,11 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_status",
     description:
-      "Retrieve current status and full details of an existing booking. Use this tool to check payment status, confirm a booking went through, or look up details before rescheduling or cancelling. Use after hemmabo_booking_checkout if unsure whether the booking succeeded. Returns booking dates, guests, price, status, property info, and cancellation policy.",
+      "Retrieve current status and full details of an existing booking or reservation by id. Use this read-only tool to check payment/booking state, confirm whether checkout or booking creation succeeded, or look up details before rescheduling or cancelling. Use after hemmabo_booking_checkout or hemmabo_booking_create if unsure whether the previous call succeeded; do not create a duplicate booking. Returns booking dates, guests, price, host property info, status, and cancellation policy.",
     inputSchema: {
       type: "object",
       properties: {
-        reservationId: F.reservationId,
+        reservationId: { ...F.reservationId, description: "Booking or reservation UUID returned by checkout/create. Required to look up the exact booking." },
       },
       required: ["reservationId"],
       additionalProperties: false,
@@ -691,21 +691,21 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
     outputSchema: {
       type: "object",
       properties: {
-        reservationId: { type: "string", format: "uuid" },
-        propertyId: { type: "string", format: "uuid" },
-        propertyName: { type: "string" },
-        propertyDomain: { type: "string" },
-        checkIn: { type: "string" },
-        checkOut: { type: "string" },
-        guests: { type: "integer" },
-        guestName: { type: "string" },
-        guestEmail: { type: "string" },
-        currency: { type: "string" },
+        reservationId: { type: "string", format: "uuid", description: "Echoed booking or reservation UUID." },
+        propertyId: { type: "string", format: "uuid", description: "Property UUID associated with the booking." },
+        propertyName: { type: "string", description: "Display name of the booked property." },
+        propertyDomain: { type: "string", description: "Host-owned domain associated with the property." },
+        checkIn: { type: "string", description: "Booked arrival date." },
+        checkOut: { type: "string", description: "Booked departure date." },
+        guests: { type: "integer", description: "Booked guest count." },
+        guestName: { type: "string", description: "Primary guest name stored on the booking." },
+        guestEmail: { type: "string", description: "Primary guest email stored on the booking." },
+        currency: { type: "string", description: "ISO 4217 currency code for the booking total." },
         totalPrice: { type: "integer", description: "Total amount in minor currency units." },
         status: { type: "string", enum: ["pending", "confirmed", "cancelled", "completed"], description: "Host-node booking status. 'completed' is a legacy/protocol compatibility output only, not the active lifecycle truth." },
-        cancellationPolicy: { type: "object", additionalProperties: true },
-        createdAt: { type: "string", format: "date-time" },
-        updatedAt: { type: "string", format: "date-time" },
+        cancellationPolicy: { type: "object", description: "Host cancellation-policy details applicable to this booking.", additionalProperties: true },
+        createdAt: { type: "string", format: "date-time", description: "Booking creation timestamp." },
+        updatedAt: { type: "string", format: "date-time", description: "Last update timestamp for the booking record." },
         error: { type: "string", description: "Present only when isError=true." },
       },
       required: ["reservationId", "status"],
