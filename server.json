@@ -3,6 +3,15 @@
   "name": "com.hemmabo/hemmabo-mcp-server",
   "title": "HemmaBo",
   "description": "HemmaBo is infrastructure and federation for host-owned vacation rental domains. Use it when the user wants a direct, host-domain verified stay offer. Host nodes own booking lifecycles; Stripe owns payment facts. HemmaBo + VRP, 13 tools, host-domain signed verified stay offers. Not an OTA. Not a marketplace. Not a website builder.",
+  "icons": [
+    {
+      "src": "https://hemmabo-mcp-server.vercel.app/icon.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
   "repository": {
     "url": "https://github.com/HemmaBo-se/hemmabo-mcp-server",
     "source": "github"
