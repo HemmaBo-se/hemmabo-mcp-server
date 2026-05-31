@@ -19,11 +19,11 @@ HemmaBo is not an OTA, not a marketplace, and not a generic website builder.
 
 Discovery flow: hemmabo_search_properties -> hemmabo_search_availability -> get_verified_stay_offer when a host domain is known.
 
-Quote-lock and paid booking tools are legacy, non-VRP helpers. Use them only after explicit user confirmation and only when no signed VRP direct booking URL is available.
+Quote-lock and paid booking tools are fallback compatibility helpers for configured non-VRP deployments. Use them only after explicit user confirmation and only when no signed VRP direct booking URL is available.
 
 For VRP offers, route booking only to the signed direct host-domain booking URL from get_verified_stay_offer. Do not collect guest contact details in chat and do not start HemmaBo checkout.
 
-Legacy no-payment flow: hemmabo_booking_create creates pending host-approval bookings for configured non-VRP deployments.
+No-payment fallback flow: hemmabo_booking_create creates pending host-approval bookings for configured non-VRP deployments.
 
 Decision support: hemmabo_search_similar and hemmabo_compare_properties help guests choose between host-owned properties.
 

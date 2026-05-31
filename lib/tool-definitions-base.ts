@@ -502,13 +502,13 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_create",
     description:
-      "Create a direct booking without online payment for a legacy non-VRP manual-payment flow. Use only after explicit user confirmation and only when no signed VRP direct_booking_url is available. Do not use for VRP signed offers; route those to the signed host-domain URL. Do NOT retry on timeout without hemmabo_booking_status. Returns bookingId, final price, confirmation details, and status.",
+      "Create a pending direct booking without online payment for configured non-VRP fallback deployments. Use only after explicit user confirmation, only with a propertyId returned by search, and only when no signed VRP direct_booking_url is available. This is not the primary VRP path; for signed VRP offers, route to the signed host-domain URL. Do NOT retry on timeout without hemmabo_booking_status. Returns bookingId, final price, confirmation details, and status.",
     inputSchema: {
       type: "object",
       properties: {
-        propertyId: { ...F.propertyId, description: "Property UUID returned by hemmabo_search_properties for this legacy non-VRP booking." },
-        checkIn: { ...F.checkIn, description: "Legacy booking arrival date in YYYY-MM-DD format." },
-        checkOut: { ...F.checkOut, description: "Legacy booking departure date in YYYY-MM-DD format; must be after checkIn." },
+        propertyId: { ...F.propertyId, description: "Property UUID returned by hemmabo_search_properties for this fallback non-VRP booking. Use the exact UUID, not a property name, domain, or booking URL." },
+        checkIn: { ...F.checkIn, description: "Booking arrival date in YYYY-MM-DD format." },
+        checkOut: { ...F.checkOut, description: "Booking departure date in YYYY-MM-DD format; must be after checkIn." },
         guests: { ...F.guests, description: "Total number of guests as integer >= 1 (e.g. 4)." },
         guestName: { ...F.guestName, description: "Primary guest name for host confirmation." },
         guestEmail: { ...F.guestEmail, description: "Primary guest email for confirmation and host contact." },
@@ -533,7 +533,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         federationDiscountPercent: { type: "integer" },
         gapDiscountPercent: { type: "integer" },
         createdAt: { type: "string", format: "date-time" },
-        status: { type: "string", enum: ["pending", "confirmed", "cancelled", "completed"], description: "Host-node booking status. 'completed' is a legacy/protocol compatibility output only, not a status this tool writes." },
+        status: { type: "string", enum: ["pending", "confirmed", "cancelled", "completed"], description: "Host-node booking status. 'completed' is a protocol compatibility output only, not a status this tool writes." },
         error: { type: "string", description: "Present only when isError=true." },
       },
       required: ["bookingId", "status"],
@@ -550,7 +550,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_negotiate",
     description:
-      "Create a binding price quote that locks the price for 15 minutes. Use this tool only for legacy non-VRP checkout flows when no signed direct_booking_url is available and the user explicitly asks to lock or hold a price. Never use this for ordinary search, availability checks, demo/review proof, showing a verified host-domain offer, rendering a stay-offer widget, or booking a VRP offer; those requests must use get_verified_stay_offer and the signed direct host-domain booking URL instead. Returns quoteId, final host-source total, per-night breakdown, and expiry timestamp.",
+      "Create a binding price quote that locks the price for 15 minutes for configured non-VRP fallback checkout deployments. Use only when no signed direct_booking_url is available and the user explicitly asks to lock or hold a price. Never use this for ordinary search, availability checks, demo/review proof, showing a verified host-domain offer, rendering a stay-offer widget, or booking a VRP offer; those requests must use get_verified_stay_offer and the signed direct host-domain booking URL instead. Returns quoteId, final host-source total, per-night breakdown, and expiry timestamp.",
     inputSchema: {
       type: "object",
       properties: {
@@ -597,7 +597,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_checkout",
     description:
-      "Create a legacy non-VRP booking and return a host-configured checkout URL. Do not use this when get_verified_stay_offer returns a signed direct_booking_url; route the guest to that host-domain URL instead and do not collect guest contact details in chat. Do NOT use for search, browsing, availability, verified-offer display, Loom/demo proof, or direct host-domain link presentation. Do NOT call twice for the same booking - check hemmabo_booking_status first to avoid duplicate charges. Returns reservationId, paymentUrl, and pricing details.",
+      "Create a fallback non-VRP booking and return a host-configured Stripe checkout URL. Use only after explicit user confirmation when no signed VRP direct_booking_url is available. When get_verified_stay_offer returns a signed direct_booking_url, route the guest to that host-domain URL instead and do not collect guest contact details in chat. Do NOT use for search, browsing, availability, verified-offer display, demo proof, or direct host-domain link presentation. Do NOT call twice for the same booking - check hemmabo_booking_status first to avoid duplicate charges. Returns reservationId, paymentUrl, and pricing details.",
     inputSchema: {
       type: "object",
       properties: {
@@ -609,8 +609,8 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         guestEmail: F.guestEmail,
         guestPhone: { ...F.guestPhone, description: "Phone with country code (e.g. '+46701234567'). Optional but recommended." },
         quoteId: { type: "string", description: "Quote ID from hemmabo_booking_negotiate to lock the price. Optional - if omitted, a fresh direct host-source price is calculated at checkout time." },
-        paymentMode: { type: "string", enum: ["checkout_session", "payment_intent"], description: "'checkout_session' (default): returns a host-configured Stripe redirect URL. 'payment_intent': returns client_secret for configured legacy non-VRP payment integrations." },
-        channel: { type: "string", enum: ["public", "federation"], description: "'federation' is the legacy compatibility name for direct host-source pricing. 'public': uses standard website rate." },
+        paymentMode: { type: "string", enum: ["checkout_session", "payment_intent"], description: "'checkout_session' (default): returns a host-configured Stripe redirect URL. 'payment_intent': returns client_secret for configured fallback non-VRP payment integrations." },
+        channel: { type: "string", enum: ["public", "federation"], description: "'federation' is the compatibility name for direct host-source pricing. 'public': uses standard website rate." },
       },
       required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"],
       additionalProperties: false,
@@ -702,7 +702,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         guestEmail: { type: "string", description: "Primary guest email stored on the booking." },
         currency: { type: "string", description: "ISO 4217 currency code for the booking total." },
         totalPrice: { type: "integer", description: "Total amount in minor currency units." },
-        status: { type: "string", enum: ["pending", "confirmed", "cancelled", "completed"], description: "Host-node booking status. 'completed' is a legacy/protocol compatibility output only, not the active lifecycle truth." },
+        status: { type: "string", enum: ["pending", "confirmed", "cancelled", "completed"], description: "Host-node booking status. 'completed' is a protocol compatibility output only, not the active lifecycle truth." },
         cancellationPolicy: { type: "object", description: "Host cancellation-policy details applicable to this booking.", additionalProperties: true },
         createdAt: { type: "string", format: "date-time", description: "Booking creation timestamp." },
         updatedAt: { type: "string", format: "date-time", description: "Last update timestamp for the booking record." },
@@ -722,7 +722,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_reschedule",
     description:
-      "Reschedule a confirmed or pending booking to new dates. Use this tool when the guest wants to change travel dates on an existing booking. Do NOT use if the booking is cancelled, or if a legacy/protocol client reports completed — check hemmabo_booking_status first. Automatically recalculates price and handles Stripe charge (if price increased) or refund (if decreased). Returns previous dates, new dates, price delta, and Stripe transaction details.",
+      "Reschedule a confirmed or pending booking to new dates. Use this tool when the guest wants to change travel dates on an existing booking. Do NOT use if the booking is cancelled, or if a protocol compatibility client reports completed — check hemmabo_booking_status first. Automatically recalculates price and handles Stripe charge (if price increased) or refund (if decreased). Returns previous dates, new dates, price delta, and Stripe transaction details.",
     inputSchema: {
       type: "object",
       properties: {
