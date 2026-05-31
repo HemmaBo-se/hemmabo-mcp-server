@@ -32,7 +32,7 @@ Agents may cite a stay offer as official only when the returned VRP verification
 
 ## Booking rule
 
-For signed VRP offers, the host domain is the booking and payment path. Legacy booking tools are for configured non-VRP deployments only.
+For signed VRP offers, the host domain is the booking and payment path. Fallback booking tools are for configured non-VRP deployments only.
 
 ## Links
 

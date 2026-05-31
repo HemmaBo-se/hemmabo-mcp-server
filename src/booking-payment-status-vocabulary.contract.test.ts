@@ -212,11 +212,11 @@ describe("MCP booking/payment status vocabulary contract", () => {
 
     for (const schemaSection of [bookingCreateStatus, bookingStatusStatus]) {
       assert.match(schemaSection, /completed/);
-      assert.match(schemaSection, /legacy\/protocol compatibility output only/);
+      assert.match(schemaSection, /protocol compatibility output only/);
       assert.doesNotMatch(schemaSection, /completed[^.]+host-node booking lifecycle truth/i);
     }
 
-    assert.match(rescheduleTool, /legacy\/protocol client reports completed/);
+    assert.match(rescheduleTool, /protocol compatibility client reports completed/);
   });
 
   it("snapshots MCP runtime booking write and reschedule vocabulary", () => {

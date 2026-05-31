@@ -123,7 +123,7 @@
     },
     {
       "name": "hemmabo_booking_create",
-      "description": "Legacy non-VRP helper. Create a pending direct booking without online payment only after explicit user confirmation and only when no signed VRP direct booking URL is available. Do not use for signed VRP offers; route those to the host-domain direct_booking_url.",
+      "description": "Fallback non-VRP helper. Create a pending direct booking without online payment only after explicit user confirmation and only when no signed VRP direct booking URL is available. Do not use for signed VRP offers; route those to the host-domain direct_booking_url.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -134,11 +134,11 @@
           },
           "checkIn": {
             "type": "string",
-            "description": "Arrival date for the legacy booking in YYYY-MM-DD format."
+            "description": "Arrival date for the fallback non-VRP booking in YYYY-MM-DD format."
           },
           "checkOut": {
             "type": "string",
-            "description": "Departure date for the legacy booking in YYYY-MM-DD format. Must be after checkIn."
+            "description": "Departure date for the fallback non-VRP booking in YYYY-MM-DD format. Must be after checkIn."
           },
           "guests": {
             "type": "integer",
@@ -171,7 +171,7 @@
     },
     {
       "name": "hemmabo_booking_negotiate",
-      "description": "Legacy non-VRP helper. Create a short-lived quote snapshot only after explicit user confirmation and only when no signed VRP direct booking URL is available.",
+      "description": "Fallback non-VRP helper. Create a short-lived quote snapshot only after explicit user confirmation and only when no signed VRP direct booking URL is available.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -204,7 +204,7 @@
     },
     {
       "name": "hemmabo_booking_checkout",
-      "description": "Legacy non-VRP helper. Create a host-configured Stripe checkout URL only when no signed VRP direct booking URL is available; do not use for signed VRP offers.",
+      "description": "Fallback non-VRP helper. Create a host-configured Stripe checkout URL only when no signed VRP direct booking URL is available; do not use for signed VRP offers.",
       "inputSchema": {
         "type": "object",
         "properties": {

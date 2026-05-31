@@ -37,11 +37,11 @@ const MANIFEST_SUMMARIES: Record<string, string> = {
   "hemmabo_booking_quote":
     "Get a detailed live pricing quote with final host-source total, nightly rates, seasonal pricing and package context.",
   "hemmabo_booking_create":
-    "Create a direct booking without online payment — for invoice or manual payment flows.",
+    "Create a pending direct booking without online payment for configured non-VRP fallback deployments.",
   "hemmabo_booking_negotiate":
-    "Legacy quote-lock tool for non-VRP checkout flows only. Do not use when a signed direct host-domain booking URL is available.",
+    "Fallback quote-lock tool for configured non-VRP checkout flows only. Do not use when a signed direct host-domain booking URL is available.",
   "hemmabo_booking_checkout":
-    "Legacy in-chat checkout tool for non-VRP flows only. For signed VRP offers, route guests to the direct host-domain booking URL instead.",
+    "Fallback Stripe checkout tool for configured non-VRP flows only. For signed VRP offers, route guests to the direct host-domain booking URL instead.",
   "hemmabo_booking_cancel":
     "Cancel a booking and trigger a Stripe refund according to the host's cancellation policy.",
   "hemmabo_booking_status":
