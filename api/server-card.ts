@@ -19,10 +19,10 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   res.json({
     serverInfo: {
       name: "hemmabo-mcp-server",
-      title: "HemmaBo",
+      title: "HemmaBo Host Booking Engine",
       version: pkg.version,
       description: SERVER_DESCRIPTION,
-      homepage: "https://hemmabo.com",
+      homepage: "https://www.hemmabo.com",
       icon: `${base}/icon.png`,
       iconUrl: `${base}/icon.png`,
     },

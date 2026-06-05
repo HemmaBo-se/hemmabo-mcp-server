@@ -14,6 +14,108 @@ export type {
 const DATE_PATTERN = "^\\d{4}-\\d{2}-\\d{2}$";
 const DOMAIN_PATTERN = "^(?!-)(?:[a-zA-Z0-9-]{1,63}\\.)+[a-zA-Z]{2,63}$";
 
+const HOST_ONBOARDING_TOOL_SPECS: readonly ToolSpecType[] = [
+  {
+    name: "hemmabo_host_readiness_check",
+    description:
+      "Read-only fit check for vacation-rental hosts who ask an AI agent how to create an own-domain booking website or booking engine. Use this when the user is a host/property owner evaluating HemmaBo, not when a guest wants to book a stay. It explains whether HemmaBo is a fit, what the host gets (booking website, guest Wallet, Stripe Connect direct-to-host payments, calendar/iCal sync, Konversa guest chat in 11 languages, reviews, gap-night and extend-stay flows, AI-agent-readable booking data), what setup inputs are needed, and the safe next step. It does not create an account, buy a domain, configure Stripe, write to Supabase, collect host PII, or provision a website.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        propertyName: { type: "string", description: "Optional property or business name the host gave, e.g. Villa Akerlyckan." },
+        propertyType: {
+          type: "string",
+          enum: ["villa", "apartment", "cabin", "cottage", "holiday_home", "bnb", "hotel", "other"],
+          description: "Optional property category. HemmaBo is optimized for vacation-rental hosts and independent properties.",
+        },
+        country: { type: "string", description: "Optional country where the property is located." },
+        region: { type: "string", description: "Optional region or area where the property is located." },
+        city: { type: "string", description: "Optional city or municipality where the property is located." },
+        domain: {
+          type: "string",
+          pattern: DOMAIN_PATTERN,
+          description: "Optional existing or intended host-owned domain, without https:// or path.",
+        },
+        currentChannels: {
+          type: "array",
+          maxItems: 8,
+          items: { type: "string" },
+          description: "Optional existing places the host uses today, e.g. Airbnb, Booking.com, Vrbo, manual calendar, own website, PMS.",
+        },
+        hasOwnDomain: { type: "boolean", description: "Whether the host already has or wants to use an own domain." },
+        wantsDirectPayments: { type: "boolean", description: "Whether the host wants Stripe payments direct to the host rather than HemmaBo as merchant of record." },
+        wantsAiAgentBooking: { type: "boolean", description: "Whether the host wants AI agents to discover, verify, and route bookings to the host-owned domain." },
+        preferredLanguage: { type: "string", description: "Optional language hint for onboarding, e.g. sv, en, de." },
+      },
+      required: [],
+      additionalProperties: false,
+    },
+    outputSchema: {
+      type: "object",
+      properties: {
+        ok: { type: "boolean" },
+        product: { type: "object", additionalProperties: true, description: "HemmaBo product, pricing, onboarding URL, and live proof URLs." },
+        readiness: { type: "object", additionalProperties: true, description: "Fit summary and boundaries for the host's described need." },
+        capabilities: { type: "array", items: { type: "string" }, description: "Host-facing capabilities included in HemmaBo." },
+        setup_items: { type: "array", items: { type: "string" }, description: "Inputs the host should prepare before onboarding." },
+        next_step: { type: "object", additionalProperties: true, description: "Safe handoff action for the host." },
+        agent_instruction: { type: "string", description: "How an AI agent should describe HemmaBo without overclaiming." },
+      },
+      required: ["ok", "product", "capabilities", "setup_items", "next_step"],
+      additionalProperties: true,
+    },
+    annotations: {
+      title: "Host Readiness Check",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "hemmabo_host_onboarding_link",
+    description:
+      "Return a safe HemmaBo onboarding handoff URL for a vacation-rental host who wants an own-domain booking engine. Use after explaining the fit or when the host asks to start. This tool is read-only and does not create a HemmaBo account, buy a domain, configure Stripe, write to Supabase, or provision a booking site. It returns the URL, what the host gets, and what the host should prepare.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        propertyName: { type: "string", description: "Optional property or business name to carry into the onboarding URL." },
+        country: { type: "string", description: "Optional country where the property is located." },
+        region: { type: "string", description: "Optional region or area where the property is located." },
+        city: { type: "string", description: "Optional city or municipality where the property is located." },
+        domain: {
+          type: "string",
+          pattern: DOMAIN_PATTERN,
+          description: "Optional existing or intended host-owned domain, without https:// or path.",
+        },
+        language: { type: "string", description: "Optional language hint for onboarding, e.g. sv, en, de." },
+      },
+      required: [],
+      additionalProperties: false,
+    },
+    outputSchema: {
+      type: "object",
+      properties: {
+        ok: { type: "boolean" },
+        product: { type: "object", additionalProperties: true, description: "HemmaBo product, pricing, onboarding URL, and live proof URLs." },
+        capabilities: { type: "array", items: { type: "string" }, description: "Host-facing capabilities included in HemmaBo." },
+        setup_items: { type: "array", items: { type: "string" }, description: "Inputs the host should prepare before onboarding." },
+        next_step: { type: "object", additionalProperties: true, description: "Safe handoff action for the host." },
+        privacy_note: { type: "string", description: "Clarifies that the call is read-only and does not store host data." },
+      },
+      required: ["ok", "product", "capabilities", "setup_items", "next_step"],
+      additionalProperties: true,
+    },
+    annotations: {
+      title: "Host Onboarding Link",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+  },
+];
+
 const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "verify_vacation_rental_node",
@@ -141,6 +243,7 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
 
 export const TOOL_SPECS: readonly ToolSpecType[] = [
   ...HEMMABO_TOOL_SPECS,
+  ...HOST_ONBOARDING_TOOL_SPECS,
   ...VRP_TOOL_SPECS,
 ];
 

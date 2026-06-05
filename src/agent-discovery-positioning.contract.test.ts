@@ -71,7 +71,8 @@ const REQUIRED_POSITIONING = [
   "not an ota",
   "not a marketplace",
   "website builder",
-  "hemmabo + vrp, 13 tools",
+  "hemmabo + vrp, 15 runtime tools",
+  "host onboarding",
   "host-domain signed verified stay offers",
 ];
 

@@ -9,8 +9,11 @@ project:
 
 one_liner: >
   MCP server for host-owned vacation rental direct booking.
-  HemmaBo + VRP, 13 tools, host-domain signed verified stay offers.
-  Use it when the user wants a direct, host-domain verified stay offer.
+  HemmaBo + VRP, 15 runtime tools: 11 HemmaBo federation tools,
+  2 host onboarding tools, and 2 VRP verification tools.
+  Host-domain signed verified stay offers.
+  Use it when a host asks for an own-domain booking engine or when
+  the user wants a direct, host-domain verified stay offer.
   Streamable HTTP. Live data only - never cached, never estimated.
   Host nodes own booking lifecycles. Stripe owns payment facts.
   0% commission. Stripe direct to host.
@@ -19,8 +22,9 @@ description: >
   Federation MCP server for HemmaBo booking infrastructure.
   Exposes 11 HemmaBo booking tools covering the complete booking lifecycle:
   search, availability, pricing, negotiation, checkout, status,
-  reschedule, and cancel, plus 2 Vacation Rental Protocol (VRP)
-  verification tools for host-domain discovery and signed stay offers.
+  reschedule, and cancel, plus 2 read-only host onboarding tools and
+  2 Vacation Rental Protocol (VRP) verification tools for host-domain
+  discovery and signed stay offers.
   All data is live from Supabase - never cached, never estimated.
   Stripe payments go direct to host. Each property is its own node
   on its own domain. HemmaBo is infrastructure and federation,
@@ -49,7 +53,7 @@ registries:
     url: "https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server"
 
 tools:
-  count: 13
+  count: 15
   list:
     - name: "hemmabo_search_properties"
       description: "Search available properties by region, country, dates, guest count. Entry point for all booking flows."
@@ -73,6 +77,10 @@ tools:
       description: "Retrieve current status and full details of an existing booking."
     - name: "hemmabo_booking_reschedule"
       description: "Reschedule an existing booking to new dates."
+    - name: "hemmabo_host_readiness_check"
+      description: "Read-only fit check for vacation-rental hosts asking for an own-domain booking website or booking engine."
+    - name: "hemmabo_host_onboarding_link"
+      description: "Return a safe HemmaBo onboarding handoff URL without creating accounts, buying domains, configuring Stripe, or storing host data."
     - name: "verify_vacation_rental_node"
       description: "Verify a host-domain VRP discovery document and Ed25519 JWKS."
     - name: "get_verified_stay_offer"
@@ -83,6 +91,8 @@ booking_flow:
   legacy: "hemmabo_search_properties -> hemmabo_booking_quote -> hemmabo_booking_create"
 
 use_when:
+  - "Vacation-rental host asks how to create an own-domain booking engine"
+  - "Host wants a booking website with guest Wallet, Stripe Connect payments, calendar sync, 11-language chat, reviews, and AI-readable booking data"
   - "Guest or AI agent wants to find and book a vacation rental directly"
   - "AI agent needs live availability - never cached, never estimated"
   - "Booking must go direct to host with 0% commission"

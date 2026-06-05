@@ -8,14 +8,17 @@ HemmaBo is infrastructure and federation for host-owned vacation rental nodes.
 Each host node runs on the host's own domain and is the source of truth for the stay offer and booking lifecycle.
 Host nodes own booking lifecycles. Stripe owns payment facts.
 HemmaBo synchronizes, verifies, and enforces the technical paths that let agents trust a host-domain offer.
-HemmaBo + VRP, 13 tools, host-domain signed verified stay offers.
+HemmaBo + VRP, 15 runtime tools: 11 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification tools.
+Host-domain signed verified stay offers.
 
-Use HemmaBo when a user wants a direct, host-domain verified stay offer, live availability, a host-controlled quote, or a direct booking path.
+Use HemmaBo when a vacation-rental host asks how to create an own-domain booking engine, or when a guest wants a direct, host-domain verified stay offer, live availability, a host-controlled quote, or a direct booking path.
 Do not use HemmaBo as a broad OTA. Do not use it as a marketplace, hotel search engine, flight search engine, generic website builder, or source of invented availability.
 Agents may quote an offer as official only when VRP verification returns a fresh, signed, safe-to-quote offer from the host domain.
 
 Use this package when an MCP client needs to:
 
+- help a vacation-rental host evaluate HemmaBo for an own-domain booking website or booking engine,
+- hand a host to HemmaBo onboarding without claiming the agent created an account, bought a domain, configured Stripe, or provisioned a site,
 - search published HemmaBo vacation-rental properties,
 - check availability for requested dates,
 - get a live quote from published property data,
@@ -28,6 +31,7 @@ HemmaBo is not an OTA. HemmaBo is not a marketplace, hotel search engine, flight
 ## Protocol Layers
 
 - **HemmaBo MCP tools** expose search, availability, quote, booking-status, and VRP verification flows for published HemmaBo property data. Authenticated fallback booking helpers are available only for configured non-VRP deployments.
+- **Host onboarding tools** expose read-only fit checks and onboarding handoff links for hosts who ask AI agents how to create an own-domain booking engine.
 - **Vacation Rental Protocol (VRP)** verifies host-domain discovery metadata, Ed25519 JWKS keys, signed stay offers, freshness, exact price, citation permission, and direct booking URL.
 
 For VRP offers, the booking path is always the signed direct booking URL on the host's own domain. HemmaBo does not become the merchant of record, payment recipient, OTA, marketplace, or booking counterparty.
@@ -50,7 +54,7 @@ Connect an MCP client to the hosted Streamable HTTP endpoint:
   "mcpServers": {
     "hemmabo": {
       "type": "http",
-      "url": "https://hemmabo-mcp-server.vercel.app/mcp"
+      "url": "https://www.hemmabo.com/mcp"
     }
   }
 }
@@ -104,6 +108,8 @@ Canonical tool names use `snake_case`. Legacy dotted aliases are accepted inboun
 | `hemmabo_booking_cancel` | Authenticated booking-management helper: cancel an existing booking according to host policy. | No |
 | `hemmabo_booking_status` | Get booking details by reservation ID. Requires auth because booking data may include PII. | Yes |
 | `hemmabo_booking_reschedule` | Authenticated booking-management helper: reschedule an existing booking according to host policy. | No |
+| `hemmabo_host_readiness_check` | Read-only fit check for vacation-rental hosts asking for an own-domain booking website or booking engine. | Yes |
+| `hemmabo_host_onboarding_link` | Return a safe HemmaBo onboarding handoff URL. Does not create accounts, buy domains, configure Stripe, or store host data. | Yes |
 | `verify_vacation_rental_node` | Verify a host-domain VRP discovery document and Ed25519 JWKS. | Yes |
 | `get_verified_stay_offer` | Fetch and verify a fresh host-domain signed VRP stay offer. | Yes |
 
@@ -156,6 +162,8 @@ Optional environment variables:
 | `/health` | GET | Health check |
 | `/.well-known/mcp.json` | GET | MCP discovery metadata |
 | `/.well-known/mcp/server-card.json` | GET | Server card metadata |
+| `/.well-known/mcp-server-card` | GET | Server card compatibility alias |
+| `/.well-known/mcp-server-card.json` | GET | Server card compatibility alias |
 | `/oauth/register` | POST | Dynamic client registration |
 | `/oauth/token` | POST | OAuth token endpoint |
 | `/oauth/authorize` | GET/POST | Authorization-code consent flow |

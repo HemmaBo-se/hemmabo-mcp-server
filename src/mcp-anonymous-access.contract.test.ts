@@ -8,6 +8,8 @@ const ANON_CANONICAL_NAMES = [
   "hemmabo_search_similar",
   "hemmabo_compare_properties",
   "hemmabo_booking_quote",
+  "hemmabo_host_readiness_check",
+  "hemmabo_host_onboarding_link",
   "verify_vacation_rental_node",
   "get_verified_stay_offer",
 ] as const;
@@ -30,8 +32,8 @@ const AUTH_REQUIRED_TOOLS = [
 ] as const;
 
 describe("anonymous tool allowlist contract", () => {
-  it("ANON_TOOLS contains exactly the 7 read-only canonical names plus 5 aliases", () => {
-    assert.equal(ANON_TOOLS.size, 12);
+  it("ANON_TOOLS contains exactly the 9 read-only canonical names plus 5 aliases", () => {
+    assert.equal(ANON_TOOLS.size, 14);
     for (const n of [...ANON_CANONICAL_NAMES, ...ANON_ALIASES]) {
       assert.ok(ANON_TOOLS.has(n), `expected ANON_TOOLS to contain ${n}`);
     }

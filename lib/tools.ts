@@ -1,5 +1,6 @@
 import { executeTool as executeHemmaboTool } from "./tools-base.js";
 import { executeVrpTool, isVrpToolName } from "./vrp.js";
+import { executeHostOnboardingTool, isHostOnboardingToolName } from "./host-onboarding.js";
 import { HEMMABO_WIDGET_TOOL_META } from "./apps-widget.js";
 import type { ToolClients, ToolResult } from "./tools-base.js";
 
@@ -17,6 +18,7 @@ export {
   propertyMatchesLocation,
   buildSameMonthDateWindows,
 } from "./tools-base.js";
+export { isHostOnboardingToolName } from "./host-onboarding.js";
 export type { ToolClients, ToolResult } from "./tools-base.js";
 
 function withStructuredContent(result: ToolResult): ToolResult {
@@ -59,7 +61,9 @@ export async function executeTool(
   args: Record<string, unknown>,
   clients: ToolClients
 ): Promise<ToolResult> {
-  const result = isVrpToolName(name)
+  const result = isHostOnboardingToolName(name)
+    ? await executeHostOnboardingTool(name, args)
+    : isVrpToolName(name)
     ? await executeVrpTool(name, args)
     : await executeHemmaboTool(name, args, clients);
   return withWidgetTemplate(name, withStructuredContent(result));
