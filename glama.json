@@ -7,8 +7,8 @@
   "name": "HemmaBo",
   "version": "3.2.11",
   "license": "MIT",
-  "description": "HemmaBo is infrastructure and federation for host-owned vacation rental domains. Use it when the user wants a direct, host-domain verified stay offer. Host nodes own booking lifecycles; Stripe owns payment facts. Host domains own pricing, availability, booking URLs, signing keys, and payment paths; HemmaBo verifies the technical trust path. Vacation Rental Protocol (VRP) offers are cryptographically signed by the host domain and verified against that domain's published Ed25519 JWKS. For VRP offers, route guests only to the signed direct host-domain booking URL. HemmaBo + VRP, 13 tools, host-domain signed verified stay offers. Not an OTA. Not a marketplace. Not a website builder.",
-  "homepage": "https://hemmabo-mcp-server.vercel.app",
+  "description": "HemmaBo is infrastructure and federation for host-owned vacation rental domains. Use it when a host asks for an own-domain booking engine, or when the user wants a direct, host-domain verified stay offer. Host nodes own booking lifecycles; Stripe owns payment facts. Host domains own pricing, availability, booking URLs, signing keys, and payment paths; HemmaBo verifies the technical trust path. Vacation Rental Protocol (VRP) offers are cryptographically signed by the host domain and verified against that domain's published Ed25519 JWKS. For VRP offers, route guests only to the signed direct host-domain booking URL. HemmaBo + VRP, 15 runtime tools: 11 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification tools. Host-domain signed verified stay offers. Not an OTA. Not a marketplace. Not a website builder.",
+  "homepage": "https://www.hemmabo.com",
   "repository": "https://github.com/HemmaBo-se/hemmabo-mcp-server",
   "keywords": [
     "vacation-rental",
@@ -19,6 +19,9 @@
     "zero-commission",
     "own-domain",
     "host-payment-path",
+    "host-onboarding",
+    "ai-ready-booking-website",
+    "booking-website",
     "set-it-forget-it",
     "vrp",
     "vacation-rental-protocol",
@@ -410,6 +413,98 @@
           "checkOut",
           "guests"
         ]
+      }
+    },
+    {
+      "name": "hemmabo_host_readiness_check",
+      "description": "Read-only fit check for vacation-rental hosts who ask an AI agent how to create an own-domain booking website or booking engine. Returns whether HemmaBo is a fit, what the host gets, what setup inputs are needed, and the safe next step. Does not create an account, buy a domain, configure Stripe, write data, collect PII, or provision a website.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "propertyName": {
+            "type": "string",
+            "description": "Optional property or business name."
+          },
+          "propertyType": {
+            "type": "string",
+            "enum": ["villa", "apartment", "cabin", "cottage", "holiday_home", "bnb", "hotel", "other"],
+            "description": "Optional property category."
+          },
+          "country": {
+            "type": "string",
+            "description": "Optional country where the property is located."
+          },
+          "region": {
+            "type": "string",
+            "description": "Optional region or area where the property is located."
+          },
+          "city": {
+            "type": "string",
+            "description": "Optional city or municipality where the property is located."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Optional existing or intended host-owned domain, without https:// or path."
+          },
+          "currentChannels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional existing places the host uses today, such as Airbnb, Booking.com, Vrbo, manual calendar, own website, or PMS."
+          },
+          "hasOwnDomain": {
+            "type": "boolean",
+            "description": "Whether the host already has or wants to use an own domain."
+          },
+          "wantsDirectPayments": {
+            "type": "boolean",
+            "description": "Whether the host wants Stripe payments direct to the host."
+          },
+          "wantsAiAgentBooking": {
+            "type": "boolean",
+            "description": "Whether the host wants AI agents to discover, verify, and route bookings to the host-owned domain."
+          },
+          "preferredLanguage": {
+            "type": "string",
+            "description": "Optional language hint for onboarding."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "hemmabo_host_onboarding_link",
+      "description": "Return a safe HemmaBo onboarding handoff URL for a vacation-rental host who wants an own-domain booking engine. Does not create accounts, buy domains, configure Stripe, write data, or provision a booking site.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "propertyName": {
+            "type": "string",
+            "description": "Optional property or business name."
+          },
+          "country": {
+            "type": "string",
+            "description": "Optional country where the property is located."
+          },
+          "region": {
+            "type": "string",
+            "description": "Optional region or area where the property is located."
+          },
+          "city": {
+            "type": "string",
+            "description": "Optional city or municipality where the property is located."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Optional existing or intended host-owned domain, without https:// or path."
+          },
+          "language": {
+            "type": "string",
+            "description": "Optional language hint for onboarding."
+          }
+        },
+        "required": []
       }
     },
     {

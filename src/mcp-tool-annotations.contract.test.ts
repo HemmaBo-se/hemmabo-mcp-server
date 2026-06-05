@@ -14,18 +14,20 @@ const EXPECTED: Record<string, { readOnlyHint: boolean; openWorldHint: boolean; 
   "hemmabo_booking_cancel":      { readOnlyHint: false, openWorldHint: true,  destructiveHint: true  },
   "hemmabo_booking_status":      { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
   "hemmabo_booking_reschedule":  { readOnlyHint: false, openWorldHint: true,  destructiveHint: true  },
+  "hemmabo_host_readiness_check": { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
+  "hemmabo_host_onboarding_link": { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
   "verify_vacation_rental_node": { readOnlyHint: true,  openWorldHint: true,  destructiveHint: false },
   "get_verified_stay_offer":     { readOnlyHint: true,  openWorldHint: true,  destructiveHint: false },
 };
 
 describe("mcp tool annotations contract", () => {
-  it("exposes exactly the 13 expected tools", () => {
+  it("exposes exactly the 15 expected tools", () => {
     const actualNames = TOOLS.map((t) => t.name).sort();
     const expectedNames = Object.keys(EXPECTED).sort();
     assert.deepEqual(
       actualNames,
       expectedNames,
-      "TOOLS array must contain exactly the 11 HemmaBo tools plus 2 VRP tools."
+      "TOOLS array must contain exactly the 11 HemmaBo federation tools plus 2 host onboarding tools plus 2 VRP tools."
     );
   });
 

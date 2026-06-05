@@ -67,6 +67,8 @@ describe("ChatGPT Apps verified stay widget", () => {
       "hemmabo_booking_cancel",
       "hemmabo_booking_status",
       "hemmabo_booking_reschedule",
+      "hemmabo_host_readiness_check",
+      "hemmabo_host_onboarding_link",
       "verify_vacation_rental_node",
     ];
 

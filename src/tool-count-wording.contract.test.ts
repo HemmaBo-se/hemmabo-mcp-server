@@ -5,6 +5,7 @@ import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { TOOL_SPECS as RUNTIME_TOOL_SPECS } from "../lib/tool-definitions.js";
 import { TOOL_SPECS as HEMMABO_TOOL_SPECS } from "../lib/tool-definitions-base.js";
+import { HOST_ONBOARDING_TOOL_NAMES } from "../lib/host-onboarding.js";
 import { VRP_TOOL_NAMES } from "../lib/vrp.js";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -67,11 +68,12 @@ function collectScanFiles(): string[] {
 describe("tool count wording contract", () => {
   it("runtime tool counts are explicit", () => {
     assert.equal(HEMMABO_TOOL_SPECS.length, 11, "HemmaBo federation tool count must stay explicit");
+    assert.equal(HOST_ONBOARDING_TOOL_NAMES.length, 2, "Host onboarding tool count must stay explicit");
     assert.equal(VRP_TOOL_NAMES.length, 2, "VRP verification tool count must stay explicit");
     assert.equal(
       RUNTIME_TOOL_SPECS.length,
-      HEMMABO_TOOL_SPECS.length + VRP_TOOL_NAMES.length,
-      "runtime tool count must equal 11 HemmaBo federation tools plus 2 VRP verification tools",
+      HEMMABO_TOOL_SPECS.length + HOST_ONBOARDING_TOOL_NAMES.length + VRP_TOOL_NAMES.length,
+      "runtime tool count must equal 11 HemmaBo federation tools plus 2 host onboarding tools plus 2 VRP verification tools",
     );
   });
 
@@ -94,7 +96,7 @@ describe("tool count wording contract", () => {
       [],
       [
         "Do not write 'all 11 tools/specs' for the runtime MCP surface.",
-        "Use '13 runtime tools: 11 HemmaBo federation tools plus 2 VRP verification tools'.",
+        "Use '15 runtime tools: 11 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification tools'.",
         "It is still OK to say '11 HemmaBo federation tools' when referring only to the booking/federation subset.",
       ].join(" "),
     );

@@ -21,7 +21,7 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import express from "express";
 import { z } from "zod";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { executeTool } from "../lib/tools.js";
+import { executeTool, isHostOnboardingToolName } from "../lib/tools.js";
 import { TOOL_SPECS, toZodShape } from "../lib/tool-definitions.js";
 import { SERVER_DESCRIPTION, SERVER_INSTRUCTIONS, SERVER_NAME, SERVER_VERSION } from "../lib/server-metadata.js";
 import { validateAuth } from "./auth.js";
@@ -208,6 +208,13 @@ const WRAP_ERROR_LABEL: Record<string, string> = {
 for (const spec of TOOL_SPECS) {
   const shape = toZodShape(spec.inputSchema);
   const handler = async (args: Record<string, unknown>) => {
+    if (isHostOnboardingToolName(spec.name)) {
+      return executeTool(spec.name, args, {
+        supabase: null as never,
+        reader: null as never,
+      });
+    }
+
     if (!supabase || !reader) {
       return {
         content: [{

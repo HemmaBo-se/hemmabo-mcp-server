@@ -12,7 +12,7 @@
 
 import type { VercelRequest, VercelResponse } from "./_types.js";
 import { createClient } from "@supabase/supabase-js";
-import { executeTool, normalizeToolName } from "../lib/tools.js";
+import { executeTool, isHostOnboardingToolName, normalizeToolName } from "../lib/tools.js";
 import { validateAuth } from "../src/auth.js";
 import { anonIdentifier, bearerIdentifier, checkRateLimit } from "../lib/rate-limit.js";
 import { registerToolSchemas, validateToolArgs } from "../lib/validate-args.js";
@@ -104,6 +104,27 @@ export const TOOLS = TOOL_SPECS.map((t) => {
 
 export const PROMPTS = [
   {
+    name: "host.start",
+    description: "Help a vacation-rental host evaluate HemmaBo and start an own-domain booking engine. Use the read-only host onboarding tools; do not provision accounts, buy domains, or configure Stripe inside chat.",
+    arguments: [
+      {
+        name: "propertyName",
+        description: "Optional property or business name, e.g. Villa Akerlyckan.",
+        required: false,
+      },
+      {
+        name: "country",
+        description: "Optional country where the property is located.",
+        required: false,
+      },
+      {
+        name: "domain",
+        description: "Optional existing or intended host-owned domain.",
+        required: false,
+      },
+    ],
+  },
+  {
     name: "trip.plan",
     description: "Help plan a vacation rental trip through host-domain discovery and verified offers. Search first, show a verified host-domain stay offer when possible, and route booking only to the signed direct host-domain URL.",
     arguments: [
@@ -173,6 +194,20 @@ export function readResource(
 }
 
 function getPromptMessages(name: string, args: Record<string, string>) {
+  if (name === "host.start") {
+    return {
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: `I am a vacation-rental host${args.propertyName ? ` for ${args.propertyName}` : ""}${args.country ? ` in ${args.country}` : ""}${args.domain ? ` with domain ${args.domain}` : ""}. Please evaluate whether HemmaBo is a fit for an own-domain booking engine with guest Wallet, Stripe Connect direct-to-host payments, calendar/iCal sync, 11-language guest chat, extend-stay/gap-night flows, reviews, and AI-agent-readable booking data. Call hemmabo_host_readiness_check first; if it fits, call hemmabo_host_onboarding_link. Do not claim you created an account, bought a domain, or configured Stripe.`,
+          },
+        },
+      ],
+    };
+  }
+
   if (name === "trip.plan") {
     return {
       messages: [
@@ -280,7 +315,7 @@ async function handleJsonRpc(
           };
         }
 
-        const result = isVrpToolName(toolName)
+        const result = isVrpToolName(toolName) || isHostOnboardingToolName(toolName)
           ? await executeTool(toolName, toolArgs, {
               supabase: null as never,
               reader: null as never,
@@ -367,6 +402,8 @@ export const ANON_TOOLS: ReadonlySet<string> = new Set([
   "hemmabo_search_similar",
   "hemmabo_compare_properties",
   "hemmabo_booking_quote",
+  "hemmabo_host_readiness_check",
+  "hemmabo_host_onboarding_link",
   "verify_vacation_rental_node",
   "get_verified_stay_offer",
   // Legacy dotted aliases (inbound compatibility — TOOL_NAME_ALIASES)

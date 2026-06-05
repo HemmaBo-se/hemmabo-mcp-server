@@ -35,13 +35,15 @@ function captureJson(handler: (req: any, res: any) => unknown): Promise<unknown>
 }
 
 describe("manifest per-tool auth contract", () => {
-  it("ANON_TOOLS contains the canonical 7 read-only tools", () => {
+  it("ANON_TOOLS contains the canonical 9 read-only tools", () => {
     for (const name of [
       "hemmabo_search_properties",
       "hemmabo_search_availability",
       "hemmabo_search_similar",
       "hemmabo_compare_properties",
       "hemmabo_booking_quote",
+      "hemmabo_host_readiness_check",
+      "hemmabo_host_onboarding_link",
       "verify_vacation_rental_node",
       "get_verified_stay_offer",
     ]) {
@@ -49,10 +51,10 @@ describe("manifest per-tool auth contract", () => {
     }
   });
 
-  it("/.well-known/mcp.json exposes auth for all 13 tools", async () => {
+  it("/.well-known/mcp.json exposes auth for all 15 tools", async () => {
     const body = (await captureJson(manifestHandler as never)) as { tools: Tool[] };
     assert.ok(Array.isArray(body.tools), "manifest must have tools[]");
-    assert.equal(body.tools.length, 13, "manifest must list all 13 tools");
+    assert.equal(body.tools.length, 15, "manifest must list all 15 tools");
 
     for (const t of body.tools) {
       assert.ok(t.auth === "none" || t.auth === "bearer", `tool ${t.name} must declare auth`);
@@ -75,9 +77,9 @@ describe("manifest per-tool auth contract", () => {
   it("server-card endpoint exposes non-stale registry metadata", async () => {
     const body = (await captureJson(serverCardHandler as never)) as ServerCard;
     assert.equal(body.serverInfo.name, "hemmabo-mcp-server");
-    assert.equal(body.serverInfo.title, "HemmaBo");
+    assert.equal(body.serverInfo.title, "HemmaBo Host Booking Engine");
     assert.equal(body.serverInfo.version, pkg.version);
-    assert.equal(body.serverInfo.homepage, "https://hemmabo.com");
+    assert.equal(body.serverInfo.homepage, "https://www.hemmabo.com");
     assert.equal(body.serverInfo.icon, "https://hemmabo-mcp-server.vercel.app/icon.png");
     assert.equal(body.serverInfo.iconUrl, "https://hemmabo-mcp-server.vercel.app/icon.png");
   });
