@@ -1,6 +1,6 @@
 {
   "name": "hemmabo-mcp-server",
-  "version": "3.2.11",
+  "version": "3.2.12",
   "mcpName": "com.hemmabo/hemmabo-mcp-server",
   "description": "HemmaBo is infrastructure and federation for host-owned vacation rental domains. Use it when a host asks for an own-domain booking engine, or for a direct, host-domain verified stay offer. Host nodes own booking lifecycles; Stripe owns payment facts. HemmaBo + VRP, 15 runtime tools: 11 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification tools. Host-domain signed verified stay offers. Supports UCP discovery and ACP (Stripe Agentic Commerce Protocol) checkout. The Vacation Rental Protocol (VRP) — an open standard with no central gatekeeper — was created by HemmaBo's founder & CEO, Rouaida Abbas. Not an OTA. Not a marketplace. Not a website builder.",
   "main": "dist/src/index.js",
