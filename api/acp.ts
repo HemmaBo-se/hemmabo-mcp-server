@@ -31,6 +31,7 @@ import {
   checkRateLimit,
 } from "../lib/rate-limit.js";
 import { toStripeMinorUnits } from "../src/stripe.js";
+import { verifyAp2CartMandate, resolveAp2IssuerJwks } from "../lib/ap2.js";
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -374,6 +375,47 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
 
   const amountCents = toStripeMinorUnits(booking.total_price);
   const currency = (booking.currency || "SEK").toLowerCase();
+
+  // ── AP2 (Agent Payments Protocol) — optional, additive ──────────────
+  // If the agent presents a signed AP2 Cart Mandate, verify it authorizes
+  // THIS charge (amount cap, currency, merchant, expiry) before paying.
+  // Absent → existing behavior. Present but invalid → reject (fail closed).
+  const ap2Raw = body.ap2_mandate ?? (paymentData as Record<string, unknown> | undefined)?.ap2_mandate;
+  const ap2Mandate = typeof ap2Raw === "string" && ap2Raw.length > 0 ? ap2Raw : null;
+  if (ap2Mandate) {
+    const merchantDomain = (booking.properties as { domain?: string } | null)?.domain ?? "";
+    const jwksInline =
+      body.ap2_issuer_jwks && typeof body.ap2_issuer_jwks === "object"
+        ? (body.ap2_issuer_jwks as Record<string, unknown>)
+        : null;
+    const jwksUri = typeof body.ap2_issuer_jwks_uri === "string" ? body.ap2_issuer_jwks_uri : null;
+    const issuerJwks = jwksInline ?? (jwksUri ? await resolveAp2IssuerJwks(jwksUri) : null);
+    if (!issuerJwks) {
+      return res.status(400).json({
+        error: "AP2 mandate present but issuer JWKS not resolvable",
+        hint: "Provide ap2_issuer_jwks (inline JWKS) or ap2_issuer_jwks_uri (https).",
+      });
+    }
+    let ap2Result;
+    try {
+      ap2Result = verifyAp2CartMandate(ap2Mandate, issuerJwks, {
+        amountMinor: amountCents,
+        currency,
+        merchantDomain,
+      });
+    } catch (e) {
+      return res.status(403).json({
+        error: "AP2 mandate signature verification failed",
+        detail: (e as Error).message,
+      });
+    }
+    if (!ap2Result.authorized) {
+      return res.status(403).json({
+        error: "AP2 mandate did not authorize this charge",
+        ap2_reason: ap2Result.reason,
+      });
+    }
+  }
 
   // Create PaymentIntent with SharedPaymentToken (SPT)
   const piBody = new URLSearchParams();
