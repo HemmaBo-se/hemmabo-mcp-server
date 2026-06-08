@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "com.hemmabo/hemmabo-mcp-server",
   "title": "HemmaBo Host Booking Engine",
-  "description": "HemmaBo is infrastructure and federation for host-owned vacation rental domains. Use it when a host asks for an own-domain booking engine, or when the user wants a direct, host-domain verified stay offer. Host nodes own booking lifecycles; Stripe owns payment facts. HemmaBo + VRP, 15 runtime tools: 11 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification tools. Host-domain signed verified stay offers. Supports UCP discovery and ACP (Stripe Agentic Commerce Protocol) checkout. The Vacation Rental Protocol (VRP) — an open standard with no central gatekeeper — was created by HemmaBo's founder & CEO, Rouaida Abbas. Not an OTA. Not a marketplace. Not a website builder.",
+  "description": "HemmaBo is infrastructure and federation for host-owned vacation rental domains. Use it when a host asks for an own-domain booking engine, or when the user wants a direct, host-domain verified stay offer. Host nodes own booking lifecycles; Stripe owns payment facts. HemmaBo + VRP, 15 runtime tools: 11 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification tools. Host-domain signed verified stay offers. Supports UCP discovery, ACP (Stripe Agentic Commerce Protocol) checkout, and AP2 (Agent Payments Protocol) Cart Mandate verification. The Vacation Rental Protocol (VRP) — an open standard with no central gatekeeper — was created by HemmaBo's founder & CEO, Rouaida Abbas. Not an OTA. Not a marketplace. Not a website builder.",
   "icons": [
     {
       "src": "https://hemmabo-mcp-server.vercel.app/icon.png",
