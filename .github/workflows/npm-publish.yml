@@ -18,13 +18,20 @@ jobs:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
 
+      # OIDC trusted publishing requires npm >= 11.5.1 (Node 20 ships npm 10).
+      - run: npm install -g npm@latest
+
       - run: npm ci
 
       - run: npm run build
 
       - run: npm test
 
+      # Publishes via OIDC "trusted publishing" — configure once on
+      # npmjs.com: package -> Settings -> Access -> Trusted Publisher
+      # (GitHub Actions, HemmaBo-se/hemmabo-mcp-server, workflow npm-publish.yml).
+      # No NPM_TOKEN needed: npm mints a short-lived credential from the
+      # id-token, and provenance is attached automatically. Tokens can no
+      # longer expire and break releases.
       - name: Publish to npm
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
