@@ -62,6 +62,117 @@
           "checkIn",
           "checkOut"
         ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "checkIn": {
+            "type": "string",
+            "description": "Echoed check-in date (YYYY-MM-DD)."
+          },
+          "checkOut": {
+            "type": "string",
+            "description": "Echoed check-out date (YYYY-MM-DD)."
+          },
+          "guests": {
+            "type": "integer",
+            "description": "Echoed guest count."
+          },
+          "properties": {
+            "type": "array",
+            "description": "Available properties matching the search criteria, with live host-source pricing.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "propertyId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "Stable UUID. Pass to subsequent tools (availability, quote, checkout)."
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Property display name."
+                },
+                "domain": {
+                  "type": "string",
+                  "description": "Host-owned domain for this property."
+                },
+                "region": {
+                  "type": "string",
+                  "description": "Region or area."
+                },
+                "city": {
+                  "type": "string",
+                  "description": "City or locality."
+                },
+                "country": {
+                  "type": "string",
+                  "description": "Country."
+                },
+                "maxGuests": {
+                  "type": "integer",
+                  "description": "Maximum guest capacity."
+                },
+                "propertyType": {
+                  "type": "string",
+                  "description": "Property type classification."
+                },
+                "currency": {
+                  "type": "string",
+                  "description": "ISO 4217 currency code (e.g. 'SEK', 'EUR')."
+                },
+                "nights": {
+                  "type": "integer",
+                  "description": "Number of nights between check-in and check-out."
+                },
+                "publicTotal": {
+                  "type": "integer",
+                  "description": "Standard website total for the date range, in minor currency units."
+                },
+                "federationTotal": {
+                  "type": "integer",
+                  "description": "Legacy field: direct host-source total, in minor currency units. Do not label this as a HemmaBo platform, federation, OTA, marketplace, comparison, discount, or savings price in user-facing copy."
+                },
+                "federationDiscountPercent": {
+                  "type": "integer",
+                  "description": "Legacy internal field. Do not present this as a guest-facing discount, savings, or comparison."
+                },
+                "directBookingTotal": {
+                  "type": "integer",
+                  "description": "Preferred field for user-facing copy: direct host-source total, in minor currency units."
+                },
+                "hostSourcePublicTotal": {
+                  "type": "integer",
+                  "description": "Preferred field for user-facing copy: public host-source total for the date range, in minor currency units."
+                },
+                "directBookingDiscountPercent": {
+                  "type": "integer",
+                  "description": "Legacy internal field. Do not present this as a guest-facing discount, savings, or comparison."
+                },
+                "packageApplied": {
+                  "type": "string",
+                  "description": "Package applied (e.g. week or two_weeks), if any."
+                },
+                "available": {
+                  "type": "boolean",
+                  "description": "Always true in search results because unavailable properties are filtered out."
+                }
+              },
+              "required": [
+                "propertyId",
+                "name",
+                "maxGuests",
+                "federationTotal"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "error": {
+            "type": "string",
+            "description": "Present only when isError=true."
+          }
+        },
+        "additionalProperties": true
       }
     },
     {
@@ -89,6 +200,68 @@
           "checkIn",
           "checkOut"
         ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "propertyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "checkIn": {
+            "type": "string"
+          },
+          "checkOut": {
+            "type": "string"
+          },
+          "available": {
+            "type": "boolean",
+            "description": "True if the property is bookable for the entire range."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Reason when available=false."
+          },
+          "alternativeDates": {
+            "type": "array",
+            "description": "Nearby same-month date windows to offer when the requested dates are unavailable.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "checkIn": {
+                  "type": "string"
+                },
+                "checkOut": {
+                  "type": "string"
+                },
+                "available": {
+                  "type": "boolean"
+                },
+                "currency": {
+                  "type": "string"
+                },
+                "publicTotal": {
+                  "type": "number"
+                },
+                "federationTotal": {
+                  "type": "number"
+                },
+                "federationDiscountPercent": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "error": {
+            "type": "string",
+            "description": "Present only when isError=true."
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -122,6 +295,82 @@
           "checkOut",
           "guests"
         ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "propertyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "checkIn": {
+            "type": "string"
+          },
+          "checkOut": {
+            "type": "string"
+          },
+          "guests": {
+            "type": "integer"
+          },
+          "nights": {
+            "type": "integer",
+            "description": "Number of nights in the range."
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code."
+          },
+          "publicTotal": {
+            "type": "integer",
+            "description": "Website rate total in minor currency units."
+          },
+          "federationTotal": {
+            "type": "integer",
+            "description": "Legacy field: direct host-source total. Prefer directBookingTotal in user-facing copy."
+          },
+          "directBookingTotal": {
+            "type": "integer",
+            "description": "Preferred user-facing field: direct host-source total."
+          },
+          "hostSourcePublicTotal": {
+            "type": "integer",
+            "description": "Preferred user-facing field: public host-source total."
+          },
+          "federationDiscountPercent": {
+            "type": "integer",
+            "description": "Legacy internal field. Do not present this as a guest-facing discount, savings, or comparison."
+          },
+          "directBookingDiscountPercent": {
+            "type": "integer",
+            "description": "Legacy internal field. Do not present this as a guest-facing discount, savings, or comparison."
+          },
+          "packageApplied": {
+            "type": "string",
+            "description": "Applied package, if any."
+          },
+          "gapNight": {
+            "type": "boolean",
+            "description": "True when the stay qualifies as a gap fill."
+          },
+          "gapTotal": {
+            "type": "integer",
+            "description": "Gap-night adjusted total when applicable; otherwise null."
+          },
+          "gapDiscountPercent": {
+            "type": "integer",
+            "description": "Gap-night discount percentage when applied."
+          },
+          "breakdown": {
+            "type": "object",
+            "description": "Detailed pricing breakdown.",
+            "additionalProperties": true
+          },
+          "error": {
+            "type": "string",
+            "description": "Present only when isError=true."
+          }
+        },
+        "additionalProperties": true
       }
     },
     {
@@ -170,6 +419,75 @@
           "guestName",
           "guestEmail"
         ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Persistent booking UUID. Use for status/cancel/reschedule."
+          },
+          "propertyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "checkIn": {
+            "type": "string"
+          },
+          "checkOut": {
+            "type": "string"
+          },
+          "nights": {
+            "type": "integer"
+          },
+          "guests": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "totalPrice": {
+            "type": "integer",
+            "description": "Final price written to the booking."
+          },
+          "priceType": {
+            "type": "string",
+            "description": "Pricing mode used (federation/gap_night/package_*)."
+          },
+          "packageApplied": {
+            "type": "string"
+          },
+          "federationDiscountPercent": {
+            "type": "integer"
+          },
+          "gapDiscountPercent": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "confirmed",
+              "cancelled",
+              "completed"
+            ],
+            "description": "Host-node booking status. 'completed' is a protocol compatibility output only, not a status this tool writes."
+          },
+          "error": {
+            "type": "string",
+            "description": "Present only when isError=true."
+          }
+        },
+        "required": [
+          "bookingId",
+          "status"
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -203,6 +521,74 @@
           "checkOut",
           "guests"
         ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "quoteId": {
+            "type": "string",
+            "description": "Snapshot ID. Pass to hemmabo_booking_checkout to lock this price."
+          },
+          "propertyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "checkIn": {
+            "type": "string"
+          },
+          "checkOut": {
+            "type": "string"
+          },
+          "guests": {
+            "type": "integer"
+          },
+          "nights": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "publicTotal": {
+            "type": "integer"
+          },
+          "federationTotal": {
+            "type": "integer"
+          },
+          "federationDiscountPercent": {
+            "type": "integer"
+          },
+          "breakdown": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "packageApplied": {
+            "type": "string"
+          },
+          "gapNight": {
+            "type": "boolean"
+          },
+          "gapTotal": {
+            "type": "integer"
+          },
+          "gapDiscountPercent": {
+            "type": "integer"
+          },
+          "validUntil": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Quote expiry (ISO 8601). Typically 15 minutes after creation."
+          },
+          "error": {
+            "type": "string",
+            "description": "Present only when isError=true."
+          }
+        },
+        "required": [
+          "quoteId",
+          "validUntil",
+          "federationTotal"
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -271,6 +657,74 @@
           "guestName",
           "guestEmail"
         ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "reservationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Booking UUID. Use for subsequent status/cancel/reschedule calls."
+          },
+          "propertyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "checkIn": {
+            "type": "string"
+          },
+          "checkOut": {
+            "type": "string"
+          },
+          "nights": {
+            "type": "integer"
+          },
+          "guests": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "totalPrice": {
+            "type": "integer",
+            "description": "Final total charged (or to be charged), in minor currency units."
+          },
+          "paymentUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Stripe Checkout redirect URL."
+          },
+          "payment_modes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Supported payment modes."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "mpp": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Present when paymentMode='payment_intent'."
+          },
+          "status": {
+            "type": "string",
+            "description": "Booking status (typically 'pending' until payment succeeds)."
+          },
+          "error": {
+            "type": "string",
+            "description": "Present only when isError=true."
+          }
+        },
+        "required": [
+          "reservationId",
+          "totalPrice",
+          "currency"
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -291,6 +745,36 @@
         "required": [
           "reservationId"
         ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "reservationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "cancelled"
+            ],
+            "description": "Final booking status after cancellation."
+          },
+          "refund": {
+            "type": "object",
+            "description": "Refund payload returned by cancel-booking edge function, when present.",
+            "additionalProperties": true
+          },
+          "error": {
+            "type": "string",
+            "description": "Present only when isError=true."
+          }
+        },
+        "required": [
+          "reservationId",
+          "status"
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -307,6 +791,91 @@
         "required": [
           "reservationId"
         ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "reservationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Echoed booking or reservation UUID."
+          },
+          "propertyId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Property UUID associated with the booking."
+          },
+          "propertyName": {
+            "type": "string",
+            "description": "Display name of the booked property."
+          },
+          "propertyDomain": {
+            "type": "string",
+            "description": "Host-owned domain associated with the property."
+          },
+          "checkIn": {
+            "type": "string",
+            "description": "Booked arrival date."
+          },
+          "checkOut": {
+            "type": "string",
+            "description": "Booked departure date."
+          },
+          "guests": {
+            "type": "integer",
+            "description": "Booked guest count."
+          },
+          "guestName": {
+            "type": "string",
+            "description": "Primary guest name stored on the booking."
+          },
+          "guestEmail": {
+            "type": "string",
+            "description": "Primary guest email stored on the booking."
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code for the booking total."
+          },
+          "totalPrice": {
+            "type": "integer",
+            "description": "Total amount in minor currency units."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "confirmed",
+              "cancelled",
+              "completed"
+            ],
+            "description": "Host-node booking status. 'completed' is a protocol compatibility output only, not the active lifecycle truth."
+          },
+          "cancellationPolicy": {
+            "type": "object",
+            "description": "Host cancellation-policy details applicable to this booking.",
+            "additionalProperties": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Booking creation timestamp."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp for the booking record."
+          },
+          "error": {
+            "type": "string",
+            "description": "Present only when isError=true."
+          }
+        },
+        "required": [
+          "reservationId",
+          "status"
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -337,6 +906,77 @@
           "newCheckIn",
           "newCheckOut"
         ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "reservationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "previousDates": {
+            "type": "object",
+            "properties": {
+              "checkIn": {
+                "type": "string"
+              },
+              "checkOut": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          "newDates": {
+            "type": "object",
+            "properties": {
+              "checkIn": {
+                "type": "string"
+              },
+              "checkOut": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          },
+          "pricing": {
+            "type": "object",
+            "properties": {
+              "previousPrice": {
+                "type": "integer"
+              },
+              "newPrice": {
+                "type": "integer"
+              },
+              "delta": {
+                "type": "integer"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "stripeAction": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          },
+          "reason": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "description": "Booking status after reschedule."
+          },
+          "error": {
+            "type": "string",
+            "description": "Present only when isError=true."
+          }
+        },
+        "required": [
+          "reservationId",
+          "status"
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -375,6 +1015,95 @@
           "checkIn",
           "checkOut"
         ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "sourcePropertyId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The property similar listings were found for."
+          },
+          "checkIn": {
+            "type": "string"
+          },
+          "checkOut": {
+            "type": "string"
+          },
+          "guests": {
+            "type": "integer",
+            "description": "Effective guest count used for matching and pricing."
+          },
+          "count": {
+            "type": "integer",
+            "description": "Number of similar properties returned."
+          },
+          "similarProperties": {
+            "type": "array",
+            "description": "Similar available properties (same region, same type, same/larger capacity), sorted by direct host-source total.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "propertyId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "domain": {
+                  "type": "string"
+                },
+                "region": {
+                  "type": "string"
+                },
+                "city": {
+                  "type": "string"
+                },
+                "country": {
+                  "type": "string"
+                },
+                "maxGuests": {
+                  "type": "integer"
+                },
+                "propertyType": {
+                  "type": "string"
+                },
+                "currency": {
+                  "type": "string"
+                },
+                "nights": {
+                  "type": "integer"
+                },
+                "publicTotal": {
+                  "type": "integer"
+                },
+                "federationTotal": {
+                  "type": "integer"
+                },
+                "federationDiscountPercent": {
+                  "type": "integer"
+                },
+                "packageApplied": {
+                  "type": "string"
+                },
+                "available": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "propertyId",
+                "federationTotal"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "error": {
+            "type": "string",
+            "description": "Present only when isError=true."
+          }
+        },
+        "additionalProperties": true
       }
     },
     {
@@ -413,6 +1142,102 @@
           "checkOut",
           "guests"
         ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "checkIn": {
+            "type": "string"
+          },
+          "checkOut": {
+            "type": "string"
+          },
+          "guests": {
+            "type": "integer"
+          },
+          "count": {
+            "type": "integer",
+            "description": "Number of compared properties returned."
+          },
+          "comparison": {
+            "type": "array",
+            "description": "One entry per requested propertyId, sorted by direct host-source total (cheapest first), unavailable last.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "propertyId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "domain": {
+                  "type": "string"
+                },
+                "region": {
+                  "type": "string"
+                },
+                "city": {
+                  "type": "string"
+                },
+                "country": {
+                  "type": "string"
+                },
+                "maxGuests": {
+                  "type": "integer"
+                },
+                "propertyType": {
+                  "type": "string"
+                },
+                "available": {
+                  "type": "boolean"
+                },
+                "currency": {
+                  "type": "string"
+                },
+                "nights": {
+                  "type": "integer"
+                },
+                "publicTotal": {
+                  "type": "integer",
+                  "description": "Standard website total. Absent if unavailable."
+                },
+                "federationTotal": {
+                  "type": "integer",
+                  "description": "Legacy field: direct host-source total. Absent if unavailable."
+                },
+                "gapTotal": {
+                  "type": "integer"
+                },
+                "federationDiscountPercent": {
+                  "type": "integer"
+                },
+                "packageApplied": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "object",
+                  "description": "Availability reason object when unavailable."
+                },
+                "error": {
+                  "type": "string",
+                  "description": "Error detail for this property when present."
+                }
+              },
+              "required": [
+                "propertyId",
+                "available"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "error": {
+            "type": "string",
+            "description": "Present only when isError=true."
+          }
+        },
+        "additionalProperties": true
       }
     },
     {
@@ -427,7 +1252,16 @@
           },
           "propertyType": {
             "type": "string",
-            "enum": ["villa", "apartment", "cabin", "cottage", "holiday_home", "bnb", "hotel", "other"],
+            "enum": [
+              "villa",
+              "apartment",
+              "cabin",
+              "cottage",
+              "holiday_home",
+              "bnb",
+              "hotel",
+              "other"
+            ],
             "description": "Optional property category."
           },
           "country": {
@@ -471,6 +1305,55 @@
           }
         },
         "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "product": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "HemmaBo product, pricing, onboarding URL, and live proof URLs."
+          },
+          "readiness": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Fit summary and boundaries for the host's described need."
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Host-facing capabilities included in HemmaBo."
+          },
+          "setup_items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Inputs the host should prepare before onboarding."
+          },
+          "next_step": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Safe handoff action for the host."
+          },
+          "agent_instruction": {
+            "type": "string",
+            "description": "How an AI agent should describe HemmaBo without overclaiming."
+          }
+        },
+        "required": [
+          "ok",
+          "product",
+          "capabilities",
+          "setup_items",
+          "next_step"
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -505,6 +1388,50 @@
           }
         },
         "required": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "product": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "HemmaBo product, pricing, onboarding URL, and live proof URLs."
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Host-facing capabilities included in HemmaBo."
+          },
+          "setup_items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Inputs the host should prepare before onboarding."
+          },
+          "next_step": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Safe handoff action for the host."
+          },
+          "privacy_note": {
+            "type": "string",
+            "description": "Clarifies that the call is read-only and does not store host data."
+          }
+        },
+        "required": [
+          "ok",
+          "product",
+          "capabilities",
+          "setup_items",
+          "next_step"
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -522,6 +1449,56 @@
         "required": [
           "domain"
         ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "Echoed canonical host domain that was checked."
+          },
+          "verified": {
+            "type": "boolean",
+            "description": "True only when discovery, JWKS, signing metadata, and verified-offer endpoint checks pass."
+          },
+          "protocol": {
+            "type": "string",
+            "description": "Protocol identifier discovered on the host domain, typically 'vrp'."
+          },
+          "protocol_version": {
+            "type": "string",
+            "description": "VRP version declared by the host discovery document."
+          },
+          "discovery_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "The .well-known vacation-rental discovery URL read from the host domain."
+          },
+          "jwks_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Host-domain JWKS URL containing the Ed25519 public keys used to verify signed offers."
+          },
+          "verified_stay_offer_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Host-domain endpoint template or URL used to request signed verified stay offers."
+          },
+          "signing": {
+            "type": "object",
+            "description": "Summary of accepted signing algorithms, key ids, and signing-key checks.",
+            "additionalProperties": true
+          },
+          "error": {
+            "type": "string",
+            "description": "Present when verified=false or the node cannot be checked."
+          }
+        },
+        "required": [
+          "domain",
+          "verified"
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -559,6 +1536,72 @@
           "check_out",
           "guests"
         ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "Echoed host domain that issued the signed offer."
+          },
+          "check_in": {
+            "type": "string",
+            "description": "Echoed requested arrival date."
+          },
+          "check_out": {
+            "type": "string",
+            "description": "Echoed requested departure date."
+          },
+          "guests": {
+            "type": "integer",
+            "description": "Echoed requested guest count."
+          },
+          "verified": {
+            "type": "boolean",
+            "description": "True only when the host-domain offer signature and payload checks pass."
+          },
+          "signature": {
+            "type": "object",
+            "description": "Ed25519/JWS verification details, including key id and verification status.",
+            "additionalProperties": true
+          },
+          "payload_matches_offer": {
+            "type": "boolean",
+            "description": "True when the signed payload matches the structured offer returned to the agent."
+          },
+          "fresh": {
+            "type": "boolean",
+            "description": "True when the signed offer is still within its validity/freshness window."
+          },
+          "agent_citation": {
+            "type": "object",
+            "description": "Citation permission and safe-to-quote status derived from the signed offer.",
+            "additionalProperties": true
+          },
+          "official_offer_summary": {
+            "type": "object",
+            "description": "Small signed-offer summary for agents to quote without inventing price, availability, discounts, savings, comparisons, or booking details.",
+            "additionalProperties": true
+          },
+          "widget_media": {
+            "type": "object",
+            "description": "Images and media hydrated from the verified host discovery document for the ChatGPT widget.",
+            "additionalProperties": true
+          },
+          "agent_guardrails": {
+            "type": "object",
+            "description": "Rules the agent must follow when presenting or acting on this offer.",
+            "additionalProperties": true
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "verified"
+        ],
+        "additionalProperties": true
       }
     }
   ]
