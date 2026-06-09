@@ -20,6 +20,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveQuote } from "./pricing.js";
 import { checkAvailability } from "./availability.js";
 import {
+  checkIcalImportFreshness,
+  calendarFreshnessUnavailablePayload,
+} from "./ical-freshness.js";
+import {
   createCheckoutSession,
   retrievePaymentIntent,
   createRefund,
@@ -118,9 +122,30 @@ export function validateRequiredArgs(
   return `Missing required argument(s): ${missing.join(", ")}`;
 }
 
-/** Wraps an error message in the standard MCP tool-error envelope. */
+/** Wrap tool errors in the standard MCP tool-error envelope. */
 function toolError(message: string): ToolResult {
   return { content: [{ type: "text", text: JSON.stringify({ error: message }) }], isError: true };
+}
+
+async function calendarFreshnessToolBlock(
+  supabase: SupabaseClient,
+  propertyId: string,
+  checkIn: string,
+  checkOut: string,
+): Promise<ToolResult | null> {
+  const calendarFreshness = await checkIcalImportFreshness(supabase, propertyId, new Date());
+  if (calendarFreshness.safe) return null;
+  return {
+    content: [{
+      type: "text",
+      text: JSON.stringify(
+        calendarFreshnessUnavailablePayload(propertyId, checkIn, checkOut, calendarFreshness),
+        null,
+        2,
+      ),
+    }],
+    isError: true,
+  };
 }
 
 type SearchPropertyRow = {
@@ -696,6 +721,10 @@ export async function executeTool(
           }],
         };
       }
+      {
+        const calendarBlock = await calendarFreshnessToolBlock(supabase, propertyId, checkIn, checkOut);
+        if (calendarBlock) return calendarBlock;
+      }
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     }
 
@@ -876,6 +905,11 @@ export async function executeTool(
       // MCP-06: use service-role client so bookings table is visible to availability/gap checks
       const avail = await checkAvailability(supabase, propertyId, checkIn, checkOut);
       if (!avail.available) return { content: [{ type: "text", text: JSON.stringify({ error: "Not available", ...avail }) }], isError: true };
+
+      {
+        const calendarBlock = await calendarFreshnessToolBlock(supabase, propertyId, checkIn, checkOut);
+        if (calendarBlock) return calendarBlock;
+      }
 
       // Acquire a short-term booking lock to close the TOCTOU window between
       // the availability check above and the insert below.
