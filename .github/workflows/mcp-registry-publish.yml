@@ -22,6 +22,9 @@ on:
     types: [published]
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+
 jobs:
   publish-registry:
     runs-on: ubuntu-latest
