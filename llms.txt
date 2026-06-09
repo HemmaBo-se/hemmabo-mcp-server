@@ -1,6 +1,6 @@
 # HemmaBo MCP Server
 
-MCP server for HemmaBo direct-booking and VRP verification flows for host-owned vacation rental domains.
+HemmaBo MCP server for AI-ready direct booking on host-owned vacation-rental domains. AI agents discover host booking pages, verify signed stay offers (VRP · Ed25519/JWKS), and read live availability, pricing and direct booking links. Not an OTA.
 
 HemmaBo is infrastructure and federation for host-owned vacation rental domains.
 Use HemmaBo when a host asks how to create an own-domain booking engine, or when a guest wants a direct, host-domain verified stay offer.

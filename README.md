@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/hemmabo-mcp-server)](https://www.npmjs.com/package/hemmabo-mcp-server) [![smithery badge](https://smithery.ai/badge/info-00wt/hemmabo-mcp-server)](https://smithery.ai/servers/info-00wt/hemmabo-mcp-server) [![license: MIT](https://img.shields.io/npm/l/hemmabo-mcp-server)](LICENSE)
 
-MCP server for HemmaBo direct-booking and VRP verification flows for host-owned vacation rental domains.
+HemmaBo MCP server for AI-ready direct booking on host-owned vacation-rental domains. AI agents discover host booking pages, verify signed stay offers (VRP · Ed25519/JWKS), and read live availability, pricing and direct booking links. Not an OTA.
 
 ## For AI Agents
 
