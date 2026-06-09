@@ -1,0 +1,74 @@
+name: Publish to MCP Registry
+
+# Publishes server.json to the official MCP Registry
+# (registry.modelcontextprotocol.io) so the canonical agent-discovery entry
+# for com.hemmabo/hemmabo-mcp-server never goes stale. server.json is the
+# single source of truth — version/remote/description come from it.
+#
+# Runs on every GitHub Release (fires alongside npm-publish.yml) AND on
+# manual dispatch (use that to sync the CURRENT server.json right now without
+# cutting a new release).
+#
+# AUTH: com.hemmabo is a DOMAIN namespace, so it authenticates via DNS — NOT
+# GitHub OIDC (OIDC only authorizes io.github.* names and would create a
+# duplicate listing). One-time setup (see PR description):
+#   1. Generate an Ed25519 key; publish its public half as a DNS TXT record
+#      on hemmabo.com:   v=MCPv1; k=ed25519; p=<base64-public-key>
+#   2. Store the hex private key as the repo secret MCP_REGISTRY_DNS_KEY.
+# Until that secret exists, this workflow skips cleanly (green, with a notice).
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  publish-registry:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check auth secret is configured
+        id: auth
+        env:
+          KEY: ${{ secrets.MCP_REGISTRY_DNS_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::MCP_REGISTRY_DNS_KEY not set — skipping MCP Registry publish. See workflow header for the one-time DNS setup."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.auth.outputs.ready == 'true'
+        uses: actions/checkout@v6
+
+      - name: Install mcp-publisher
+        if: steps.auth.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          url=$(curl -fsSL https://api.github.com/repos/modelcontextprotocol/registry/releases/latest \
+            | grep -oE '"browser_download_url": *"[^"]*mcp-publisher[^"]*(linux|Linux)[^"]*(amd64|x86_64)[^"]*\.tar\.gz"' \
+            | grep -oE 'https://[^"]+' | head -n1)
+          test -n "$url" || { echo "No linux mcp-publisher asset on latest release — see https://github.com/modelcontextprotocol/registry/releases" >&2; exit 1; }
+          echo "Downloading $url"
+          curl -fsSL "$url" -o mcp-publisher.tgz
+          tar -xzf mcp-publisher.tgz
+          bin=$(find . -maxdepth 3 -type f -name mcp-publisher | head -n1)
+          test -n "$bin" || { echo "mcp-publisher binary not found in archive" >&2; exit 1; }
+          chmod +x "$bin"
+          echo "MCP_PUBLISHER=$bin" >> "$GITHUB_ENV"
+
+      - name: Authenticate (DNS, com.hemmabo)
+        if: steps.auth.outputs.ready == 'true'
+        env:
+          MCP_REGISTRY_DNS_KEY: ${{ secrets.MCP_REGISTRY_DNS_KEY }}
+        run: |
+          "$MCP_PUBLISHER" login dns --domain hemmabo.com --private-key "$MCP_REGISTRY_DNS_KEY"
+
+      - name: Publish server.json to the MCP Registry
+        if: steps.auth.outputs.ready == 'true'
+        run: |
+          "$MCP_PUBLISHER" publish
