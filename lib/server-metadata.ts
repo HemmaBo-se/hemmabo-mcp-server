@@ -1,6 +1,6 @@
-import { createRequire } from "node:module";
+import { readPackageJson } from "./read-package-json.js";
 
-const pkg = createRequire(import.meta.url)("../package.json") as { version: string };
+const pkg = readPackageJson();
 
 export const SERVER_NAME = "hemmabo-mcp-server";
 

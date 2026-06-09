@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from "./_types.js";
-import { createRequire } from "node:module";
 import { ANON_TOOLS, PROMPTS, RESOURCES, SERVER_DESCRIPTION, SERVER_INSTRUCTIONS, TOOLS } from "./mcp.js";
 import { baseUrl } from "../lib/base-url.js";
+import { readPackageJson } from "../lib/read-package-json.js";
 
-const pkg = createRequire(import.meta.url)("../package.json") as { version: string };
+const pkg = readPackageJson();
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   // Annotate each tool with its runtime auth requirement so registries

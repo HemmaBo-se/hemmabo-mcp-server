@@ -1,13 +1,10 @@
 import type { VercelRequest, VercelResponse } from "./_types.js";
-import { createRequire } from "module";
 import { ANON_TOOLS } from "./mcp.js";
 import { baseUrl } from "../lib/base-url.js";
+import { readPackageJson } from "../lib/read-package-json.js";
 import { TOOL_NAMES } from "../lib/tool-definitions.js";
 
-// Read package.json at module load — single source of truth for `version`.
-// createRequire works under Node16 ESM where JSON import attributes are not
-// available; the file is bundled by Vercel into the function deployment.
-const pkg = createRequire(import.meta.url)("../package.json") as { version: string };
+const pkg = readPackageJson();
 
 /**
  * Resolve a tool's authentication requirement from the runtime allowlist.
