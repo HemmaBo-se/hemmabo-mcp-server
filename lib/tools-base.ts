@@ -170,6 +170,23 @@ const LOCATION_ALIASES: Record<string, readonly string[]> = {
   "southern sweden": ["skane", "skane lan"],
   "south sweden": ["skane", "skane lan"],
   "sodra sverige": ["skane", "skane lan"],
+  // ── Multilingual region aliases ──────────────────────────────────────────
+  // So a German/Danish/French guest finds the same node as a Swedish one.
+  // Extend per region: add localized names as keys pointing at the canonical
+  // normalized region. Diacritics are already folded by normalizeLocationTerm
+  // (ö→o, å→a, ü→u, ø→o), so "Schönen"→"schonen", "Südschweden"→"sudschweden".
+  scania: ["skane", "skane lan"], // English / Latin
+  scanie: ["skane", "skane lan"], // French
+  skaane: ["skane", "skane lan"], // alt spelling
+  schonen: ["skane", "skane lan"], // German (Schonen / Schönen)
+  sudschweden: ["skane", "skane lan"], // German (Südschweden)
+  sydsverige: ["skane", "skane lan"], // Danish / Norwegian
+  // Country aliases (international guests searching by country name)
+  schweden: ["sweden", "sverige"], // German
+  suede: ["sweden", "sverige"], // French (Suède)
+  zweden: ["sweden", "sverige"], // Dutch
+  svezia: ["sweden", "sverige"], // Italian
+  suecia: ["sweden", "sverige"], // Spanish
   kavlinge: [],
 };
 
