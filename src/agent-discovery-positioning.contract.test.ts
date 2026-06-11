@@ -57,7 +57,6 @@ const TEXT_SURFACES: Record<string, string> = {
   "project.faf": read("project.faf"),
   "lib/server-metadata.ts": `${SERVER_DESCRIPTION}\n${SERVER_INSTRUCTIONS}`,
   "glama.json description": JSON.parse(read("glama.json")).description,
-  "server.json description": JSON.parse(read("server.json")).description,
   "package.json description": JSON.parse(read("package.json")).description,
   "smithery.yaml": read("smithery.yaml"),
 };
@@ -88,6 +87,25 @@ describe("agent discovery positioning contract", () => {
       }
     });
   }
+
+  it("server.json description fits the MCP Registry 100-char cap and keeps core positioning", () => {
+    // The MCP Registry rejects server.json descriptions longer than 100 chars
+    // (HTTP 422 expected length <= 100). The full positioning still lives on
+    // every other surface above and in the runtime manifest below; the registry
+    // blurb keeps the cardinal cues (host-owned, VRP, Not an OTA).
+    const description = JSON.parse(read("server.json")).description as string;
+    assert.ok(
+      description.length <= 100,
+      `server.json description must be <= 100 chars for the MCP Registry (got ${description.length})`,
+    );
+    const text = lower(description);
+    for (const phrase of ["host-owned", "vrp", "not an ota"]) {
+      assert.ok(
+        text.includes(phrase),
+        `server.json description must keep core positioning phrase: ${phrase}`,
+      );
+    }
+  });
 
   it("README and llms.txt tell agents when an offer may be quoted as official", () => {
     for (const file of ["README.md", "llms.txt"]) {
