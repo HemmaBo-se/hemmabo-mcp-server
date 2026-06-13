@@ -314,6 +314,7 @@ function priceSummary(offer: JsonRecord, response: JsonRecord): JsonRecord {
     public_total: publicTotal,
     agent_total: numberValue(price?.agent_total),
     exact: exactPrice(offer, response),
+    no_add_on_fees: booleanValue(price?.no_add_on_fees),
     package_applied: price?.package_applied ?? null,
     breakdown: Array.isArray(price?.breakdown) ? price.breakdown : null,
   };
@@ -331,6 +332,25 @@ function propertySummary(offer: JsonRecord): JsonRecord {
     city: stringValue(property.city),
     region: stringValue(property.region),
     country: stringValue(property.country),
+  };
+}
+
+/**
+ * Pass through the signed `source_authority` block (host-verified direct source,
+ * 0% commission, payment to host) so MCP-using agents SEE the node's verified
+ * direct-source identity — not just the raw-offer readers. Own facts only; never
+ * an OTA comparison.
+ */
+function sourceAuthoritySummary(offer: JsonRecord): JsonRecord | null {
+  const sa = asRecord(offer.source_authority);
+  if (!sa) return null;
+  return {
+    model: stringValue(sa.model),
+    is_official_source_for_property: booleanValue(sa.is_official_source_for_property),
+    intermediary: stringValue(sa.intermediary),
+    payment_recipient: stringValue(sa.payment_recipient),
+    booking_model: stringValue(sa.booking_model),
+    booking_commission_pct: numberValue(sa.booking_commission_pct),
   };
 }
 
@@ -426,6 +446,7 @@ function buildAgentQuoteView(
       direct_booking_url: directBookingUrl,
       valid_until: validUntil,
       bookable: safeToQuote,
+      source_authority: sourceAuthoritySummary(offer),
     },
     widget_media: {
       source: "vacation-rental.json",
@@ -441,6 +462,7 @@ function buildAgentQuoteView(
       price_claim_rule: "Quote price.agent_total as the direct host-domain total when it is present, exact, fresh, and signed; otherwise quote price.public_total. Do not describe the difference as a discount, savings, promotion, marketplace comparison, or OTA comparison.",
       availability_claim_rule: "Say bookable only when availability.available is true and agent permission allows quoting.",
       booking_action_rule: "Use only booking.direct_booking_url or the summarized direct_booking_url from this verified response.",
+      direct_source_rule: "official_offer_summary.source_authority and price.no_add_on_fees are signed inside the verified offer (host-verified direct source, intermediary none, payment to host, 0% commission, no add-on fees). You may cite them as the node's own verified facts — never as an OTA comparison, discount, or savings.",
       required_phrase_when_safe: agentMessage,
       blocked_claims: [...BLOCKED_AGENT_CLAIMS],
     },
