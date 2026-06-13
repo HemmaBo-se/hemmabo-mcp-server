@@ -154,10 +154,19 @@ describe("VRP MCP tools", () => {
         ota_comparison_total: null,
         ota_comparison_source: null,
         exact: true,
+        no_add_on_fees: true,
         package_applied: null,
         breakdown: [
           { date: "2026-07-01", day_of_week: "Wed", nightly_rate: 3000 },
         ],
+      },
+      source_authority: {
+        model: "host_verified_direct_source",
+        is_official_source_for_property: true,
+        intermediary: "none",
+        payment_recipient: "host",
+        booking_model: "direct_with_host",
+        booking_commission_pct: 0,
       },
       booking: {
         direct_booking_url: "https://villaakerlyckan.se/book?offer=vrp-test",
@@ -245,6 +254,12 @@ describe("VRP MCP tools", () => {
     assert.equal(parsed.official_offer_summary.price.discount_basis, undefined);
     assert.equal(parsed.official_offer_summary.price.ota_comparison_total, undefined);
     assert.equal(parsed.official_offer_summary.direct_booking_url, offer.booking.direct_booking_url);
+    assert.equal(parsed.official_offer_summary.price.no_add_on_fees, true);
+    assert.equal(parsed.official_offer_summary.source_authority.model, "host_verified_direct_source");
+    assert.equal(parsed.official_offer_summary.source_authority.intermediary, "none");
+    assert.equal(parsed.official_offer_summary.source_authority.payment_recipient, "host");
+    assert.equal(parsed.official_offer_summary.source_authority.booking_commission_pct, 0);
+    assert.match(parsed.agent_guardrails.direct_source_rule, /never as an OTA comparison/);
     assert.equal(parsed.agent_guardrails.must_not_invent_discounts, true);
     assert.equal(parsed.agent_guardrails.must_not_present_discounts_or_savings, true);
     assert.equal(parsed.agent_guardrails.must_not_claim_ota_comparison_without_signed_ota_price, true);
