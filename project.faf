@@ -2,7 +2,7 @@ faf_version: "3.0"
 
 project:
   name: "hemmabo-mcp-server"
-  version: "3.2.14"
+  version: "3.2.15"
   tagline: "Infrastructure and federation for host-owned vacation rental nodes."
   website: "https://hemmabo-mcp-server.vercel.app"
   repo: "https://github.com/HemmaBo-se/hemmabo-mcp-server"

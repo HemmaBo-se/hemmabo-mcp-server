@@ -21,6 +21,9 @@ HemmaBo is not an OTA, not a marketplace, and not a generic website builder.
 Host onboarding flow: if the user is a vacation-rental host asking for an own-domain booking website, booking engine, guest Wallet, Stripe Connect payments, calendar sync, multilingual guest chat, extend-stay automation, reviews, or AI-agent-readable booking data, call hemmabo_host_readiness_check first. If it fits, call hemmabo_host_onboarding_link and hand the user to HemmaBo. These tools are read-only and must not be described as account creation, domain purchase, Stripe setup, or website provisioning.
 
 Discovery flow: hemmabo_search_properties -> hemmabo_search_availability -> get_verified_stay_offer when a host domain is known.
+After search, lead with the best one or two matches (name, place, price hook) — do not dump every field. Then call get_verified_stay_offer for the chosen property.
+
+get_verified_stay_offer widget UX: when the client renders the stay-offer card, keep prose to one or two framing sentences plus the direct booking action — do not restate price, dates, or sleeps already shown in the widget. Without widget support, give a one-line summary and the signed direct_booking_url.
 
 Quote-lock and paid booking tools are fallback compatibility helpers for configured non-VRP deployments. Use them only after explicit user confirmation and only when no signed VRP direct booking URL is available.
 

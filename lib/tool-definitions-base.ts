@@ -152,47 +152,61 @@ const F = {
     type: "string" as const,
     pattern: DATE_PATTERN,
     description:
-      "Arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-15'). Must be today or later.",
+      "Arrival date in ISO 8601 calendar format YYYY-MM-DD (e.g. '2026-07-15'). Must be today or later in the property's timezone. Must be strictly before checkOut; together they define the stay length used for pricing and availability.",
   },
   checkOut: {
     type: "string" as const,
     pattern: DATE_PATTERN,
     description:
-      "Departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-22'). Must be after checkIn.",
+      "Departure date in ISO 8601 calendar format YYYY-MM-DD (e.g. '2026-07-22'). Must be strictly after checkIn on the same calendar. The guest does not stay the departure night.",
   },
   guests: {
     type: "integer" as const,
     minimum: 1,
     description:
-      "Total number of guests as integer >= 1 (e.g. 4). Determines which price tier is applied (staircase pricing by guest count).",
+      "Total guest count as a positive integer (e.g. 2, 4, 6). Used for capacity filtering and staircase pricing tiers. Properties with maxGuests below this value are excluded from search results.",
   },
   propertyId: {
     type: "string" as const,
     format: "uuid",
     description:
-      "Stable property UUID returned by hemmabo_search_properties. Use the exact UUID, not the property name, domain, or booking URL.",
+      "Stable property UUID from hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000'). Pass the exact UUID string — never a property name, host domain, or booking URL.",
   },
   reservationId: {
     type: "string" as const,
+    format: "uuid",
     description:
-      "Booking or reservation UUID returned by hemmabo_booking_checkout or hemmabo_booking_create. Use this exact id for status, cancellation, or rescheduling.",
+      "Booking or reservation UUID from hemmabo_booking_checkout or hemmabo_booking_create (e.g. '7c9e6679-7425-40de-944b-e07fc1f90ae7'). Required to look up, cancel, or reschedule the same booking record.",
   },
   guestName: {
     type: "string" as const,
-    description: "Full name of primary guest (e.g. 'Anna Svensson').",
+    description:
+      "Primary guest full name as plain text (e.g. 'Anna Svensson'). Stored on the booking for host confirmation; use the name the guest provided.",
   },
   guestEmail: {
     type: "string" as const,
     format: "email",
     description:
-      "Email for booking confirmation (e.g. 'anna@example.com'). Must be a valid email address.",
+      "Primary guest email in RFC 5322 format (e.g. 'anna@example.com'). Used for booking confirmation and host contact; must be deliverable.",
   },
   guestPhone: {
     type: "string" as const,
     description:
-      "Phone with country code (e.g. '+46701234567'). Optional but recommended for check-in coordination.",
+      "Primary guest phone in E.164 format with country code (e.g. '+46701234567'). Optional; omit when unknown. Recommended for check-in coordination.",
   },
 } satisfies Record<string, JsonSchemaField>;
+
+const REGION = {
+  type: "string" as const,
+  description:
+    "Region, area, or destination to search within (e.g. 'Skåne', 'Kävlinge', 'Toscana', 'Bavaria'). Partial case-insensitive match. Provide at least one of region or country; omit only when country alone is sufficient.",
+} satisfies JsonSchemaField;
+
+const COUNTRY = {
+  type: "string" as const,
+  description:
+    "Country name to filter by (e.g. 'Sweden', 'Italy', 'Morocco'). Partial case-insensitive match. Provide at least one of region or country; omit when region already narrows the destination.",
+} satisfies JsonSchemaField;
 
 // ── Property output object (shared between search tools) ─────────
 
@@ -228,13 +242,13 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_search_properties",
     description:
-      "Search available vacation rental properties by location and travel dates. Use this tool when the user wants to find or browse places to stay. If a result has a host domain, call get_verified_stay_offer with that domain and the same dates and guest count before the final answer so the client can render the verified stay offer widget; search results are discovery only, so never quote a final price or a booking link straight from search. Chat response: lead with the best one or two matches, not the whole list. Give each a single-line hook (name, place, nightly or total, and what stands out) so the guest can choose, and do not dump every field per property; then offer the obvious next step, which is to pull up the verified offer for the one they like. Do NOT use this tool if the user already has a specific propertyId or host domain; use hemmabo_search_availability, hemmabo_booking_quote, or get_verified_stay_offer instead. Returns available properties with propertyId, host domain, live availability, final host-source pricing, and capacity info. Do not present discounts or savings in guest-facing copy. If the guest wants to book after a verified offer, route only to the signed direct host-domain booking URL; do not collect contact details or start checkout in chat.",
+      "Search available vacation rental properties by location and travel dates. Use when the user wants to find or browse places to stay. Discovery only — call get_verified_stay_offer with the host domain and same dates before the final answer so the client can render the verified stay offer widget; never quote a final price or booking link from search alone. Do NOT use when the user already has a propertyId or host domain. Returns propertyId, host domain, live availability, host-source pricing, and capacity.",
     inputSchema: {
       type: "object",
       properties: {
-        region: { type: "string", description: "Region, area, or destination name to search within. Partial match (e.g. 'Skane', 'Toscana', 'Bavaria'). At least one of region or country should be provided." },
-        country: { type: "string", description: "Country name to filter by (e.g. 'Sweden', 'Italy'). Partial match. At least one of region or country should be provided; omit only when the user has given a specific region." },
-        guests: { ...F.guests, description: "Total number of guests as integer >= 1 (e.g. 4). Determines price tier and filters out properties with insufficient capacity." },
+        region: REGION,
+        country: COUNTRY,
+        guests: F.guests,
         checkIn: F.checkIn,
         checkOut: F.checkOut,
       },
@@ -271,10 +285,14 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
     inputSchema: {
       type: "object",
       properties: {
-        propertyId: { ...F.propertyId, description: "Property UUID returned by hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000')." },
+        propertyId: F.propertyId,
         checkIn: F.checkIn,
         checkOut: F.checkOut,
-        guests: { ...F.guests, description: "Optional guest count. When provided, alternative date windows include live pricing." },
+        guests: {
+          ...F.guests,
+          description:
+            "Optional guest count (e.g. 4). Omit when only checking date availability without pricing. When provided, alternative date windows in the response include live host-source totals for that guest count.",
+        },
       },
       required: ["propertyId", "checkIn", "checkOut"],
       additionalProperties: false,
@@ -324,11 +342,21 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
     inputSchema: {
       type: "object",
       properties: {
-        propertyId: { ...F.propertyId, description: "UUID of the source property to find alternatives for." },
-        checkIn: { ...F.checkIn, description: "Arrival date in ISO 8601 format (YYYY-MM-DD). Must be today or later." },
-        checkOut: { ...F.checkOut, description: "Departure date in ISO 8601 format (YYYY-MM-DD). Must be after checkIn." },
-        guests: { ...F.guests, description: "Number of guests. Defaults to source property's max_guests." },
-        limit: { type: "integer", minimum: 1, maximum: 20, description: "Max results. Default 5, max 20." },
+        propertyId: F.propertyId,
+        checkIn: F.checkIn,
+        checkOut: F.checkOut,
+        guests: {
+          ...F.guests,
+          description:
+            "Optional guest count (e.g. 4). Omit to use the source property's maxGuests for matching and pricing. When provided, filters alternatives that cannot accommodate this count.",
+        },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 20,
+          description:
+            "Maximum number of similar properties to return (integer 1–20). Omit to use server default 5. Increase when the guest wants more alternatives.",
+        },
       },
       required: ["propertyId", "checkIn", "checkOut"],
       additionalProperties: false,
@@ -388,14 +416,20 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       properties: {
         propertyIds: {
           type: "array",
-          items: { type: "string", format: "uuid", description: "Property UUID returned by hemmabo_search_properties." },
+          items: {
+            type: "string",
+            format: "uuid",
+            description:
+              "Single property UUID from hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000'). Repeat one entry per property to compare.",
+          },
           minItems: 2,
           maxItems: 10,
-          description: "Array of 2 to 10 property UUIDs returned by hemmabo_search_properties. Use UUIDs only; do not pass domains, names, or booking URLs.",
+          description:
+            "Ordered list of 2–10 property UUIDs to compare on the same dates. All IDs must come from hemmabo_search_properties; do not pass host domains, names, or booking URLs.",
         },
-        checkIn: { ...F.checkIn, description: "Arrival date in ISO 8601 format (YYYY-MM-DD). Must be today or later." },
-        checkOut: { ...F.checkOut, description: "Departure date in ISO 8601 format (YYYY-MM-DD). Must be after checkIn." },
-        guests: { ...F.guests, description: "Total number of guests as integer >= 1." },
+        checkIn: F.checkIn,
+        checkOut: F.checkOut,
+        guests: F.guests,
       },
       required: ["propertyIds", "checkIn", "checkOut", "guests"],
       additionalProperties: false,
@@ -502,17 +536,17 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_create",
     description:
-      "Create a pending direct booking without online payment for configured non-VRP fallback deployments. Use only after explicit user confirmation, only with a propertyId returned by search, and only when no signed VRP direct_booking_url is available. This is not the primary VRP path; for signed VRP offers, route to the signed host-domain URL. Do NOT retry on timeout without hemmabo_booking_status. Returns bookingId, final price, confirmation details, and status.",
+      "Create a pending direct booking without online payment for configured non-VRP fallback deployments. Use only after explicit user confirmation, with a propertyId from search, and only when no signed VRP direct_booking_url is available. For signed VRP offers, route to the signed host-domain URL instead. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Writes a pending booking server-side; not idempotent — check hemmabo_booking_status before retrying on timeout. Rate-limited per token.",
     inputSchema: {
       type: "object",
       properties: {
-        propertyId: { ...F.propertyId, description: "Property UUID returned by hemmabo_search_properties for this fallback non-VRP booking. Use the exact UUID, not a property name, domain, or booking URL." },
-        checkIn: { ...F.checkIn, description: "Booking arrival date in YYYY-MM-DD format." },
-        checkOut: { ...F.checkOut, description: "Booking departure date in YYYY-MM-DD format; must be after checkIn." },
-        guests: { ...F.guests, description: "Total number of guests as integer >= 1 (e.g. 4)." },
-        guestName: { ...F.guestName, description: "Primary guest name for host confirmation." },
-        guestEmail: { ...F.guestEmail, description: "Primary guest email for confirmation and host contact." },
-        guestPhone: { ...F.guestPhone, description: "Primary guest phone with country code; optional but recommended." },
+        propertyId: F.propertyId,
+        checkIn: F.checkIn,
+        checkOut: F.checkOut,
+        guests: F.guests,
+        guestName: F.guestName,
+        guestEmail: F.guestEmail,
+        guestPhone: F.guestPhone,
       },
       required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"],
       additionalProperties: false,
@@ -550,7 +584,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_negotiate",
     description:
-      "Create a binding price quote that locks the price for 15 minutes for configured non-VRP fallback checkout deployments. Use only when no signed direct_booking_url is available and the user explicitly asks to lock or hold a price. Never use this for ordinary search, availability checks, demo/review proof, showing a verified host-domain offer, rendering a stay-offer widget, or booking a VRP offer; those requests must use get_verified_stay_offer and the signed direct host-domain booking URL instead. Returns quoteId, final host-source total, per-night breakdown, and expiry timestamp.",
+      "Create a binding price quote that locks the price for 15 minutes for configured non-VRP fallback checkout deployments. Use only when no signed direct_booking_url is available and the user explicitly asks to lock a price. Never use this for search, availability, VRP offers, rendering a stay-offer widget, or verified-offer display — use get_verified_stay_offer instead. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Writes a short-lived quote snapshot server-side. Rate-limited per token.",
     inputSchema: {
       type: "object",
       properties: {
@@ -597,7 +631,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_checkout",
     description:
-      "Create a fallback non-VRP booking and return a host-configured Stripe checkout URL. Use only after explicit user confirmation when no signed VRP direct_booking_url is available. When get_verified_stay_offer returns a signed direct_booking_url, route the guest to that host-domain URL instead and do not collect guest contact details in chat. Do NOT use for search, browsing, availability, verified-offer display, demo proof, or direct host-domain link presentation. Do NOT call twice for the same booking - check hemmabo_booking_status first to avoid duplicate charges. Returns reservationId, paymentUrl, and pricing details.",
+      "Create a fallback non-VRP booking and return a host-configured Stripe checkout URL. Use only after explicit user confirmation when no signed VRP direct_booking_url is available. When get_verified_stay_offer returns a signed direct_booking_url, route the guest there instead. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Creates a pending booking and Stripe session server-side; not idempotent — check hemmabo_booking_status before retrying. Rate-limited per token.",
     inputSchema: {
       type: "object",
       properties: {
@@ -607,10 +641,24 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         guests: { ...F.guests, description: "Total number of guests as integer >= 1 (e.g. 4)." },
         guestName: F.guestName,
         guestEmail: F.guestEmail,
-        guestPhone: { ...F.guestPhone, description: "Phone with country code (e.g. '+46701234567'). Optional but recommended." },
-        quoteId: { type: "string", description: "Quote ID from hemmabo_booking_negotiate to lock the price. Optional - if omitted, a fresh direct host-source price is calculated at checkout time." },
-        paymentMode: { type: "string", enum: ["checkout_session", "payment_intent"], description: "'checkout_session' (default): returns a host-configured Stripe redirect URL. 'payment_intent': returns client_secret for configured fallback non-VRP payment integrations." },
-        channel: { type: "string", enum: ["public", "federation"], description: "'federation' is the compatibility name for direct host-source pricing. 'public': uses standard website rate." },
+        guestPhone: F.guestPhone,
+        quoteId: {
+          type: "string",
+          description:
+            "Quote ID string from hemmabo_booking_negotiate (e.g. 'q_abc123'). Optional — omit to calculate a fresh host-source price at checkout. Provide when the guest locked a price within the 15-minute quote window.",
+        },
+        paymentMode: {
+          type: "string",
+          enum: ["checkout_session", "payment_intent"],
+          description:
+            "Stripe payment flow. 'checkout_session' (default): returns a browser redirect URL. 'payment_intent': returns client_secret for embedded/agentic payment integrations. Omit to use checkout_session.",
+        },
+        channel: {
+          type: "string",
+          enum: ["public", "federation"],
+          description:
+            "Pricing channel selector. 'federation' (default for agent flows): direct host-source total. 'public': standard website rate without agent channel pricing. Omit to use federation.",
+        },
       },
       required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"],
       additionalProperties: false,
@@ -647,12 +695,16 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_cancel",
     description:
-      "Cancel a confirmed booking and process the Stripe refund. Use this tool when the guest explicitly requests cancellation. Do NOT use for pending/unpaid bookings — those expire automatically. Refund amount is calculated based on the host's cancellation policy. Returns cancellation confirmation with refund amount and status.",
+      "Cancel a confirmed booking and process the Stripe refund per host cancellation policy. Use when the guest explicitly requests cancellation. Do not use for pending/unpaid bookings — those expire automatically. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Destructive and idempotent: cancelling an already-cancelled booking returns the same status. Rate-limited per token.",
     inputSchema: {
       type: "object",
       properties: {
         reservationId: F.reservationId,
-        reason: { type: "string", description: "Cancellation reason for host notification (e.g. 'Travel plans changed'). Optional but recommended." },
+        reason: {
+          type: "string",
+          description:
+            "Human-readable cancellation reason for the host (e.g. 'Travel plans changed', 'Flight cancelled'). Optional; omit when the guest did not give a reason.",
+        },
       },
       required: ["reservationId"],
       additionalProperties: false,
@@ -679,11 +731,11 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_status",
     description:
-      "Retrieve current status and full details of an existing booking or reservation by id. Use this read-only tool to check payment/booking state, confirm whether checkout or booking creation succeeded, or look up details before rescheduling or cancelling. Use after hemmabo_booking_checkout or hemmabo_booking_create if unsure whether the previous call succeeded; do not create a duplicate booking. Returns booking dates, guests, price, host property info, status, and cancellation policy.",
+      "Retrieve current status and full details of an existing booking by reservationId. Use to confirm checkout/create succeeded or before cancel/reschedule. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Read-only against the database but returns guest PII (name, email). Rate-limited per token.",
     inputSchema: {
       type: "object",
       properties: {
-        reservationId: { ...F.reservationId, description: "Booking or reservation UUID returned by checkout/create. Required to look up the exact booking." },
+        reservationId: F.reservationId,
       },
       required: ["reservationId"],
       additionalProperties: false,
@@ -722,14 +774,26 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_reschedule",
     description:
-      "Reschedule a confirmed or pending booking to new dates. Use this tool when the guest wants to change travel dates on an existing booking. Do NOT use if the booking is cancelled, or if a protocol compatibility client reports completed — check hemmabo_booking_status first. Automatically recalculates price and handles Stripe charge (if price increased) or refund (if decreased). Returns previous dates, new dates, price delta, and Stripe transaction details.",
+      "Reschedule a confirmed or pending booking to new dates with automatic repricing and Stripe charge/refund. Use when the guest wants to change dates on an existing booking. Do not use if cancelled or if a protocol compatibility client reports completed — check hemmabo_booking_status first. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Destructive write that may charge or refund via Stripe. Rate-limited per token.",
     inputSchema: {
       type: "object",
       properties: {
-        reservationId: { ...F.reservationId, description: "Booking UUID to reschedule (e.g. '550e8400-e29b-41d4-a716-446655440000'). Must be in 'confirmed' or 'pending' status." },
-        newCheckIn: { ...F.checkIn, description: "New arrival date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-20'). Must be today or later." },
-        newCheckOut: { ...F.checkOut, description: "New departure date in ISO 8601 format (YYYY-MM-DD, e.g. '2026-07-27'). Must be after newCheckIn." },
-        reason: { type: "string", description: "Reason for rescheduling (e.g. 'Flight delayed'). Optional but recommended for host records." },
+        reservationId: F.reservationId,
+        newCheckIn: {
+          ...F.checkIn,
+          description:
+            "New arrival date in YYYY-MM-DD format (e.g. '2026-08-01'). Must be today or later. Must be strictly before newCheckOut.",
+        },
+        newCheckOut: {
+          ...F.checkOut,
+          description:
+            "New departure date in YYYY-MM-DD format (e.g. '2026-08-08'). Must be strictly after newCheckIn.",
+        },
+        reason: {
+          type: "string",
+          description:
+            "Human-readable reschedule reason for host records (e.g. 'Flight delayed', 'Extended conference'). Optional; omit when not provided by the guest.",
+        },
       },
       required: ["reservationId", "newCheckIn", "newCheckOut"],
       additionalProperties: false,
