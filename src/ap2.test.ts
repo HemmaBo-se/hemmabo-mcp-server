@@ -109,3 +109,46 @@ test("AP2: decimal major-unit amount is normalised to minor units", () => {
   const claims = extractMandateClaims({ ...validClaims, max_amount: 120.5 });
   assert.equal(claims.maxAmountMinor, 12050);
 });
+
+// ── Canonical AP2 PaymentMandate (SD-JWT generated schema, ADR 0008) ──
+// vct + payee{id,name,website} + payment_amount{amount:int minor, currency} + exp.
+const futureEpoch = Math.floor((Date.now() + 3_600_000) / 1000);
+const pastEpoch = Math.floor((Date.now() - 3_600_000) / 1000);
+
+const paymentMandate = {
+  vct: "mandate.payment.1",
+  transaction_id: "vrp_villa_123",
+  payee: { id: "hb_villa", name: "Villa Åkerlyckan", website: "villaakerlyckan.se" },
+  payment_amount: { amount: 12000, currency: "SEK" }, // minor units cap
+  exp: futureEpoch,
+};
+
+test("AP2 PaymentMandate (canonical): valid mandate authorizes a matching charge", () => {
+  const r = verifyAp2CartMandate(makeMandate(paymentMandate), JWKS, charge);
+  assert.equal(r.authorized, true);
+  assert.equal(r.claims?.merchant, "villaakerlyckan.se"); // bound via payee.website
+  assert.equal(r.claims?.maxAmountMinor, 12000);
+  assert.equal(r.claims?.currency, "SEK");
+  assert.equal(r.claims?.mandateType, "mandate.payment.1");
+});
+
+test("AP2 PaymentMandate: payee.website binds merchant; wrong domain rejected", () => {
+  const r = verifyAp2CartMandate(makeMandate(paymentMandate), JWKS, {
+    ...charge,
+    merchantDomain: "evil.example.com",
+  });
+  assert.equal(r.authorized, false);
+  assert.equal(r.reason, "merchant_mismatch");
+});
+
+test("AP2 PaymentMandate: over-cap rejected; exp-epoch expiry enforced", () => {
+  const over = verifyAp2CartMandate(makeMandate(paymentMandate), JWKS, { ...charge, amountMinor: 99999 });
+  assert.equal(over.reason, "amount_exceeds_mandate");
+  const expired = verifyAp2CartMandate(makeMandate({ ...paymentMandate, exp: pastEpoch }), JWKS, charge);
+  assert.equal(expired.reason, "mandate_expired");
+});
+
+test("AP2 PaymentMandate: payment_amount is minor units, parsed directly (no re-scaling)", () => {
+  const claims = extractMandateClaims(paymentMandate);
+  assert.equal(claims.maxAmountMinor, 12000); // NOT 1_200_000 — already minor units
+});
