@@ -1,6 +1,6 @@
 # ADR 0008 — AP2 mandate conformance: verify against the canonical schema
 
-**Status:** Proposed (analysis; implementation gated on the decision below — payment-security code, do not patch on inference)
+**Status:** Accepted — canonical PaymentMandate path implemented in this PR (`lib/ap2.ts`); remaining: CI green + live ACP+AP2 proof.
 **Date:** 2026-06-15
 **Author:** CEO + agent
 **Related:** ADR `0002-auth-payments-and-privacy-contracts.md`; `lib/ap2.ts`; `api/acp.ts`
@@ -69,11 +69,19 @@ Implement against the canonical schema, with this design (charter-aligned):
 
 ## Consequences
 
-- This is a **multi-object implementation** (IntentMandate → CartMandate →
-  PaymentMandate chain), not the "one-place rename" the code comment assumed. Do
-  it deliberately against the canonical files; feed tests spec-shaped mandates.
-  **No code patched in this ADR** — payment-security; the rename-on-inference path
-  is explicitly rejected.
+- **Implemented in this PR (`lib/ap2.ts`):** canonical PaymentMandate parsing —
+  detected by `vct=mandate.payment.*`, merchant bound via `payee.website`, amount
+  read from `payment_amount.amount` (already integer minor units, no re-scaling),
+  expiry from `exp`, cart from `transaction_id`. The authorization gate
+  (`mandateAuthorizesCharge`) is **unchanged** (fail-closed); only parsing became
+  spec-precise. The legacy candidate path is retained for backward compatibility.
+  Verified locally against the real module (11/11: extract + authorize + reject
+  cases + legacy). **Not** implemented: the W3C `CartMandate` shape (`models/`) —
+  the generated `PaymentMandate` is the authoritative payer authorization.
+- **Remaining before claiming "AP2 live":** CI green (`src/ap2.test.ts` adds the
+  PaymentMandate cases) + a live ACP+AP2 end-to-end run with a Stripe test SPT.
+  Until then keep public copy as "AP2 mandate verification (conformant parsing),
+  live proof pending" — not "AP2 enforced".
 - **Honesty (charter):** until the implementation is conformant, soften the public
   claim — "AP2 mandate verification scaffolded (Ed25519, fail-closed); wire-format
   conformance to the published AP2 spec pending" — do NOT imply a real AP2 mandate
