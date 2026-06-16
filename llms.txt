@@ -41,7 +41,7 @@ For signed VRP offers, the host domain is the booking and payment path. Fallback
 
 ## Agent commerce interoperability
 
-Alongside VRP, HemmaBo speaks the agent-commerce stack: UCP discovery, ACP (Agentic Commerce Protocol) checkout, and AP2 (Agent Payments Protocol) Cart Mandate verification. When a payer agent presents a signed AP2 Cart Mandate on the ACP checkout path, HemmaBo verifies it authorizes the exact charge (amount cap, currency, merchant host domain, expiry) before payment, fail-closed. VRP proves the offer; AP2 proves the payment authorization. These are interoperability paths for configured non-VRP deployments; for signed VRP offers the booking path remains the direct host-domain URL.
+Alongside VRP, HemmaBo speaks the agent-commerce stack: UCP discovery, ACP (Agentic Commerce Protocol) checkout, and AP2 (Agent Payments Protocol) Payment Mandate verification. When a payer agent presents a signed AP2 Payment Mandate on the ACP checkout path, HemmaBo verifies it authorizes the exact charge (amount cap, currency, merchant host domain, expiry) before payment, fail-closed. VRP proves the offer; AP2 proves the payment authorization. These are interoperability paths for configured non-VRP deployments; for signed VRP offers the booking path remains the direct host-domain URL.
 
 ## Links
 
