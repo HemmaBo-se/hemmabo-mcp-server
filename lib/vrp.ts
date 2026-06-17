@@ -469,6 +469,29 @@ function buildAgentQuoteView(
   };
 }
 
+/**
+ * Turn the node's own `host_alternatives` (returned when the requested dates
+ * are blocked) into a one-line, actionable next step so an agent never hits a
+ * wall. The agent re-calls get_verified_stay_offer for the chosen window to get
+ * a signed, bookable offer. Node's own dates only — never a comparison.
+ */
+function buildAgentNextStep(hostAlternatives: JsonRecord | null): string | null {
+  if (!hostAlternatives) return null;
+  const shorten = asRecord(hostAlternatives.shorten_to);
+  const next = asRecord(hostAlternatives.next_available);
+  const options: string[] = [];
+  if (shorten) {
+    options.push(
+      `shorten to ${stringValue(shorten.check_in)}–${stringValue(shorten.check_out)} (${numberValue(shorten.nights)} nights)`,
+    );
+  }
+  if (next) {
+    options.push(`next open window ${stringValue(next.check_in)}–${stringValue(next.check_out)}`);
+  }
+  if (options.length === 0) return null;
+  return `Requested dates are not bookable. The host's own open options: ${options.join("; ")}. Re-call get_verified_stay_offer for the chosen window to get a signed, bookable offer.`;
+}
+
 async function runVerifyNode(args: Record<string, unknown>): Promise<ToolResult> {
   requirePresentArgs(args, ["domain"]);
   const domain = requireStringArg(args, "domain");
@@ -522,6 +545,8 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
   if (!fresh) throw new Error("verified_stay_offer is expired or missing valid_until");
 
   const quoteView = buildAgentQuoteView(offer, response, validUntil, node.discovery);
+  const hostAlternatives = asRecord(response.host_alternatives);
+  const agentNextStep = buildAgentNextStep(hostAlternatives);
   return toolOk({
     domain: node.domain,
     check_in: checkIn,
@@ -536,6 +561,8 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
     payload_matches_offer: true,
     fresh: true,
     ...quoteView,
+    ...(hostAlternatives ? { host_alternatives: hostAlternatives } : {}),
+    ...(agentNextStep ? { agent_next_step: agentNextStep } : {}),
   }, {
     signed_verified_stay_offer: signedOffer,
     offer,
