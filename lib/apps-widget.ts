@@ -33,8 +33,8 @@ export const HEMMABO_CHATGPT_WIDGET_DOMAIN = chatgptWidgetOriginFromMcpEndpoint(
   HEMMABO_CANONICAL_MCP_ENDPOINT
 );
 
-export const HEMMABO_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v5.html";
-export const HEMMABO_PREVIOUS_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v4.html";
+export const HEMMABO_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v6.html";
+export const HEMMABO_PREVIOUS_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v5.html";
 export const HEMMABO_V3_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v3.html";
 export const HEMMABO_V2_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v2.html";
 export const HEMMABO_V1_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v1.html";

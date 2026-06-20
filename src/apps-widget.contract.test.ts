@@ -131,6 +131,9 @@ describe("ChatGPT Apps verified stay widget", () => {
   it("hydrates from both MCP Apps notifications and ChatGPT globals", () => {
     const widgetHtml = readFileSync(new URL("../lib/apps-widget-html.ts", import.meta.url), "utf8");
     assert.match(widgetHtml, /ui\/notifications\/tool-result/);
+    assert.match(widgetHtml, /ui\/initialize/);
+    assert.match(widgetHtml, /ui\/notifications\/initialized/);
+    assert.doesNotMatch(widgetHtml, /Run a host-domain search or verified stay offer tool/);
     assert.match(widgetHtml, /openai:set_globals/);
     assert.match(widgetHtml, /globals\.toolOutput/);
     assert.match(widgetHtml, /globals\.toolResponseMetadata/);
