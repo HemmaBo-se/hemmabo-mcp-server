@@ -23,7 +23,7 @@ Host onboarding flow: if the user is a vacation-rental host asking for an own-do
 Discovery flow: hemmabo_search_properties -> hemmabo_search_availability -> get_verified_stay_offer when a host domain is known.
 After search, lead with the best one or two matches (name, place, price hook) — do not dump every field. Then call get_verified_stay_offer for the chosen property.
 
-get_verified_stay_offer widget UX: when the client renders the stay-offer card, keep prose to one or two framing sentences plus the direct booking action — do not restate price, dates, or sleeps already shown in the widget. Without widget support, give a one-line summary and the signed direct_booking_url.
+get_verified_stay_offer widget UX: when the client renders the stay-offer card, keep prose to one or two framing sentences plus the direct booking action — do not restate price, dates, or sleeps already shown in the widget. Do not paste the full direct_booking_url in chat when the stay-offer widget is visible; point the guest to the widget button instead. Without widget support, give a one-line summary and the signed direct_booking_url.
 
 Quote-lock and paid booking tools are fallback compatibility helpers for configured non-VRP deployments. Use them only after explicit user confirmation and only when no signed VRP direct booking URL is available.
 

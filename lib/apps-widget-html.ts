@@ -284,10 +284,11 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     text-align: center;
     padding: 6px 8px;
   }
-  .empty {
+  .empty, .loading {
     padding: 18px;
     color: var(--muted);
     font-size: 13px;
+    text-align: center;
   }
   @media (max-width: 620px) {
     body { padding: 8px; }
@@ -303,9 +304,11 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
 </style>
 </head>
 <body>
-<div id="root" class="empty">Loading HemmaBo stay offer...</div>
+<div id="root" class="loading">Laddar verifierat erbjudande…</div>
 <script>
   var VILLA_IMAGE = "https://vfalgymbhyfqsyxkvpqg.supabase.co/storage/v1/object/public/property-images/properties/3ef1d46d-5c23-46fe-86cb-8e714abf734f/other/1777524437024-rewm-2-desktop.jpg?quality=75&resize=cover&width=800";
+  var rpcNextId = 1;
+  var hostInitialized = false;
   var TOOL_LABELS = [
     "Search", "Availability", "Similar", "Compare",
     "Host price", "Direct URL", "Host domain", "Stripe host",
@@ -620,11 +623,79 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     window.open(href, "_blank", "noopener,noreferrer");
   }
 
+  function setLoading(message) {
+    var root = document.getElementById("root");
+    root.className = "loading";
+    root.textContent = message || "Laddar verifierat erbjudande…";
+  }
+
+  function postToHost(payload) {
+    try { window.parent.postMessage(payload, "*"); } catch (e) {}
+  }
+
+  function applyToolPayload(params) {
+    if (!params) return false;
+    var payload = params.structuredContent || parseContent(params.content);
+    if (!payload) return false;
+    render(enrichData(payload, params._meta));
+    return true;
+  }
+
+  function sendUiInitialize() {
+    var id = rpcNextId++;
+    postToHost({
+      jsonrpc: "2.0",
+      id: id,
+      method: "ui/initialize",
+      params: {
+        protocolVersion: "2026-01-26",
+        appCapabilities: { availableDisplayModes: ["inline"] },
+        appInfo: { name: "HemmaBo verified stay offer", version: "1.0.0" }
+      }
+    });
+    return id;
+  }
+
+  function handleHostMessage(event) {
+    var message = event.data;
+    if (!message || message.jsonrpc !== "2.0") return;
+
+    if (message.id && message.result && !hostInitialized) {
+      hostInitialized = true;
+      postToHost({ jsonrpc: "2.0", method: "ui/notifications/initialized", params: {} });
+      var cached = getData();
+      if (cached) render(cached);
+      return;
+    }
+
+    if (message.method === "ui/notifications/tool-result") {
+      applyToolPayload(message.params);
+      return;
+    }
+
+    if (message.method === "ui/notifications/tool-input") {
+      var args = (message.params && message.params.arguments) || {};
+      if (args.domain && !document.querySelector(".shell")) {
+        setLoading("Verifierar " + cleanDomain(args.domain) + "…");
+      }
+    }
+  }
+
+  function bootWidget() {
+    var cached = getData();
+    if (cached) {
+      render(cached);
+      return;
+    }
+    setLoading();
+    sendUiInitialize();
+  }
+
   function render(data) {
     var root = document.getElementById("root");
     if (!data) {
-      root.className = "empty";
-      root.textContent = "Run a host-domain search or verified stay offer tool to show the stay widget.";
+      root.className = "loading";
+      root.textContent = "Laddar verifierat erbjudande…";
       return;
     }
     var offer = normalizeOffer(data);
@@ -725,14 +796,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     }
   }
 
-  window.addEventListener("message", function (event) {
-    if (event.source !== window.parent) return;
-    var message = event.data;
-    if (!message || message.jsonrpc !== "2.0") return;
-    if (message.method === "ui/notifications/tool-result") {
-      render(message.params && enrichData(message.params.structuredContent || parseContent(message.params.content), message.params._meta));
-    }
-  }, { passive: true });
+  window.addEventListener("message", handleHostMessage, { passive: true });
 
   window.addEventListener("openai:set_globals", function (event) {
     var globals = event && event.detail && event.detail.globals;
@@ -748,7 +812,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     }
   }, { passive: true });
 
-  render(getData());
+  bootWidget();
 </script>
 </body>
 </html>`;
