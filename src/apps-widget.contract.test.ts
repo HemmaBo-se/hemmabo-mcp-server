@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { RESOURCES, TOOLS, readResource } from "../api/mcp.js";
 import {
+  HEMMABO_CANONICAL_MCP_ENDPOINT,
   HEMMABO_CHATGPT_WIDGET_DOMAIN,
   HEMMABO_CLAUDE_WIDGET_DOMAIN,
   HEMMABO_LEGACY_WIDGET_URI,
-  HEMMABO_MCP_SERVER_URL,
   HEMMABO_PREVIOUS_WIDGET_URI,
   HEMMABO_V1_WIDGET_URI,
   HEMMABO_V2_WIDGET_URI,
@@ -31,10 +31,16 @@ describe("ChatGPT Apps verified stay widget", () => {
     assert.equal(resource._meta.ui.prefersBorder, true);
     assert.equal(resource._meta.ui.domain, HEMMABO_CLAUDE_WIDGET_DOMAIN);
     assert.match(resource._meta.ui.domain, /\.claudemcpcontent\.com$/);
-    assert.equal(claudeMcpAppDomain(HEMMABO_MCP_SERVER_URL), HEMMABO_CLAUDE_WIDGET_DOMAIN);
+    assert.equal(claudeMcpAppDomain(HEMMABO_CANONICAL_MCP_ENDPOINT), HEMMABO_CLAUDE_WIDGET_DOMAIN);
+    assert.notEqual(
+      claudeMcpAppDomain("https://hemmabo-mcp-server.vercel.app/mcp"),
+      HEMMABO_CLAUDE_WIDGET_DOMAIN,
+      "Claude directory uses www.hemmabo.com/mcp, not the Vercel hostname"
+    );
     assert.equal(exactDomainCount(resource._meta.ui.csp.resourceDomains, VILLA_AKERLYCKAN_SUPABASE_ORIGIN), 1);
     assert.equal(resource._meta["openai/widgetPrefersBorder"], true);
     assert.equal(resource._meta["openai/widgetDomain"], HEMMABO_CHATGPT_WIDGET_DOMAIN);
+    assert.equal(resource._meta["openai/widgetDomain"], "https://www.hemmabo.com");
     assert.ok(resource._meta["openai/widgetCSP"]);
     assert.equal(exactDomainCount(resource._meta["openai/widgetCSP"].resource_domains, VILLA_AKERLYCKAN_SUPABASE_ORIGIN), 1);
     assert.ok(resource._meta["openai/widgetDescription"]);
@@ -88,6 +94,7 @@ describe("ChatGPT Apps verified stay widget", () => {
     const renderTool = TOOLS.find((t) => t.name === "get_verified_stay_offer");
     assert.ok(renderTool, "get_verified_stay_offer must exist");
     assert.equal(renderTool._meta?.["openai/outputTemplate"], HEMMABO_WIDGET_URI);
+    assert.equal(renderTool._meta?.["ui/resourceUri"], HEMMABO_WIDGET_URI);
     assert.deepEqual(renderTool._meta?.ui, { resourceUri: HEMMABO_WIDGET_URI });
   });
 

@@ -21,14 +21,17 @@ import { baseUrl } from "../lib/base-url.js";
 import { isVrpToolName } from "../lib/vrp.js";
 import { SERVER_DESCRIPTION, SERVER_INSTRUCTIONS, SERVER_NAME, SERVER_VERSION } from "../lib/server-metadata.js";
 import {
+  HEMMABO_CANONICAL_MCP_ENDPOINT,
   HEMMABO_LEGACY_WIDGET_URI,
   HEMMABO_PREVIOUS_WIDGET_URI,
   HEMMABO_V3_WIDGET_URI,
   HEMMABO_V1_WIDGET_URI,
   HEMMABO_V2_WIDGET_URI,
   HEMMABO_WIDGET_MIME_TYPE,
-  HEMMABO_WIDGET_RESOURCE_META,
   HEMMABO_WIDGET_URI,
+  buildWidgetResource,
+  buildWidgetResourceMeta,
+  mcpEndpointFromBaseUrl,
 } from "../lib/apps-widget.js";
 import { VERIFIED_STAY_OFFER_HTML } from "../lib/apps-widget-html.js";
 
@@ -157,19 +160,11 @@ export const PROMPTS = [
 // Apps SDK requires `ui://` resources that ChatGPT renders inline.
 // get_verified_stay_offer is the render tool that points to this template.
 
-export const RESOURCES = [
-  {
-    uri: HEMMABO_WIDGET_URI,
-    name: "HemmaBo verified stay offer widget",
-    description:
-      "ChatGPT Apps SDK widget that renders a host-domain verified stay offer with live availability, final price, and the signed direct host-domain booking URL.",
-    mimeType: HEMMABO_WIDGET_MIME_TYPE,
-    _meta: HEMMABO_WIDGET_RESOURCE_META,
-  },
-];
+export const RESOURCES = [buildWidgetResource(HEMMABO_CANONICAL_MCP_ENDPOINT)];
 
 export function readResource(
-  uri: string
+  uri: string,
+  mcpEndpointUrl: string = HEMMABO_CANONICAL_MCP_ENDPOINT
 ): { contents: { uri: string; mimeType: string; text: string; _meta?: Record<string, unknown> }[] } | null {
   if (
     uri === HEMMABO_WIDGET_URI ||
@@ -179,13 +174,14 @@ export function readResource(
     uri === HEMMABO_V1_WIDGET_URI ||
     uri === HEMMABO_LEGACY_WIDGET_URI
   ) {
+    const meta = buildWidgetResourceMeta(mcpEndpointUrl);
     return {
       contents: [
         {
           uri: HEMMABO_WIDGET_URI,
           mimeType: HEMMABO_WIDGET_MIME_TYPE,
           text: VERIFIED_STAY_OFFER_HTML,
-          _meta: HEMMABO_WIDGET_RESOURCE_META as unknown as Record<string, unknown>,
+          _meta: meta as unknown as Record<string, unknown>,
         },
       ],
     };
@@ -252,7 +248,11 @@ function getSupabaseReader() {
 
 async function handleJsonRpc(
   msg: { jsonrpc: string; method: string; id?: number | string; params?: Record<string, unknown> },
-  ctx: { agent: string; ip_hint: string } = { agent: "unknown", ip_hint: "unknown" }
+  ctx: { agent: string; ip_hint: string; mcpEndpointUrl: string } = {
+    agent: "unknown",
+    ip_hint: "unknown",
+    mcpEndpointUrl: HEMMABO_CANONICAL_MCP_ENDPOINT,
+  }
 ): Promise<Record<string, unknown> | null> {
   const { method, id, params } = msg;
 
@@ -347,11 +347,15 @@ async function handleJsonRpc(
       return { jsonrpc: "2.0", id, result: { prompts: PROMPTS } };
 
     case "resources/list":
-      return { jsonrpc: "2.0", id, result: { resources: RESOURCES } };
+      return {
+        jsonrpc: "2.0",
+        id,
+        result: { resources: [buildWidgetResource(ctx.mcpEndpointUrl)] },
+      };
 
     case "resources/read": {
       const uri = (params as { uri?: string })?.uri ?? "";
-      const result = readResource(uri);
+      const result = readResource(uri, ctx.mcpEndpointUrl);
       if (!result) {
         return { jsonrpc: "2.0", id, error: { code: -32602, message: `Unknown resource URI: ${uri}` } };
       }
@@ -529,6 +533,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const ctx = {
     agent: ((req.headers["user-agent"] as string | undefined) ?? "unknown").slice(0, 80),
     ip_hint: ((req.headers["x-forwarded-for"] as string | undefined) ?? "").split(",")[0]?.trim() || "unknown",
+    mcpEndpointUrl: mcpEndpointFromBaseUrl(baseUrl(req)),
   };
 
   try {
