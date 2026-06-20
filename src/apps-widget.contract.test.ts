@@ -3,13 +3,17 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { RESOURCES, TOOLS, readResource } from "../api/mcp.js";
 import {
+  HEMMABO_CHATGPT_WIDGET_DOMAIN,
+  HEMMABO_CLAUDE_WIDGET_DOMAIN,
   HEMMABO_LEGACY_WIDGET_URI,
+  HEMMABO_MCP_SERVER_URL,
   HEMMABO_PREVIOUS_WIDGET_URI,
   HEMMABO_V1_WIDGET_URI,
   HEMMABO_V2_WIDGET_URI,
   HEMMABO_V3_WIDGET_URI,
   HEMMABO_WIDGET_MIME_TYPE,
   HEMMABO_WIDGET_URI,
+  claudeMcpAppDomain,
 } from "../lib/apps-widget.js";
 import { executeTool } from "../lib/tools.js";
 
@@ -25,10 +29,12 @@ describe("ChatGPT Apps verified stay widget", () => {
     assert.ok(resource, "verified stay offer widget must be listed");
     assert.equal(resource.mimeType, HEMMABO_WIDGET_MIME_TYPE);
     assert.equal(resource._meta.ui.prefersBorder, true);
-    assert.equal(resource._meta.ui.domain, "https://hemmabo-mcp-server.vercel.app");
+    assert.equal(resource._meta.ui.domain, HEMMABO_CLAUDE_WIDGET_DOMAIN);
+    assert.match(resource._meta.ui.domain, /\.claudemcpcontent\.com$/);
+    assert.equal(claudeMcpAppDomain(HEMMABO_MCP_SERVER_URL), HEMMABO_CLAUDE_WIDGET_DOMAIN);
     assert.equal(exactDomainCount(resource._meta.ui.csp.resourceDomains, VILLA_AKERLYCKAN_SUPABASE_ORIGIN), 1);
     assert.equal(resource._meta["openai/widgetPrefersBorder"], true);
-    assert.equal(resource._meta["openai/widgetDomain"], "https://hemmabo-mcp-server.vercel.app");
+    assert.equal(resource._meta["openai/widgetDomain"], HEMMABO_CHATGPT_WIDGET_DOMAIN);
     assert.ok(resource._meta["openai/widgetCSP"]);
     assert.equal(exactDomainCount(resource._meta["openai/widgetCSP"].resource_domains, VILLA_AKERLYCKAN_SUPABASE_ORIGIN), 1);
     assert.ok(resource._meta["openai/widgetDescription"]);
