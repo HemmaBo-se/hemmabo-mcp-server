@@ -20,6 +20,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveQuote } from "./pricing.js";
 import { checkAvailability } from "./availability.js";
 import {
+  checkIcalImportFreshness,
+  calendarFreshnessUnavailablePayload,
+} from "./ical-freshness.js";
+import {
   createCheckoutSession,
   retrievePaymentIntent,
   createRefund,
@@ -118,9 +122,30 @@ export function validateRequiredArgs(
   return `Missing required argument(s): ${missing.join(", ")}`;
 }
 
-/** Wraps an error message in the standard MCP tool-error envelope. */
+/** Wrap tool errors in the standard MCP tool-error envelope. */
 function toolError(message: string): ToolResult {
   return { content: [{ type: "text", text: JSON.stringify({ error: message }) }], isError: true };
+}
+
+async function calendarFreshnessToolBlock(
+  supabase: SupabaseClient,
+  propertyId: string,
+  checkIn: string,
+  checkOut: string,
+): Promise<ToolResult | null> {
+  const calendarFreshness = await checkIcalImportFreshness(supabase, propertyId, new Date());
+  if (calendarFreshness.safe) return null;
+  return {
+    content: [{
+      type: "text",
+      text: JSON.stringify(
+        calendarFreshnessUnavailablePayload(propertyId, checkIn, checkOut, calendarFreshness),
+        null,
+        2,
+      ),
+    }],
+    isError: true,
+  };
 }
 
 type SearchPropertyRow = {
@@ -145,6 +170,23 @@ const LOCATION_ALIASES: Record<string, readonly string[]> = {
   "southern sweden": ["skane", "skane lan"],
   "south sweden": ["skane", "skane lan"],
   "sodra sverige": ["skane", "skane lan"],
+  // ── Multilingual region aliases ──────────────────────────────────────────
+  // So a German/Danish/French guest finds the same node as a Swedish one.
+  // Extend per region: add localized names as keys pointing at the canonical
+  // normalized region. Diacritics are already folded by normalizeLocationTerm
+  // (ö→o, å→a, ü→u, ø→o), so "Schönen"→"schonen", "Südschweden"→"sudschweden".
+  scania: ["skane", "skane lan"], // English / Latin
+  scanie: ["skane", "skane lan"], // French
+  skaane: ["skane", "skane lan"], // alt spelling
+  schonen: ["skane", "skane lan"], // German (Schonen / Schönen)
+  sudschweden: ["skane", "skane lan"], // German (Südschweden)
+  sydsverige: ["skane", "skane lan"], // Danish / Norwegian
+  // Country aliases (international guests searching by country name)
+  schweden: ["sweden", "sverige"], // German
+  suede: ["sweden", "sverige"], // French (Suède)
+  zweden: ["sweden", "sverige"], // Dutch
+  svezia: ["sweden", "sverige"], // Italian
+  suecia: ["sweden", "sverige"], // Spanish
   kavlinge: [],
 };
 
@@ -696,6 +738,10 @@ export async function executeTool(
           }],
         };
       }
+      {
+        const calendarBlock = await calendarFreshnessToolBlock(supabase, propertyId, checkIn, checkOut);
+        if (calendarBlock) return calendarBlock;
+      }
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     }
 
@@ -876,6 +922,11 @@ export async function executeTool(
       // MCP-06: use service-role client so bookings table is visible to availability/gap checks
       const avail = await checkAvailability(supabase, propertyId, checkIn, checkOut);
       if (!avail.available) return { content: [{ type: "text", text: JSON.stringify({ error: "Not available", ...avail }) }], isError: true };
+
+      {
+        const calendarBlock = await calendarFreshnessToolBlock(supabase, propertyId, checkIn, checkOut);
+        if (calendarBlock) return calendarBlock;
+      }
 
       // Acquire a short-term booking lock to close the TOCTOU window between
       // the availability check above and the insert below.

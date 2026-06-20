@@ -17,14 +17,15 @@
  * The payer side signs the mandate; this node (the merchant) verifies it
  * against the issuer's published Ed25519 JWKS.
  *
- * ⚠️ WIRE-FORMAT NOTE: the AP2 spec is young and the live spec could not
- * be fetched from the build sandbox. The verification *logic* below
- * (signature, expiry, and the amount/currency/merchant/cart constraint
- * checks) is spec-independent and final. Only the field NAMES the
- * extractor looks for may need to track the published spec — they are
- * isolated in MANDATE_FIELD_CANDIDATES so conforming is a one-place edit.
- * Verification fails CLOSED: a present-but-unparseable mandate is
- * rejected, never charged.
+ * WIRE-FORMAT: the canonical AP2 PaymentMandate (SD-JWT generated schema,
+ * google-agentic-commerce/AP2) is parsed precisely — `vct`, `payee`
+ * {id,name,website}, `payment_amount` {amount:int minor units, currency},
+ * `exp`, `transaction_id` (see extractPaymentMandateClaims + ADR 0008). A
+ * payload carrying the `vct=mandate.payment.*` marker takes that path; any
+ * other shape falls back to the legacy candidate-name extractor
+ * (MANDATE_FIELD_CANDIDATES). The constraint checks (amount cap, currency,
+ * merchant, expiry, cart) are unchanged and spec-independent. Verification
+ * fails CLOSED: a present-but-unparseable mandate is rejected, never charged.
  */
 import { verifyCompactJws, VRP_FETCH_TIMEOUT_MS } from "./vrp.js";
 
@@ -77,6 +78,10 @@ const MANDATE_FIELD_CANDIDATES = {
   amount: ["max_amount", "authorized_amount", "amount", "total", "amount_minor"],
   expires: ["expires_at", "exp", "valid_until", "expiry"],
 } as const;
+
+// Canonical AP2 PaymentMandate type marker (vct = "mandate.payment.1"). When
+// present, the payload is parsed precisely by extractPaymentMandateClaims (ADR 0008).
+const PAYMENT_MANDATE_VCT_PREFIX = "mandate.payment";
 
 function asRecord(v: unknown): JsonRecord | null {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as JsonRecord) : null;
@@ -141,8 +146,47 @@ function normaliseDomain(d: string): string {
     .replace(/\/+$/, "");
 }
 
+/**
+ * Canonical AP2 PaymentMandate (SD-JWT generated schema; google-agentic-commerce/AP2
+ * code/sdk/python/ap2/sdk/generated/payment_mandate.py — see ADR 0008). The payer/
+ * agent's payment authorization carries: `vct`, `payee` {id,name,website},
+ * `payment_amount` {amount:int minor units, currency}, `exp` (epoch), and
+ * `transaction_id` (binds to the checkout/cart). Merchant identity binds via
+ * `payee.website` (the host domain); amount is already integer minor units,
+ * matching the VRP/Stripe convention directly.
+ */
+function extractPaymentMandateClaims(payload: JsonRecord): Ap2MandateClaims {
+  const payee = asRecord(payload.payee);
+  const merchantRaw =
+    (payee && typeof payee.website === "string" && payee.website.trim() ? payee.website : null) ??
+    (payee && typeof payee.id === "string" && payee.id.trim() ? payee.id : null);
+  const amt = asRecord(payload.payment_amount);
+  const minor =
+    amt && typeof amt.amount === "number" && Number.isInteger(amt.amount) ? amt.amount : null;
+  const currency =
+    amt && typeof amt.currency === "string" && amt.currency.trim()
+      ? amt.currency.trim().toUpperCase()
+      : null;
+  return {
+    mandateType: typeof payload.vct === "string" ? payload.vct : null,
+    maxAmountMinor: minor,
+    currency,
+    merchant: typeof merchantRaw === "string" ? normaliseDomain(merchantRaw) : null,
+    cartId: typeof payload.transaction_id === "string" ? payload.transaction_id : null,
+    expiresAtMs: expiryMs(payload.exp),
+  };
+}
+
 /** Extract logical claims from a (signature-verified) mandate payload. */
 export function extractMandateClaims(payload: JsonRecord): Ap2MandateClaims {
+  // Canonical AP2 PaymentMandate is detected by its `vct` marker and parsed
+  // precisely (ADR 0008). Any other shape falls back to the legacy candidates.
+  if (
+    typeof payload.vct === "string" &&
+    payload.vct.startsWith(PAYMENT_MANDATE_VCT_PREFIX)
+  ) {
+    return extractPaymentMandateClaims(payload);
+  }
   const amountRaw = firstPresent(payload, MANDATE_FIELD_CANDIDATES.amount);
   const merchant = firstPresent(payload, MANDATE_FIELD_CANDIDATES.merchant);
   const cartId = firstPresent(payload, MANDATE_FIELD_CANDIDATES.cartId);

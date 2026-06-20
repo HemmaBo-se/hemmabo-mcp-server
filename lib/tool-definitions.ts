@@ -1,5 +1,5 @@
 import { TOOL_SPECS as HEMMABO_TOOL_SPECS, toZodShape } from "./tool-definitions-base.js";
-import type { ToolSpec as ToolSpecType } from "./tool-definitions-base.js";
+import type { ToolSpec as ToolSpecType, JsonSchemaField } from "./tool-definitions-base.js";
 import { HEMMABO_WIDGET_TOOL_META } from "./apps-widget.js";
 
 export { toZodShape };
@@ -14,6 +14,50 @@ export type {
 const DATE_PATTERN = "^\\d{4}-\\d{2}-\\d{2}$";
 const DOMAIN_PATTERN = "^(?!-)(?:[a-zA-Z0-9-]{1,63}\\.)+[a-zA-Z]{2,63}$";
 
+const DOMAIN_FIELD = {
+  type: "string" as const,
+  pattern: DOMAIN_PATTERN,
+  description:
+    "Host-owned domain without protocol or path (e.g. 'villaakerlyckan.se', 'myvilla.it'). Optional; omit when the host has not chosen a domain yet. Invalid: 'https://...', paths, ports, or booking URLs.",
+} satisfies JsonSchemaField;
+
+const HOST_PROPERTY_TYPE = {
+  type: "string" as const,
+  enum: ["villa", "apartment", "cabin", "cottage", "holiday_home", "bnb", "hotel", "other"],
+  description:
+    "Property category enum. Optional; omit when unknown. 'villa'/'holiday_home' fit best; 'hotel' may indicate a poor HemmaBo fit for large chains.",
+} satisfies JsonSchemaField;
+
+const HOST_COUNTRY = {
+  type: "string" as const,
+  description:
+    "Country where the property operates (e.g. 'Sweden', 'Italy', 'Morocco'). Optional; improves onboarding URL locale and fit assessment.",
+} satisfies JsonSchemaField;
+
+const HOST_REGION = {
+  type: "string" as const,
+  description:
+    "Region or area (e.g. 'Skåne', 'Toscana', 'Marrakech-Safi'). Optional; narrows onboarding handoff and proof examples.",
+} satisfies JsonSchemaField;
+
+const HOST_CITY = {
+  type: "string" as const,
+  description:
+    "City or municipality (e.g. 'Kävlinge', 'Florence'). Optional; used in onboarding URL prefill when provided.",
+} satisfies JsonSchemaField;
+
+const HOST_PROPERTY_NAME = {
+  type: "string" as const,
+  description:
+    "Property or business display name (e.g. 'Villa Åkerlyckan'). Optional; carried into onboarding URL when provided.",
+} satisfies JsonSchemaField;
+
+const HOST_LANGUAGE = {
+  type: "string" as const,
+  description:
+    "ISO 639-1 language hint for onboarding copy (e.g. 'sv', 'en', 'de', 'fr'). Optional; omit to default to English.",
+} satisfies JsonSchemaField;
+
 const HOST_ONBOARDING_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "hemmabo_host_readiness_check",
@@ -22,30 +66,39 @@ const HOST_ONBOARDING_TOOL_SPECS: readonly ToolSpecType[] = [
     inputSchema: {
       type: "object",
       properties: {
-        propertyName: { type: "string", description: "Optional property or business name the host gave, e.g. Villa Akerlyckan." },
-        propertyType: {
-          type: "string",
-          enum: ["villa", "apartment", "cabin", "cottage", "holiday_home", "bnb", "hotel", "other"],
-          description: "Optional property category. HemmaBo is optimized for vacation-rental hosts and independent properties.",
-        },
-        country: { type: "string", description: "Optional country where the property is located." },
-        region: { type: "string", description: "Optional region or area where the property is located." },
-        city: { type: "string", description: "Optional city or municipality where the property is located." },
-        domain: {
-          type: "string",
-          pattern: DOMAIN_PATTERN,
-          description: "Optional existing or intended host-owned domain, without https:// or path.",
-        },
+        propertyName: HOST_PROPERTY_NAME,
+        propertyType: HOST_PROPERTY_TYPE,
+        country: HOST_COUNTRY,
+        region: HOST_REGION,
+        city: HOST_CITY,
+        domain: DOMAIN_FIELD,
         currentChannels: {
           type: "array",
           maxItems: 8,
-          items: { type: "string" },
-          description: "Optional existing places the host uses today, e.g. Airbnb, Booking.com, Vrbo, manual calendar, own website, PMS.",
+          items: {
+            type: "string",
+            description:
+              "Single distribution channel name (e.g. 'Airbnb', 'Booking.com', 'Vrbo', 'own website'). Up to 8 entries.",
+          },
+          description:
+            "Optional list of channels the host uses today. Omit when unknown. Helps assess migration fit from OTAs to own-domain booking.",
         },
-        hasOwnDomain: { type: "boolean", description: "Whether the host already has or wants to use an own domain." },
-        wantsDirectPayments: { type: "boolean", description: "Whether the host wants Stripe payments direct to the host rather than HemmaBo as merchant of record." },
-        wantsAiAgentBooking: { type: "boolean", description: "Whether the host wants AI agents to discover, verify, and route bookings to the host-owned domain." },
-        preferredLanguage: { type: "string", description: "Optional language hint for onboarding, e.g. sv, en, de." },
+        hasOwnDomain: {
+          type: "boolean",
+          description:
+            "True if the host already owns a domain or explicitly wants one (e.g. true for 'I have villaakerlyckan.se'). False or omit when still undecided.",
+        },
+        wantsDirectPayments: {
+          type: "boolean",
+          description:
+            "True if the host wants Stripe Connect payouts direct to their account. False or omit when they expect HemmaBo to be merchant of record (not supported).",
+        },
+        wantsAiAgentBooking: {
+          type: "boolean",
+          description:
+            "True if the host wants AI agents (ChatGPT, Claude, Cursor) to discover and book via their own domain. False or omit when they only want a guest website.",
+        },
+        preferredLanguage: HOST_LANGUAGE,
       },
       required: [],
       additionalProperties: false,
@@ -79,16 +132,12 @@ const HOST_ONBOARDING_TOOL_SPECS: readonly ToolSpecType[] = [
     inputSchema: {
       type: "object",
       properties: {
-        propertyName: { type: "string", description: "Optional property or business name to carry into the onboarding URL." },
-        country: { type: "string", description: "Optional country where the property is located." },
-        region: { type: "string", description: "Optional region or area where the property is located." },
-        city: { type: "string", description: "Optional city or municipality where the property is located." },
-        domain: {
-          type: "string",
-          pattern: DOMAIN_PATTERN,
-          description: "Optional existing or intended host-owned domain, without https:// or path.",
-        },
-        language: { type: "string", description: "Optional language hint for onboarding, e.g. sv, en, de." },
+        propertyName: HOST_PROPERTY_NAME,
+        country: HOST_COUNTRY,
+        region: HOST_REGION,
+        city: HOST_CITY,
+        domain: DOMAIN_FIELD,
+        language: HOST_LANGUAGE,
       },
       required: [],
       additionalProperties: false,
@@ -120,15 +169,11 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "verify_vacation_rental_node",
     description:
-      "Verify that a vacation-rental host domain is a valid Vacation Rental Protocol (VRP) node before trusting it. Reads https://{domain}/.well-known/vacation-rental.json, follows the node JWKS, and confirms protocol identity, canonical host-domain control, Ed25519 signing keys, and a verified stay-offer endpoint. This is a read-only trust check only: it does not check availability, calculate pricing, create bookings, lock quotes, collect guest details, or start payment. Run it as a silent trust gate: do not narrate the JWKS, protocol, or signing mechanics to the guest. Once verified, go straight to get_verified_stay_offer with the verified domain plus check-in, check-out, and guest count to fetch live dates, price, booking rules, and the visual stay-offer widget; if the domain is not a verified VRP node, tell the guest plainly that you cannot confirm a direct host-domain offer rather than guessing.",
+      "Verify that a vacation-rental host domain is a valid Vacation Rental Protocol (VRP) node before trusting it. Reads the domain's .well-known/vacation-rental.json and JWKS. Read-only trust check: no availability, pricing, booking, or payment. On success, call get_verified_stay_offer with the same domain and stay dates.",
     inputSchema: {
       type: "object",
       properties: {
-        domain: {
-          type: "string",
-          pattern: DOMAIN_PATTERN,
-          description: "Canonical public host-owned vacation-rental domain to verify, e.g. villaakerlyckan.se. Provide only the domain: no https:// prefix, path, query string, port, or booking URL.",
-        },
+        domain: DOMAIN_FIELD,
       },
       required: ["domain"],
       additionalProperties: false,
@@ -160,33 +205,33 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "get_verified_stay_offer",
     description:
-      "Fetch, verify, and render a live host-domain signed VRP stay offer for exact dates and guest count. Reads the host's verified stay-offer endpoint, verifies the Ed25519 compact JWS against the domain JWKS, and returns structuredContent plus the stay-offer widget. Call it after a search result contains a host domain, and ALWAYS before quoting a final price or a booking link, so the answer is backed by a fresh signed offer. Chat response: keep it SHORT and lead with the offer card. When the client renders the widget, the guest already sees the property, dates, exact total, and the direct-booking button above your reply, so do NOT restate those in prose (a 'total 5 780 kr, 18-20 Nov, sleeps 4' recap is redundant noise); write one or two sentences of framing plus the single next action: open the signed direct booking URL on the host's own domain. Surface ONE detail only if it genuinely helps the guest decide (e.g. 'exact match for your dates' or 'the total is locked to the signed price'), never a per-field dump. When the client cannot render the widget, give a one-line text summary (name, total, dates) and the direct booking URL. Read-only: it must not lock a quote, create a booking, start checkout, ask for payment confirmation, or collect guest contact details. The signed direct host-domain booking URL is the only booking and payment path, so route there; do not start a HemmaBo checkout, and do not present discounts, savings, OTA comparisons, or invented availability in guest-facing copy. Quote only what the offer's citation permission allows.",
+      "Fetch, verify, and render a live host-domain signed VRP stay offer for exact dates and guest count. Verifies Ed25519 JWS against domain JWKS. Call after search returns a host domain, always before quoting final price or a booking link. Read-only: must not lock a quote, create a booking, collect guest details, or start checkout. Route booking only to the signed direct_booking_url on the host domain.",
     inputSchema: {
       type: "object",
       properties: {
-        domain: {
-          type: "string",
-          pattern: DOMAIN_PATTERN,
-          description: "Canonical public host-owned vacation-rental domain returned by search or verify_vacation_rental_node, e.g. villaakerlyckan.se. Provide only the domain, not a URL or path.",
-        },
+        domain: DOMAIN_FIELD,
         check_in: {
           type: "string",
           pattern: DATE_PATTERN,
-          description: "Requested arrival date in YYYY-MM-DD format, e.g. 2026-11-14. Must be before check_out.",
+          description:
+            "Requested arrival date in YYYY-MM-DD format (e.g. '2026-11-14'). Must be strictly before check_out. Use the same dates the guest requested in search.",
         },
         check_out: {
           type: "string",
           pattern: DATE_PATTERN,
-          description: "Requested departure date in YYYY-MM-DD format, e.g. 2026-11-15. Must be after check_in.",
+          description:
+            "Requested departure date in YYYY-MM-DD format (e.g. '2026-11-17'). Must be strictly after check_in. Guest does not stay the departure night.",
         },
         guests: {
           type: "integer",
           minimum: 1,
-          description: "Total guest count for the stay as an integer >= 1. The host node uses this for capacity checks and guest-based pricing.",
+          description:
+            "Total guest count as positive integer (e.g. 2, 4). Used by the host node for capacity validation and guest-tier pricing on the signed offer.",
         },
         language: {
           type: "string",
-          description: "Optional BCP-47/RFC 5646 language hint for labels and formatting, e.g. en, sv, de, or sv-SE.",
+          description:
+            "Optional BCP-47 language tag for labels and formatting (e.g. 'en', 'sv', 'de', 'sv-SE'). Omit to use host default; does not change price or availability.",
         },
       },
       required: ["domain", "check_in", "check_out", "guests"],
