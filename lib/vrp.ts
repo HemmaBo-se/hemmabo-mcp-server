@@ -514,14 +514,22 @@ async function runVerifyNode(args: Record<string, unknown>): Promise<ToolResult>
 }
 
 async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<ToolResult> {
-  requirePresentArgs(args, ["domain", "check_in", "check_out", "guests"]);
-  const domain = requireStringArg(args, "domain");
-  const checkIn = requireStringArg(args, "check_in");
-  const checkOut = requireStringArg(args, "check_out");
-  const guests = requireIntegerArg(args, "guests");
-  validateDateArg(checkIn, "check_in");
-  validateDateArg(checkOut, "check_out");
-  if (checkOut <= checkIn) throw new Error("check_out must be after check_in");
+  // Canonical date params are camelCase (checkIn/checkOut), matching every
+  // other HemmaBo tool. Accept legacy snake_case (check_in/check_out) as a
+  // backward-compatible alias so older agents keep working. The VRP wire
+  // contract below stays snake_case (the host offer endpoint's query params).
+  const normalized: Record<string, unknown> = { ...args };
+  if (normalized.checkIn === undefined && normalized.check_in !== undefined) normalized.checkIn = normalized.check_in;
+  if (normalized.checkOut === undefined && normalized.check_out !== undefined) normalized.checkOut = normalized.check_out;
+
+  requirePresentArgs(normalized, ["domain", "checkIn", "checkOut", "guests"]);
+  const domain = requireStringArg(normalized, "domain");
+  const checkIn = requireStringArg(normalized, "checkIn");
+  const checkOut = requireStringArg(normalized, "checkOut");
+  const guests = requireIntegerArg(normalized, "guests");
+  validateDateArg(checkIn, "checkIn");
+  validateDateArg(checkOut, "checkOut");
+  if (checkOut <= checkIn) throw new Error("checkOut must be after checkIn");
 
   const node = await verifyVacationRentalNode(domain);
   const offerUrl = new URL(node.verifiedStayOfferUrl);
@@ -549,8 +557,8 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
   const agentNextStep = buildAgentNextStep(hostAlternatives);
   return toolOk({
     domain: node.domain,
-    check_in: checkIn,
-    check_out: checkOut,
+    checkIn,
+    checkOut,
     guests,
     verified: true,
     signature: {
