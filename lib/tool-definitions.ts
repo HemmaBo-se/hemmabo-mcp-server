@@ -62,7 +62,7 @@ const HOST_ONBOARDING_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "hemmabo_host_readiness_check",
     description:
-      "Read-only fit check for vacation-rental hosts who ask an AI agent how to create an own-domain booking website or booking engine. Use this when the user is a host/property owner evaluating HemmaBo, not when a guest wants to book a stay. It explains whether HemmaBo is a fit, what the host gets (booking website, guest Wallet, Stripe Connect direct-to-host payments, calendar/iCal sync, Konversa guest chat in 11 languages, reviews, gap-night and extend-stay flows, AI-agent-readable booking data), what setup inputs are needed, and the safe next step. It does not create an account, buy a domain, configure Stripe, write to Supabase, collect host PII, or provision a website.",
+      "Read-only fit check for vacation-rental hosts who ask an AI agent how to create an own-domain booking website or booking engine. Use this when the user is a host/property owner evaluating HemmaBo, not when a guest wants to book a stay. It explains whether HemmaBo is a fit, what the host gets (booking website, guest Wallet, Stripe Connect direct-to-host payments, calendar/iCal sync, Konversa guest chat in 12 languages, reviews, gap-night and extend-stay flows, AI-agent-readable booking data), what setup inputs are needed, and the safe next step. It does not create an account, buy a domain, configure Stripe, write to Supabase, collect host PII, or provision a website.",
     inputSchema: {
       type: "object",
       properties: {

@@ -112,7 +112,7 @@ function baseResponse(args: JsonRecord): JsonRecord {
       "guest Wallet for booking, cancellation, rebooking, guest questions, and stay flows",
       "Stripe Connect payment path direct to the host",
       "calendar and iCal sync",
-      "Konversa guest chat in 11 languages",
+      "Konversa guest chat in 12 languages",
       "gap-night and extend-stay flows when the calendar allows it",
       "early check-in and late check-out request flows when enabled by the host",
       "automatic review collection and website publishing",
