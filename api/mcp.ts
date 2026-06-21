@@ -12,7 +12,7 @@
 
 import type { VercelRequest, VercelResponse } from "./_types.js";
 import { createClient } from "@supabase/supabase-js";
-import { executeTool, isHostOnboardingToolName, normalizeToolName } from "../lib/tools.js";
+import { executeTool, isHostOnboardingToolName, normalizeDateAliases, normalizeToolName } from "../lib/tools.js";
 import { validateAuth } from "../src/auth.js";
 import { anonIdentifier, bearerIdentifier, checkRateLimit } from "../lib/rate-limit.js";
 import { registerToolSchemas, validateToolArgs } from "../lib/validate-args.js";
@@ -286,7 +286,11 @@ async function handleJsonRpc(
     case "tools/call": {
       const rawToolName = (params as { name: string })?.name;
       const toolName = typeof rawToolName === "string" ? normalizeToolName(rawToolName) : rawToolName;
-      const toolArgs = (params as { arguments?: Record<string, unknown> })?.arguments ?? {};
+      // Map legacy snake_case date params to canonical camelCase before
+      // validation, so the live endpoint accepts both forms during the
+      // checkIn/checkOut migration. validateToolArgs (#85) still rejects any
+      // other unknown key so agents self-correct.
+      const toolArgs = normalizeDateAliases((params as { arguments?: Record<string, unknown> })?.arguments ?? {});
       const start = Date.now();
       let ok = true;
       let errMsg: string | undefined;

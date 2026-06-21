@@ -27,7 +27,7 @@ const REQUIRED_BY_TOOL: ReadonlyArray<{ tool: string; required: readonly string[
   { tool: "hemmabo_booking_status",      required: ["reservationId"] },
   { tool: "hemmabo_booking_reschedule",  required: ["reservationId", "newCheckIn", "newCheckOut"] },
   { tool: "verify_vacation_rental_node", required: ["domain"] },
-  { tool: "get_verified_stay_offer",     required: ["domain", "check_in", "check_out", "guests"] },
+  { tool: "get_verified_stay_offer",     required: ["domain", "checkIn", "checkOut", "guests"] },
 ];
 
 describe("validateRequiredArgs unit", () => {

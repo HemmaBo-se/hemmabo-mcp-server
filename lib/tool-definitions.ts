@@ -210,17 +210,17 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
       type: "object",
       properties: {
         domain: DOMAIN_FIELD,
-        check_in: {
+        checkIn: {
           type: "string",
           pattern: DATE_PATTERN,
           description:
-            "Requested arrival date in YYYY-MM-DD format (e.g. '2026-11-14'). Must be strictly before check_out. Use the same dates the guest requested in search.",
+            "Requested arrival date in YYYY-MM-DD format (e.g. '2026-11-14'). Must be strictly before checkOut. Use the same dates the guest requested in search.",
         },
-        check_out: {
+        checkOut: {
           type: "string",
           pattern: DATE_PATTERN,
           description:
-            "Requested departure date in YYYY-MM-DD format (e.g. '2026-11-17'). Must be strictly after check_in. Guest does not stay the departure night.",
+            "Requested departure date in YYYY-MM-DD format (e.g. '2026-11-17'). Must be strictly after checkIn. Guest does not stay the departure night.",
         },
         guests: {
           type: "integer",
@@ -234,15 +234,15 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
             "Optional BCP-47 language tag for labels and formatting (e.g. 'en', 'sv', 'de', 'sv-SE'). Omit to use host default; does not change price or availability.",
         },
       },
-      required: ["domain", "check_in", "check_out", "guests"],
+      required: ["domain", "checkIn", "checkOut", "guests"],
       additionalProperties: false,
     },
     outputSchema: {
       type: "object",
       properties: {
         domain: { type: "string", description: "Echoed host domain that issued the signed offer." },
-        check_in: { type: "string", description: "Echoed requested arrival date." },
-        check_out: { type: "string", description: "Echoed requested departure date." },
+        checkIn: { type: "string", description: "Echoed requested arrival date." },
+        checkOut: { type: "string", description: "Echoed requested departure date." },
         guests: { type: "integer", description: "Echoed requested guest count." },
         verified: { type: "boolean", description: "True only when the host-domain offer signature and payload checks pass." },
         signature: { type: "object", description: "Ed25519/JWS verification details, including key id and verification status.", additionalProperties: true },

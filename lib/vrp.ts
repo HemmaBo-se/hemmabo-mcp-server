@@ -514,14 +514,19 @@ async function runVerifyNode(args: Record<string, unknown>): Promise<ToolResult>
 }
 
 async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<ToolResult> {
-  requirePresentArgs(args, ["domain", "check_in", "check_out", "guests"]);
+  // Date params are camelCase (checkIn/checkOut), consistent with every other
+  // tool. Legacy snake_case input is mapped to camelCase centrally in
+  // executeTool (lib/tools.ts, normalizeDateAliases) before this handler runs.
+  // The VRP wire contract below stays snake_case (the host offer endpoint's
+  // query params).
+  requirePresentArgs(args, ["domain", "checkIn", "checkOut", "guests"]);
   const domain = requireStringArg(args, "domain");
-  const checkIn = requireStringArg(args, "check_in");
-  const checkOut = requireStringArg(args, "check_out");
+  const checkIn = requireStringArg(args, "checkIn");
+  const checkOut = requireStringArg(args, "checkOut");
   const guests = requireIntegerArg(args, "guests");
-  validateDateArg(checkIn, "check_in");
-  validateDateArg(checkOut, "check_out");
-  if (checkOut <= checkIn) throw new Error("check_out must be after check_in");
+  validateDateArg(checkIn, "checkIn");
+  validateDateArg(checkOut, "checkOut");
+  if (checkOut <= checkIn) throw new Error("checkOut must be after checkIn");
 
   const node = await verifyVacationRentalNode(domain);
   const offerUrl = new URL(node.verifiedStayOfferUrl);
@@ -549,8 +554,8 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
   const agentNextStep = buildAgentNextStep(hostAlternatives);
   return toolOk({
     domain: node.domain,
-    check_in: checkIn,
-    check_out: checkOut,
+    checkIn,
+    checkOut,
     guests,
     verified: true,
     signature: {

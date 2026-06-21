@@ -222,8 +222,8 @@ describe("VRP MCP tools", () => {
 
     const result = await executeTool("get_verified_stay_offer", {
       domain: "villaakerlyckan.se",
-      check_in: "2026-07-01",
-      check_out: "2026-07-08",
+      checkIn: "2026-07-01",
+      checkOut: "2026-07-08",
       guests: 4,
     }, clients);
 
@@ -233,6 +233,9 @@ describe("VRP MCP tools", () => {
     assert.equal(parsed.signature.verified, true);
     assert.equal(parsed.payload_matches_offer, true);
     assert.equal(parsed.fresh, true);
+    // Output echoes the canonical camelCase date params (not snake_case).
+    assert.equal(parsed.checkIn, "2026-07-01");
+    assert.equal(parsed.checkOut, "2026-07-08");
     assert.equal(result._meta?.["openai/outputTemplate"], HEMMABO_WIDGET_URI);
     assert.deepEqual(result._meta?.ui, { resourceUri: HEMMABO_WIDGET_URI });
     assert.equal(result._meta?.signed_verified_stay_offer, jws);
@@ -265,6 +268,22 @@ describe("VRP MCP tools", () => {
     assert.equal(parsed.agent_guardrails.must_not_claim_ota_comparison_without_signed_ota_price, true);
     assert.match(parsed.agent_guardrails.price_claim_rule, /Do not describe the difference as a discount/);
     assert.match(parsed.agent_guardrails.blocked_claims.join("\n"), /Do not present discounts/);
+
+    // Backward compatibility: legacy snake_case input (check_in/check_out)
+    // is still accepted and resolves to the same verified offer. The wire
+    // URL above already asserted snake_case, so the casing translation holds
+    // for both input forms.
+    const legacy = await executeTool("get_verified_stay_offer", {
+      domain: "villaakerlyckan.se",
+      check_in: "2026-07-01",
+      check_out: "2026-07-08",
+      guests: 4,
+    }, clients);
+    assert.equal(legacy.isError, undefined);
+    const legacyParsed = JSON.parse(legacy.content[0].text);
+    assert.equal(legacyParsed.verified, true);
+    assert.equal(legacyParsed.checkIn, "2026-07-01");
+    assert.equal(legacyParsed.checkOut, "2026-07-08");
   });
 
   it("get_verified_stay_offer refuses quoteable status for signed but unavailable offers", async () => {

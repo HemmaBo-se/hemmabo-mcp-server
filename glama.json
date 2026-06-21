@@ -1516,13 +1516,13 @@
             "pattern": "^(?!-)(?:[A-Za-z0-9-]{1,63}\\.)+[A-Za-z]{2,63}$",
             "description": "Canonical public host-owned vacation-rental domain returned by search or verify_vacation_rental_node, without protocol, path, query string, or booking URL."
           },
-          "check_in": {
+          "checkIn": {
             "type": "string",
-            "description": "Requested arrival date in YYYY-MM-DD format, e.g. 2026-11-14. Must be before check_out."
+            "description": "Requested arrival date in YYYY-MM-DD format, e.g. 2026-11-14. Must be before checkOut."
           },
-          "check_out": {
+          "checkOut": {
             "type": "string",
-            "description": "Requested departure date in YYYY-MM-DD format, e.g. 2026-11-15. Must be after check_in."
+            "description": "Requested departure date in YYYY-MM-DD format, e.g. 2026-11-15. Must be after checkIn."
           },
           "guests": {
             "type": "integer",
@@ -1536,8 +1536,8 @@
         },
         "required": [
           "domain",
-          "check_in",
-          "check_out",
+          "checkIn",
+          "checkOut",
           "guests"
         ]
       },
@@ -1548,11 +1548,11 @@
             "type": "string",
             "description": "Echoed host domain that issued the signed offer."
           },
-          "check_in": {
+          "checkIn": {
             "type": "string",
             "description": "Echoed requested arrival date."
           },
-          "check_out": {
+          "checkOut": {
             "type": "string",
             "description": "Echoed requested departure date."
           },
