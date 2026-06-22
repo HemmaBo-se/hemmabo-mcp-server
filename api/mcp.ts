@@ -107,7 +107,7 @@ export const TOOLS = TOOL_SPECS.map((t) => {
 
 export const PROMPTS = [
   {
-    name: "host.start",
+    name: "host_start",
     description: "Help a vacation-rental host evaluate HemmaBo and start an own-domain booking engine. Use the read-only host onboarding tools; do not provision accounts, buy domains, or configure Stripe inside chat.",
     arguments: [
       {
@@ -128,7 +128,7 @@ export const PROMPTS = [
     ],
   },
   {
-    name: "trip.plan",
+    name: "trip_plan",
     description: "Help plan a vacation rental trip through host-domain discovery and verified offers. Search first, show a verified host-domain stay offer when possible, and route booking only to the signed direct host-domain URL.",
     arguments: [
       {
@@ -190,21 +190,21 @@ export function readResource(
 }
 
 function getPromptMessages(name: string, args: Record<string, string>) {
-  if (name === "host.start") {
+  if (name === "host_start") {
     return {
       messages: [
         {
           role: "user",
           content: {
             type: "text",
-            text: `I am a vacation-rental host${args.propertyName ? ` for ${args.propertyName}` : ""}${args.country ? ` in ${args.country}` : ""}${args.domain ? ` with domain ${args.domain}` : ""}. Please evaluate whether HemmaBo is a fit for an own-domain booking engine with guest Wallet, Stripe Connect direct-to-host payments, calendar/iCal sync, 11-language guest chat, extend-stay/gap-night flows, reviews, and AI-agent-readable booking data. Call hemmabo_host_readiness_check first; if it fits, call hemmabo_host_onboarding_link. Do not claim you created an account, bought a domain, or configured Stripe.`,
+            text: `I am a vacation-rental host${args.propertyName ? ` for ${args.propertyName}` : ""}${args.country ? ` in ${args.country}` : ""}${args.domain ? ` with domain ${args.domain}` : ""}. Please evaluate whether HemmaBo is a fit for an own-domain booking engine with guest Wallet, Stripe Connect direct-to-host payments, calendar/iCal sync, 12-language guest chat, extend-stay/gap-night flows, reviews, and AI-agent-readable booking data. Call hemmabo_host_readiness_check first; if it fits, call hemmabo_host_onboarding_link. Do not claim you created an account, bought a domain, or configured Stripe.`,
           },
         },
       ],
     };
   }
 
-  if (name === "trip.plan") {
+  if (name === "trip_plan") {
     return {
       messages: [
         {
