@@ -42,3 +42,6 @@ jobs:
 
       - name: Facts drift — 12 languages / 15 runtime tools consistent
         run: bash scripts/check-facts-drift.sh
+
+      - name: Description sync — registry + runtime descriptions in lock-step
+        run: node scripts/check-description-sync.mjs
