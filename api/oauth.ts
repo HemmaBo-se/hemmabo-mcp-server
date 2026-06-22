@@ -38,6 +38,7 @@ import type { VercelRequest, VercelResponse } from "./_types.js";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import { requireEnv } from "../lib/env.js";
+import { parseTokenRequestParams } from "../lib/oauth-body.js";
 import { anonIdentifier, checkRateLimit } from "../lib/rate-limit.js";
 import { verifyS256 } from "../lib/pkce.js";
 
@@ -200,20 +201,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
   }
 
-  // ── Parse body (JSON or x-www-form-urlencoded) ─────────────────────────
+  // ── Parse body (JSON or x-www-form-urlencoded; object or raw string) ───
   const contentType = (req.headers["content-type"] || "").toString();
-  const params: Record<string, string | undefined> = {};
-  if (contentType.includes("application/json")) {
-    const b = (req.body ?? {}) as Record<string, unknown>;
-    for (const k of ["grant_type", "client_id", "client_secret", "code", "redirect_uri", "code_verifier", "refresh_token", "scope"]) {
-      const v = b[k];
-      if (typeof v === "string") params[k] = v;
-    }
-  } else {
-    const raw = typeof req.body === "string" ? req.body : "";
-    const sp = new URLSearchParams(raw);
-    for (const [k, v] of sp.entries()) params[k] = v;
-  }
+  const params = parseTokenRequestParams(contentType, req.body);
 
   // HTTP Basic Auth (RFC 6749 §2.3.1) for client credentials.
   const authHeader = req.headers["authorization"];
