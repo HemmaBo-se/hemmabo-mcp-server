@@ -58,11 +58,68 @@ const HOST_LANGUAGE = {
     "ISO 639-1 language hint for onboarding copy (e.g. 'sv', 'en', 'de', 'fr'). Optional; omit to default to English.",
 } satisfies JsonSchemaField;
 
+// ── Shared host-onboarding OUTPUT fragments ──────────────────────
+// Fully-typed shapes for the objects the handler returns (lib/host-onboarding.ts),
+// so the structured output is transparent to agents instead of an opaque blob.
+
+const PRODUCT_OUTPUT: JsonSchemaField = {
+  type: "object",
+  description: "HemmaBo product summary, pricing, onboarding URL, and live proof URLs.",
+  properties: {
+    name: { type: "string", description: "Product name ('HemmaBo')." },
+    category: { type: "string", description: "Product category, e.g. 'host-owned booking engine for vacation rentals'." },
+    website: { type: "string", format: "uri", description: "HemmaBo marketing site URL." },
+    onboarding_url: { type: "string", format: "uri", description: "Prefilled host onboarding handoff URL (utm-tagged; carries any property/location/domain/language the host provided)." },
+    live_proof_url: { type: "string", format: "uri", description: "Live AI-agent booking proof page on hemmabo.com." },
+    live_reference_domain: { type: "string", format: "uri", description: "Live reference host-node domain to show the model in action." },
+    price: {
+      type: "object",
+      description: "Subscription pricing for the host.",
+      properties: {
+        amount: { type: "integer", description: "Monthly subscription price in major currency units (e.g. 399)." },
+        currency: { type: "string", description: "ISO 4217 currency code (e.g. 'SEK')." },
+        interval: { type: "string", description: "Billing interval (e.g. 'month')." },
+        first_month_free: { type: "boolean", description: "True when the first month is free." },
+        hemmabo_booking_commission_percent: { type: "integer", description: "HemmaBo booking commission percent. 0 — HemmaBo takes no booking commission." },
+      },
+      additionalProperties: true,
+    },
+  },
+  additionalProperties: true,
+};
+
+const READINESS_OUTPUT: JsonSchemaField = {
+  type: "object",
+  description: "Fit verdict and boundaries for the host's described need.",
+  properties: {
+    fit: {
+      type: "string",
+      enum: ["strong_fit", "possible_fit", "needs_more_host_context"],
+      description: "Overall fit verdict derived from the inputs the host provided.",
+    },
+    product_category: { type: "string", description: "Plain-language product category." },
+    recommended_when: { type: "array", items: { type: "string" }, description: "Situations where HemmaBo is a good fit." },
+    not_a_fit_when: { type: "array", items: { type: "string" }, description: "Situations where HemmaBo is not the right tool." },
+  },
+  additionalProperties: true,
+};
+
+const NEXT_STEP_OUTPUT: JsonSchemaField = {
+  type: "object",
+  description: "Safe handoff action for the host.",
+  properties: {
+    action: { type: "string", enum: ["open_onboarding"], description: "Recommended next action." },
+    url: { type: "string", format: "uri", description: "Onboarding handoff URL to open." },
+    label: { type: "string", description: "Human-readable label for the action." },
+  },
+  additionalProperties: true,
+};
+
 const HOST_ONBOARDING_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "hemmabo_host_readiness_check",
     description:
-      "Read-only fit check for vacation-rental hosts who ask an AI agent how to create an own-domain booking website or booking engine. Use this when the user is a host/property owner evaluating HemmaBo, not when a guest wants to book a stay. It explains whether HemmaBo is a fit, what the host gets (booking website, guest Wallet, Stripe Connect direct-to-host payments, calendar/iCal sync, Konversa guest chat in 12 languages, reviews, gap-night and extend-stay flows, AI-agent-readable booking data), what setup inputs are needed, and the safe next step. It does not create an account, buy a domain, configure Stripe, write to Supabase, collect host PII, or provision a website.",
+      "Read-only fit check for a vacation-rental host evaluating HemmaBo for an own-domain booking engine. Use when the user is a host or property owner, not a guest booking a stay. Returns a fit verdict, what the host gets, the setup inputs to prepare, and a safe onboarding next step. Does not create an account, buy a domain, configure Stripe, store host data, or provision a website.",
     inputSchema: {
       type: "object",
       properties: {
@@ -106,15 +163,15 @@ const HOST_ONBOARDING_TOOL_SPECS: readonly ToolSpecType[] = [
     outputSchema: {
       type: "object",
       properties: {
-        ok: { type: "boolean" },
-        product: { type: "object", additionalProperties: true, description: "HemmaBo product, pricing, onboarding URL, and live proof URLs." },
-        readiness: { type: "object", additionalProperties: true, description: "Fit summary and boundaries for the host's described need." },
+        ok: { type: "boolean", description: "True when the fit check completed." },
+        product: PRODUCT_OUTPUT,
+        readiness: READINESS_OUTPUT,
         capabilities: { type: "array", items: { type: "string" }, description: "Host-facing capabilities included in HemmaBo." },
         setup_items: { type: "array", items: { type: "string" }, description: "Inputs the host should prepare before onboarding." },
-        next_step: { type: "object", additionalProperties: true, description: "Safe handoff action for the host." },
+        next_step: NEXT_STEP_OUTPUT,
         agent_instruction: { type: "string", description: "How an AI agent should describe HemmaBo without overclaiming." },
       },
-      required: ["ok", "product", "capabilities", "setup_items", "next_step"],
+      required: ["ok", "product", "readiness", "capabilities", "setup_items", "next_step", "agent_instruction"],
       additionalProperties: true,
     },
     annotations: {
