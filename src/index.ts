@@ -241,9 +241,9 @@ for (const spec of TOOL_SPECS) {
   server.tool(spec.name, spec.description, shape, spec.annotations, handler as never);
 }
 
-// ── Prompt: trip.plan ─────────────────────────────────────────────────────
+// ── Prompt: trip_plan ─────────────────────────────────────────────────────
 server.prompt(
-  "trip.plan",
+  "trip_plan",
   "Help plan a vacation rental trip through host-domain discovery and verified offers. Search first, show a verified host-domain stay offer when possible, and route booking only to the signed direct host-domain URL.",
   {
     destination: z.string().describe("Where the guest wants to travel (region, city, or country). Example: 'Skane', 'Sweden', 'Toscana'."),
