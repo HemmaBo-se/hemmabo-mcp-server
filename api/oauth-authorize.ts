@@ -39,6 +39,7 @@ import { randomBytes } from "crypto";
 import { requireEnv } from "../lib/env.js";
 import { anonIdentifier, checkRateLimit } from "../lib/rate-limit.js";
 import { isValidCodeChallenge } from "../lib/pkce.js";
+import { parseAuthorizeRequestParams } from "../lib/oauth-body.js";
 
 const supabase = createClient(
   requireEnv("SUPABASE_URL"),
@@ -88,23 +89,20 @@ function queryParamsFromUrl(req: VercelRequest): AuthorizeParams {
 }
 
 /**
- * Read params from either query string (GET) or form body (POST).
- * application/x-www-form-urlencoded is the only POST content-type we accept
- * — this matches RFC 6749 §3.1 and what every OAuth library sends.
+ * Read params from either query string (GET) or form body (POST consent
+ * submission). The consent form POSTs application/x-www-form-urlencoded, which
+ * the Vercel runtime delivers as an ALREADY-PARSED OBJECT — not a raw string.
+ * Parsing only the string case (as this handler originally did) dropped every
+ * field on Vercel, so the approve POST failed with "Missing client_id" even
+ * though the consent page had rendered correctly. parseAuthorizeRequestParams
+ * (lib/oauth-body) handles object, raw form string, and JSON alike — the same
+ * fix already applied to the token endpoint.
  */
 function readParams(req: VercelRequest): AuthorizeParams {
   if (req.method === "GET") return queryParamsFromUrl(req);
 
   const ct = (req.headers["content-type"] || "").toString();
-  if (ct.includes("application/x-www-form-urlencoded")) {
-    const raw = typeof req.body === "string" ? req.body : "";
-    const parsed = new URLSearchParams(raw);
-    return Object.fromEntries(parsed.entries()) as AuthorizeParams;
-  }
-  if (ct.includes("application/json") && req.body && typeof req.body === "object") {
-    return req.body as AuthorizeParams;
-  }
-  return {};
+  return parseAuthorizeRequestParams(ct, req.body) as AuthorizeParams;
 }
 
 /**

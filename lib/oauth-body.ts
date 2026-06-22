@@ -11,46 +11,74 @@ const TOKEN_PARAM_KEYS = [
   "redirect_uri", "code_verifier", "refresh_token", "scope",
 ] as const;
 
+const AUTHORIZE_PARAM_KEYS = [
+  "response_type", "client_id", "redirect_uri", "state",
+  "code_challenge", "code_challenge_method", "scope", "decision",
+] as const;
+
 /**
- * Extract OAuth token params from a request body, accepting both
- * application/x-www-form-urlencoded (the RFC 6749 §3.2 mandated default) and
- * application/json.
+ * Normalise an OAuth request body into a flat key→value source object,
+ * accepting both application/x-www-form-urlencoded (the RFC 6749 §3.2 mandated
+ * default) and application/json.
  *
  * The Vercel runtime pre-parses BOTH content types into an object, so the
  * common case is an already-parsed object regardless of content type. A raw
  * string body (when body parsing is disabled) is also handled: JSON.parse for
- * JSON, URLSearchParams for form-encoded. The previous implementation read
- * only a raw string for the form branch, so on Vercel — where the body is an
- * object — every form-encoded field was silently dropped and the request
- * failed with "grant_type is required".
+ * JSON, URLSearchParams for form-encoded. Reading only a raw string for the
+ * form branch — as the original token and authorize handlers both did — means
+ * that on Vercel, where the body is an object, every form-encoded field is
+ * silently dropped (token endpoint failed "grant_type is required"; the
+ * authorize consent POST failed "Missing client_id").
  */
-export function parseTokenRequestParams(
-  contentType: string,
-  body: unknown,
-): Record<string, string | undefined> {
-  const params: Record<string, string | undefined> = {};
-  let source: Record<string, unknown> | null = null;
-
+function bodyToSource(contentType: string, body: unknown): Record<string, unknown> | null {
   if (body && typeof body === "object") {
-    source = body as Record<string, unknown>;
-  } else if (typeof body === "string" && body.length > 0) {
+    return body as Record<string, unknown>;
+  }
+  if (typeof body === "string" && body.length > 0) {
     if (contentType.includes("application/json")) {
       try {
         const parsed = JSON.parse(body);
-        if (parsed && typeof parsed === "object") source = parsed as Record<string, unknown>;
+        return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
       } catch {
-        source = null;
+        return null;
       }
-    } else {
-      source = Object.fromEntries(new URLSearchParams(body));
     }
+    return Object.fromEntries(new URLSearchParams(body));
   }
+  return null;
+}
 
+function pickStringKeys(
+  source: Record<string, unknown> | null,
+  keys: readonly string[],
+): Record<string, string | undefined> {
+  const params: Record<string, string | undefined> = {};
   if (source) {
-    for (const k of TOKEN_PARAM_KEYS) {
+    for (const k of keys) {
       const v = source[k];
       if (typeof v === "string") params[k] = v;
     }
   }
   return params;
+}
+
+/** Token-endpoint params (RFC 6749 §3.2). See {@link bodyToSource}. */
+export function parseTokenRequestParams(
+  contentType: string,
+  body: unknown,
+): Record<string, string | undefined> {
+  return pickStringKeys(bodyToSource(contentType, body), TOKEN_PARAM_KEYS);
+}
+
+/**
+ * Authorize-endpoint consent-POST params (RFC 6749 §4.1.1). The consent form
+ * submits application/x-www-form-urlencoded, which Vercel delivers as an
+ * object — so this MUST go through {@link bodyToSource} or every field (incl.
+ * client_id) is dropped and the user sees "Missing client_id".
+ */
+export function parseAuthorizeRequestParams(
+  contentType: string,
+  body: unknown,
+): Record<string, string | undefined> {
+  return pickStringKeys(bodyToSource(contentType, body), AUTHORIZE_PARAM_KEYS);
 }
