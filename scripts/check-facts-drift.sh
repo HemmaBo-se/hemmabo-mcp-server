@@ -98,6 +98,14 @@ check_rule "stale tool total (the old wrong '13 tools' / '14 tools')" \
   '\b1[34][ -]tools\b' "" \
   "canonical total is 15 tools (15 runtime tools)"
 
+# 5. ACP is the "Agentic Commerce Protocol" (Stripe is the payment PROVIDER, not
+#    the protocol). "Stripe Agentic Commerce Protocol" renames an open standard
+#    after one vendor and drifted across listing surfaces — forbid it so all
+#    surfaces stay consistent for agent-discovery classification.
+check_rule "wrong ACP protocol name — use 'Agentic Commerce Protocol' (Stripe = provider)" \
+  'Stripe Agentic Commerce Protocol' "" \
+  "write 'ACP (Agentic Commerce Protocol)'; attribute Stripe as the provider, not in the protocol name"
+
 if [[ $drift -ne 0 ]]; then
   echo "facts-drift check: FAILED — fix the counts above so every live surface agrees."
   echo "Canonical: 12 languages, 15 runtime tools."
