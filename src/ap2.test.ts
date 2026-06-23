@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign as edSign } from "node:crypto";
 import {
-  verifyAp2CartMandate,
+  verifyAp2PaymentMandate,
   mandateAuthorizesCharge,
   extractMandateClaims,
   type Ap2ChargeContext,
@@ -43,26 +43,26 @@ const charge: Ap2ChargeContext = {
 };
 
 test("AP2: valid Cart Mandate authorizes a matching charge", () => {
-  const r = verifyAp2CartMandate(makeMandate(validClaims), JWKS, charge);
+  const r = verifyAp2PaymentMandate(makeMandate(validClaims), JWKS, charge);
   assert.equal(r.authorized, true);
   assert.equal(r.claims?.merchant, "villaakerlyckan.se");
   assert.equal(r.claims?.maxAmountMinor, 12000);
 });
 
 test("AP2: charge over the mandate cap is rejected", () => {
-  const r = verifyAp2CartMandate(makeMandate(validClaims), JWKS, { ...charge, amountMinor: 99999 });
+  const r = verifyAp2PaymentMandate(makeMandate(validClaims), JWKS, { ...charge, amountMinor: 99999 });
   assert.equal(r.authorized, false);
   assert.equal(r.reason, "amount_exceeds_mandate");
 });
 
 test("AP2: currency mismatch is rejected", () => {
-  const r = verifyAp2CartMandate(makeMandate(validClaims), JWKS, { ...charge, currency: "EUR" });
+  const r = verifyAp2PaymentMandate(makeMandate(validClaims), JWKS, { ...charge, currency: "EUR" });
   assert.equal(r.authorized, false);
   assert.equal(r.reason, "currency_mismatch");
 });
 
 test("AP2: merchant mismatch is rejected", () => {
-  const r = verifyAp2CartMandate(makeMandate(validClaims), JWKS, {
+  const r = verifyAp2PaymentMandate(makeMandate(validClaims), JWKS, {
     ...charge,
     merchantDomain: "evil.example.com",
   });
@@ -71,13 +71,13 @@ test("AP2: merchant mismatch is rejected", () => {
 });
 
 test("AP2: expired mandate is rejected", () => {
-  const r = verifyAp2CartMandate(makeMandate({ ...validClaims, expires_at: past }), JWKS, charge);
+  const r = verifyAp2PaymentMandate(makeMandate({ ...validClaims, expires_at: past }), JWKS, charge);
   assert.equal(r.authorized, false);
   assert.equal(r.reason, "mandate_expired");
 });
 
 test("AP2: cart mismatch is rejected", () => {
-  const r = verifyAp2CartMandate(makeMandate(validClaims), JWKS, { ...charge, cartId: "different_cart" });
+  const r = verifyAp2PaymentMandate(makeMandate(validClaims), JWKS, { ...charge, cartId: "different_cart" });
   assert.equal(r.authorized, false);
   assert.equal(r.reason, "cart_mismatch");
 });
@@ -85,12 +85,12 @@ test("AP2: cart mismatch is rejected", () => {
 test("AP2: tampered payload fails signature verification (throws)", () => {
   const [h, , s] = makeMandate(validClaims).split(".");
   const forged = b64url(JSON.stringify({ ...validClaims, max_amount: 9_999_999 }));
-  assert.throws(() => verifyAp2CartMandate(`${h}.${forged}.${s}`, JWKS, charge));
+  assert.throws(() => verifyAp2PaymentMandate(`${h}.${forged}.${s}`, JWKS, charge));
 });
 
 test("AP2: signature from an unknown key is rejected (throws)", () => {
   const other = generateKeyPairSync("ed25519");
-  assert.throws(() => verifyAp2CartMandate(makeMandate(validClaims, other.privateKey), JWKS, charge));
+  assert.throws(() => verifyAp2PaymentMandate(makeMandate(validClaims, other.privateKey), JWKS, charge));
 });
 
 test("AP2: mandate missing an amount cap is rejected (fail closed)", () => {
@@ -124,7 +124,7 @@ const paymentMandate = {
 };
 
 test("AP2 PaymentMandate (canonical): valid mandate authorizes a matching charge", () => {
-  const r = verifyAp2CartMandate(makeMandate(paymentMandate), JWKS, charge);
+  const r = verifyAp2PaymentMandate(makeMandate(paymentMandate), JWKS, charge);
   assert.equal(r.authorized, true);
   assert.equal(r.claims?.merchant, "villaakerlyckan.se"); // bound via payee.website
   assert.equal(r.claims?.maxAmountMinor, 12000);
@@ -133,7 +133,7 @@ test("AP2 PaymentMandate (canonical): valid mandate authorizes a matching charge
 });
 
 test("AP2 PaymentMandate: payee.website binds merchant; wrong domain rejected", () => {
-  const r = verifyAp2CartMandate(makeMandate(paymentMandate), JWKS, {
+  const r = verifyAp2PaymentMandate(makeMandate(paymentMandate), JWKS, {
     ...charge,
     merchantDomain: "evil.example.com",
   });
@@ -142,9 +142,9 @@ test("AP2 PaymentMandate: payee.website binds merchant; wrong domain rejected", 
 });
 
 test("AP2 PaymentMandate: over-cap rejected; exp-epoch expiry enforced", () => {
-  const over = verifyAp2CartMandate(makeMandate(paymentMandate), JWKS, { ...charge, amountMinor: 99999 });
+  const over = verifyAp2PaymentMandate(makeMandate(paymentMandate), JWKS, { ...charge, amountMinor: 99999 });
   assert.equal(over.reason, "amount_exceeds_mandate");
-  const expired = verifyAp2CartMandate(makeMandate({ ...paymentMandate, exp: pastEpoch }), JWKS, charge);
+  const expired = verifyAp2PaymentMandate(makeMandate({ ...paymentMandate, exp: pastEpoch }), JWKS, charge);
   assert.equal(expired.reason, "mandate_expired");
 });
 

@@ -31,7 +31,7 @@ import {
   checkRateLimit,
 } from "../lib/rate-limit.js";
 import { toStripeMinorUnits } from "../src/stripe.js";
-import { verifyAp2CartMandate, resolveAp2IssuerJwks } from "../lib/ap2.js";
+import { verifyAp2PaymentMandate, resolveAp2IssuerJwks } from "../lib/ap2.js";
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -377,7 +377,7 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
   const currency = (booking.currency || "SEK").toLowerCase();
 
   // ── AP2 (Agent Payments Protocol) — optional, additive ──────────────
-  // If the agent presents a signed AP2 Cart Mandate, verify it authorizes
+  // If the agent presents a signed AP2 Payment Mandate, verify it authorizes
   // THIS charge (amount cap, currency, merchant, expiry) before paying.
   // Absent → existing behavior. Present but invalid → reject (fail closed).
   const ap2Raw = body.ap2_mandate ?? (paymentData as Record<string, unknown> | undefined)?.ap2_mandate;
@@ -398,7 +398,7 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
     }
     let ap2Result;
     try {
-      ap2Result = verifyAp2CartMandate(ap2Mandate, issuerJwks, {
+      ap2Result = verifyAp2PaymentMandate(ap2Mandate, issuerJwks, {
         amountMinor: amountCents,
         currency,
         merchantDomain,

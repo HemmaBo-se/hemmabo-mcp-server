@@ -1,5 +1,5 @@
 /**
- * AP2 (Agent Payments Protocol) — Cart Mandate verification.
+ * AP2 (Agent Payments Protocol) — Payment Mandate verification.
  *
  * AP2 (Google's open Agent Payments Protocol) expresses a human's
  * authorization for an agent-initiated payment as a cryptographically
@@ -7,9 +7,10 @@
  *
  * Layering with VRP:
  *   VRP proves the OFFER       — this node signs the verified stay offer.
- *   AP2 proves the PAYMENT     — the payer's agent signs a Cart Mandate.
+ *   AP2 proves the PAYMENT     — the payer's agent signs a Payment Mandate
+ *                                (which references the merchant-signed cart).
  * They are complementary: VRP = supply-side proof, AP2 = demand-side
- * proof. Verifying an AP2 Cart Mandate at the payment step is what makes
+ * proof. Verifying an AP2 Payment Mandate at the payment step is what makes
  * "AP2-compatible" literally true — not just a manifest claim.
  *
  * Crypto reuse: an AP2 mandate here is an Ed25519 compact JWS, verified
@@ -34,9 +35,9 @@ type JsonRecord = Record<string, unknown>;
 export const AP2_PROTOCOL = "agent-payments-protocol";
 export const AP2_MANDATE_JWS_ALG = "EdDSA";
 
-/** Logical claims extracted from a verified AP2 Cart Mandate. */
+/** Logical claims extracted from a verified AP2 Payment Mandate. */
 export interface Ap2MandateClaims {
-  /** "CartMandate" (specific approved purchase) or "IntentMandate" (scoped intent). */
+  /** Mandate type marker — the PaymentMandate `vct` (e.g. "mandate.payment.1"), or a legacy type string. */
   mandateType: string | null;
   /** Maximum authorized amount, integer minor units (matches VRP/Stripe). */
   maxAmountMinor: number | null;
@@ -253,7 +254,7 @@ export function mandateAuthorizesCharge(
  * Throws only on signature/parse failure; returns { authorized:false,
  * reason } for policy failures.
  */
-export function verifyAp2CartMandate(
+export function verifyAp2PaymentMandate(
   mandateJws: string,
   issuerJwks: JsonRecord,
   charge: Ap2ChargeContext,
