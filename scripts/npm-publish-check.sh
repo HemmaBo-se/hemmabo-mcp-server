@@ -28,7 +28,7 @@ fi
 # 3. Check required files
 echo ""
 echo "3️⃣ Checking required files..."
-npm pack --dry-run 2>&1 | grep -q "dist/src/stdio.js" && echo "✅ stdio.js present (bin entry)" || echo "❌ Missing stdio.js"
+# Remote-only: no bin/CLI entry — the server runs on Vercel via /mcp, not as an npm command.
 npm pack --dry-run 2>&1 | grep -q "README.md" && echo "✅ README.md present" || echo "⚠️  Missing README.md"
 npm pack --dry-run 2>&1 | grep -q "LICENSE" && echo "✅ LICENSE present" || echo "⚠️  Missing LICENSE"
 

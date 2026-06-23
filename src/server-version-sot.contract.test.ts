@@ -27,7 +27,6 @@ describe("server version single source of truth", () => {
     const files = [
       "api/health.ts",
       "api/mcp.ts",
-      "src/index.ts",
       "lib/tools-base.ts",
       "lib/server-metadata.ts",
     ];

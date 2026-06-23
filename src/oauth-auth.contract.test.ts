@@ -63,7 +63,6 @@ describe("validateAuth wired into entrypoints (#64)", () => {
     // api/mcp.ts is the deployed MCP endpoint behind /mcp and /api/mcp.
     { name: "api/mcp.ts", path: join(repoRoot, "api/mcp.ts") },
     { name: "api/acp.ts", path: join(repoRoot, "api/acp.ts") },
-    { name: "src/index.ts", path: join(repoRoot, "src/index.ts") },
   ];
 
   for (const { name, path } of entrypoints) {

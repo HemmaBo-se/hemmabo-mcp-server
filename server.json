@@ -23,45 +23,5 @@
       "type": "streamable-http",
       "url": "https://www.hemmabo.com/mcp"
     }
-  ],
-  "packages": [
-    {
-      "registryType": "npm",
-      "identifier": "hemmabo-mcp-server",
-      "version": "3.2.15",
-      "transport": {
-        "type": "stdio"
-      },
-      "environmentVariables": [
-        {
-          "name": "SUPABASE_URL",
-          "description": "Supabase project URL — find in Supabase Dashboard → Settings → API",
-          "isRequired": true,
-          "isSecret": false,
-          "format": "string"
-        },
-        {
-          "name": "SUPABASE_SERVICE_ROLE_KEY",
-          "description": "Supabase service role key — find in Supabase Dashboard → Settings → API",
-          "isRequired": true,
-          "isSecret": true,
-          "format": "string"
-        },
-        {
-          "name": "SUPABASE_ANON_KEY",
-          "description": "Supabase anon/public key — find in Supabase Dashboard → Settings → API",
-          "isRequired": true,
-          "isSecret": true,
-          "format": "string"
-        },
-        {
-          "name": "STRIPE_SECRET_KEY",
-          "description": "Stripe secret key for payment processing — find in Stripe Dashboard → Developers → API keys",
-          "isRequired": true,
-          "isSecret": true,
-          "format": "string"
-        }
-      ]
-    }
   ]
 }

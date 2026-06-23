@@ -1,14 +1,13 @@
 /**
  * Shared tool execution — single source of truth for all 11 HemmaBo federation tools.
  *
- * Transports (api/mcp.ts, src/stdio.ts, src/index.ts) are thin wrappers that:
- *  1. Construct their own Supabase clients (service-role + anon reader).
- *  2. Validate inputs per transport (JSON-Schema or Zod).
- *  3. Delegate tool execution to `executeTool` below.
- *  4. Preserve their own error-handling semantics (e.g. stdio/index wrap
- *     checkout/cancel/reschedule in try/catch with transport-specific messages).
+ * The MCP transport (api/mcp.ts) is a thin wrapper that:
+ *  1. Constructs its own Supabase clients (service-role + anon reader).
+ *  2. Validates inputs (JSON-Schema).
+ *  3. Delegates tool execution to `executeTool` below.
+ *  4. Preserves its own error-handling semantics.
  *
- * This module does NOT catch errors — errors bubble up to the caller so each
+ * This module does NOT catch errors — errors bubble up to the caller so the
  * transport can apply its own error-handling rules unchanged.
  *
  * MCP-06 invariant: bookings-dependent reads (checkAvailability, resolveQuote's

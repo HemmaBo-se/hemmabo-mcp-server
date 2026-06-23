@@ -57,33 +57,6 @@ configSchema:
 httpTransport:
   url: https://www.hemmabo.com/mcp
 
-startCommand:
-  type: stdio
-  configSchema:
-    type: object
-    properties:
-      SUPABASE_URL:
-        type: string
-        description: "Supabase project URL — Supabase Dashboard → Settings → API"
-      SUPABASE_SERVICE_ROLE_KEY:
-        type: string
-        description: "Supabase service role key — Supabase Dashboard → Settings → API"
-      SUPABASE_ANON_KEY:
-        type: string
-        description: "Supabase anon/public key — Supabase Dashboard → Settings → API"
-      STRIPE_SECRET_KEY:
-        type: string
-        description: "Stripe secret key — Stripe Dashboard → Developers → API keys"
-    required: []
-    additionalProperties: false
-  commandFunction: |
-    (config) => ({
-      command: 'node',
-      args: ['dist/src/stdio.js'],
-      env: {
-        SUPABASE_URL: config.SUPABASE_URL,
-        SUPABASE_SERVICE_ROLE_KEY: config.SUPABASE_SERVICE_ROLE_KEY,
-        SUPABASE_ANON_KEY: config.SUPABASE_ANON_KEY,
-        STRIPE_SECRET_KEY: config.STRIPE_SECRET_KEY
-      }
-    })
+# Remote-only. This server IS the shared hosted Vercel deployment reached via
+# httpTransport above; there is no local/stdio launch. Nodes inherit the central
+# server and never supply Supabase/Stripe credentials.

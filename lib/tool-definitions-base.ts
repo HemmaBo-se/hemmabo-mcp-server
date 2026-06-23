@@ -7,15 +7,13 @@
  *   Only the api/mcp.ts copy was contract-tested. The other two could drift
  *   silently (different schemas, different descriptions, missing tools).
  *
- *   This module exports TOOL_SPECS as the canonical declaration. All three
- *   transports derive their wire format from it:
+ *   This module exports TOOL_SPECS as the canonical declaration. The MCP
+ *   transport derives its wire format from it:
  *     - api/mcp.ts: re-exports TOOLS = toMcpTool(spec) for tools/list
- *     - src/index.ts and src/stdio.ts: iterate TOOL_SPECS and call
- *       server.tool(name, description, toZodShape(inputSchema), annotations, handler)
  *
  *   A drift-guard test (src/tool-definitions.singleton.test.ts) enforces
- *   that no other module declares its own tool list and that all three
- *   transports stay in lock-step.
+ *   that no other module declares its own tool list and that api/mcp.ts
+ *   stays in lock-step with TOOL_SPECS.
  *
  * Schema model:
  *   inputSchema and outputSchema are JSON-Schema (draft-07 subset). The
