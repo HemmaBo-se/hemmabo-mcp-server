@@ -52,7 +52,7 @@
     "ai-ready-booking-website",
     "booking-website"
   ],
-  "homepage": "https://hemmabo-mcp-server.vercel.app",
+  "homepage": "https://hemmabo.com",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/HemmaBo-se/hemmabo-mcp-server.git"
