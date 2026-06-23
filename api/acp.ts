@@ -360,12 +360,37 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
   // Fetch booking — service role required (bookings table blocks anon reads)
   const { data: booking, error: bookErr } = await supabase
     .from("bookings")
-    .select("*, properties(name, domain, currency)")
+    .select("*, properties(name, domain, currency, stripe_account_id, stripe_onboarding_complete)")
     .eq("id", checkoutId)
     .single();
   if (bookErr || !booking) return res.status(404).json({ error: "Checkout not found" });
   if (booking.status === "confirmed") return res.status(409).json({ error: "Checkout already completed" });
   if (booking.status === "cancelled") return res.status(409).json({ error: "Checkout is cancelled" });
+
+  // ── Direct-to-host routing (Stripe Connect destination charge) ──────
+  // The host is merchant of record: funds settle to the host's own connected
+  // account via on_behalf_of + transfer_data.destination, with 0% platform
+  // fee. Same destination-charge shape as the proven guest-payment flow
+  // (smart-stays create-guest-payment). FAIL CLOSED in live mode: if the host
+  // has not completed Stripe Connect onboarding we refuse rather than charge
+  // HemmaBo's platform account — HemmaBo is never merchant of record and never
+  // holds host funds. Test mode may proceed without a connected account so the
+  // SPT + Connect path can be exercised end-to-end.
+  const hostProperty = booking.properties as
+    | { stripe_account_id?: string | null; stripe_onboarding_complete?: boolean | null; domain?: string }
+    | null;
+  const hostAccountId =
+    hostProperty?.stripe_account_id && hostProperty.stripe_account_id.length > 0
+      ? hostProperty.stripe_account_id
+      : null;
+  const isTestMode = stripeKey.startsWith("sk_test_");
+  const routeToHost = Boolean(hostAccountId) && Boolean(hostProperty?.stripe_onboarding_complete);
+  if (!routeToHost && !isTestMode) {
+    return res.status(409).json({
+      error: "Host has not completed Stripe Connect onboarding",
+      hint: "Agent checkout settles directly to the host's own Stripe (host is merchant of record). The host must finish Stripe Connect before this booking can be paid.",
+    });
+  }
 
   const paymentData = body.payment_data as { token: string; provider: string; billing_address?: Record<string, string> } | undefined;
 
@@ -431,6 +456,16 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
     piBody.append("payment_method_data[shared_payment_granted_token]", paymentData.token);
   } else {
     piBody.append("payment_method", paymentData.token);
+  }
+
+  // Settle directly to the host's connected Stripe account (host = merchant of
+  // record, 0% platform fee). Destination charge — identical shape to the
+  // guest-payment flow. Gated by routeToHost (live mode requires the host's
+  // Connect account; test mode may charge the platform to exercise the path).
+  if (routeToHost && hostAccountId) {
+    piBody.append("application_fee_amount", "0");
+    piBody.append("transfer_data[destination]", hostAccountId);
+    piBody.append("on_behalf_of", hostAccountId);
   }
 
   const piResp = await fetch("https://api.stripe.com/v1/payment_intents", {
