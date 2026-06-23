@@ -4,8 +4,7 @@ import { fileURLToPath } from "node:url";
 
 /**
  * Resolve package.json from repo root whether the caller runs from source
- * (lib/, api/) or compiled output (dist/lib/, dist/api/) — required for
- * Glama/Smithery stdio via `node dist/src/stdio.js`.
+ * (lib/, api/) or compiled output (dist/lib/, dist/api/).
  */
 export function readPackageJson(): { version: string } {
   const require = createRequire(import.meta.url);

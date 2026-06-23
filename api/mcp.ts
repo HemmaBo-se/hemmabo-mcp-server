@@ -46,7 +46,7 @@ export { SERVER_DESCRIPTION, SERVER_INSTRUCTIONS } from "../lib/server-metadata.
 // booking call; it also logged error messages raw. See log-redact.ts header.
 
 // Tool execution is shared via lib/tools.ts (single source of truth for all
-// tools, used by api/mcp.ts, src/stdio.ts, and src/index.ts).
+// tools, used by api/mcp.ts).
 
 // ── Config schema (all fields optional — Smithery "Optional config" requirement) ──
 export const CONFIG_SCHEMA = {
@@ -75,9 +75,8 @@ export const CONFIG_SCHEMA = {
 // ── Tools ────────────────────────────────────────────────────────
 //
 // Derived from lib/tool-definitions.ts — single source of truth for the
-// canonical tools (#63). src/index.ts and src/stdio.ts read the same
-// TOOL_SPECS via toZodShape(). Do NOT redeclare tools here; add or modify
-// them in lib/tool-definitions.ts.
+// canonical tools (#63). Do NOT redeclare tools here; add or modify them in
+// lib/tool-definitions.ts.
 
 export const TOOLS = TOOL_SPECS.map((t) => {
   const wire: {
@@ -234,10 +233,9 @@ function getSupabaseReader() {
   return createClient(url, key);
 }
 
-// Tool execution lives in lib/tools.ts — single source of truth shared with
-// src/stdio.ts and src/index.ts. Transports construct their own clients and
-// pass them in. Errors bubble up so each transport can apply its own
-// error-handling rules unchanged.
+// Tool execution lives in lib/tools.ts — single source of truth. This
+// transport constructs its own Supabase clients and passes them in. Errors
+// bubble up so the transport can apply its own error-handling rules.
 
 
 // ── JSON-RPC handler ─────────────────────────────────────────────
@@ -385,7 +383,7 @@ async function handleJsonRpc(
 //
 // Compile inputSchema validators once at module load. Validation runs in the
 // tools/call dispatcher below; lib/tools.ts retains the required-arg gate as
-// defense-in-depth (the stdio transport has its own Zod validator).
+// defense-in-depth.
 registerToolSchemas(TOOLS);
 
 //

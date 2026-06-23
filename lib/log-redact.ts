@@ -1,5 +1,5 @@
 /**
- * Shared log redaction — single source for src/stdio.ts + src/index.ts (mirror of the
+ * Shared log redaction — single source for the MCP server (api/mcp.ts) (mirror of the
  * #63 single-source discipline for tool defs). GDPR-first: guest PII (name / email /
  * phone / address) and secrets (Stripe keys, JWTs, tokens) must NEVER reach logs in
  * clear text — not in params, not in error messages.

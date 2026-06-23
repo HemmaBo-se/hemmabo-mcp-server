@@ -12,8 +12,7 @@
  * compiled once at module load — fast path on every tools/call.
  *
  * Defense-in-depth: lib/tools.ts continues to enforce required args even if
- * this layer is bypassed (e.g. by the stdio transport, which has its own
- * Zod gate).
+ * this layer is bypassed.
  */
 
 import { Ajv, type ErrorObject, type ValidateFunction } from "ajv";

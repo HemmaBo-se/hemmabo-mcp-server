@@ -8,7 +8,7 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoPkg = createRequire(import.meta.url)("../package.json") as { version: string };
 
 describe("readPackageJson", () => {
-  it("resolves package.json from compiled dist/lib path (Glama stdio)", async () => {
+  it("resolves package.json from compiled dist/lib path", async () => {
     const distLibDir = join(REPO_ROOT, "dist", "lib");
     const moduleUrl = pathToFileURL(join(distLibDir, "read-package-json.js")).href;
     const { readPackageJson } = (await import(moduleUrl)) as {
