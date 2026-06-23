@@ -15,6 +15,7 @@ import { createClient } from "@supabase/supabase-js";
 import { executeTool, isHostOnboardingToolName, normalizeDateAliases, normalizeToolName } from "../lib/tools.js";
 import { validateAuth } from "../src/auth.js";
 import { anonIdentifier, bearerIdentifier, checkRateLimit } from "../lib/rate-limit.js";
+import { sanitizeParams, redactMessage } from "../lib/log-redact.js";
 import { registerToolSchemas, validateToolArgs } from "../lib/validate-args.js";
 import { TOOL_SPECS } from "../lib/tool-definitions.js";
 import { baseUrl } from "../lib/base-url.js";
@@ -38,16 +39,11 @@ import { VERIFIED_STAY_OFFER_HTML } from "../lib/apps-widget-html.js";
 export { SERVER_DESCRIPTION, SERVER_INSTRUCTIONS } from "../lib/server-metadata.js";
 
 // ── Structured logging ───────────────────────────────────────────
-
-const REDACT_KEYS = ["stripe_token", "spt_token", "card_number", "email", "phone", "guest_name"];
-
-function sanitizeParams(params: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.entries(params ?? {}).map(([k, v]) =>
-      REDACT_KEYS.some((r) => k.toLowerCase().includes(r)) ? [k, "[redacted]"] : [k, v]
-    )
-  );
-}
+// Redaction is the single shared module lib/log-redact.ts (normalized keys +
+// value patterns + deep) — NEVER reintroduce a local name-only redactor here.
+// The old local copy keyed on "guest_name" (snake_case) and so missed the
+// camelCase `guestName` param, leaking guest names in clear text on every
+// booking call; it also logged error messages raw. See log-redact.ts header.
 
 // Tool execution is shared via lib/tools.ts (single source of truth for all
 // tools, used by api/mcp.ts, src/stdio.ts, and src/index.ts).
@@ -248,9 +244,8 @@ function getSupabaseReader() {
 
 async function handleJsonRpc(
   msg: { jsonrpc: string; method: string; id?: number | string; params?: Record<string, unknown> },
-  ctx: { agent: string; ip_hint: string; mcpEndpointUrl: string } = {
+  ctx: { agent: string; mcpEndpointUrl: string } = {
     agent: "unknown",
-    ip_hint: "unknown",
     mcpEndpointUrl: HEMMABO_CANONICAL_MCP_ENDPOINT,
   }
 ): Promise<Record<string, unknown> | null> {
@@ -340,9 +335,8 @@ async function handleJsonRpc(
           params: sanitizeParams(toolArgs),
           duration_ms: Date.now() - start,
           result: ok ? "ok" : "error",
-          error_msg: errMsg,
+          error_msg: redactMessage(errMsg),
           agent: ctx.agent,
-          ip_hint: ctx.ip_hint,
         }));
       }
     }
@@ -536,7 +530,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const ctx = {
     agent: ((req.headers["user-agent"] as string | undefined) ?? "unknown").slice(0, 80),
-    ip_hint: ((req.headers["x-forwarded-for"] as string | undefined) ?? "").split(",")[0]?.trim() || "unknown",
     mcpEndpointUrl: mcpEndpointFromBaseUrl(baseUrl(req)),
   };
 
