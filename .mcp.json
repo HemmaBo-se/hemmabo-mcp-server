@@ -1,14 +1,8 @@
 {
   "mcpServers": {
     "hemmabo": {
-      "command": "npx",
-      "args": ["-y", "hemmabo-mcp-server"],
-      "env": {
-        "SUPABASE_URL": "${SUPABASE_URL}",
-        "SUPABASE_SERVICE_ROLE_KEY": "${SUPABASE_SERVICE_ROLE_KEY}",
-        "SUPABASE_ANON_KEY": "${SUPABASE_ANON_KEY}",
-        "STRIPE_SECRET_KEY": "${STRIPE_SECRET_KEY}"
-      }
+      "type": "http",
+      "url": "https://www.hemmabo.com/mcp"
     }
   }
 }
