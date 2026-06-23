@@ -33,7 +33,7 @@ The federation MCP server connects AI agents (like Claude, ChatGPT) to independe
 
 ## Core Source Files
 - `api/mcp.ts` — MCP server (Vercel serverless, Streamable HTTP) — the live `/mcp`
-- `lib/tool-definitions.ts` — Single source of truth for all 13 runtime tool specs: 11 HemmaBo booking tools plus 2 VRP verification tools (#63 + VRP)
+- `lib/tool-definitions.ts` — Single source of truth for all 15 runtime tool specs: 11 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification tools (#63 + VRP)
 - `lib/tools.ts` — Tool dispatcher (executeTool) shared by all transports
 - `lib/pricing.ts` — Pricing resolver (quote calculations, federation/gap discounts)
 - `lib/availability.ts` — Availability checker (three-layer: blocked dates, bookings, locks). Fail-closed on DB error.
