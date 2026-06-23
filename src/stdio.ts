@@ -12,6 +12,7 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { executeTool, isHostOnboardingToolName } from "../lib/tools.js";
 import { TOOL_SPECS, toZodShape } from "../lib/tool-definitions.js";
 import { SERVER_DESCRIPTION, SERVER_INSTRUCTIONS, SERVER_NAME, SERVER_VERSION } from "../lib/server-metadata.js";
+import { sanitizeParams, redactMessage } from "../lib/log-redact.js";
 
 // ── Environment ────────────────────────────────────────────────────
 
@@ -48,15 +49,7 @@ const server = new McpServer(
 // Wrapped once around server.tool() so every registered tool is auto-instrumented.
 // stdio is single-session per process — no AsyncLocalStorage needed.
 
-const REDACT_KEYS = ["stripe_token", "spt_token", "card_number", "email", "phone", "guest_name"];
-
-function sanitizeParams(params: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.entries(params ?? {}).map(([k, v]) =>
-      REDACT_KEYS.some((r) => k.toLowerCase().includes(r)) ? [k, "[redacted]"] : [k, v]
-    )
-  );
-}
+// Redaction lives in lib/log-redact.ts — shared with src/index.ts (single source).
 
 const STDIO_AGENT = (process.env.STDIO_SESSION_ID ?? "stdio").slice(0, 80);
 
@@ -86,7 +79,7 @@ const _originalServerTool = server.tool.bind(server);
         params: sanitizeParams(args ?? {}),
         duration_ms: Date.now() - start,
         result: ok ? "ok" : "error",
-        error_msg: errMsg,
+        error_msg: redactMessage(errMsg),
         agent: STDIO_AGENT,
         ip_hint: "stdio",
       }));

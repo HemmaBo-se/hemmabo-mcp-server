@@ -24,6 +24,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { executeTool, isHostOnboardingToolName } from "../lib/tools.js";
 import { TOOL_SPECS, toZodShape } from "../lib/tool-definitions.js";
 import { SERVER_DESCRIPTION, SERVER_INSTRUCTIONS, SERVER_NAME, SERVER_VERSION } from "../lib/server-metadata.js";
+import { sanitizeParams, redactMessage } from "../lib/log-redact.js";
 import { validateAuth } from "./auth.js";
 import { anonIdentifier, bearerIdentifier, checkRateLimit } from "../lib/rate-limit.js";
 import rateLimit from "express-rate-limit";
@@ -76,15 +77,7 @@ const server = new McpServer(
 // Wrapped once around server.tool() so every registered tool is auto-instrumented.
 // Per-request agent/ip_hint is propagated via AsyncLocalStorage (populated by /mcp handler).
 
-const REDACT_KEYS = ["stripe_token", "spt_token", "card_number", "email", "phone", "guest_name"];
-
-function sanitizeParams(params: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.entries(params ?? {}).map(([k, v]) =>
-      REDACT_KEYS.some((r) => k.toLowerCase().includes(r)) ? [k, "[redacted]"] : [k, v]
-    )
-  );
-}
+// Redaction lives in lib/log-redact.ts — shared with src/stdio.ts (single source).
 
 type LogCtx = { agent: string; ip_hint: string; sessionId: string };
 const requestContext = new AsyncLocalStorage<LogCtx>();
@@ -178,7 +171,7 @@ const _originalServerTool = server.tool.bind(server);
         params:        sanitizeParams(args ?? {}),
         duration_ms:   Date.now() - start,
         result:        ok ? "ok" : "error",
-        error_msg:     errMsg,
+        error_msg:     redactMessage(errMsg),
         agent:         ctx.agent,
         ip_hint:       ctx.ip_hint,
         session_id:    ctx.sessionId,
