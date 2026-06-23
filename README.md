@@ -67,30 +67,7 @@ Connect an MCP client to the hosted Streamable HTTP endpoint:
 }
 ```
 
-### Local stdio
-
-```bash
-npx hemmabo-mcp-server
-```
-
-Example local MCP client config:
-
-```json
-{
-  "mcpServers": {
-    "hemmabo": {
-      "command": "npx",
-      "args": ["hemmabo-mcp-server"],
-      "env": {
-        "SUPABASE_URL": "https://your-project.supabase.co",
-        "SUPABASE_SERVICE_ROLE_KEY": "your-service-role-key"
-      }
-    }
-  }
-}
-```
-
-Use service-role credentials only for a Supabase project owned by the host/operator of that MCP server. Never put production service-role keys into untrusted client configs.
+> HemmaBo is a hosted, remote-only MCP server. Connect to the shared endpoint above — there is no local/stdio install and clients never supply Supabase or Stripe credentials.
 
 ### Install via Smithery
 
@@ -178,8 +155,7 @@ Optional environment variables:
 
 ## Transports
 
-- Streamable HTTP: hosted `/mcp` endpoint.
-- stdio: `npx hemmabo-mcp-server` for local MCP clients.
+- Streamable HTTP: hosted `/mcp` endpoint (remote-only).
 
 ## Development
 
