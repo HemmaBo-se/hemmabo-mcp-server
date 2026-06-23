@@ -38,102 +38,6 @@ export interface ToolClients {
   reader: SupabaseClient;
 }
 
-// ── Discovery signals: canonical, language-independent amenity / policy / suitability /
-// setting flags surfaced on the search hit so an agent can match requests like dog-friendly,
-// hot tub, crib, or hen party WITHOUT hitting a wall. TRUE flags only (compact, low-noise);
-// free-text / keyword / embedding columns are deliberately excluded (over-matching/noise).
-// Keys are canonical (English) — the agent renders them in the USER's language; never
-// localised in the payload. These are host-declared discovery SIGNALS for matching — the
-// signed verified-stay-offer and the property's own page remain authoritative.
-const SIGNAL_GROUPS: Record<string, readonly string[]> = {
-  amenities: [
-    "wifi_included", "has_pool", "private_pool", "shared_pool", "has_sauna", "has_hot_tub",
-    "spa_access", "gym_access", "has_fireplace", "has_workspace", "has_grill", "has_outdoor_dining",
-    "has_terrace", "has_balcony", "has_garden", "has_parking", "has_ev_charging", "game_room",
-    "cinema_room", "library", "wine_cellar", "baby_equipment", "high_chair", "crib_available",
-    "playground", "breakfast_included", "coffee_tea_included", "linens_included", "towels_included",
-    "bathrobes_included", "toiletries_included", "cleaning_included", "cleaning_service",
-    "self_checkin", "wheelchair_accessible", "elevator_access", "ground_floor", "kayak_canoe",
-    "bike_rental", "fishing_equipment", "ski_in_ski_out", "chef_available", "concierge_service",
-    "airport_transfer", "firewood_included", "welcome_gift", "fruit_basket",
-  ],
-  policies: [
-    "allows_pets", "allows_dogs", "allows_cats", "pet_friendly", "infants_allowed",
-    "allows_parties", "allows_events", "smoking_allowed", "outdoor_smoking_only", "quiet_hours",
-    "instant_booking", "long_term_stays",
-  ],
-  suitability: [
-    "child_friendly", "senior_friendly", "bachelor_party_friendly", "bachelorette_party_friendly",
-    "business_travel_ready", "remote_work_friendly", "allergy_friendly", "hypoallergenic",
-    "eco_friendly", "solar_powered", "recycling_available",
-  ],
-  setting: [
-    "has_sea_view", "has_lake_view", "has_mountain_view", "panoramic_view", "sunset_view",
-    "stargazing", "near_beach", "near_ski_slope", "near_hiking_trails", "near_city_center",
-    "near_public_transport", "near_golf_course", "near_national_park", "near_vineyard",
-    "secluded_location", "waterfront", "private_beach", "coastal", "countryside",
-    "forest_location", "mountain_area", "island_location", "lakeside", "horse_riding",
-    "hunting_area", "fishing_area", "historic_building", "cultural_heritage", "design_interior",
-  ],
-};
-const SIGNAL_ARRAY_FIELDS: Record<string, string> = {
-  best_for_occasions: "bestForOccasions",
-  target_audience: "targetAudience",
-};
-const SIGNAL_SELECT_COLUMNS = [
-  "property_id",
-  ...Object.values(SIGNAL_GROUPS).flat(),
-  ...Object.keys(SIGNAL_ARRAY_FIELDS),
-].join(",");
-
-type PropertySignals = Record<string, string[]>;
-
-function buildPropertySignals(row: Record<string, unknown> | undefined): PropertySignals | null {
-  if (!row) return null;
-  const out: PropertySignals = {};
-  for (const [group, cols] of Object.entries(SIGNAL_GROUPS)) {
-    const on = cols.filter((c) => row[c] === true);
-    if (on.length > 0) out[group] = on;
-  }
-  for (const [col, label] of Object.entries(SIGNAL_ARRAY_FIELDS)) {
-    const v = row[col];
-    if (Array.isArray(v)) {
-      const items = v.filter((x): x is string => typeof x === "string" && x.length > 0);
-      if (items.length > 0) out[label] = items;
-    }
-  }
-  return Object.keys(out).length > 0 ? out : null;
-}
-
-async function fetchPropertySignals(
-  client: SupabaseClient,
-  propertyIds: string[],
-): Promise<Map<string, PropertySignals>> {
-  const byId = new Map<string, PropertySignals>();
-  if (propertyIds.length === 0) return byId;
-  // Discovery signals are ADDITIVE. They must NEVER break core search: any failure
-  // (query error, throw, schema/permission issue) degrades to "no signals" and search
-  // continues. The error is logged so the root cause is diagnosable without an outage.
-  try {
-    const { data, error } = await client
-      .from("property_detected_amenities")
-      .select(SIGNAL_SELECT_COLUMNS)
-      .in("property_id", propertyIds);
-    if (error) {
-      console.error("[search] property signals query error:", error.message);
-      return byId;
-    }
-    if (!data) return byId;
-    for (const row of data as unknown as Array<Record<string, unknown>>) {
-      const signals = buildPropertySignals(row);
-      if (signals && typeof row.property_id === "string") byId.set(row.property_id, signals);
-    }
-  } catch (e) {
-    console.error("[search] property signals threw:", e instanceof Error ? e.message : String(e));
-  }
-  return byId;
-}
-
 export type ToolResult = {
   content: { type: "text"; text: string }[];
   /** Machine-readable data shared with the model and Apps SDK widget. */
@@ -698,9 +602,6 @@ export async function executeTool(
       const matchedProperties = (properties ?? []).filter((prop: SearchPropertyRow) =>
         propertyMatchesLocation(prop, region, country)
       );
-      // Discovery signals: one prefetch for all matched properties (service-role — the flags
-      // are public, shown on the property page, so they must reach anonymous agent calls too).
-      const signalsById = await fetchPropertySignals(supabase, matchedProperties.map((p) => p.id));
       const results = [];
       const unavailableMatches = [];
       for (const prop of matchedProperties) {
@@ -740,7 +641,6 @@ export async function executeTool(
           ...directBookingPriceFields(quote),
           federationTotal: quote.federationTotal,
           packageApplied: quote.packageApplied, available: true,
-          ...(signalsById.get(prop.id) ? { signals: signalsById.get(prop.id) } : {}),
         });
       }
 
@@ -766,7 +666,6 @@ export async function executeTool(
                 : matchedProperties.length > 0
                   ? "Matching properties were found, but the requested dates and nearby same-month alternatives are unavailable. Ask whether the guest can change month or guest count."
                   : "No published property matched the location and capacity. Ask for a broader destination or fewer guests.",
-            signalsGuidance: "Each property's `signals` are host-declared, language-independent discovery flags (amenities / policies / suitability / setting, plus bestForOccasions / targetAudience) for matching requests like dog-friendly, hot tub, crib, or hen party. They are canonical English keys — render them in the user's language. Treat them as match signals, not verified guarantees: the signed verified-stay-offer and the property's own page are authoritative. Absence of a flag means 'not detected', not 'no'.",
           }, null, 2),
         }],
       };
