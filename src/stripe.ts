@@ -73,8 +73,17 @@ export async function createCheckoutSession(params: {
   propertyId: string;
   bookingId: string;
   domain: string;
+  hostStripeAccountId?: string | null;
+  hostOnboardingComplete?: boolean | null;
 }): Promise<{ id: string; url: string; payment_intent: string | null }> {
   const stripeKey = getStripeKey();
+  // Direct-to-host: funds settle to the host's connected Stripe (host = merchant
+  // of record, 0% platform fee). FAIL CLOSED in live mode — never charge
+  // HemmaBo's platform for a host stay when the host's Connect account is missing.
+  const routeToHost = Boolean(params.hostStripeAccountId) && Boolean(params.hostOnboardingComplete);
+  if (!routeToHost && !stripeKey.startsWith("sk_test_")) {
+    throw new Error("Host has not completed Stripe Connect — refusing to charge the platform for a host stay.");
+  }
   const body = new URLSearchParams();
   body.append("mode", "payment");
   body.append("line_items[0][price_data][currency]", params.currency.toLowerCase());
@@ -89,6 +98,11 @@ export async function createCheckoutSession(params: {
   body.append("metadata[booking_id]", params.bookingId);
   body.append("payment_intent_data[metadata][property_id]", params.propertyId);
   body.append("payment_intent_data[metadata][booking_id]", params.bookingId);
+  if (routeToHost && params.hostStripeAccountId) {
+    body.append("payment_intent_data[application_fee_amount]", "0");
+    body.append("payment_intent_data[transfer_data][destination]", params.hostStripeAccountId);
+    body.append("payment_intent_data[on_behalf_of]", params.hostStripeAccountId);
+  }
 
   const safeDomain = sanitizeDomain(params.domain);
   const successUrl = `https://${safeDomain}/booking/success?session_id={CHECKOUT_SESSION_ID}`;
@@ -161,14 +175,27 @@ export async function createPaymentIntent(params: {
   currency: string;
   captureMethod: string;
   metadata: Record<string, string>;
+  hostStripeAccountId?: string | null;
+  hostOnboardingComplete?: boolean | null;
 }): Promise<{ id: string; client_secret: string; status: string }> {
   const stripeKey = getStripeKey();
+  // Direct-to-host (host = merchant of record, 0% platform fee). FAIL CLOSED in
+  // live mode — never charge HemmaBo's platform for a host stay.
+  const routeToHost = Boolean(params.hostStripeAccountId) && Boolean(params.hostOnboardingComplete);
+  if (!routeToHost && !stripeKey.startsWith("sk_test_")) {
+    throw new Error("Host has not completed Stripe Connect — refusing to charge the platform for a host stay.");
+  }
   const body = new URLSearchParams();
   body.append("amount", String(toStripeMinorUnits(params.amount)));
   body.append("currency", params.currency.toLowerCase());
   body.append("capture_method", params.captureMethod);
   for (const [k, v] of Object.entries(params.metadata)) {
     body.append(`metadata[${k}]`, v);
+  }
+  if (routeToHost && params.hostStripeAccountId) {
+    body.append("application_fee_amount", "0");
+    body.append("transfer_data[destination]", params.hostStripeAccountId);
+    body.append("on_behalf_of", params.hostStripeAccountId);
   }
 
   const resp = await fetch("https://api.stripe.com/v1/payment_intents", {
