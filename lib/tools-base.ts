@@ -536,7 +536,7 @@ async function releaseBookingLock(supabase: SupabaseClient, lockId: string): Pro
 async function _runCheckout(
   supabase: SupabaseClient,
   reader: SupabaseClient,
-  prop: { name: string; domain: string | null; host_id: string; currency: string; direct_booking_discount: number | null },
+  prop: { name: string; domain: string | null; host_id: string; currency: string; direct_booking_discount: number | null; stripe_account_id: string | null; stripe_onboarding_complete: boolean | null },
   propertyId: string,
   checkIn: string,
   checkOut: string,
@@ -617,6 +617,8 @@ async function _runCheckout(
     propertyId,
     bookingId: booking.id,
     domain: prop.domain ?? "",
+    hostStripeAccountId: prop.stripe_account_id,
+    hostOnboardingComplete: prop.stripe_onboarding_complete,
   });
 
   // Link booking row to Stripe session so the webhook can locate it.
@@ -1192,7 +1194,7 @@ export async function executeTool(
       // Fetch property
       const { data: prop, error: propErr } = await reader
         .from("properties")
-        .select("name, domain, host_id, currency, direct_booking_discount")
+        .select("name, domain, host_id, currency, direct_booking_discount, stripe_account_id, stripe_onboarding_complete")
         .eq("id", propertyId)
         .single();
       if (propErr || !prop) return { content: [{ type: "text", text: JSON.stringify({ error: "Property not found" }) }], isError: true };
@@ -1406,11 +1408,19 @@ export async function executeTool(
       let stripeAction: Record<string, unknown> | null = null;
 
       if (delta > 0 && booking.stripe_payment_intent_id) {
-        // Price increased: create new PaymentIntent with manual capture
+        // Price increased: create new PaymentIntent with manual capture, routed
+        // to the host's connected Stripe (host = merchant of record).
+        const { data: reschedProp } = await reader
+          .from("properties")
+          .select("stripe_account_id, stripe_onboarding_complete")
+          .eq("id", booking.property_id)
+          .single();
         const pi = await createPaymentIntent({
           amount: delta,
           currency: booking.currency,
           captureMethod: "manual",
+          hostStripeAccountId: reschedProp?.stripe_account_id ?? null,
+          hostOnboardingComplete: reschedProp?.stripe_onboarding_complete ?? null,
           metadata: {
             booking_id: booking.id,
             type: "reschedule_delta",
