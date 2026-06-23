@@ -111,14 +111,25 @@ async function fetchPropertySignals(
 ): Promise<Map<string, PropertySignals>> {
   const byId = new Map<string, PropertySignals>();
   if (propertyIds.length === 0) return byId;
-  const { data, error } = await client
-    .from("property_detected_amenities")
-    .select(SIGNAL_SELECT_COLUMNS)
-    .in("property_id", propertyIds);
-  if (error || !data) return byId;
-  for (const row of data as unknown as Array<Record<string, unknown>>) {
-    const signals = buildPropertySignals(row);
-    if (signals && typeof row.property_id === "string") byId.set(row.property_id, signals);
+  // Discovery signals are ADDITIVE. They must NEVER break core search: any failure
+  // (query error, throw, schema/permission issue) degrades to "no signals" and search
+  // continues. The error is logged so the root cause is diagnosable without an outage.
+  try {
+    const { data, error } = await client
+      .from("property_detected_amenities")
+      .select(SIGNAL_SELECT_COLUMNS)
+      .in("property_id", propertyIds);
+    if (error) {
+      console.error("[search] property signals query error:", error.message);
+      return byId;
+    }
+    if (!data) return byId;
+    for (const row of data as unknown as Array<Record<string, unknown>>) {
+      const signals = buildPropertySignals(row);
+      if (signals && typeof row.property_id === "string") byId.set(row.property_id, signals);
+    }
+  } catch (e) {
+    console.error("[search] property signals threw:", e instanceof Error ? e.message : String(e));
   }
   return byId;
 }
