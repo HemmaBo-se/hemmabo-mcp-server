@@ -1,6 +1,6 @@
 # HemmaBo MCP Server
 
-[![npm version](https://img.shields.io/npm/v/hemmabo-mcp-server)](https://www.npmjs.com/package/hemmabo-mcp-server) [![smithery badge](https://smithery.ai/badge/info-00wt/hemmabo-mcp-server)](https://smithery.ai/servers/info-00wt/hemmabo-mcp-server) [![license: MIT](https://img.shields.io/npm/l/hemmabo-mcp-server)](LICENSE)
+[![npm version](https://img.shields.io/npm/v/hemmabo-mcp-server)](https://www.npmjs.com/package/hemmabo-mcp-server) [![smithery badge](https://smithery.ai/badge/info-00wt/hemmabo-mcp-server)](https://smithery.ai/servers/info-00wt/hemmabo-mcp-server) [![license: Apache-2.0](https://img.shields.io/npm/l/hemmabo-mcp-server)](LICENSE)
 
 > **HemmaBo signs the stay offer with the host's *own* domain (VRP · Ed25519/JWKS) — no OTA, no marketplace, no central gatekeeper, no booking commission.** A platform makes you bookable *through* the platform; HemmaBo makes your own domain the verifiable booking source an agent can trust directly.
 
@@ -166,6 +166,6 @@ npm test
 
 ## License
 
-MIT - see [LICENSE](LICENSE).
+Apache-2.0 - see [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
-The MIT license covers this source code. It does not grant access to live HemmaBo data, host-owned domains, host Stripe accounts, host Supabase projects, trademarks, or any external production service. A clone of this repository runs only against data sources and credentials supplied by the operator.
+The Apache-2.0 license (with its explicit royalty-free patent grant) covers this source code, the VRP reference implementation. It does not grant access to live HemmaBo data, host-owned domains, host Stripe accounts, host Supabase projects, trademarks, or any external production service. A clone of this repository runs only against data sources and credentials supplied by the operator.
