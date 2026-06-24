@@ -1,6 +1,6 @@
 # ADR 0010 — VRP receipt envelope: flat `attestations[]` as the v1 core
 
-**Status:** Accepted — v1 scope LOCKED 2026-06-24; spec authoring + reference implementation pending (tracked in §7).
+**Status:** Accepted — v1 scope LOCKED 2026-06-24. Reference implementation in progress in `hemmabo-mcp-server`: D7 (code side), Fas 1, D6, D9, and Fas 4 have landed (see §9). Remaining: CC0 spec text on `vacationrentalprotocol.com`, live node emit (Phase 2 on `smart-stays`), §3 key-lifecycle, and implementer #2.
 **Date:** 2026-06-24
 **Author:** CEO + agent
 **Related:** ADR `0008-ap2-mandate-conformance.md` (AP2 verification status); ADR `0002-auth-payments-and-privacy-contracts.md` (MoR / payment boundary); ADR `0009-offer-coherence-and-agent-discoverability.md` (offer reconstructibility); code `lib/vrp.ts` (`verifyCompactJws`, `stableStringify`), `lib/ap2.ts` (mandate verification + reason codes), `api/mcp.ts` (stateless MCP transport); spec home `vacationrentalprotocol.com`; IANA well-known-uris registration #93.
@@ -232,12 +232,34 @@ adopters) is the near-term bar gating any IETF/W3C effort.
 
 ADR may be marked **fully delivered** when:
 
-- [ ] D7 done: spec repo carries CC0 (spec) + Apache-2.0 + patent grant (code/vectors).
-- [ ] Phase 1: versioned `attestations[]` schema published with D1–D5 normative rules.
-- [ ] Phase 2: node emits a receipt embedding the offer JWS + MCP transport assertion
-      (D6), verified live.
-- [ ] Phase 4: open verifier + positive **and** negative test vectors using the D4
-      error registry.
+- [~] D7: reference code + vectors are **Apache-2.0 with patent grant** (#221, #222,
+      consistency-guarded). **CC0 spec text on `vacationrentalprotocol.com` still pending.**
+- [x] Phase 1: versioned `attestations[]` schema with D1–D5 normative rules — reference
+      schema `spec/vrp-receipt.v1.schema.json` + verifier `lib/vrp-receipt.ts` (#223).
+      Mirror to `vacationrentalprotocol.com` pending.
+- [~] Phase 2: reference verifier + the MCP transport-assertion builder (#223, #224) and
+      the AP2 payment capture (#225) exist. **Live node emit on `smart-stays` still pending**
+      (this repo verifies; the node signs/emits).
+- [x] Phase 4: open verifier CLI + positive **and** negative public conformance vectors
+      using the D4 error registry — `scripts/verify-receipt.ts`, `spec/vectors/**` (#226).
 - [ ] §3 key-lifecycle (rotation/revocation for historical receipts) decided before any
       Phase 5 dispute/insurance positioning.
 - [ ] A documented commitment from **implementer #2** to emit/verify VRP receipts.
+
+## 9. Implementation status (reference repo `hemmabo-mcp-server`)
+
+Landed links of the chain. Each is a pure-logic, DB-free module composing the existing
+VRP/AP2 primitives; none changed the advertised MCP tool surface.
+
+| Decision / phase | PR(s) | Key artifacts |
+|------------------|-------|---------------|
+| D7 — Apache-2.0 + patent grant (code) | #221, #222 | `LICENSE`, `NOTICE`, license-drift guard in `scripts/check-facts-drift.sh` |
+| Fas 1 + Fas 4 core — envelope schema + reference verifier | #223 | `spec/vrp-receipt.v1.schema.json`, `lib/vrp-receipt.ts`, `src/vrp-receipt.test.ts` |
+| D6 — MCP composition profile (transport attestation) | #224 | `spec/profiles/mcp-composition-profile.md`, `lib/vrp-mcp-profile.ts` |
+| D9 — payment (AP2) profile, read-only capture, authentic≠authorized | #225 | `spec/profiles/payment-ap2-composition-profile.md`, `lib/vrp-payment-profile.ts` |
+| Fas 4 — open verifier CLI + public conformance vectors | #226 | `scripts/verify-receipt.ts`, `scripts/gen-receipt-vectors.ts`, `spec/vectors/**` |
+
+**Not yet built (tracked, awaiting go-ahead):** a wired MCP tool exposing receipt
+verification to agents (bumps the advertised tool count + manifest/registry surfaces —
+a deliberate separate link); live node emit on `smart-stays`; CC0 spec text + schema
+mirror on `vacationrentalprotocol.com`; the §3 key-lifecycle; implementer #2.
