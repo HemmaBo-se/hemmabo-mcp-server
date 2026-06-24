@@ -1,0 +1,36 @@
+{
+  "name": "06-malformed-empty-attestations",
+  "description": "Empty attestations[] → malformed receipt.",
+  "now": "2026-06-24T12:00:00Z",
+  "jwks": {
+    "keys": [
+      {
+        "crv": "Ed25519",
+        "x": "6kpsY-KcUgq-9VB7Ey7F-ZVHdq6-vnuSQh7qaRRG0iw",
+        "kty": "OKP",
+        "kid": "vrp-vectors-2026-01-01-01",
+        "alg": "EdDSA",
+        "use": "sig"
+      }
+    ]
+  },
+  "receipt": {
+    "vrp_receipt_version": "1.0",
+    "subject": {
+      "property": "villaakerlyckan.se",
+      "stay": "2026-09-02/2026-09-05"
+    },
+    "issuer": {
+      "node": "villaakerlyckan.se"
+    },
+    "attestations": []
+  },
+  "expected": {
+    "receipt_valid": false,
+    "fully_verified": false,
+    "errors": [
+      "malformed_receipt"
+    ],
+    "attestations": []
+  }
+}

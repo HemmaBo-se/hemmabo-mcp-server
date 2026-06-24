@@ -1,0 +1,51 @@
+{
+  "name": "04-expired-window",
+  "description": "Offer signature valid but validity window is in the past relative to `now` → expired / sig_expired.",
+  "now": "2026-06-24T12:00:00Z",
+  "jwks": {
+    "keys": [
+      {
+        "crv": "Ed25519",
+        "x": "6kpsY-KcUgq-9VB7Ey7F-ZVHdq6-vnuSQh7qaRRG0iw",
+        "kty": "OKP",
+        "kid": "vrp-vectors-2026-01-01-01",
+        "alg": "EdDSA",
+        "use": "sig"
+      }
+    ]
+  },
+  "receipt": {
+    "vrp_receipt_version": "1.0",
+    "subject": {
+      "property": "villaakerlyckan.se",
+      "stay": "2026-09-02/2026-09-05"
+    },
+    "issuer": {
+      "node": "villaakerlyckan.se"
+    },
+    "attestations": [
+      {
+        "layer": "offer",
+        "source": "https://villaakerlyckan.se/.well-known/jwks.json",
+        "signature": "eyJhbGciOiJFZERTQSIsImtpZCI6InZycC12ZWN0b3JzLTIwMjYtMDEtMDEtMDEiLCJ0eXAiOiJKV1QifQ.eyJvZmZlcl9pZCI6Im9mZmVyOnZpbGxhYWtlcmx5Y2thbi5zZToyMDI2LTA5LTAyLzA1In0.0bzcytiMhN9XV6lSiKlZEFccvMdOjgXH1p7tpCImIPx5bq4c87a62Q6379At_-2nsqbj6Q-mdeCTW97ZtgeFAQ",
+        "ref": "offer:villaakerlyckan.se:2026-09-02/05",
+        "valid_from": "2026-06-24T10:00:00.000Z",
+        "valid_until": "2026-06-24T11:00:00.000Z"
+      }
+    ]
+  },
+  "expected": {
+    "receipt_valid": true,
+    "fully_verified": false,
+    "errors": [],
+    "attestations": [
+      {
+        "index": 0,
+        "layer": "offer",
+        "status": "expired",
+        "error": "sig_expired",
+        "kid": "vrp-vectors-2026-01-01-01"
+      }
+    ]
+  }
+}
