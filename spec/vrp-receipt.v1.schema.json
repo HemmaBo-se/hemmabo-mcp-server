@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://vacationrentalprotocol.com/spec/vrp-receipt.v1.schema.json",
+  "title": "VRP Receipt Envelope v1",
+  "description": "Vacation Rental Protocol verifiable booking record. A versioned receipt with a FLAT array of attestations (ADR 0010 D1). Recursive sub-receipts and selective disclosure are reserved v2 extension points (present-but-empty in v1); a v1 verifier never recurses into them.",
+  "type": "object",
+  "required": ["vrp_receipt_version", "subject", "issuer", "attestations"],
+  "additionalProperties": true,
+  "properties": {
+    "vrp_receipt_version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Receipt envelope version. v1 verifiers accept exactly \"1.0\"."
+    },
+    "subject": {
+      "type": "object",
+      "description": "What the receipt is about (e.g. property, stay window, offer id). Kept generic so the envelope is not locked to vacation rentals."
+    },
+    "issuer": {
+      "type": "object",
+      "description": "The node identity that assembled the receipt."
+    },
+    "attestations": {
+      "type": "array",
+      "minItems": 1,
+      "description": "FLAT list of attestations (ADR 0010 D1). A new trust layer = a new entry; no central approval.",
+      "items": { "$ref": "#/definitions/attestation" }
+    }
+  },
+  "definitions": {
+    "attestation": {
+      "type": "object",
+      "required": ["layer", "valid_from", "valid_until"],
+      "additionalProperties": true,
+      "properties": {
+        "layer": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Open vocabulary, e.g. \"offer\", \"transport\", \"payment\"."
+        },
+        "source": {
+          "type": "string",
+          "description": "Where the verifying key is published for this attestation (e.g. a JWKS URL)."
+        },
+        "signature": {
+          "type": "string",
+          "description": "The signed artifact as a compact JWS. v1 verifies the signature over the JWS bytes as received (ADR 0010 D5)."
+        },
+        "ref": {
+          "type": "string",
+          "description": "Opaque correlator binding this attestation to an external object (offer id, transaction id, …)."
+        },
+        "valid_from": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Start of the attestation validity window (ADR 0010 D2; mandatory per attestation)."
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time",
+          "description": "End of the attestation validity window (ADR 0010 D2; mandatory per attestation)."
+        },
+        "tlog": {
+          "type": "object",
+          "description": "OPTIONAL transparency-log inclusion proof (ADR 0010 D3). A missing tlog is NOT a failure; a v1 verifier must not claim log-anchored properties for an attestation that lacks one."
+        },
+        "sub_receipt": {
+          "description": "RESERVED v2 extension point (ADR 0010 D1). Recursive/chained receipts. A v1 verifier does not recurse into it.",
+          "type": ["object", "null"]
+        },
+        "disclosure": {
+          "description": "RESERVED v2 extension point (ADR 0010 D1). Selective-disclosure / ZK pointers. Not interpreted by a v1 verifier.",
+          "type": ["object", "null"]
+        }
+      }
+    }
+  }
+}
