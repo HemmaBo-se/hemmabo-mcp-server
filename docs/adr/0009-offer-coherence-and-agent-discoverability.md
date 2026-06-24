@@ -95,10 +95,16 @@ Each requirement has a testable acceptance criterion. "MUST" is normative.
 
 - **R4 — Repo/registry discoverability lockstep (extends ADR 0004 §2.2).** The
   `hemmabo-mcp-server` GitHub repo MUST carry: `Website = https://www.hemmabo.com`;
-  the canonical agent-native `Description` (see §appendix); and `Topics` including
-  `ucp`. These MUST stay in lockstep with `package.json`, `glama.json`,
-  `smithery.yaml`, and `/.well-known/mcp.json`. *Acceptance:* the ADR 0004 lockstep
-  audit includes these three fields.
+  the canonical federation `Description` (see §appendix); and `Topics` including
+  `ucp` and `a2a` (A2A is listed as a supported protocol in the node's
+  `vacation-rental.json`). These MUST stay in lockstep with `package.json`,
+  `glama.json`, `smithery.yaml`, and `/.well-known/mcp.json`. *Acceptance:* the ADR
+  0004 lockstep audit includes these fields.
+  **Status: APPLIED live 2026-06-24** — repo About now carries the Website, the
+  §appendix Description, and 20 topics incl. `ucp` + `a2a` (`model-context-protocol`
+  removed; `mcp` + `mcp-server` already cover MCP, GitHub caps topics at 20).
+  *Remaining:* propagate the same copy to `package.json`, `glama.json`,
+  `smithery.yaml`, and `/.well-known/mcp.json`.
 
 - **R5 — Win citation + registry verification (the real discovery bottleneck).**
   We MUST (a) hold verified-owner ("Official") listings on Glama and Smithery, and
@@ -135,12 +141,19 @@ Each requirement has a testable acceptance criterion. "MUST" is normative.
 - This ADR does not decide the *value* of the agent channel price; it requires only
   that whatever value is chosen be signed and reconstructible.
 
-## §Appendix — canonical repo `Description` (R4)
+## §Appendix — canonical repo `Description` (R4, live 2026-06-24)
 
-> Agent-native direct booking for vacation rentals on the host's OWN domain. AI
-> agents discover via /.well-known/agent-traversal.json + VRP, verify Ed25519-signed
-> stay offers (JWKS/did:web), read live pricing & availability, and book direct —
-> 0% commission, pay the host. Connector-free. Federation catalog — not an OTA.
+> HemmaBo: the federation catalog for AI-agent direct booking on host-OWNED
+> vacation-rental domains — not an OTA, no gatekeeper. Agents discover
+> connector-free via /.well-known/agent-traversal.json + VRP, verify Ed25519-signed
+> offers (JWKS/did:web), read live pricing & availability, and book direct: 0%
+> commission, pay the host.
+
+Audience (locked): this copy is for **AI agents/LLMs, MCP registries (Glama/Smithery
+ingest it as listing text), and technical evaluators** — NOT guests or lay hosts
+(host recruitment lives on hemmabo.com). Subject is **HemmaBo the federation**, not a
+single node (a node carries its own domain-scoped manifest, e.g. villaakerlyckan.se
+`/.well-known/mcp.json`).
 
 ## §5 — Implementation tracking
 
