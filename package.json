@@ -57,7 +57,7 @@
     "type": "git",
     "url": "git+https://github.com/HemmaBo-se/hemmabo-mcp-server.git"
   },
-  "license": "MIT",
+  "license": "Apache-2.0",
   "author": {
     "name": "HemmaBo",
     "url": "https://hemmabo.com"
