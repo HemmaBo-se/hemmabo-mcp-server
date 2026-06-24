@@ -43,7 +43,7 @@ jobs:
 
       - name: Checkout
         if: steps.auth.outputs.ready == 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install mcp-publisher
         if: steps.auth.outputs.ready == 'true'
