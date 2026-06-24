@@ -6,6 +6,10 @@
 # Canonical facts (must agree on every live surface below):
 #   - 12 languages    (Konversa guest chat; NEVER "11 languages" again, PR #197)
 #   - 15 runtime tools (11 federation + 2 host onboarding + 2 VRP verification)
+#   - Apache-2.0       (reference-impl license; ADR 0010 D7 — patent grant for
+#                       payment-network adoption. NEVER drift back to "MIT" on a
+#                       license-bearing surface; PR #221 relicensed but left
+#                       README/glama.json/.plugin/plugin.json on MIT.)
 #
 # "11 languages" / "13 tools" have drifted onto Glama/Smithery before. This gate
 # turns that drift into a build failure instead of a manual 5-surface re-check
@@ -106,10 +110,38 @@ check_rule "wrong ACP protocol name — use 'Agentic Commerce Protocol' (Stripe 
   'Stripe Agentic Commerce Protocol' "" \
   "write 'ACP (Agentic Commerce Protocol)'; attribute Stripe as the provider, not in the protocol name"
 
+# 6. License must be Apache-2.0 on every license-bearing surface (ADR 0010 D7).
+#    A stale "MIT" license declaration breaks the neutrality/patent-grant signal
+#    payment networks rely on. Matched on the license-declaration patterns only
+#    (JSON `"license": "MIT"`, README badge `license: MIT`, README prose
+#    "MIT license"/"MIT - see") so unrelated uses of "MIT" never false-positive.
+#    LICENSE/NOTICE carry the full Apache-2.0 text; historical docs/adr/** keep
+#    their original wording (same out-of-scope rule as the counts above).
+LICENSE_SURFACES=(
+  "README.md"
+  "package.json"
+  "glama.json"
+  ".plugin/plugin.json"
+)
+LIC_FILES=()
+for f in "${LICENSE_SURFACES[@]}"; do
+  if [[ -f "$f" ]]; then LIC_FILES+=("$f"); else echo "::warning::facts-drift: $f missing — skipping license check"; fi
+done
+if [[ ${#LIC_FILES[@]} -gt 0 ]]; then
+  lic_hits=$(grep -noHE '"license"[[:space:]]*:[[:space:]]*"MIT"|license: MIT|MIT license|MIT - see' "${LIC_FILES[@]}" 2>/dev/null || true)
+  if [[ -n "$lic_hits" ]]; then
+    echo "::error::facts-drift — stale MIT license declaration (canonical: Apache-2.0, ADR 0010 D7):"
+    echo "$lic_hits"
+    echo "  fix: set the license to Apache-2.0 on this surface; LICENSE/NOTICE already carry the Apache-2.0 text"
+    echo ""
+    drift=1
+  fi
+fi
+
 if [[ $drift -ne 0 ]]; then
   echo "facts-drift check: FAILED — fix the counts above so every live surface agrees."
-  echo "Canonical: 12 languages, 15 runtime tools."
+  echo "Canonical: 12 languages, 15 runtime tools, Apache-2.0 license."
   exit 1
 fi
 
-echo "facts-drift check: OK — 12 languages / 15 runtime tools consistent on all live surfaces."
+echo "facts-drift check: OK — 12 languages / 15 runtime tools / Apache-2.0 consistent on all live surfaces."
