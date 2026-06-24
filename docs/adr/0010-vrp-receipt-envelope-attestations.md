@@ -242,8 +242,9 @@ ADR may be marked **fully delivered** when:
       (this repo verifies; the node signs/emits).
 - [x] Phase 4: open verifier CLI + positive **and** negative public conformance vectors
       using the D4 error registry — `scripts/verify-receipt.ts`, `spec/vectors/**` (#226).
-- [ ] §3 key-lifecycle (rotation/revocation for historical receipts) decided before any
-      Phase 5 dispute/insurance positioning.
+- [x] §3 key-lifecycle (rotation/revocation for historical receipts) **decided in ADR
+      `0011-vrp-key-lifecycle.md`**; implementation of that decision remains gated to
+      before Phase 5.
 - [ ] A documented commitment from **implementer #2** to emit/verify VRP receipts.
 
 ## 9. Implementation status (reference repo `hemmabo-mcp-server`)
@@ -262,4 +263,5 @@ VRP/AP2 primitives; none changed the advertised MCP tool surface.
 **Not yet built (tracked, awaiting go-ahead):** a wired MCP tool exposing receipt
 verification to agents (bumps the advertised tool count + manifest/registry surfaces —
 a deliberate separate link); live node emit on `smart-stays`; CC0 spec text + schema
-mirror on `vacationrentalprotocol.com`; the §3 key-lifecycle; implementer #2.
+mirror on `vacationrentalprotocol.com`; the §3 key-lifecycle **implementation** (decided
+in ADR `0011`, gated to before Phase 5); implementer #2.
