@@ -12,6 +12,7 @@ import { describe, it, mock } from "node:test";
 import assert from "node:assert/strict";
 import { isWeekend, daysBetween, findPriceBlock } from "../lib/pricing.js";
 import type { PriceBlock } from "../lib/pricing.js";
+import { pickChannelDiscountPct } from "../lib/channel-discount.js";
 import { validateDates, validateDateOrder } from "../lib/tools.js";
 
 // ── isWeekend ─────────────────────────────────────────────────────
@@ -729,5 +730,128 @@ describe("hemmabo_booking_status — guest_name masking", () => {
     const result = await executeTool("hemmabo_booking_status", { reservationId: "b-uuid" }, { supabase: stub, reader: stub });
     const raw = result.content[0].text;
     assert.ok(!raw.includes("Svensson"), "Full surname must not appear in response");
+  });
+});
+
+// ── channel discount source (property_channel_discounts) ─────────
+
+describe("pickChannelDiscountPct", () => {
+  it("prefers property_channel_discounts agent row over legacy column", () => {
+    assert.equal(
+      pickChannelDiscountPct(
+        [
+          { channel: "website", discount_pct: 10 },
+          { channel: "agent", discount_pct: 5 },
+        ],
+        "agent",
+        15,
+      ),
+      5,
+    );
+  });
+
+  it("falls back to legacy direct_booking_discount when no row", () => {
+    assert.equal(pickChannelDiscountPct([], "agent", 15), 15);
+  });
+
+  it("defaults to 10% when neither row nor legacy is present", () => {
+    assert.equal(pickChannelDiscountPct(null, "agent", null), 10);
+  });
+});
+
+describe("resolveQuote — P1 agent price equals public", () => {
+  it("does not apply configured agent discount to federationTotal (matches signed offer)", async () => {
+    const { resolveQuote } = await import("../lib/pricing.js");
+
+    const propertyId = "00000000-0000-0000-0000-000000000099";
+    const season = {
+      name: "low",
+      date_from: "2026-09-01",
+      date_to: "2026-09-30",
+      type: "low" as const,
+    };
+    const block = {
+      guests: 6,
+      low_weekday: 1000,
+      low_weekend: 1200,
+      high_weekday: 1500,
+      high_weekend: 1800,
+      low_week: null,
+      high_week: null,
+      low_two_weeks: null,
+      high_two_weeks: null,
+    };
+
+    const stubSupabase: any = {
+      from: (table: string) => {
+        const chain: any = {
+          select: () => chain,
+          eq: () => chain,
+          order: () => chain,
+          single: () => {
+            if (table === "properties") {
+              return Promise.resolve({
+                data: {
+                  id: propertyId,
+                  name: "Test Villa",
+                  currency: "SEK",
+                  max_guests: 8,
+                  direct_booking_discount: 15,
+                  min_nights: 1,
+                  max_nights: 30,
+                  published: true,
+                },
+                error: null,
+              });
+            }
+            if (table === "property_smart_pricing") {
+              return Promise.resolve({
+                data: {
+                  gap_fill_enabled: false,
+                  gap_fill_min_nights: 2,
+                  gap_night_discount_pct: null,
+                },
+                error: null,
+              });
+            }
+            return Promise.resolve({ data: null, error: null });
+          },
+          then: (resolve: (value: unknown) => unknown) => {
+            if (table === "property_price_blocks") {
+              return Promise.resolve({ data: [block], error: null }).then(resolve);
+            }
+            if (table === "property_seasons") {
+              return Promise.resolve({ data: [season], error: null }).then(resolve);
+            }
+            if (table === "property_channel_discounts") {
+              return Promise.resolve({
+                data: [
+                  { channel: "agent", discount_pct: 5 },
+                  { channel: "website", discount_pct: 5 },
+                ],
+                error: null,
+              }).then(resolve);
+            }
+            return Promise.resolve({ data: [], error: null }).then(resolve);
+          },
+        };
+        return chain;
+      },
+    };
+
+    const quote = await resolveQuote(
+      stubSupabase,
+      propertyId,
+      "2026-09-02",
+      "2026-09-05",
+      4,
+    );
+
+    assert.ok(!("error" in quote));
+    if ("error" in quote) return;
+
+    assert.equal(quote.publicTotal, 3200);
+    assert.equal(quote.federationTotal, quote.publicTotal);
+    assert.equal(quote.federationDiscountPercent, 0);
   });
 });
