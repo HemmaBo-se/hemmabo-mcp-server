@@ -6,8 +6,12 @@
  *
  * Pricing flow:
  *   public_total  = sum of nightly rates (season × guest level × day type)
- *   federation_total = public_total × (1 - direct_booking_discount / 100)
+ *   federation_total = public_total on the MCP/agent path (P1 — matches signed offer)
  *   gap_total     = federation_total × (1 - gap_night_discount_pct / 100)
+ *
+ * Acquisition discount source: `property_channel_discounts` (agent channel), then
+ * legacy `properties.direct_booking_discount`. Under P1 (smart-stays ADR 2026-06-25)
+ * configured discounts are read for parity with the dashboard but NOT applied until P2.
  *                   (only when calendar context shows a gap)
  *
  * RULES (synced with main repo pricing-resolver.ts):
@@ -20,6 +24,10 @@
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
+import { pickChannelDiscountPct, type ChannelDiscountRow } from "./channel-discount.js";
+
+/** P1: agent quotable price = public price (verified-stay-offer.ts). P2 re-enables spread. */
+const P1_AGENT_PRICE_EQUALS_PUBLIC = true;
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -213,6 +221,12 @@ export async function resolveQuote(
     .eq("property_id", propertyId)
     .single();
 
+  // 5b. Channel acquisition discounts (same table the dashboard writes)
+  const { data: channelRows } = await supabase
+    .from("property_channel_discounts")
+    .select("channel, discount_pct")
+    .eq("property_id", propertyId);
+
   // 6. Calculate nightly rates
   const nightlyRates: QuoteResult["breakdown"]["nightlyRates"] = [];
   const seasonList = (seasons ?? []) as Season[];
@@ -272,9 +286,18 @@ export async function resolveQuote(
 
   const publicTotal = accommodationTotal;
 
-  // 8. Federation discount (host-controlled)
-  const discountPct = property.direct_booking_discount ?? 0;
-  const federationTotal = Math.round(publicTotal * (1 - discountPct / 100));
+  // 8. Agent acquisition discount — read configured value, apply per P1/P2 policy
+  const configuredAgentDiscountPct = pickChannelDiscountPct(
+    (channelRows ?? []) as ChannelDiscountRow[],
+    "agent",
+    property.direct_booking_discount ?? null,
+  );
+  const appliedAgentDiscountPct = P1_AGENT_PRICE_EQUALS_PUBLIC
+    ? 0
+    : configuredAgentDiscountPct;
+  const federationTotal = P1_AGENT_PRICE_EQUALS_PUBLIC
+    ? publicTotal
+    : Math.round(publicTotal * (1 - appliedAgentDiscountPct / 100));
 
   // 9. Gap night detection (reads gap_night_discount_pct from smart_pricing)
   const { isGap, discountPercent: gapDiscountPct } = await detectGap(
@@ -302,7 +325,7 @@ export async function resolveQuote(
     breakdown: { nightlyRates },
     publicTotal,
     federationTotal,
-    federationDiscountPercent: discountPct,
+    federationDiscountPercent: appliedAgentDiscountPct,
     packageApplied,
     gapNight: isGap,
     gapTotal,
