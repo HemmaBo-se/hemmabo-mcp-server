@@ -119,7 +119,7 @@ const HOST_ONBOARDING_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "hemmabo_host_readiness_check",
     description:
-      "Read-only fit check for a vacation-rental host evaluating HemmaBo for an own-domain booking engine. Use when the user is a host or property owner, not a guest booking a stay. Returns a fit verdict, what the host gets, the setup inputs to prepare, and a safe onboarding next step. Does not create an account, buy a domain, configure Stripe, store host data, or provision a website.",
+      "Read-only fit check for a vacation-rental host evaluating HemmaBo for an own-domain booking engine. Use when the user is a host or property owner, not a guest booking a stay. Returns a fit verdict, what the host gets, the setup inputs to prepare, and a safe onboarding next step. Does not create an account, buy a domain, configure Stripe, store host data, or provision a website. Every parameter is optional and additive — the more you pass (propertyType, country/region/city, domain, currentChannels, and the wants* booleans), the sharper the fit verdict; with none it returns a generic readiness summary.",
     inputSchema: {
       type: "object",
       properties: {
@@ -185,7 +185,7 @@ const HOST_ONBOARDING_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "hemmabo_host_onboarding_link",
     description:
-      "Return a safe HemmaBo onboarding handoff URL for a vacation-rental host who wants an own-domain booking engine. Use after explaining the fit or when the host asks to start. This tool is read-only and does not create a HemmaBo account, buy a domain, configure Stripe, write to Supabase, or provision a booking site. It returns the URL, what the host gets, and what the host should prepare.",
+      "Return a safe HemmaBo onboarding handoff URL for a vacation-rental host who wants an own-domain booking engine. Use after explaining the fit or when the host asks to start. This tool is read-only and does not create a HemmaBo account, buy a domain, configure Stripe, write to Supabase, or provision a booking site. It returns the URL, what the host gets, and what the host should prepare. All parameters are optional and only enrich the returned onboarding URL — propertyName, country/region/city, domain, and language are prefilled into it; nothing is stored.",
     inputSchema: {
       type: "object",
       properties: {
@@ -226,7 +226,7 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "verify_vacation_rental_node",
     description:
-      "Verify that a vacation-rental host domain is a valid Vacation Rental Protocol (VRP) node before trusting it. Reads the domain's .well-known/vacation-rental.json and JWKS. Read-only trust check: no availability, pricing, booking, or payment. On success, call get_verified_stay_offer with the same domain and stay dates.",
+      "Verify that a vacation-rental host domain is a valid Vacation Rental Protocol (VRP) node before trusting it. Reads the domain's .well-known/vacation-rental.json and JWKS. Read-only trust check: no availability, pricing, booking, or payment. On success, call get_verified_stay_offer with the same domain and stay dates. The single input is the host domain as a bare hostname (no scheme or path); verification reads that domain's own .well-known and JWKS, so the result is only as trustworthy as the exact domain you pass.",
     inputSchema: {
       type: "object",
       properties: {
@@ -262,7 +262,7 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "get_verified_stay_offer",
     description:
-      "Fetch, verify, and render a live host-domain signed VRP stay offer for exact dates and guest count. Verifies Ed25519 JWS against domain JWKS. Call after search returns a host domain, always before quoting final price or a booking link. Read-only: must not lock a quote, create a booking, collect guest details, or start checkout. Route booking only to the signed direct_booking_url on the host domain.",
+      "Fetch, verify, and render a live host-domain signed VRP stay offer for exact dates and guest count. Verifies Ed25519 JWS against domain JWKS. Call after search returns a host domain, always before quoting final price or a booking link. Read-only: must not lock a quote, create a booking, collect guest details, or start checkout. Route booking only to the signed direct_booking_url on the host domain. The parameters work as a set: pass the same domain, checkIn, checkOut and guests the guest used at search; checkIn must be strictly before checkOut, and the resulting night count — not the dates themselves — drives the signed price and the host capacity check, so changing either date re-prices the offer. Omit language to inherit the host default; it never affects price or availability.",
     inputSchema: {
       type: "object",
       properties: {
