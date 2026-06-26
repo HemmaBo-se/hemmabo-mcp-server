@@ -245,7 +245,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_search_properties",
     description:
-      "Search available vacation rental properties by location and travel dates. Use when the user wants to find or browse places to stay. Discovery only — call get_verified_stay_offer with the host domain and same dates before the final answer so the client can render the verified stay offer widget; never quote a final price or booking link from search alone. Do NOT use when the user already has a propertyId or host domain. Returns propertyId, host domain, live availability, host-source pricing, and capacity.",
+      "Search available vacation rental properties by location and travel dates. Use when the user wants to find or browse places to stay. Discovery only — call get_verified_stay_offer with the host domain and same dates before the final answer so the client can render the verified stay offer widget; never quote a final price or booking link from search alone. Do NOT use when the user already has a propertyId or host domain. Returns propertyId, host domain, live availability, host-source pricing, and capacity. Parameters combine as one filter: give at least one of region or country to scope location, plus guests and the checkIn/checkOut range (checkIn strictly before checkOut) — results drop any property below the guest capacity or unavailable for that exact range.",
     inputSchema: {
       type: "object",
       properties: {
@@ -284,7 +284,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_search_availability",
     description:
-      "Check whether a specific property is available for the requested dates. Use this tool after the user has selected a property from hemmabo_search_properties and wants to confirm availability before getting a quote. Do NOT use for general browsing — use hemmabo_search_properties instead. Returns available=true/false with conflict details and same-month alternative date windows when unavailable.",
+      "Check whether a specific property is available for the requested dates. Use this tool after the user has selected a property from hemmabo_search_properties and wants to confirm availability before getting a quote. Do NOT use for general browsing — use hemmabo_search_properties instead. Returns available=true/false with conflict details and same-month alternative date windows when unavailable. Use the propertyId from search with the exact checkIn/checkOut range; omit guests to check dates only, or pass it to get host-source totals for that party size in the returned alternative windows.",
     inputSchema: {
       type: "object",
       properties: {
@@ -341,7 +341,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_search_similar",
     description:
-      "Find vacation rental properties similar to a given property on specific dates. Use this tool after the user has selected a property (via hemmabo_search_properties) and wants to see alternatives — same region, same property type, same or larger capacity. Do NOT use for the initial search; use hemmabo_search_properties instead. Returns a list of similar available properties with live pricing, excluding the source property.",
+      "Find vacation rental properties similar to a given property on specific dates. Use this tool after the user has selected a property (via hemmabo_search_properties) and wants to see alternatives — same region, same property type, same or larger capacity. Do NOT use for the initial search; use hemmabo_search_properties instead. Returns a list of similar available properties with live pricing, excluding the source property. Matches are anchored to the source propertyId over the given checkIn/checkOut range; omit guests to inherit the source property's capacity, and raise limit to widen the alternative set (default 5).",
     inputSchema: {
       type: "object",
       properties: {
@@ -413,7 +413,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_compare_properties",
     description:
-      "Compare availability and pricing for 2-10 specific properties on the same dates. Use this tool when the user is deciding between multiple properties and wants to see price and availability side by side. Do NOT use for discovery - use hemmabo_search_properties first. Returns one entry per propertyId, sorted by direct host-source total (cheapest first), with unavailable properties last. Do not present discounts or savings in guest-facing copy.",
+      "Compare availability and pricing for 2-10 specific properties on the same dates. Use this tool when the user is deciding between multiple properties and wants to see price and availability side by side. Do NOT use for discovery - use hemmabo_search_properties first. Returns one entry per propertyId, sorted by direct host-source total (cheapest first), with unavailable properties last. Do not present discounts or savings in guest-facing copy. All propertyIds are priced on the one shared checkIn/checkOut range and guests count, so entries are directly comparable; pass 2–10 UUIDs from search, never domains or names.",
     inputSchema: {
       type: "object",
       properties: {
@@ -488,7 +488,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_quote",
     description:
-      "Get a detailed pricing quote for a specific property, dates, and guest count. Use this tool after confirming availability to show the user exact pricing before booking. Do NOT use before checking availability — the quote may be invalid if dates are unavailable. Returns the final host-source total for the booking flow, per-night breakdown, and package pricing context. All prices are integers in the property's local currency (e.g. SEK).",
+      "Get a detailed pricing quote for a specific property, dates, and guest count. Use this tool after confirming availability to show the user exact pricing before booking. Do NOT use before checking availability — the quote may be invalid if dates are unavailable. Returns the final host-source total for the booking flow, per-night breakdown, and package pricing context. All prices are integers in the property's local currency (e.g. SEK). The quote is the propertyId priced for the exact checkIn/checkOut range and guests; the night count and party size together select the price tier, so changing any of them re-quotes.",
     inputSchema: {
       type: "object",
       properties: {
@@ -539,7 +539,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_create",
     description:
-      "Create a pending direct booking without online payment for configured non-VRP fallback deployments. Use only after explicit user confirmation, with a propertyId from search, and only when no signed VRP direct_booking_url is available. For signed VRP offers, route to the signed host-domain URL instead. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Writes a pending booking server-side; not idempotent — check hemmabo_booking_status before retrying on timeout. Rate-limited per token.",
+      "Create a pending direct booking without online payment for configured non-VRP fallback deployments. Use only after explicit user confirmation, with a propertyId from search, and only when no signed VRP direct_booking_url is available. For signed VRP offers, route to the signed host-domain URL instead. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Writes a pending booking server-side; not idempotent — check hemmabo_booking_status before retrying on timeout. Rate-limited per token. The booking is identified by propertyId + the checkIn/checkOut range + guests; guestName and guestEmail are required for host confirmation, while guestPhone is optional for check-in coordination.",
     inputSchema: {
       type: "object",
       properties: {
@@ -587,7 +587,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_negotiate",
     description:
-      "Create a binding price quote that locks the price for 15 minutes for configured non-VRP fallback checkout deployments. Use only when no signed direct_booking_url is available and the user explicitly asks to lock a price. Never use this for search, availability, VRP offers, rendering a stay-offer widget, or verified-offer display — use get_verified_stay_offer instead. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Writes a short-lived quote snapshot server-side. Rate-limited per token.",
+      "Create a binding price quote that locks the price for 15 minutes for configured non-VRP fallback checkout deployments. Use only when no signed direct_booking_url is available and the user explicitly asks to lock a price. Never use this for search, availability, VRP offers, rendering a stay-offer widget, or verified-offer display — use get_verified_stay_offer instead. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Writes a short-lived quote snapshot server-side. Rate-limited per token. Locks the propertyId's price for the exact checkIn/checkOut range and guests; the returned quoteId encodes that combination and is honored by hemmabo_booking_checkout only until validUntil.",
     inputSchema: {
       type: "object",
       properties: {
@@ -634,7 +634,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_checkout",
     description:
-      "Create a fallback non-VRP booking and return a host-configured Stripe checkout URL. Use only after explicit user confirmation when no signed VRP direct_booking_url is available. When get_verified_stay_offer returns a signed direct_booking_url, route the guest there instead. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Creates a pending booking and Stripe session server-side; not idempotent — check hemmabo_booking_status before retrying. Rate-limited per token.",
+      "Create a fallback non-VRP booking and return a host-configured Stripe checkout URL. Use only after explicit user confirmation when no signed VRP direct_booking_url is available. When get_verified_stay_offer returns a signed direct_booking_url, route the guest there instead. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Creates a pending booking and Stripe session server-side; not idempotent — check hemmabo_booking_status before retrying. Rate-limited per token. Pass quoteId to honor a price locked by hemmabo_booking_negotiate for the same propertyId/dates/guests, or omit it to price fresh at checkout; paymentMode picks the Stripe flow and channel picks the pricing channel, while guestName and guestEmail identify the guest.",
     inputSchema: {
       type: "object",
       properties: {
@@ -698,7 +698,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_cancel",
     description:
-      "Cancel a confirmed booking and process the Stripe refund per host cancellation policy. Use when the guest explicitly requests cancellation. Do not use for pending/unpaid bookings — those expire automatically. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Destructive and idempotent: cancelling an already-cancelled booking returns the same status. Rate-limited per token.",
+      "Cancel a confirmed booking and process the Stripe refund per host cancellation policy. Use when the guest explicitly requests cancellation. Do not use for pending/unpaid bookings — those expire automatically. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Destructive and idempotent: cancelling an already-cancelled booking returns the same status. Rate-limited per token. reservationId must be the booking UUID from hemmabo_booking_checkout or hemmabo_booking_create — not a propertyId; reason is optional free text forwarded to the host.",
     inputSchema: {
       type: "object",
       properties: {
@@ -734,7 +734,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_status",
     description:
-      "Retrieve current status and full details of an existing booking by reservationId. Use to confirm checkout/create succeeded or before cancel/reschedule. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Read-only against the database but returns guest PII (name, email). Rate-limited per token.",
+      "Retrieve current status and full details of an existing booking by reservationId. Use to confirm checkout/create succeeded or before cancel/reschedule. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Read-only against the database but returns guest PII (name, email). Rate-limited per token. The only input is the reservationId returned by hemmabo_booking_checkout or hemmabo_booking_create — not the propertyId.",
     inputSchema: {
       type: "object",
       properties: {
@@ -777,7 +777,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_reschedule",
     description:
-      "Reschedule a confirmed or pending booking to new dates with automatic repricing and Stripe charge/refund. Use when the guest wants to change dates on an existing booking. Do not use if cancelled or if a protocol compatibility client reports completed — check hemmabo_booking_status first. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Destructive write that may charge or refund via Stripe. Rate-limited per token.",
+      "Reschedule a confirmed or pending booking to new dates with automatic repricing and Stripe charge/refund. Use when the guest wants to change dates on an existing booking. Do not use if cancelled or if a protocol compatibility client reports completed — check hemmabo_booking_status first. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Destructive write that may charge or refund via Stripe. Rate-limited per token. Identify the existing booking by reservationId, then give the new stay as newCheckIn/newCheckOut (newCheckIn strictly before newCheckOut); the date change drives automatic repricing and a Stripe charge or refund for the difference.",
     inputSchema: {
       type: "object",
       properties: {
