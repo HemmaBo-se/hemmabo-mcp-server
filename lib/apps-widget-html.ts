@@ -590,6 +590,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       available: available !== false,
       directUrl: directUrl,
       logo: property.logo_url || property.logo || listing.logo_url || (summary.property && summary.property.logo_url) || "",
+      amenities: asArray(property.amenities).filter(function (a) { return typeof a === "string" && a && a.indexOf("_") === -1; }).slice(0, 4),
       image: imageList[0] || "",
       images: imageList,
       alternatives: alternatives,
@@ -721,52 +722,71 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
         offer.currency = alt.currency || offer.currency;
       }
     }
-    var heroImages = asArray(offer.images).length ? asArray(offer.images) : (offer.image ? [offer.image] : []);
-    var heroImage = heroImages.map(function (src, index) {
-      return '<img class="' + (index === 0 ? "active" : "") + '" src="' + esc(src) + '" alt="" aria-hidden="true" loading="' + (index === 0 ? "eager" : "lazy") + '" referrerpolicy="no-referrer">';
-    }).join("");
+    var heroList = asArray(offer.images).length ? asArray(offer.images) : (offer.image ? [offer.image] : []);
     root.className = "cert";
     var initials = (offer.name || "").split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w.charAt(0).toUpperCase(); }).join("") || "VR";
     var logoMark = offer.logo
-      ? '<img src="' + esc(offer.logo) + '" alt="" referrerpolicy="no-referrer" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex:none;background:#211E17;border:1px solid #E0D6C2;">'
-      : '<div style="width:36px;height:36px;border-radius:50%;background:#211E17;color:#F4EFE4;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-size:15px;flex:none;">' + esc(initials) + '</div>';
+      ? '<img src="' + esc(offer.logo) + '" alt="" referrerpolicy="no-referrer" style="width:34px;height:34px;border-radius:50%;object-fit:cover;background:#fff;border:1px solid #E0D6C2;">'
+      : '<div style="width:34px;height:34px;border-radius:50%;background:#fff;color:#211E17;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-size:14px;">' + esc(initials) + '</div>';
+    var heroArea = heroList.length
+      ? '<img id="heroMain" src="' + esc(heroList[0]) + '" alt="' + esc(offer.name) + '" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;display:block;">'
+      : '<div style="width:100%;height:100%;background:linear-gradient(135deg,#c2cdbb,#8aa0a8 55%,#3d5a52);"></div>';
+    var counter = heroList.length > 1 ? '<div style="position:absolute;bottom:8px;right:10px;font-size:10px;color:#fff;background:rgba(33,30,23,.5);padding:3px 9px;border-radius:20px;">1 / ' + heroList.length + ' · browse</div>' : '';
+    var thumbs = heroList.length > 1
+      ? '<div style="display:flex;gap:5px;padding:5px 8px;background:#EFE9DC;">' + heroList.slice(0, 4).map(function (src) { return '<img class="thumb" src="' + esc(src) + '" alt="" aria-hidden="true" referrerpolicy="no-referrer" style="height:34px;flex:1;min-width:0;border-radius:6px;object-fit:cover;cursor:pointer;">'; }).join("") + '</div>'
+      : '';
+    var amen = asArray(offer.amenities).length
+      ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:11px;">' + asArray(offer.amenities).map(function (a) { return '<span class="vchip">' + esc(a) + '</span>'; }).join("") + '</div>'
+      : '';
     var subline = [location || cleanDomain(offer.domain), formatRange(offer.checkIn, offer.checkOut), (offer.guests ? offer.guests + " guests" : "")].filter(Boolean).join(" · ");
     var bookDomain = cleanDomain(offer.domain) || "host domain";
+    var verifyUrl = "https://vacationrentalprotocol.com/verify?domain=" + encodeURIComponent(cleanDomain(offer.domain) || "");
+    var bookUrl = offer.directUrl || hostUrl(offer.domain);
     root.innerHTML =
-      '<style>.hbcoin{width:44px;height:44px;perspective:340px;flex:none}.hbcoin-in{position:relative;width:100%;height:100%;transform-style:preserve-3d;animation:hbspin 5.5s linear infinite}.hbf,.hbb{position:absolute;inset:0;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;-webkit-backface-visibility:hidden;backface-visibility:hidden;background:#E9D9A6;border:2px solid #B8932F;color:#6E5618}.hbb{transform:rotateY(180deg)}@keyframes hbspin{to{transform:rotateY(360deg)}}@media(prefers-reduced-motion:reduce){.hbcoin-in{animation:none}}</style>' +
-      '<div style="background:#F4EFE4;border:1px solid #E0D6C2;border-radius:14px;padding:14px 18px;color:#211E17;font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:400px;margin:0 auto;">' +
+      '<style>.hbcoin{width:46px;height:46px;perspective:320px}.hbcoin-in{position:relative;width:100%;height:100%;transform-style:preserve-3d;animation:hbspin 5.5s linear infinite}.hbf,.hbb{position:absolute;inset:0;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;-webkit-backface-visibility:hidden;backface-visibility:hidden;background:#E9D9A6;border:2px solid #B8932F;color:#6E5618}.hbb{transform:rotateY(180deg)}@keyframes hbspin{to{transform:rotateY(360deg)}}@media(prefers-reduced-motion:reduce){.hbcoin-in{animation:none}}.vchip{font-size:11px;padding:4px 10px;border:1px solid #DFD3BC;border-radius:20px;color:#5C5443;background:#FBF8F1;white-space:nowrap}</style>' +
+      '<div style="background:#F4EFE4;border:1px solid #E0D6C2;border-radius:16px;overflow:hidden;color:#211E17;font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:404px;margin:0 auto;">' +
         notice +
-        '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">' +
-          '<div style="display:flex;align-items:center;gap:10px;min-width:0;">' + logoMark +
-            '<div aria-label="' + (offer.verified ? "Verified stay offer" : "Host-domain stay option") + '" style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#9A8E76;line-height:1.3;">' + (offer.verified ? "Verified<br>stay offer" : "Host-domain<br>stay option") + '</div>' +
-          '</div>' +
-          '<div class="hbcoin"><div class="hbcoin-in">' +
-            '<div class="hbf"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#6E5618" stroke-width="1.4" stroke-linecap="round"><path d="M5 11a7 7 0 0 1 14 0"/><path d="M7.5 12a4.5 4.5 0 0 1 9 0v2.5"/><path d="M10 12.5a2 2 0 0 1 4 0v4"/><path d="M12 15v3.5"/></svg></div>' +
-            '<div class="hbb"><span style="font-size:9px;letter-spacing:.5px;font-weight:bold;">Ed25519</span><span style="font-size:7px;letter-spacing:1px;">VRP</span></div>' +
+        '<div style="position:relative;height:168px;background:#dfe3da;">' + heroArea +
+          '<div style="position:absolute;top:10px;left:10px;">' + logoMark + '</div>' +
+          '<div id="verifySeal" class="hbcoin" title="Verify this offer" aria-label="Verify this offer" role="button" tabindex="0" style="position:absolute;top:10px;right:10px;cursor:pointer;"><div class="hbcoin-in">' +
+            '<div class="hbf"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6E5618" stroke-width="1.4" stroke-linecap="round"><path d="M5 11a7 7 0 0 1 14 0"/><path d="M7.5 12a4.5 4.5 0 0 1 9 0v2.5"/><path d="M10 12.5a2 2 0 0 1 4 0v4"/><path d="M12 15v3.5"/></svg></div>' +
+            '<div class="hbb"><span style="font-size:8px;letter-spacing:.5px;font-weight:bold;">Ed25519</span><span style="font-size:7px;letter-spacing:1px;">VRP</span></div>' +
           '</div></div>' +
+          '<div aria-label="Verified stay offer" style="position:absolute;bottom:8px;left:12px;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#fff;background:rgba(33,30,23,.55);padding:3px 8px;border-radius:20px;">Verified stay offer</div>' +
+          counter +
         '</div>' +
-        '<div style="font-family:Georgia,serif;font-size:20px;margin-top:11px;line-height:1.15;">' + esc(offer.name) + '</div>' +
-        '<div style="font-size:12px;color:#8C8270;margin-top:3px;">' + esc(subline) + '</div>' +
-        '<div style="height:1px;background:#BFA15A;opacity:.5;margin:11px 0;"></div>' +
-        '<div style="display:flex;align-items:baseline;justify-content:space-between;">' +
-          '<div style="font-family:Georgia,serif;font-size:25px;">' + esc(money(offer.finalAmount, offer.currency)) + '</div>' +
-          (offer.verified ? '<div style="font-size:10px;color:#A8893F;letter-spacing:1px;text-transform:uppercase;">Signed</div>' : '') +
+        thumbs +
+        '<div style="padding:14px 18px 16px;">' +
+          '<div style="font-family:Georgia,serif;font-size:22px;line-height:1.1;">' + esc(offer.name) + '</div>' +
+          '<div style="font-size:12px;color:#8C8270;margin-top:3px;">' + esc(subline) + '</div>' +
+          '<div style="font-size:12px;color:#3B6B57;margin-top:7px;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6B57" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg>Signed by <strong style="font-weight:500;">' + esc(bookDomain) + '</strong> · verified on its own domain</div>' +
+          amen +
+          '<div style="height:1px;background:#BFA15A;opacity:.45;margin:13px 0;"></div>' +
+          '<div style="display:flex;align-items:baseline;gap:8px;"><div style="font-family:Georgia,serif;font-size:26px;">' + esc(money(offer.finalAmount, offer.currency)) + '</div><div style="font-size:12px;color:#8C8270;">total · direct from host</div></div>' +
+          '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;"><span class="vchip">0% commission</span><span class="vchip">Payment direct to host</span><span class="vchip">AI-agent bookable</span></div>' +
+          '<a id="bookLink" href="' + esc(bookUrl) + '" target="_blank" rel="noopener" aria-label="Open direct booking URL" style="display:block;margin-top:14px;background:#2C5A47;color:#F4EFE4;border-radius:9px;padding:13px;text-align:center;font-size:13px;font-weight:500;text-decoration:none;">Book direct on ' + esc(bookDomain) + ' →</a>' +
+          '<div style="font-size:10px;color:#9A8E76;text-align:center;margin-top:9px;">Offer verified moments ago · price exact · no add-on fees</div>' +
         '</div>' +
-        '<div style="font-size:11px;color:#8C8270;margin-top:3px;">Signed by the host domain · 0% commission</div>' +
-        '<button id="bookBtn" aria-label="Open direct booking URL" style="margin-top:12px;width:100%;background:#211E17;color:#F4EFE4;border:none;border-radius:8px;padding:10px;font-size:12px;letter-spacing:.5px;cursor:pointer;">Book direct on ' + esc(bookDomain) + '</button>' +
       '</div>';
-    var bookBtn = document.getElementById("bookBtn");
-    if (bookBtn) {
-      bookBtn.addEventListener("click", function () {
-        openExternal(offer.directUrl || hostUrl(offer.domain));
+    var bookLink = document.getElementById("bookLink");
+    if (bookLink) {
+      bookLink.addEventListener("click", function (e) {
+        e.preventDefault();
+        openExternal(bookUrl);
       });
     }
-    var logoImg = root.querySelector("img");
-    if (logoImg) {
-      logoImg.addEventListener("error", function () {
-        logoImg.style.display = "none";
-      }, { once: true });
+    var verifySeal = document.getElementById("verifySeal");
+    if (verifySeal) {
+      verifySeal.addEventListener("click", function () { openExternal(verifyUrl); });
     }
+    var heroMain = document.getElementById("heroMain");
+    if (heroMain) {
+      heroMain.addEventListener("error", function () { heroMain.style.display = "none"; }, { once: true });
+    }
+    root.querySelectorAll(".thumb").forEach(function (t) {
+      t.addEventListener("click", function () { if (heroMain) heroMain.src = t.src; });
+      t.addEventListener("error", function () { t.style.display = "none"; }, { once: true });
+    });
   }
 
   window.addEventListener("message", handleHostMessage, { passive: true });
