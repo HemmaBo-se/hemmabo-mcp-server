@@ -354,6 +354,20 @@ function sourceAuthoritySummary(offer: JsonRecord): JsonRecord | null {
   };
 }
 
+function amenitiesFromDiscovery(discovery: JsonRecord): string[] {
+  const raw = Array.isArray(discovery.amenities) ? discovery.amenities : [];
+  const labels: string[] = [];
+  for (const item of raw) {
+    const s = stringValue(item);
+    // Keep human display labels only — skip snake_case machine keys
+    // (e.g. "hot_tub") which duplicate the readable ones ("Hot tub").
+    if (!s || s.includes("_")) continue;
+    if (!labels.includes(s)) labels.push(s);
+    if (labels.length >= 4) break;
+  }
+  return labels;
+}
+
 function logoFromDiscovery(discovery: JsonRecord): string | null {
   const media = asRecord(discovery.media);
   const candidate =
@@ -444,6 +458,13 @@ function buildAgentQuoteView(
   if (widgetImages.length) summaryProperty.images = widgetImages;
   const widgetLogo = logoFromDiscovery(discovery);
   if (widgetLogo) summaryProperty.logo_url = widgetLogo;
+  const discoveryRegion =
+    stringValue(asRecord(discovery.location)?.region) ?? stringValue(discovery.region);
+  if (discoveryRegion && !stringValue(summaryProperty.region)) {
+    summaryProperty.region = discoveryRegion;
+  }
+  const widgetAmenities = amenitiesFromDiscovery(discovery);
+  if (widgetAmenities.length) summaryProperty.amenities = widgetAmenities;
 
   return {
     agent_citation: {
