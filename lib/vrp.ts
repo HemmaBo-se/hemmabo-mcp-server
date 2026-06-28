@@ -354,6 +354,19 @@ function sourceAuthoritySummary(offer: JsonRecord): JsonRecord | null {
   };
 }
 
+function logoFromDiscovery(discovery: JsonRecord): string | null {
+  const media = asRecord(discovery.media);
+  const candidate =
+    stringValue(media?.logo) ?? stringValue(discovery.logo_url) ?? stringValue(discovery.logo);
+  if (!candidate) return null;
+  try {
+    if (new URL(candidate).protocol !== "https:") return null;
+  } catch {
+    return null;
+  }
+  return candidate;
+}
+
 function mediaImagesFromDiscovery(discovery: JsonRecord): JsonRecord[] {
   const media = asRecord(discovery.media);
   const images = Array.isArray(media?.images) ? media.images : [];
@@ -429,6 +442,8 @@ function buildAgentQuoteView(
   const widgetImages = mediaImagesFromDiscovery(discovery);
   const summaryProperty = propertySummary(offer);
   if (widgetImages.length) summaryProperty.images = widgetImages;
+  const widgetLogo = logoFromDiscovery(discovery);
+  if (widgetLogo) summaryProperty.logo_url = widgetLogo;
 
   return {
     agent_citation: {
