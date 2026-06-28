@@ -240,7 +240,7 @@ function getSupabaseReader() {
 
 // ── JSON-RPC handler ─────────────────────────────────────────────
 
-async function handleJsonRpc(
+export async function handleJsonRpc(
   msg: { jsonrpc: string; method: string; id?: number | string; params?: Record<string, unknown> },
   ctx: { agent: string; mcpEndpointUrl: string } = {
     agent: "unknown",
