@@ -589,6 +589,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       finalAmount: finalAmount,
       available: available !== false,
       directUrl: directUrl,
+      logo: property.logo_url || property.logo || listing.logo_url || (summary.property && summary.property.logo_url) || "",
       image: imageList[0] || "",
       images: imageList,
       alternatives: alternatives,
@@ -724,75 +725,47 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     var heroImage = heroImages.map(function (src, index) {
       return '<img class="' + (index === 0 ? "active" : "") + '" src="' + esc(src) + '" alt="" aria-hidden="true" loading="' + (index === 0 ? "eager" : "lazy") + '" referrerpolicy="no-referrer">';
     }).join("");
-    root.className = "shell";
+    root.className = "cert";
+    var initials = (offer.name || "").split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w.charAt(0).toUpperCase(); }).join("") || "VR";
+    var logoMark = offer.logo
+      ? '<img src="' + esc(offer.logo) + '" alt="" referrerpolicy="no-referrer" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex:none;background:#211E17;border:1px solid #E0D6C2;">'
+      : '<div style="width:36px;height:36px;border-radius:50%;background:#211E17;color:#F4EFE4;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-size:15px;flex:none;">' + esc(initials) + '</div>';
+    var subline = [location || cleanDomain(offer.domain), formatRange(offer.checkIn, offer.checkOut), (offer.guests ? offer.guests + " guests" : "")].filter(Boolean).join(" · ");
+    var bookDomain = cleanDomain(offer.domain) || "host domain";
     root.innerHTML =
-      '<section class="hero">' +
-        heroImage +
-        '<div class="heroCopy">' +
-          '<div class="verifiedPill"><span class="dot"></span>' + (offer.verified ? "Host-domain verified" : "Host-domain source") + '</div>' +
-          '<h1>' + esc(offer.name) + '</h1>' +
-          '<div class="subline"><span>' + esc(location || cleanDomain(offer.domain)) + '</span><span>' + esc(facts.slice(1).join(" - ")) + '</span></div>' +
-        '</div>' +
-      '</section>' +
-      '<section class="trust">' +
-        '<div class="trustItem"><span class="icon">V</span><span>Host node<br>' + esc(offer.domain || "verified domain") + '</span></div>' +
-        '<div class="trustItem"><span class="icon">L</span><span>Live availability<br>from source</span></div>' +
-        '<div class="trustItem"><span class="icon">D</span><span>Direct booking<br>host domain</span></div>' +
-        '<div class="trustItem"><span class="icon">S</span><span><span class="stripe">stripe</span><br>host payment path</span></div>' +
-      '</section>' +
-      '<section class="content">' +
+      '<style>.hbcoin{width:50px;height:50px;perspective:340px;flex:none}.hbcoin-in{position:relative;width:100%;height:100%;transform-style:preserve-3d;animation:hbspin 5.5s linear infinite}.hbf,.hbb{position:absolute;inset:0;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;-webkit-backface-visibility:hidden;backface-visibility:hidden;background:#E9D9A6;border:2px solid #B8932F;color:#6E5618}.hbb{transform:rotateY(180deg)}@keyframes hbspin{to{transform:rotateY(360deg)}}@media(prefers-reduced-motion:reduce){.hbcoin-in{animation:none}}</style>' +
+      '<div style="background:#F4EFE4;border:1px solid #E0D6C2;border-radius:14px;padding:18px 20px;color:#211E17;font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:420px;margin:0 auto;">' +
         notice +
-        '<div class="offer">' +
-          '<div class="offerPanel">' +
-            '<p class="label">' + (offer.verified ? "Verified stay offer" : "Host-domain stay option") + '</p>' +
-            '<p class="dates">' + esc(formatRange(offer.checkIn, offer.checkOut)) + '</p>' +
-            '<div class="facts">' + facts.map(function (f) { return '<span class="fact">' + esc(f) + '</span>'; }).join("") + '</div>' +
-            '<div class="priceBox">' +
-              '<div class="price">' + esc(money(offer.finalAmount, offer.currency)) + '</div>' +
-              '<div class="priceCaption">Final price from host source</div>' +
-            '</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">' +
+          '<div style="display:flex;align-items:center;gap:10px;min-width:0;">' + logoMark +
+            '<div aria-label="' + (offer.verified ? "Verified stay offer" : "Host-domain stay option") + '" style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#9A8E76;line-height:1.3;">' + (offer.verified ? "Verified<br>stay offer" : "Host-domain<br>stay option") + '</div>' +
           '</div>' +
-          '<div class="offerPanel actions">' +
-            '<div class="acp">' +
-              '<div class="acpTitle"><span>Signed direct booking</span><span class="stripe">host</span></div>' +
-              '<div class="acpCopy">Open the signed host-domain booking URL. Payment happens on the host payment path.</div>' +
-            '</div>' +
-            '<button class="primary" id="bookBtn">Open direct booking URL</button>' +
-            '<button class="secondary" id="openBtn">Open host node</button>' +
-          '</div>' +
+          '<div class="hbcoin"><div class="hbcoin-in">' +
+            '<div class="hbf"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#6E5618" stroke-width="1.4" stroke-linecap="round"><path d="M5 11a7 7 0 0 1 14 0"/><path d="M7.5 12a4.5 4.5 0 0 1 9 0v2.5"/><path d="M10 12.5a2 2 0 0 1 4 0v4"/><path d="M12 15v3.5"/></svg></div>' +
+            '<div class="hbb"><span style="font-size:9px;letter-spacing:.5px;font-weight:bold;">Ed25519</span><span style="font-size:7px;letter-spacing:1px;">VRP</span></div>' +
+          '</div></div>' +
         '</div>' +
-      '</section>' +
-      '<section class="tools">' +
-        '<div class="toolHead"><strong>Host-domain tools</strong><span class="toolCount">VRP + direct host-domain booking</span></div>' +
-        '<div class="toolGrid">' + TOOL_LABELS.map(function (label) { return '<span class="toolChip">' + esc(label) + '</span>'; }).join("") + '</div>' +
-      '</section>';
+        '<div style="font-family:Georgia,serif;font-size:23px;margin-top:14px;line-height:1.15;">' + esc(offer.name) + '</div>' +
+        '<div style="font-size:12px;color:#8C8270;margin-top:3px;">' + esc(subline) + '</div>' +
+        '<div style="height:1px;background:#BFA15A;opacity:.5;margin:14px 0;"></div>' +
+        '<div style="display:flex;align-items:baseline;justify-content:space-between;">' +
+          '<div style="font-family:Georgia,serif;font-size:29px;">' + esc(money(offer.finalAmount, offer.currency)) + '</div>' +
+          (offer.verified ? '<div style="font-size:10px;color:#A8893F;letter-spacing:1px;text-transform:uppercase;">Signed</div>' : '') +
+        '</div>' +
+        '<div style="font-size:11px;color:#8C8270;margin-top:3px;">Signed by the host domain · 0% commission</div>' +
+        '<button id="bookBtn" aria-label="Open direct booking URL" style="margin-top:16px;width:100%;background:#211E17;color:#F4EFE4;border:none;border-radius:8px;padding:12px;font-size:12px;letter-spacing:.5px;cursor:pointer;">Book direct on ' + esc(bookDomain) + '</button>' +
+      '</div>';
     var bookBtn = document.getElementById("bookBtn");
-    var openBtn = document.getElementById("openBtn");
     if (bookBtn) {
       bookBtn.addEventListener("click", function () {
         openExternal(offer.directUrl || hostUrl(offer.domain));
       });
     }
-    if (openBtn) {
-      openBtn.addEventListener("click", function () {
-        openExternal(offer.directUrl || hostUrl(offer.domain));
-      });
-    }
-    var slides = root.querySelectorAll(".hero img");
-    slides.forEach(function (slide) {
-      slide.addEventListener("error", function () {
-        slide.remove();
+    var logoImg = root.querySelector("img");
+    if (logoImg) {
+      logoImg.addEventListener("error", function () {
+        logoImg.style.display = "none";
       }, { once: true });
-    });
-    if (window.__hemmaboHeroTimer) window.clearInterval(window.__hemmaboHeroTimer);
-    if (slides.length > 1) {
-      var activeIndex = 0;
-      window.__hemmaboHeroTimer = window.setInterval(function () {
-        if (!slides.length) return;
-        slides[activeIndex % slides.length].classList.remove("active");
-        activeIndex = (activeIndex + 1) % slides.length;
-        slides[activeIndex].classList.add("active");
-      }, 4500);
     }
   }
 
