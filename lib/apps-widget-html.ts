@@ -738,7 +738,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
         notice +
         '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">' +
           '<div style="display:flex;align-items:center;gap:10px;min-width:0;">' + logoMark +
-            '<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#9A8E76;line-height:1.3;">' + (offer.verified ? "Verified<br>stay offer" : "Host-domain<br>stay option") + '</div>' +
+            '<div aria-label="' + (offer.verified ? "Verified stay offer" : "Host-domain stay option") + '" style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#9A8E76;line-height:1.3;">' + (offer.verified ? "Verified<br>stay offer" : "Host-domain<br>stay option") + '</div>' +
           '</div>' +
           '<div class="hbcoin"><div class="hbcoin-in">' +
             '<div class="hbf"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#6E5618" stroke-width="1.4" stroke-linecap="round"><path d="M5 11a7 7 0 0 1 14 0"/><path d="M7.5 12a4.5 4.5 0 0 1 9 0v2.5"/><path d="M10 12.5a2 2 0 0 1 4 0v4"/><path d="M12 15v3.5"/></svg></div>' +
@@ -753,13 +753,19 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
           (offer.verified ? '<div style="font-size:10px;color:#A8893F;letter-spacing:1px;text-transform:uppercase;">Signed</div>' : '') +
         '</div>' +
         '<div style="font-size:11px;color:#8C8270;margin-top:3px;">Signed by the host domain · 0% commission</div>' +
-        '<button id="bookBtn" style="margin-top:16px;width:100%;background:#211E17;color:#F4EFE4;border:none;border-radius:8px;padding:12px;font-size:12px;letter-spacing:.5px;cursor:pointer;">Book direct on ' + esc(bookDomain) + '</button>' +
+        '<button id="bookBtn" aria-label="Open direct booking URL" style="margin-top:16px;width:100%;background:#211E17;color:#F4EFE4;border:none;border-radius:8px;padding:12px;font-size:12px;letter-spacing:.5px;cursor:pointer;">Book direct on ' + esc(bookDomain) + '</button>' +
       '</div>';
     var bookBtn = document.getElementById("bookBtn");
     if (bookBtn) {
       bookBtn.addEventListener("click", function () {
         openExternal(offer.directUrl || hostUrl(offer.domain));
       });
+    }
+    var logoImg = root.querySelector("img");
+    if (logoImg) {
+      logoImg.addEventListener("error", function () {
+        logoImg.style.display = "none";
+      }, { once: true });
     }
   }
 
