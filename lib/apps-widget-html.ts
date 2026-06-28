@@ -18,7 +18,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    padding: 12px;
+    padding: 6px;
     background: transparent;
     color: var(--ink);
     font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
@@ -733,8 +733,8 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     var subline = [location || cleanDomain(offer.domain), formatRange(offer.checkIn, offer.checkOut), (offer.guests ? offer.guests + " guests" : "")].filter(Boolean).join(" · ");
     var bookDomain = cleanDomain(offer.domain) || "host domain";
     root.innerHTML =
-      '<style>.hbcoin{width:50px;height:50px;perspective:340px;flex:none}.hbcoin-in{position:relative;width:100%;height:100%;transform-style:preserve-3d;animation:hbspin 5.5s linear infinite}.hbf,.hbb{position:absolute;inset:0;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;-webkit-backface-visibility:hidden;backface-visibility:hidden;background:#E9D9A6;border:2px solid #B8932F;color:#6E5618}.hbb{transform:rotateY(180deg)}@keyframes hbspin{to{transform:rotateY(360deg)}}@media(prefers-reduced-motion:reduce){.hbcoin-in{animation:none}}</style>' +
-      '<div style="background:#F4EFE4;border:1px solid #E0D6C2;border-radius:14px;padding:18px 20px;color:#211E17;font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:420px;margin:0 auto;">' +
+      '<style>.hbcoin{width:44px;height:44px;perspective:340px;flex:none}.hbcoin-in{position:relative;width:100%;height:100%;transform-style:preserve-3d;animation:hbspin 5.5s linear infinite}.hbf,.hbb{position:absolute;inset:0;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;-webkit-backface-visibility:hidden;backface-visibility:hidden;background:#E9D9A6;border:2px solid #B8932F;color:#6E5618}.hbb{transform:rotateY(180deg)}@keyframes hbspin{to{transform:rotateY(360deg)}}@media(prefers-reduced-motion:reduce){.hbcoin-in{animation:none}}</style>' +
+      '<div style="background:#F4EFE4;border:1px solid #E0D6C2;border-radius:14px;padding:14px 18px;color:#211E17;font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:400px;margin:0 auto;">' +
         notice +
         '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">' +
           '<div style="display:flex;align-items:center;gap:10px;min-width:0;">' + logoMark +
@@ -745,15 +745,15 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
             '<div class="hbb"><span style="font-size:9px;letter-spacing:.5px;font-weight:bold;">Ed25519</span><span style="font-size:7px;letter-spacing:1px;">VRP</span></div>' +
           '</div></div>' +
         '</div>' +
-        '<div style="font-family:Georgia,serif;font-size:23px;margin-top:14px;line-height:1.15;">' + esc(offer.name) + '</div>' +
+        '<div style="font-family:Georgia,serif;font-size:20px;margin-top:11px;line-height:1.15;">' + esc(offer.name) + '</div>' +
         '<div style="font-size:12px;color:#8C8270;margin-top:3px;">' + esc(subline) + '</div>' +
-        '<div style="height:1px;background:#BFA15A;opacity:.5;margin:14px 0;"></div>' +
+        '<div style="height:1px;background:#BFA15A;opacity:.5;margin:11px 0;"></div>' +
         '<div style="display:flex;align-items:baseline;justify-content:space-between;">' +
-          '<div style="font-family:Georgia,serif;font-size:29px;">' + esc(money(offer.finalAmount, offer.currency)) + '</div>' +
+          '<div style="font-family:Georgia,serif;font-size:25px;">' + esc(money(offer.finalAmount, offer.currency)) + '</div>' +
           (offer.verified ? '<div style="font-size:10px;color:#A8893F;letter-spacing:1px;text-transform:uppercase;">Signed</div>' : '') +
         '</div>' +
         '<div style="font-size:11px;color:#8C8270;margin-top:3px;">Signed by the host domain · 0% commission</div>' +
-        '<button id="bookBtn" aria-label="Open direct booking URL" style="margin-top:16px;width:100%;background:#211E17;color:#F4EFE4;border:none;border-radius:8px;padding:12px;font-size:12px;letter-spacing:.5px;cursor:pointer;">Book direct on ' + esc(bookDomain) + '</button>' +
+        '<button id="bookBtn" aria-label="Open direct booking URL" style="margin-top:12px;width:100%;background:#211E17;color:#F4EFE4;border:none;border-radius:8px;padding:10px;font-size:12px;letter-spacing:.5px;cursor:pointer;">Book direct on ' + esc(bookDomain) + '</button>' +
       '</div>';
     var bookBtn = document.getElementById("bookBtn");
     if (bookBtn) {
