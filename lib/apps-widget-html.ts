@@ -651,7 +651,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       method: "ui/initialize",
       params: {
         protocolVersion: "2026-01-26",
-        appCapabilities: { availableDisplayModes: ["inline"] },
+        appCapabilities: { availableDisplayModes: ["inline", "fullscreen"] },
         appInfo: { name: "HemmaBo verified stay offer", version: "1.0.0" }
       }
     });
@@ -693,6 +693,24 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     sendUiInitialize();
   }
 
+  var hbLastData = null;
+  function currentDisplayMode() {
+    try {
+      if (window.openai && window.openai.displayMode) return window.openai.displayMode;
+    } catch (e) {}
+    return window.__hbDisplayMode || "inline";
+  }
+
+  function requestFullscreen() {
+    window.__hbDisplayMode = "fullscreen";
+    try {
+      if (window.openai && typeof window.openai.requestDisplayMode === "function") {
+        window.openai.requestDisplayMode({ mode: "fullscreen" });
+      }
+    } catch (e) {}
+    if (hbLastData) render(hbLastData);
+  }
+
   function render(data) {
     var root = document.getElementById("root");
     if (!data) {
@@ -700,6 +718,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       root.textContent = "Laddar verifierat erbjudande…";
       return;
     }
+    hbLastData = data;
     var offer = normalizeOffer(data);
     var location = [offer.city, offer.region, offer.country].filter(Boolean).join(", ");
     var facts = [
@@ -742,32 +761,48 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     var bookDomain = cleanDomain(offer.domain) || "host domain";
     var verifyUrl = "https://vacationrentalprotocol.com/verify?domain=" + encodeURIComponent(cleanDomain(offer.domain) || "");
     var bookUrl = offer.directUrl || hostUrl(offer.domain);
-    root.innerHTML =
-      '<style>.hbcoin{width:46px;height:46px;perspective:320px}.hbcoin-in{position:relative;width:100%;height:100%;transform-style:preserve-3d;animation:hbspin 5.5s linear infinite}.hbf,.hbb{position:absolute;inset:0;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;-webkit-backface-visibility:hidden;backface-visibility:hidden;background:#E9D9A6;border:2px solid #B8932F;color:#6E5618}.hbb{transform:rotateY(180deg)}@keyframes hbspin{to{transform:rotateY(360deg)}}@media(prefers-reduced-motion:reduce){.hbcoin-in{animation:none}}.vchip{font-size:11px;padding:4px 10px;border:1px solid #DFD3BC;border-radius:20px;color:#5C5443;background:#FBF8F1;white-space:nowrap}</style>' +
-      '<div style="background:#F4EFE4;border:1px solid #E0D6C2;border-radius:16px;overflow:hidden;color:#211E17;font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:404px;margin:0 auto;">' +
-        notice +
-        '<div style="position:relative;height:168px;background:#dfe3da;">' + heroArea +
-          '<div style="position:absolute;top:10px;left:10px;">' + logoMark + '</div>' +
-          '<div id="verifySeal" class="hbcoin" title="Verify this offer" aria-label="Verify this offer" role="button" tabindex="0" style="position:absolute;top:10px;right:10px;cursor:pointer;"><div class="hbcoin-in">' +
-            '<div class="hbf"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6E5618" stroke-width="1.4" stroke-linecap="round"><path d="M5 11a7 7 0 0 1 14 0"/><path d="M7.5 12a4.5 4.5 0 0 1 9 0v2.5"/><path d="M10 12.5a2 2 0 0 1 4 0v4"/><path d="M12 15v3.5"/></svg></div>' +
-            '<div class="hbb"><span style="font-size:8px;letter-spacing:.5px;font-weight:bold;">Ed25519</span><span style="font-size:7px;letter-spacing:1px;">VRP</span></div>' +
-          '</div></div>' +
-          '<div aria-label="Verified stay offer" style="position:absolute;bottom:8px;left:12px;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#fff;background:rgba(33,30,23,.55);padding:3px 8px;border-radius:20px;">Verified stay offer</div>' +
-          counter +
-        '</div>' +
-        thumbs +
-        '<div style="padding:14px 18px 16px;">' +
-          '<div style="font-family:Georgia,serif;font-size:22px;line-height:1.1;">' + esc(offer.name) + '</div>' +
-          '<div style="font-size:12px;color:#8C8270;margin-top:3px;">' + esc(subline) + '</div>' +
-          '<div style="font-size:12px;color:#3B6B57;margin-top:7px;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6B57" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg>Signed by <strong style="font-weight:500;">' + esc(bookDomain) + '</strong> · verified on its own domain</div>' +
-          amen +
-          '<div style="height:1px;background:#BFA15A;opacity:.45;margin:13px 0;"></div>' +
-          '<div style="display:flex;align-items:baseline;gap:8px;"><div style="font-family:Georgia,serif;font-size:26px;">' + esc(money(offer.finalAmount, offer.currency)) + '</div><div style="font-size:12px;color:#8C8270;">total · direct from host</div></div>' +
-          '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;"><span class="vchip">0% commission</span><span class="vchip">Payment direct to host</span><span class="vchip">AI-agent bookable</span></div>' +
-          '<a id="bookLink" href="' + esc(bookUrl) + '" target="_blank" rel="noopener" aria-label="Open direct booking URL" style="display:block;margin-top:14px;background:#2C5A47;color:#F4EFE4;border-radius:9px;padding:13px;text-align:center;font-size:13px;font-weight:500;text-decoration:none;">Book direct on ' + esc(bookDomain) + ' →</a>' +
-          '<div style="font-size:10px;color:#9A8E76;text-align:center;margin-top:9px;">Offer verified moments ago · price exact · no add-on fees</div>' +
-        '</div>' +
-      '</div>';
+    var isFull = currentDisplayMode() === "fullscreen";
+    var styleBlock = '<style>.hbcoin{width:46px;height:46px;perspective:320px}.hbcoin-in{position:relative;width:100%;height:100%;transform-style:preserve-3d;animation:hbspin 5.5s linear infinite}.hbf,.hbb{position:absolute;inset:0;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;-webkit-backface-visibility:hidden;backface-visibility:hidden;background:#E9D9A6;border:2px solid #B8932F;color:#6E5618}.hbb{transform:rotateY(180deg)}.hbf svg{width:22px;height:22px}@keyframes hbspin{to{transform:rotateY(360deg)}}@media(prefers-reduced-motion:reduce){.hbcoin-in{animation:none}}.vchip{font-size:11px;padding:4px 10px;border:1px solid #DFD3BC;border-radius:20px;color:#5C5443;background:#FBF8F1;white-space:nowrap}.hbcoin-sm{width:30px;height:30px}.hbcoin-sm .hbf svg{width:15px;height:15px}.hbcoin-sm .hbb span:first-child{font-size:6px}.hbcoin-sm .hbb span:last-child{display:none}</style>';
+    var sealHtml = '<div id="verifySeal" class="hbcoin" title="Verify this offer" aria-label="Verify this offer" role="button" tabindex="0" style="cursor:pointer;"><div class="hbcoin-in"><div class="hbf"><svg viewBox="0 0 24 24" fill="none" stroke="#6E5618" stroke-width="1.4" stroke-linecap="round"><path d="M5 11a7 7 0 0 1 14 0"/><path d="M7.5 12a4.5 4.5 0 0 1 9 0v2.5"/><path d="M10 12.5a2 2 0 0 1 4 0v4"/><path d="M12 15v3.5"/></svg></div><div class="hbb"><span style="font-size:8px;letter-spacing:.5px;font-weight:bold;">Ed25519</span><span style="font-size:7px;letter-spacing:1px;">VRP</span></div></div></div>';
+    var sealSm = sealHtml.replace('class="hbcoin"', 'class="hbcoin hbcoin-sm"');
+    var prideHtml = '<div style="font-size:12px;color:#3B6B57;margin-top:7px;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6B57" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg>Signed by <strong style="font-weight:500;">' + esc(bookDomain) + '</strong> · verified on its own domain</div>';
+    var chipsHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;"><span class="vchip">0% commission</span><span class="vchip">Payment direct to host</span><span class="vchip">AI-agent bookable</span></div>';
+    var bookHtml = '<a id="bookLink" href="' + esc(bookUrl) + '" target="_blank" rel="noopener" aria-label="Open direct booking URL" style="display:block;background:#2C5A47;color:#F4EFE4;border-radius:9px;padding:12px;text-align:center;font-size:13px;font-weight:500;text-decoration:none;">Book direct on ' + esc(bookDomain) + ' →</a>';
+    if (isFull) {
+      root.innerHTML = styleBlock +
+        '<div style="background:#F4EFE4;border:1px solid #E0D6C2;border-radius:16px;overflow:hidden;color:#211E17;font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:460px;margin:0 auto;">' +
+          notice +
+          '<div style="position:relative;height:210px;background:#dfe3da;">' + heroArea +
+            '<div style="position:absolute;top:10px;left:10px;">' + logoMark + '</div>' +
+            '<div style="position:absolute;top:10px;right:10px;">' + sealHtml + '</div>' +
+            '<div aria-label="Verified stay offer" style="position:absolute;bottom:8px;left:12px;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#fff;background:rgba(33,30,23,.55);padding:3px 8px;border-radius:20px;">Verified stay offer</div>' + counter +
+          '</div>' + thumbs +
+          '<div style="padding:14px 18px 16px;">' +
+            '<div style="font-family:Georgia,serif;font-size:23px;line-height:1.1;">' + esc(offer.name) + '</div>' +
+            '<div style="font-size:12px;color:#8C8270;margin-top:3px;">' + esc(subline) + '</div>' +
+            prideHtml + amen +
+            '<div style="height:1px;background:#BFA15A;opacity:.45;margin:13px 0;"></div>' +
+            '<div style="display:flex;align-items:baseline;gap:8px;"><div style="font-family:Georgia,serif;font-size:26px;">' + esc(money(offer.finalAmount, offer.currency)) + '</div><div style="font-size:12px;color:#8C8270;">total · direct from host</div></div>' +
+            chipsHtml +
+            '<div style="margin-top:14px;">' + bookHtml + '</div>' +
+            '<div style="font-size:10px;color:#9A8E76;text-align:center;margin-top:9px;">Offer verified moments ago · price exact · no add-on fees</div>' +
+          '</div>' +
+        '</div>';
+    } else {
+      root.innerHTML = styleBlock +
+        '<div style="background:#F4EFE4;border:1px solid #E0D6C2;border-radius:12px;padding:10px 13px;color:#211E17;font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:404px;margin:0 auto;">' +
+          notice +
+          '<div style="display:flex;align-items:center;gap:9px;">' + logoMark +
+            '<div style="min-width:0;flex:1;">' +
+              '<div aria-label="Verified stay offer" title="Verified stay offer" style="font-family:Georgia,serif;font-size:16px;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(offer.name) + '</div>' +
+              '<div style="font-size:10px;color:#8C8270;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(subline) + '</div>' +
+            '</div>' + sealSm +
+          '</div>' +
+          '<div style="display:flex;align-items:baseline;gap:6px;margin-top:8px;"><div style="font-family:Georgia,serif;font-size:19px;">' + esc(money(offer.finalAmount, offer.currency)) + '</div><div style="font-size:10px;color:#8C8270;">total · direct from host · 0% commission</div></div>' +
+          '<div style="margin-top:9px;">' + bookHtml + '</div>' +
+          '<button id="expandBtn" style="display:block;width:100%;margin-top:6px;background:none;border:none;color:#3B6B57;font-size:11px;cursor:pointer;text-align:center;">See photos &amp; details →</button>' +
+        '</div>';
+    }
     var bookLink = document.getElementById("bookLink");
     if (bookLink) {
       bookLink.addEventListener("click", function (e) {
@@ -778,6 +813,10 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     var verifySeal = document.getElementById("verifySeal");
     if (verifySeal) {
       verifySeal.addEventListener("click", function () { openExternal(verifyUrl); });
+    }
+    var expandBtn = document.getElementById("expandBtn");
+    if (expandBtn) {
+      expandBtn.addEventListener("click", function () { requestFullscreen(); });
     }
     var heroMain = document.getElementById("heroMain");
     if (heroMain) {
@@ -794,6 +833,13 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
   window.addEventListener("openai:set_globals", function (event) {
     var globals = event && event.detail && event.detail.globals;
     if (!globals) return;
+    if (globals.displayMode) {
+      window.__hbDisplayMode = globals.displayMode;
+      if (!globals.toolOutput && !globals.toolResponseMetadata && hbLastData) {
+        render(hbLastData);
+        return;
+      }
+    }
     if (globals.toolOutput) {
       render(enrichData(globals.toolOutput, globals.toolResponseMetadata));
       return;
