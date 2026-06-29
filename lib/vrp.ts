@@ -292,6 +292,14 @@ function availabilityReason(offer: JsonRecord, response: JsonRecord): string | n
 
 function exactPrice(offer: JsonRecord, response: JsonRecord): boolean {
   const price = priceRecordFrom(offer, response);
+  // Defense in depth: a signed `reconciliation` block that explicitly fails to
+  // reconcile (Σ breakdown + Σ adjustments !== total) can never back an exact
+  // quote, regardless of what `exact` claims. Absent/legacy offers (no
+  // reconciliation) fall through to the signed `exact` flag unchanged.
+  const reconciliation = asRecord(price?.reconciliation);
+  if (reconciliation && booleanValue(reconciliation.matches_quoted_total) === false) {
+    return false;
+  }
   const signedExact = booleanValue(price?.exact) ?? booleanValue(price?.price_is_exact);
   if (signedExact !== null) return signedExact;
   return (
@@ -308,15 +316,26 @@ function priceSummary(offer: JsonRecord, response: JsonRecord): JsonRecord {
     numberValue(price?.public_total) ??
     numberValue(price?.total) ??
     numberValue(offer.total_price);
+  const agentTotal = numberValue(price?.agent_total);
+  // P5: `total` is the channel-resolved total the agent quotes — agent_total
+  // when present, then the signed `total`, then public_total. Mirrors the
+  // signed payload's `total` and the widget's agent_total-first preference, so
+  // payload, widget, required_phrase and this summary all agree on one meaning.
+  const resolvedTotal =
+    agentTotal ?? numberValue(price?.total) ?? publicTotal;
   return {
     currency: stringValue(price?.currency) ?? stringValue(offer.currency) ?? null,
-    total: publicTotal,
+    total: resolvedTotal,
     public_total: publicTotal,
-    agent_total: numberValue(price?.agent_total),
+    agent_total: agentTotal,
     exact: exactPrice(offer, response),
     no_add_on_fees: booleanValue(price?.no_add_on_fees),
     package_applied: price?.package_applied ?? null,
     breakdown: Array.isArray(price?.breakdown) ? price.breakdown : null,
+    // Pass through the signed neutral adjustment lines + reconciliation block
+    // so an agent/verifier sees that Σ breakdown + Σ adjustments === total.
+    adjustments: Array.isArray(price?.adjustments) ? price.adjustments : null,
+    reconciliation: asRecord(price?.reconciliation) ?? null,
   };
 }
 
