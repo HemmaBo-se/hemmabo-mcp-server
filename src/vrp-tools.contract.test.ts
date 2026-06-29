@@ -145,20 +145,33 @@ describe("VRP MCP tools", () => {
       },
       price: {
         currency: "SEK",
-        total: 21000,
+        // P5: `total` is the channel-resolved (agent) total. Σ breakdown
+        // (21000) + Σ adjustments (−3150) === agent_total (17850).
+        total: 17850,
         public_total: 21000,
         agent_total: 17850,
-        agent_discount_pct: 15,
-        savings_vs_public_total: 3150,
-        discount_basis: "direct_booking_ai_agent",
         ota_comparison_total: null,
         ota_comparison_source: null,
         exact: true,
         no_add_on_fees: true,
         package_applied: null,
         breakdown: [
-          { date: "2026-07-01", day_of_week: "Wed", nightly_rate: 3000 },
+          { date: "2026-07-01", day_of_week: "Wed", nightly_rate: 21000 },
         ],
+        adjustments: [
+          {
+            code: "agent_channel_rate",
+            label: "Agentkanal-pris",
+            amount: -3150,
+            scope: "stay",
+          },
+        ],
+        reconciliation: {
+          nightly_subtotal: 21000,
+          adjustments_total: -3150,
+          computed_total: 17850,
+          matches_quoted_total: true,
+        },
       },
       source_authority: {
         model: "host_verified_direct_source",
@@ -249,9 +262,16 @@ describe("VRP MCP tools", () => {
     assert.equal(parsed.official_offer_summary.property.images[0].url, "https://vfalgymbhyfqsyxkvpqg.supabase.co/storage/v1/object/public/property-images/properties/3ef1d46d-5c23-46fe-86cb-8e714abf734f/other/hero.jpg");
     assert.equal(parsed.widget_media.source, "vacation-rental.json");
     assert.equal(parsed.widget_media.images[0].category, "exterior");
-    assert.equal(parsed.official_offer_summary.price.total, 21000);
+    // P5: the summary `total` is the channel-resolved (agent) total, and it
+    // reconciles against the signed breakdown + adjustments.
+    assert.equal(parsed.official_offer_summary.price.total, 17850);
     assert.equal(parsed.official_offer_summary.price.public_total, 21000);
     assert.equal(parsed.official_offer_summary.price.agent_total, 17850);
+    assert.equal(parsed.official_offer_summary.price.adjustments[0].code, "agent_channel_rate");
+    assert.equal(parsed.official_offer_summary.price.adjustments[0].label, "Agentkanal-pris");
+    assert.equal(parsed.official_offer_summary.price.adjustments[0].amount, -3150);
+    assert.equal(parsed.official_offer_summary.price.reconciliation.computed_total, 17850);
+    assert.equal(parsed.official_offer_summary.price.reconciliation.matches_quoted_total, true);
     assert.equal(parsed.official_offer_summary.price.agent_discount_pct, undefined);
     assert.equal(parsed.official_offer_summary.price.savings_vs_public_total, undefined);
     assert.equal(parsed.official_offer_summary.price.discount_basis, undefined);
