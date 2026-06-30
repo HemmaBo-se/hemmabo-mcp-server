@@ -759,99 +759,108 @@ describe("pickChannelDiscountPct", () => {
   });
 });
 
-describe("resolveQuote — P1 agent price equals public", () => {
-  it("does not apply configured agent discount to federationTotal (matches signed offer)", async () => {
+describe("resolveQuote — host direct price folded into one total", () => {
+  // Builds a stub property with a given agent acquisition discount.
+  const makeStub = (opts: { channelRows: any[]; legacyDiscount: number | null }) => ({
+    from: (table: string) => {
+      const season = {
+        name: "low",
+        date_from: "2026-09-01",
+        date_to: "2026-09-30",
+        type: "low" as const,
+      };
+      const block = {
+        guests: 6,
+        low_weekday: 1000,
+        low_weekend: 1200,
+        high_weekday: 1500,
+        high_weekend: 1800,
+        low_week: null,
+        high_week: null,
+        low_two_weeks: null,
+        high_two_weeks: null,
+      };
+      const chain: any = {
+        select: () => chain,
+        eq: () => chain,
+        order: () => chain,
+        single: () => {
+          if (table === "properties") {
+            return Promise.resolve({
+              data: {
+                id: "00000000-0000-0000-0000-000000000099",
+                name: "Test Villa",
+                currency: "SEK",
+                max_guests: 8,
+                direct_booking_discount: opts.legacyDiscount,
+                min_nights: 1,
+                max_nights: 30,
+                published: true,
+              },
+              error: null,
+            });
+          }
+          if (table === "property_smart_pricing") {
+            return Promise.resolve({
+              data: { gap_fill_enabled: false, gap_fill_min_nights: 2, gap_night_discount_pct: null },
+              error: null,
+            });
+          }
+          return Promise.resolve({ data: null, error: null });
+        },
+        then: (resolve: (value: unknown) => unknown) => {
+          if (table === "property_price_blocks") {
+            return Promise.resolve({ data: [block], error: null }).then(resolve);
+          }
+          if (table === "property_seasons") {
+            return Promise.resolve({ data: [season], error: null }).then(resolve);
+          }
+          if (table === "property_channel_discounts") {
+            return Promise.resolve({ data: opts.channelRows, error: null }).then(resolve);
+          }
+          return Promise.resolve({ data: [], error: null }).then(resolve);
+        },
+      };
+      return chain;
+    },
+  });
+
+  it("folds the agent lever into ONE total — public === federation, no spread", async () => {
     const { resolveQuote } = await import("../lib/pricing.js");
+    const stub: any = makeStub({
+      channelRows: [
+        { channel: "agent", discount_pct: 5 },
+        { channel: "website", discount_pct: 5 },
+      ],
+      legacyDiscount: 15,
+    });
 
-    const propertyId = "00000000-0000-0000-0000-000000000099";
-    const season = {
-      name: "low",
-      date_from: "2026-09-01",
-      date_to: "2026-09-30",
-      type: "low" as const,
-    };
-    const block = {
-      guests: 6,
-      low_weekday: 1000,
-      low_weekend: 1200,
-      high_weekday: 1500,
-      high_weekend: 1800,
-      low_week: null,
-      high_week: null,
-      low_two_weeks: null,
-      high_two_weeks: null,
-    };
-
-    const stubSupabase: any = {
-      from: (table: string) => {
-        const chain: any = {
-          select: () => chain,
-          eq: () => chain,
-          order: () => chain,
-          single: () => {
-            if (table === "properties") {
-              return Promise.resolve({
-                data: {
-                  id: propertyId,
-                  name: "Test Villa",
-                  currency: "SEK",
-                  max_guests: 8,
-                  direct_booking_discount: 15,
-                  min_nights: 1,
-                  max_nights: 30,
-                  published: true,
-                },
-                error: null,
-              });
-            }
-            if (table === "property_smart_pricing") {
-              return Promise.resolve({
-                data: {
-                  gap_fill_enabled: false,
-                  gap_fill_min_nights: 2,
-                  gap_night_discount_pct: null,
-                },
-                error: null,
-              });
-            }
-            return Promise.resolve({ data: null, error: null });
-          },
-          then: (resolve: (value: unknown) => unknown) => {
-            if (table === "property_price_blocks") {
-              return Promise.resolve({ data: [block], error: null }).then(resolve);
-            }
-            if (table === "property_seasons") {
-              return Promise.resolve({ data: [season], error: null }).then(resolve);
-            }
-            if (table === "property_channel_discounts") {
-              return Promise.resolve({
-                data: [
-                  { channel: "agent", discount_pct: 5 },
-                  { channel: "website", discount_pct: 5 },
-                ],
-                error: null,
-              }).then(resolve);
-            }
-            return Promise.resolve({ data: [], error: null }).then(resolve);
-          },
-        };
-        return chain;
-      },
-    };
-
-    const quote = await resolveQuote(
-      stubSupabase,
-      propertyId,
-      "2026-09-02",
-      "2026-09-05",
-      4,
-    );
-
+    // Rack = 1000 (Wed) + 1000 (Thu) + 1200 (Fri) = 3200; agent lever 5% → round(3200 × 0.95) = 3040.
+    const quote = await resolveQuote(stub, "00000000-0000-0000-0000-000000000099", "2026-09-02", "2026-09-05", 4);
     assert.ok(!("error" in quote));
     if ("error" in quote) return;
 
-    assert.equal(quote.publicTotal, 3200);
-    assert.equal(quote.federationTotal, quote.publicTotal);
+    assert.equal(quote.publicTotal, 3040);
+    assert.equal(quote.federationTotal, quote.publicTotal); // one number — no spread
     assert.equal(quote.federationDiscountPercent, 0);
+
+    // Folded nightly rates self-reconcile to the total (empty-adjustments invariant).
+    const nightlySum = quote.breakdown.nightlyRates.reduce((s, n) => s + n.rate, 0);
+    assert.equal(nightlySum, quote.federationTotal);
+  });
+
+  it("is a no-op when the host has set no acquisition discount (rack unchanged)", async () => {
+    const { resolveQuote } = await import("../lib/pricing.js");
+    const stub: any = makeStub({ channelRows: [], legacyDiscount: 0 });
+
+    const quote = await resolveQuote(stub, "00000000-0000-0000-0000-000000000099", "2026-09-02", "2026-09-05", 4);
+    assert.ok(!("error" in quote));
+    if ("error" in quote) return;
+
+    assert.equal(quote.publicTotal, 3200); // 0% lever → rack stands
+    assert.equal(quote.federationTotal, 3200);
+    assert.equal(quote.federationDiscountPercent, 0);
+    const nightlySum = quote.breakdown.nightlyRates.reduce((s, n) => s + n.rate, 0);
+    assert.equal(nightlySum, 3200);
   });
 });
