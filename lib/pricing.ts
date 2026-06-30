@@ -5,14 +5,19 @@
  * Each host owns their own pricing via their property node.
  *
  * Pricing flow:
- *   public_total  = sum of nightly rates (season × guest level × day type)
- *   federation_total = public_total on the MCP/agent path (P1 — matches signed offer)
- *   gap_total     = federation_total × (1 - gap_night_discount_pct / 100)
- *
- * Acquisition discount source: `property_channel_discounts` (agent channel), then
- * legacy `properties.direct_booking_discount`. Under P1 (smart-stays ADR 2026-06-25)
- * configured discounts are read for parity with the dashboard but NOT applied until P2.
- *                   (only when calendar context shows a gap)
+ *   rack          = sum of nightly rates (season × guest level × day type), or a
+ *                   week/two-week package price when all nights share a season.
+ *   direct total  = round(rack × (1 − direct_pct/100)) — the host's single
+ *                   acquisition lever (property_channel_discounts → agent, else
+ *                   legacy properties.direct_booking_discount). Folded INTO the
+ *                   nightly rates (rounding residual absorbed into the last night)
+ *                   so Σ nightly === total.
+ *   public_total  = federation_total = direct total. The agent surface carries
+ *                   ONE honest total — no spread, no second number, no "discount"
+ *                   line — mirroring the signed verified-stay-offer
+ *                   (smart-stays applyHostDirectPrice; CEO decision 2026-06-29b).
+ *   gap_total     = round(federation_total × (1 − gap_night_discount_pct/100))
+ *                   (only when calendar context shows a gap between booked nights)
  *
  * RULES (synced with main repo pricing-resolver.ts):
  * - Weekend = Friday + Saturday. Sunday is NEVER weekend.
@@ -25,9 +30,6 @@
 
 import { SupabaseClient } from "@supabase/supabase-js";
 import { pickChannelDiscountPct, type ChannelDiscountRow } from "./channel-discount.js";
-
-/** P1: agent quotable price = public price (verified-stay-offer.ts). P2 re-enables spread. */
-const P1_AGENT_PRICE_EQUALS_PUBLIC = true;
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -116,6 +118,40 @@ function nightlyRate(block: PriceBlock, season: Season | null, weekend: boolean)
     return weekend ? block.high_weekend : block.high_weekday;
   }
   return weekend ? block.low_weekend : block.low_weekday;
+}
+
+/**
+ * Fold the host's single direct-price lever into the nightly rates + total.
+ *
+ * Mirror of smart-stays `contracts/ts/price-reconciliation.ts` → applyHostDirectPrice
+ * (CEO decision 2026-06-29b). The host lowers their price in ONE place — the agent
+ * acquisition discount — and that folds the rack into one honest total:
+ *   total = round(rack × (1 − pct/100))
+ * Each night is scaled by the SAME factor and the rounding residual is absorbed into
+ * the last night, so `Σ nightlyRates.rate === total` exactly (the signed offer then
+ * self-reconciles with empty adjustments — no spread, no second number).
+ *
+ * `pct ≤ 0` / non-finite is a no-op (rack unchanged) — set-and-forget hosts. Mutates
+ * `nightlyRates` in place so the returned breakdown carries the folded rates.
+ */
+function applyHostDirectPrice(
+  nightlyRates: QuoteResult["breakdown"]["nightlyRates"],
+  rackTotal: number,
+  discountPct: number | null | undefined,
+): number {
+  const pct = Number(discountPct);
+  if (!Number.isFinite(pct) || pct <= 0) return rackTotal;
+  const factor = 1 - pct / 100;
+  const total = Math.round(rackTotal * factor);
+  for (const n of nightlyRates) {
+    n.rate = Math.round((Number(n.rate) || 0) * factor);
+  }
+  const scaledSum = nightlyRates.reduce((sum, n) => sum + (Number(n.rate) || 0), 0);
+  const residual = total - scaledSum;
+  if (residual !== 0 && nightlyRates.length > 0) {
+    nightlyRates[nightlyRates.length - 1].rate += residual;
+  }
+  return total;
 }
 
 // ── Gap Night Detection ────────────────────────────────────────────
@@ -284,20 +320,22 @@ export async function resolveQuote(
     accommodationTotal = nightlyRates.reduce((sum, n) => sum + n.rate, 0);
   }
 
-  const publicTotal = accommodationTotal;
+  const rackTotal = accommodationTotal;
 
-  // 8. Agent acquisition discount — read configured value, apply per P1/P2 policy
-  const configuredAgentDiscountPct = pickChannelDiscountPct(
+  // 8. Host's single direct-price lever (CEO decision 2026-06-29b).
+  //    The host lowers their price in ONE place — the agent acquisition discount
+  //    (property_channel_discounts → agent, else legacy direct_booking_discount).
+  //    That lever FOLDS the rack into one honest total; public and federation
+  //    carry the SAME folded value — no spread, no second number — exactly what
+  //    the signed verified-stay-offer carries (smart-stays applyHostDirectPrice).
+  const directDiscountPct = pickChannelDiscountPct(
     (channelRows ?? []) as ChannelDiscountRow[],
     "agent",
     property.direct_booking_discount ?? null,
   );
-  const appliedAgentDiscountPct = P1_AGENT_PRICE_EQUALS_PUBLIC
-    ? 0
-    : configuredAgentDiscountPct;
-  const federationTotal = P1_AGENT_PRICE_EQUALS_PUBLIC
-    ? publicTotal
-    : Math.round(publicTotal * (1 - appliedAgentDiscountPct / 100));
+  const directTotal = applyHostDirectPrice(nightlyRates, rackTotal, directDiscountPct);
+  const publicTotal = directTotal;
+  const federationTotal = directTotal;
 
   // 9. Gap night detection (reads gap_night_discount_pct from smart_pricing)
   const { isGap, discountPercent: gapDiscountPct } = await detectGap(
@@ -325,7 +363,8 @@ export async function resolveQuote(
     breakdown: { nightlyRates },
     publicTotal,
     federationTotal,
-    federationDiscountPercent: appliedAgentDiscountPct,
+    // No public/agent spread — the direct lever is folded into the single total.
+    federationDiscountPercent: 0,
     packageApplied,
     gapNight: isGap,
     gapTotal,
