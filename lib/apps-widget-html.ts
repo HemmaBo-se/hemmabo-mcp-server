@@ -6,305 +6,273 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
 <title>HemmaBo verified stay offer</title>
 <style>
   :root {
-    color-scheme: light;
-    --panel: #fffdfa;
-    --ink: #163b35;
-    --muted: #66716b;
-    --line: rgba(22, 59, 53, 0.14);
-    --accent: #0f5a4d;
-    --soft: #f1eadf;
-    --danger-soft: #f7eee8;
+    color-scheme: dark;
+    --stage: #060D18;
+    --navy: #0B1626;
+    --navy-2: #101B30;
+    --navy-3: #1A2A44;
+    --hairline: #2A3A52;
+    --gold: #C9A84C;
+    --gold-soft: #C9B98A;
+    --gold-deep: #8A6D1F;
+    --paper: #F5EFE2;
+    --paper-ink: #0B1626;
+    --paper-warm: #4A4436;
+    --paper-mute: #8A7B5A;
+    --ivory: #F5EFE2;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     padding: 6px;
     background: transparent;
-    color: var(--ink);
+    color: var(--ivory);
     font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   }
-  .shell {
+  #root.loading {
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: var(--gold-soft);
+    background: var(--stage);
+    border-radius: 14px;
+  }
+  .stage {
+    position: relative;
     width: min(100%, 720px);
     margin: 0 auto;
-    border: 1px solid var(--line);
-    border-radius: 18px;
+    background: var(--stage);
+    border-radius: 14px;
+    padding: 20px 24px 16px;
     overflow: hidden;
-    background: var(--panel);
-    box-shadow: 0 18px 45px rgba(30, 25, 18, 0.12);
   }
-  .hero {
+  .streak {
+    position: absolute;
+    left: -8%;
+    right: -8%;
+    top: 46%;
+    height: 2px;
+    background: linear-gradient(90deg, rgba(201,168,76,0) 0%, rgba(201,168,76,0.35) 35%, rgba(232,217,168,0.75) 50%, rgba(201,168,76,0.35) 65%, rgba(201,168,76,0) 100%);
+    pointer-events: none;
+  }
+  .letter {
     position: relative;
-    min-height: 236px;
-    background:
-      linear-gradient(180deg, rgba(9, 23, 20, 0.08), rgba(9, 23, 20, 0.78)),
-      radial-gradient(circle at 18% 18%, rgba(233, 184, 114, 0.42), transparent 34%),
-      linear-gradient(135deg, #e7dcc8, #8ba49a 48%, #294f47);
-  }
-  .hero img {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    opacity: 0;
-    transition: opacity 420ms ease;
-  }
-  .hero img.active { opacity: 1; }
-  .hero::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg, rgba(7, 18, 16, 0.02), rgba(7, 18, 16, 0.75));
-  }
-  .heroCopy {
-    position: absolute;
-    left: 18px;
-    right: 18px;
-    bottom: 16px;
-    z-index: 1;
-    color: #fff;
-    display: grid;
-    gap: 8px;
-  }
-  .verifiedPill {
-    justify-self: start;
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 7px 10px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.9);
-    color: var(--ink);
-    font-size: 12px;
-    font-weight: 700;
-  }
-  .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    background: #22c55e;
-    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
-  }
-  h1 {
-    margin: 0;
-    max-width: 560px;
-    font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif;
-    font-size: 34px;
-    line-height: 1.05;
-    letter-spacing: 0;
-    text-shadow: 0 2px 14px rgba(0, 0, 0, 0.32);
-  }
-  .subline {
-    color: rgba(255, 255, 255, 0.86);
-    font-size: 14px;
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    min-height: 188px;
+    border: 1px solid var(--gold);
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    overflow: hidden;
   }
-  .trust {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    border-bottom: 1px solid var(--line);
-    background: #fbf8f2;
-  }
-  .trustItem {
-    min-height: 58px;
-    padding: 10px 12px;
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    border-right: 1px solid var(--line);
-    font-size: 12px;
-    font-weight: 700;
-    color: #263f39;
-  }
-  .trustItem:last-child { border-right: 0; }
-  .icon {
-    flex: 0 0 26px;
-    width: 26px;
-    height: 26px;
-    border-radius: 999px;
-    display: grid;
-    place-items: center;
-    background: #e9f2ee;
-    color: var(--accent);
-  }
-  .content {
-    padding: 18px;
-    display: grid;
-    gap: 14px;
-  }
-  .notice {
-    border: 1px solid rgba(128, 69, 35, 0.16);
-    background: var(--danger-soft);
-    color: #774a30;
-    border-radius: 10px;
-    padding: 10px 12px;
-    font-size: 13px;
-    font-weight: 700;
-  }
-  .offer {
-    display: grid;
-    grid-template-columns: 1.1fr 0.9fr;
-    gap: 14px;
-  }
-  .offerPanel {
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    background: #fff;
-    padding: 16px;
-    display: grid;
-    gap: 12px;
-  }
-  .label {
-    margin: 0;
-    color: var(--muted);
-    font-size: 12px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0;
-  }
-  .dates {
-    margin: 0;
-    font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif;
-    font-size: 30px;
-    line-height: 1.08;
-  }
-  .facts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    color: var(--muted);
-    font-size: 13px;
-  }
-  .fact {
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    padding: 6px 9px;
-    background: #fbfaf7;
-  }
-  .priceBox {
-    border-top: 1px solid var(--line);
-    padding-top: 12px;
-  }
-  .price {
-    font-size: 36px;
-    line-height: 1;
-    font-weight: 850;
-    letter-spacing: 0;
-  }
-  .priceCaption {
-    margin-top: 5px;
-    color: var(--muted);
-    font-size: 13px;
-  }
-  .actions {
-    display: grid;
-    gap: 9px;
-  }
-  button, a.button {
-    width: 100%;
-    border: 0;
-    border-radius: 10px;
-    padding: 12px 14px;
-    font: inherit;
-    font-weight: 800;
+  .photo {
+    position: relative;
+    width: 41%;
+    min-width: 190px;
+    background: var(--navy-3);
     cursor: pointer;
-    text-align: center;
-    text-decoration: none;
   }
-  .primary {
-    background: var(--accent);
-    color: #fff;
-    box-shadow: 0 8px 18px rgba(15, 90, 77, 0.24);
+  .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .paper {
+    flex: 1;
+    min-width: 0;
+    background: var(--paper);
+    color: var(--paper-ink);
+    padding: 15px 18px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 6px;
   }
-  .secondary {
-    background: #f3eee5;
-    color: var(--ink);
-    border: 1px solid var(--line);
+  .lname {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 21px;
+    line-height: 1.1;
+    color: var(--paper-ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  .acp {
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 13px;
-    background: linear-gradient(180deg, #fff, #fbf8f2);
-    display: grid;
-    gap: 8px;
+  .lloc {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--paper-mute);
+    margin-top: 3px;
   }
-  .acpTitle {
-    font-weight: 850;
+  .lmatch {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--paper-warm);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .ldates {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 10.5px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--paper-ink);
+  }
+  .lrow {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
+    flex-wrap: wrap;
   }
-  .stripe {
-    color: #635bff;
-    font-weight: 900;
-    letter-spacing: 0;
+  .price {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 16px;
+    color: var(--gold-deep);
+    white-space: nowrap;
   }
-  .acpCopy {
-    color: var(--muted);
-    font-size: 13px;
-    line-height: 1.35;
+  .cta {
+    display: inline-block;
+    background: linear-gradient(180deg, #E3C46A 0%, #C9A84C 55%, #B8932F 100%);
+    color: var(--navy);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 9px 14px;
+    border-radius: 4px;
+    text-decoration: none;
+    white-space: nowrap;
   }
-  .tools {
-    border-top: 1px solid var(--line);
-    padding: 14px 18px 18px;
-    background: #fbf8f2;
-  }
-  .toolHead {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 10px;
-  }
-  .toolCount {
-    color: var(--muted);
+  .cta:hover { filter: brightness(1.06); }
+  .notice {
+    background: var(--paper);
+    color: #7A4A22;
+    border: 1px solid var(--gold);
+    border-bottom: none;
     font-size: 12px;
-    font-weight: 800;
+    padding: 8px 14px;
+    border-radius: 8px 8px 0 0;
   }
-  .toolGrid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 8px;
+  .notice + .letter { border-radius: 0; }
+  .unfold {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.55s ease;
+    border-left: 1px solid var(--gold);
+    border-right: 1px solid var(--gold);
+    background: #0C1830;
   }
-  .toolChip {
-    min-height: 34px;
+  .unfold-in { padding: 13px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .gal { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+  .gthumb {
+    height: 58px;
+    border-radius: 5px;
+    object-fit: cover;
+    width: 100%;
+    cursor: pointer;
+    background: var(--navy-3);
+  }
+  .chips2 { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--gold-soft); }
+  .fact2 { font-size: 11.5px; color: #7C8CA3; }
+  .lip {
+    position: relative;
+    height: 46px;
+    background: var(--navy-2);
+    border: 1px solid var(--hairline);
+    border-radius: 0 0 8px 8px;
+    overflow: hidden;
+  }
+  .fold-l, .fold-r {
+    position: absolute;
+    top: 0;
+    width: 50%;
+    height: 100%;
+    pointer-events: none;
+  }
+  .fold-l { left: 0; border-right: 1px solid #223050; transform: skewX(38deg); transform-origin: top left; }
+  .fold-r { right: 0; border-left: 1px solid #223050; transform: skewX(-38deg); transform-origin: top right; }
+  .lipbtn {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--gold-soft);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 10.5px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .hbcoin {
+    position: absolute;
+    right: 26px;
+    bottom: 20px;
+    width: 52px;
+    height: 52px;
+    perspective: 340px;
+    cursor: pointer;
+    z-index: 3;
+  }
+  .hbcoin-in {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    animation: hbspin 5.5s linear infinite;
+  }
+  .hbf, .hbb {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    background: #fff;
-    color: #28443d;
-    font-size: 11px;
-    font-weight: 800;
-    text-align: center;
-    padding: 6px 8px;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    background: radial-gradient(circle at 32% 30%, #F4E7B4 0%, #E3C46A 34%, #C9A84C 62%, #9A7B24 100%);
+    border: 2px solid #E8D9A8;
+    color: #5C4A12;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.45);
   }
-  .empty, .loading {
-    padding: 18px;
-    color: var(--muted);
-    font-size: 13px;
-    text-align: center;
+  .hbf::after, .hbb::after {
+    content: "";
+    position: absolute;
+    inset: 5px;
+    border-radius: 50%;
+    border: 1px solid rgba(138,109,31,0.55);
+    pointer-events: none;
   }
-  @media (max-width: 620px) {
-    body { padding: 8px; }
-    .hero { min-height: 214px; }
-    h1 { font-size: 28px; }
-    .trust { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .trustItem:nth-child(2) { border-right: 0; }
-    .offer { grid-template-columns: 1fr; }
-    .toolGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .dates { font-size: 26px; }
-    .price { font-size: 32px; }
+  .hbb { transform: rotateY(180deg); }
+  .hbf span {
+    font-family: Georgia, serif;
+    font-size: 15px;
+    letter-spacing: 1px;
+  }
+  .hbb span {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 8px;
+    letter-spacing: 0.5px;
+  }
+  @keyframes hbspin { to { transform: rotateY(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .hbcoin-in { animation: none; } }
+  .full-hero { position: relative; height: 230px; border-radius: 8px 8px 0 0; overflow: hidden; border: 1px solid var(--gold); border-bottom: none; background: var(--navy-3); }
+  .full-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  @media (max-width: 560px) {
+    .stage { padding: 14px 14px 12px; }
+    .letter { flex-direction: column; min-height: 0; }
+    .photo { width: 100%; min-width: 0; height: 150px; }
+    .lname { white-space: normal; }
+    .hbcoin { right: 16px; bottom: 16px; width: 46px; height: 46px; }
   }
 </style>
 </head>
 <body>
-<div id="root" class="loading">Laddar verifierat erbjudande…</div>
+<div id="root" class="loading">Loading the offer…</div>
 <script>
   var VILLA_IMAGE = "https://vfalgymbhyfqsyxkvpqg.supabase.co/storage/v1/object/public/property-images/properties/3ef1d46d-5c23-46fe-86cb-8e714abf734f/other/1777524437024-rewm-2-desktop.jpg?quality=75&resize=cover&width=800";
   var rpcNextId = 1;
@@ -711,26 +679,54 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     if (hbLastData) render(hbLastData);
   }
 
+  function widgetStrings() {
+    var sv = false;
+    try {
+      var lang = (navigator.language || "").toLowerCase();
+      sv = lang.indexOf("sv") === 0;
+    } catch (e) {}
+    return sv ? {
+      cta: "Fortsätt till värdens sida →",
+      more: "Se mer om boendet ▾",
+      less: "Visa mindre ▴",
+      night: "natt",
+      nights: "nätter",
+      guests: "gäster",
+      upTo: "upp till",
+      unavailable: "Datumen är inte lediga hos värden.",
+      altReady: "Ett alternativt datumfönster visas nedan.",
+      datesTbc: "Datum bekräftas"
+    } : {
+      cta: "Continue on the host's site →",
+      more: "More about the stay ▾",
+      less: "Show less ▴",
+      night: "night",
+      nights: "nights",
+      guests: "guests",
+      upTo: "up to",
+      unavailable: "These dates aren't available at the host.",
+      altReady: "An alternative date window is shown below.",
+      datesTbc: "Dates to confirm"
+    };
+  }
+
+  var hbUnfolded = false;
+
   function render(data) {
     var root = document.getElementById("root");
     if (!data) {
       root.className = "loading";
-      root.textContent = "Laddar verifierat erbjudande…";
+      root.textContent = "Loading the offer…";
       return;
     }
     hbLastData = data;
+    var T = widgetStrings();
     var offer = normalizeOffer(data);
-    var location = [offer.city, offer.region, offer.country].filter(Boolean).join(", ");
-    var facts = [
-      offer.nights ? offer.nights + " nights" : "",
-      offer.guests ? offer.guests + " guests" : "",
-      offer.maxGuests ? "up to " + offer.maxGuests + " guests" : "",
-      offer.propertyType
-    ].filter(Boolean);
+    var location = [offer.city, offer.region].filter(Boolean).join(" · ") || cleanDomain(offer.domain);
     var notice = "";
     if (!offer.available || offer.requestedUnavailable) {
-      notice = '<div class="notice">Requested dates are not available at the host source.';
-      if (offer.alternatives.length) notice += " An alternative date window is ready below.";
+      notice = '<div class="notice">' + T.unavailable;
+      if (offer.alternatives.length) notice += " " + T.altReady;
       notice += "</div>";
       if (offer.alternatives.length) {
         var alt = offer.alternatives[0];
@@ -742,67 +738,104 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       }
     }
     var heroList = asArray(offer.images).length ? asArray(offer.images) : (offer.image ? [offer.image] : []);
-    root.className = "cert";
-    var initials = (offer.name || "").split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w.charAt(0).toUpperCase(); }).join("") || "VR";
-    var logoMark = offer.logo
-      ? '<img src="' + esc(offer.logo) + '" alt="" referrerpolicy="no-referrer" style="width:34px;height:34px;border-radius:50%;object-fit:cover;background:#fff;border:1px solid #E0D6C2;">'
-      : '<div style="width:34px;height:34px;border-radius:50%;background:#fff;color:#211E17;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-size:14px;">' + esc(initials) + '</div>';
-    var heroArea = heroList.length
-      ? '<img id="heroMain" src="' + esc(heroList[0]) + '" alt="' + esc(offer.name) + '" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;display:block;">'
-      : '<div style="width:100%;height:100%;background:linear-gradient(135deg,#c2cdbb,#8aa0a8 55%,#3d5a52);"></div>';
-    var counter = heroList.length > 1 ? '<div style="position:absolute;bottom:8px;right:10px;font-size:10px;color:#fff;background:rgba(33,30,23,.5);padding:3px 9px;border-radius:20px;">1 / ' + heroList.length + ' · browse</div>' : '';
-    var thumbs = heroList.length > 1
-      ? '<div style="display:flex;gap:5px;padding:5px 8px;background:#EFE9DC;">' + heroList.slice(0, 4).map(function (src) { return '<img class="thumb" src="' + esc(src) + '" alt="" aria-hidden="true" referrerpolicy="no-referrer" style="height:34px;flex:1;min-width:0;border-radius:6px;object-fit:cover;cursor:pointer;">'; }).join("") + '</div>'
-      : '';
-    var amen = asArray(offer.amenities).length
-      ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:11px;">' + asArray(offer.amenities).map(function (a) { return '<span class="vchip">' + esc(a) + '</span>'; }).join("") + '</div>'
-      : '';
-    var subline = [location || cleanDomain(offer.domain), formatRange(offer.checkIn, offer.checkOut), (offer.guests ? offer.guests + " guests" : "")].filter(Boolean).join(" · ");
-    var bookDomain = cleanDomain(offer.domain) || "host domain";
-    var verifyUrl = "https://vacationrentalprotocol.com/verify?domain=" + encodeURIComponent(cleanDomain(offer.domain) || "");
+    var matchLine = asArray(offer.amenities).join(" · ");
+    var dateBits = [];
+    if (offer.checkIn || offer.checkOut) dateBits.push(formatRange(offer.checkIn, offer.checkOut));
+    else dateBits.push(T.datesTbc);
+    if (offer.nights) dateBits.push(offer.nights + " " + (offer.nights === 1 ? T.night : T.nights));
+    if (offer.guests) dateBits.push(offer.guests + " " + T.guests);
+    else if (offer.maxGuests) dateBits.push(T.upTo + " " + offer.maxGuests + " " + T.guests);
+    var dateLine = dateBits.join(" · ");
     var bookUrl = offer.directUrl || hostUrl(offer.domain);
+    var verifyUrl = "https://vacationrentalprotocol.com/verify?domain=" + encodeURIComponent(cleanDomain(offer.domain) || "");
     var isFull = currentDisplayMode() === "fullscreen";
-    var styleBlock = '<style>.hbcoin{width:46px;height:46px;perspective:320px}.hbcoin-in{position:relative;width:100%;height:100%;transform-style:preserve-3d;animation:hbspin 5.5s linear infinite}.hbf,.hbb{position:absolute;inset:0;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;-webkit-backface-visibility:hidden;backface-visibility:hidden;background:#E9D9A6;border:2px solid #B8932F;color:#6E5618}.hbb{transform:rotateY(180deg)}.hbf svg{width:22px;height:22px}@keyframes hbspin{to{transform:rotateY(360deg)}}@media(prefers-reduced-motion:reduce){.hbcoin-in{animation:none}}.vchip{font-size:11px;padding:4px 10px;border:1px solid #DFD3BC;border-radius:20px;color:#5C5443;background:#FBF8F1;white-space:nowrap}.hbcoin-sm{width:30px;height:30px}.hbcoin-sm .hbf svg{width:15px;height:15px}.hbcoin-sm .hbb span:first-child{font-size:6px}.hbcoin-sm .hbb span:last-child{display:none}</style>';
-    var sealHtml = '<div id="verifySeal" class="hbcoin" title="Verify this offer" aria-label="Verify this offer" role="button" tabindex="0" style="cursor:pointer;"><div class="hbcoin-in"><div class="hbf"><svg viewBox="0 0 24 24" fill="none" stroke="#6E5618" stroke-width="1.4" stroke-linecap="round"><path d="M5 11a7 7 0 0 1 14 0"/><path d="M7.5 12a4.5 4.5 0 0 1 9 0v2.5"/><path d="M10 12.5a2 2 0 0 1 4 0v4"/><path d="M12 15v3.5"/></svg></div><div class="hbb"><span style="font-size:8px;letter-spacing:.5px;font-weight:bold;">Ed25519</span><span style="font-size:7px;letter-spacing:1px;">VRP</span></div></div></div>';
-    var sealSm = sealHtml.replace('class="hbcoin"', 'class="hbcoin hbcoin-sm"');
-    var prideHtml = '<div style="font-size:12px;color:#3B6B57;margin-top:7px;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3B6B57" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg>Signed by <strong style="font-weight:500;">' + esc(bookDomain) + '</strong> · verified on its own domain</div>';
-    var chipsHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;"><span class="vchip">0% commission</span><span class="vchip">Payment direct to host</span><span class="vchip">AI-agent bookable</span></div>';
-    var bookHtml = '<a id="bookLink" href="' + esc(bookUrl) + '" target="_blank" rel="noopener" aria-label="Open direct booking URL" style="display:block;background:#2C5A47;color:#F4EFE4;border-radius:9px;padding:12px;text-align:center;font-size:13px;font-weight:500;text-decoration:none;">Book direct on ' + esc(bookDomain) + ' →</a>';
+
+    var photoHtml = heroList.length
+      ? '<img id="heroMain" src="' + esc(heroList[0]) + '" alt="' + esc(offer.name) + '" referrerpolicy="no-referrer">'
+      : "";
+    var galHtml = "";
+    if (heroList.length > 1) {
+      galHtml = '<div class="gal">' + heroList.slice(1, 5).map(function (src) {
+        return '<img class="gthumb" src="' + esc(src) + '" alt="" aria-hidden="true" referrerpolicy="no-referrer">';
+      }).join("") + '</div>';
+    }
+    var chipsHtml = asArray(offer.amenities).length
+      ? '<div class="chips2">' + asArray(offer.amenities).map(function (a) { return '<span>' + esc(a) + '</span>'; }).join("") + '</div>'
+      : "";
+    var factBits = [];
+    if (offer.maxGuests) factBits.push(T.upTo + " " + offer.maxGuests + " " + T.guests);
+    if (offer.propertyType) factBits.push(offer.propertyType);
+    var factsHtml = factBits.length ? '<div class="fact2">' + esc(factBits.join(" · ")) + '</div>' : "";
+
+    var sealHtml = '<div id="verifySeal" class="hbcoin" title="' + esc(offer.name) + '" role="button" tabindex="0" aria-label="Verified stay offer">' +
+      '<div class="hbcoin-in">' +
+        '<div class="hbf"><span>VRP</span></div>' +
+        '<div class="hbb" aria-hidden="true"><span>Ed25519</span></div>' +
+      '</div></div>';
+
+    var letterInner =
+      '<div class="photo" id="photoBox">' + photoHtml + '</div>' +
+      '<div class="paper">' +
+        '<div>' +
+          '<div class="lname">' + esc(offer.name) + '</div>' +
+          '<div class="lloc">' + esc(location) + '</div>' +
+        '</div>' +
+        (matchLine ? '<div class="lmatch">' + esc(matchLine) + '</div>' : "") +
+        '<div class="ldates">' + esc(dateLine) + '</div>' +
+        '<div class="lrow">' +
+          '<span class="price">' + esc(money(offer.finalAmount, offer.currency)) + '</span>' +
+          '<a id="bookLink" class="cta" aria-label="Open direct booking URL" href="' + esc(bookUrl) + '" target="_blank" rel="noopener">' + esc(T.cta) + '</a>' +
+        '</div>' +
+      '</div>';
+
+    var unfoldHtml =
+      '<div class="unfold" id="unfoldBox">' +
+        '<div class="unfold-in">' + galHtml + chipsHtml + factsHtml + '</div>' +
+      '</div>';
+
+    var lipHtml =
+      '<div class="lip">' +
+        '<div class="fold-l"></div><div class="fold-r"></div>' +
+        '<button id="unfoldBtn" class="lipbtn" aria-expanded="false">' + esc(T.more) + '</button>' +
+      '</div>';
+
     if (isFull) {
-      root.innerHTML = styleBlock +
-        '<div style="background:#F4EFE4;border:1px solid #E0D6C2;border-radius:16px;overflow:hidden;color:#211E17;font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:460px;margin:0 auto;">' +
+      root.className = "";
+      root.innerHTML =
+        '<div class="stage" style="max-width:520px;">' +
+          '<div class="streak" aria-hidden="true"></div>' +
           notice +
-          '<div style="position:relative;height:210px;background:#dfe3da;">' + heroArea +
-            '<div style="position:absolute;top:10px;left:10px;">' + logoMark + '</div>' +
-            '<div style="position:absolute;top:10px;right:10px;">' + sealHtml + '</div>' +
-            '<div aria-label="Verified stay offer" style="position:absolute;bottom:8px;left:12px;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#fff;background:rgba(33,30,23,.55);padding:3px 8px;border-radius:20px;">Verified stay offer</div>' + counter +
-          '</div>' + thumbs +
-          '<div style="padding:14px 18px 16px;">' +
-            '<div style="font-family:Georgia,serif;font-size:23px;line-height:1.1;">' + esc(offer.name) + '</div>' +
-            '<div style="font-size:12px;color:#8C8270;margin-top:3px;">' + esc(subline) + '</div>' +
-            prideHtml + amen +
-            '<div style="height:1px;background:#BFA15A;opacity:.45;margin:13px 0;"></div>' +
-            '<div style="display:flex;align-items:baseline;gap:8px;"><div style="font-family:Georgia,serif;font-size:26px;">' + esc(money(offer.finalAmount, offer.currency)) + '</div><div style="font-size:12px;color:#8C8270;">total · direct from host</div></div>' +
-            chipsHtml +
-            '<div style="margin-top:14px;">' + bookHtml + '</div>' +
-            '<div style="font-size:10px;color:#9A8E76;text-align:center;margin-top:9px;">Offer verified moments ago · price exact · no add-on fees</div>' +
+          '<div class="full-hero" id="photoBox">' + photoHtml + '</div>' +
+          '<div class="letter" style="border-radius:0;min-height:0;">' +
+            '<div class="paper">' +
+              '<div>' +
+                '<div class="lname" style="white-space:normal;">' + esc(offer.name) + '</div>' +
+                '<div class="lloc">' + esc(location) + '</div>' +
+              '</div>' +
+              (matchLine ? '<div class="lmatch" style="-webkit-line-clamp:3;">' + esc(matchLine) + '</div>' : "") +
+              '<div class="ldates">' + esc(dateLine) + '</div>' +
+              '<div class="lrow">' +
+                '<span class="price">' + esc(money(offer.finalAmount, offer.currency)) + '</span>' +
+                '<a id="bookLink" class="cta" aria-label="Open direct booking URL" href="' + esc(bookUrl) + '" target="_blank" rel="noopener">' + esc(T.cta) + '</a>' +
+              '</div>' +
+            '</div>' +
           '</div>' +
+          '<div class="unfold" id="unfoldBox" style="max-height:none;">' +
+            '<div class="unfold-in">' + galHtml + chipsHtml + factsHtml + '</div>' +
+          '</div>' +
+          lipHtml + sealHtml +
         '</div>';
     } else {
-      root.innerHTML = styleBlock +
-        '<div style="background:#F4EFE4;border:1px solid #E0D6C2;border-radius:12px;padding:10px 13px;color:#211E17;font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:404px;margin:0 auto;">' +
+      root.className = "";
+      root.innerHTML =
+        '<div class="stage">' +
+          '<div class="streak" aria-hidden="true"></div>' +
           notice +
-          '<div style="display:flex;align-items:center;gap:9px;">' + logoMark +
-            '<div style="min-width:0;flex:1;">' +
-              '<div aria-label="Verified stay offer" title="Verified stay offer" style="font-family:Georgia,serif;font-size:16px;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(offer.name) + '</div>' +
-              '<div style="font-size:10px;color:#8C8270;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(subline) + '</div>' +
-            '</div>' + sealSm +
-          '</div>' +
-          '<div style="display:flex;align-items:baseline;gap:6px;margin-top:8px;"><div style="font-family:Georgia,serif;font-size:19px;">' + esc(money(offer.finalAmount, offer.currency)) + '</div><div style="font-size:10px;color:#8C8270;">total · direct from host · 0% commission</div></div>' +
-          '<div style="margin-top:9px;">' + bookHtml + '</div>' +
-          '<button id="expandBtn" style="display:block;width:100%;margin-top:6px;background:none;border:none;color:#3B6B57;font-size:11px;cursor:pointer;text-align:center;">See photos &amp; details →</button>' +
+          '<div class="letter">' + letterInner + '</div>' +
+          unfoldHtml + lipHtml + sealHtml +
         '</div>';
     }
+
     var bookLink = document.getElementById("bookLink");
     if (bookLink) {
       bookLink.addEventListener("click", function (e) {
@@ -814,19 +847,46 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     if (verifySeal) {
       verifySeal.addEventListener("click", function () { openExternal(verifyUrl); });
     }
-    var expandBtn = document.getElementById("expandBtn");
-    if (expandBtn) {
-      expandBtn.addEventListener("click", function () { requestFullscreen(); });
+    var unfoldBtn = document.getElementById("unfoldBtn");
+    var unfoldBox = document.getElementById("unfoldBox");
+    if (unfoldBtn && unfoldBox && !isFull) {
+      if (hbUnfolded) {
+        unfoldBox.style.maxHeight = "320px";
+        unfoldBtn.textContent = T.less;
+        unfoldBtn.setAttribute("aria-expanded", "true");
+      }
+      unfoldBtn.addEventListener("click", function () {
+        hbUnfolded = !hbUnfolded;
+        unfoldBox.style.maxHeight = hbUnfolded ? "320px" : "0";
+        unfoldBtn.textContent = hbUnfolded ? T.less : T.more;
+        unfoldBtn.setAttribute("aria-expanded", hbUnfolded ? "true" : "false");
+      });
+    } else if (unfoldBtn && isFull) {
+      unfoldBtn.textContent = T.less;
+      unfoldBtn.addEventListener("click", function () {
+        window.__hbDisplayMode = "inline";
+        try {
+          if (window.openai && typeof window.openai.requestDisplayMode === "function") {
+            window.openai.requestDisplayMode({ mode: "inline" });
+          }
+        } catch (e) {}
+        if (hbLastData) render(hbLastData);
+      });
+    }
+    var photoBox = document.getElementById("photoBox");
+    if (photoBox && !isFull) {
+      photoBox.addEventListener("click", function () { requestFullscreen(); });
     }
     var heroMain = document.getElementById("heroMain");
     if (heroMain) {
       heroMain.addEventListener("error", function () { heroMain.style.display = "none"; }, { once: true });
     }
-    root.querySelectorAll(".thumb").forEach(function (t) {
+    root.querySelectorAll(".gthumb").forEach(function (t) {
       t.addEventListener("click", function () { if (heroMain) heroMain.src = t.src; });
       t.addEventListener("error", function () { t.style.display = "none"; }, { once: true });
     });
   }
+
 
   window.addEventListener("message", handleHostMessage, { passive: true });
 
