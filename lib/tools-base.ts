@@ -87,11 +87,89 @@ const SIGNAL_SELECT_COLUMNS = [
 
 type PropertySignals = Record<string, string[]>;
 
-function buildPropertySignals(row: Record<string, unknown> | undefined): PropertySignals | null {
+/**
+ * Amenity signal column → canonical attested-claim token
+ * (`property_attested_claims.claim_key`).
+ *
+ * The claims ledger is the WRITE-MASTER for amenity truth (one-truth program,
+ * ADR hemmabo-smart-stays docs/DECISIONS/2026-07-02-claims-ledger-tri-state-attested).
+ * The legacy boolean columns on property_detected_amenities are a derived mirror
+ * that DRIFTS STALE — a host save can update the claim (`hot_tub` = affirmed) while
+ * the boolean column (`has_hot_tub`) stays false, which made spa/hot-tub nodes
+ * invisible to agent discovery even though the signed offer and property page showed
+ * the amenity. So for any amenity that HAS a claim we trust the claim (affirmed = on,
+ * negated = off) and only fall back to the boolean column when the node has NO claim
+ * row for that token (un-migrated node). Amenity signals with no claim token stay
+ * column-sourced. Mirrors AMENITY_FLAG_MAP + the backfill token map in smart-stays;
+ * keep in sync when that vocabulary changes.
+ */
+const AMENITY_COLUMN_TO_CLAIM: Record<string, string> = {
+  wifi_included: "wifi",
+  has_pool: "pool",
+  has_sauna: "sauna",
+  has_hot_tub: "hot_tub",
+  gym_access: "gym_access",
+  has_fireplace: "fireplace",
+  has_workspace: "workspace",
+  has_grill: "grill",
+  has_outdoor_dining: "outdoor_dining",
+  has_terrace: "terrace",
+  has_balcony: "balcony",
+  has_garden: "garden",
+  has_parking: "parking",
+  has_ev_charging: "ev_charging",
+  game_room: "game_room",
+  cinema_room: "cinema_room",
+  library: "library",
+  high_chair: "high_chair",
+  crib_available: "crib_available",
+  playground: "playground",
+  breakfast_included: "breakfast_included",
+  linens_included: "linens_included",
+  towels_included: "towels_included",
+  cleaning_service: "cleaning_service",
+  self_checkin: "self_checkin",
+  wheelchair_accessible: "wheelchair_accessible",
+  elevator_access: "elevator_access",
+  ground_floor: "ground_floor",
+  kayak_canoe: "kayak_canoe",
+  bike_rental: "bike_rental",
+  ski_in_ski_out: "ski_in_ski_out",
+};
+
+/** Per-property attested-claim state: which amenity tokens are affirmed, and which are known (affirmed or negated). */
+type PropertyClaims = { affirmed: Set<string>; known: Set<string> };
+
+/**
+ * Resolve a single discovery signal to on/off. For the `amenities` group the
+ * attested-claims ledger (write-master) wins over the stale boolean column: if the
+ * node has ANY claim for the amenity, affirmed = on / negated = off; only when no
+ * claim row exists (un-migrated node, or a column-only amenity with no claim token)
+ * do we fall back to the legacy boolean column. Non-amenity groups are unchanged.
+ */
+function signalIsOn(
+  group: string,
+  col: string,
+  row: Record<string, unknown>,
+  claims: PropertyClaims | undefined,
+): boolean {
+  if (group === "amenities") {
+    const token = AMENITY_COLUMN_TO_CLAIM[col];
+    if (token && claims && claims.known.has(token)) {
+      return claims.affirmed.has(token);
+    }
+  }
+  return row[col] === true;
+}
+
+function buildPropertySignals(
+  row: Record<string, unknown> | undefined,
+  claims?: PropertyClaims,
+): PropertySignals | null {
   if (!row) return null;
   const out: PropertySignals = {};
   for (const [group, cols] of Object.entries(SIGNAL_GROUPS)) {
-    const on = cols.filter((c) => row[c] === true);
+    const on = cols.filter((c) => signalIsOn(group, c, row, claims));
     if (on.length > 0) out[group] = on;
   }
   for (const [col, label] of Object.entries(SIGNAL_ARRAY_FIELDS)) {
@@ -104,6 +182,40 @@ function buildPropertySignals(row: Record<string, unknown> | undefined): Propert
   return Object.keys(out).length > 0 ? out : null;
 }
 
+/**
+ * Fetch affirmed/known amenity-claim tokens per property from the write-master
+ * (property_attested_claims). Failure degrades to an empty map so amenity signals
+ * fall back to the legacy boolean columns — never breaks core search.
+ */
+async function fetchPropertyClaims(
+  client: SupabaseClient,
+  propertyIds: string[],
+): Promise<Map<string, PropertyClaims>> {
+  const byId = new Map<string, PropertyClaims>();
+  if (propertyIds.length === 0) return byId;
+  const { data, error } = await client
+    .from("property_attested_claims")
+    .select("property_id, claim_key, state")
+    .in("property_id", propertyIds);
+  if (error) {
+    console.error("[search] property claims query error:", error.message);
+    return byId;
+  }
+  for (const r of (data ?? []) as Array<Record<string, unknown>>) {
+    const pid = typeof r.property_id === "string" ? r.property_id : null;
+    const key = typeof r.claim_key === "string" ? r.claim_key : null;
+    if (!pid || !key) continue;
+    let entry = byId.get(pid);
+    if (!entry) {
+      entry = { affirmed: new Set<string>(), known: new Set<string>() };
+      byId.set(pid, entry);
+    }
+    entry.known.add(key);
+    if (r.state === "affirmed") entry.affirmed.add(key);
+  }
+  return byId;
+}
+
 async function fetchPropertySignals(
   client: SupabaseClient,
   propertyIds: string[],
@@ -114,18 +226,26 @@ async function fetchPropertySignals(
   // (query error, throw, schema/permission issue) degrades to "no signals" and search
   // continues. The error is logged so the root cause is diagnosable without an outage.
   try {
-    const { data, error } = await client
-      .from("property_detected_amenities")
-      .select(SIGNAL_SELECT_COLUMNS)
-      .in("property_id", propertyIds);
+    // Amenity truth comes from the claims ledger (write-master); the detected-amenities
+    // row supplies policy/suitability/setting signals + column-only amenities. Fetch both
+    // in parallel — a claims-query failure degrades amenities to the legacy columns.
+    const [detected, claimsById] = await Promise.all([
+      client
+        .from("property_detected_amenities")
+        .select(SIGNAL_SELECT_COLUMNS)
+        .in("property_id", propertyIds),
+      fetchPropertyClaims(client, propertyIds),
+    ]);
+    const { data, error } = detected;
     if (error) {
       console.error("[search] property signals query error:", error.message);
       return byId;
     }
     if (!data) return byId;
     for (const row of data as unknown as Array<Record<string, unknown>>) {
-      const signals = buildPropertySignals(row);
-      if (signals && typeof row.property_id === "string") byId.set(row.property_id, signals);
+      const pid = typeof row.property_id === "string" ? row.property_id : null;
+      const signals = buildPropertySignals(row, pid ? claimsById.get(pid) : undefined);
+      if (signals && pid) byId.set(pid, signals);
     }
   } catch (e) {
     console.error("[search] property signals threw:", e instanceof Error ? e.message : String(e));
