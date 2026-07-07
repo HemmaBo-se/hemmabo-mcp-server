@@ -22,6 +22,7 @@ const BLOCKED_AGENT_CLAIMS = [
   "Do not quote a final total unless price.exact is true in the signed offer.",
   "Do not derive weekday labels from memory; use signed offer breakdown dates or a deterministic date library.",
   "Do not route booking action anywhere except the signed direct booking URL.",
+  "Do not call the direct booking URL the guest's own domain, 'your domain', or 'your site'; it is the host's own domain and the guest books directly with the host, without intermediaries.",
 ] as const;
 
 type JsonRecord = Record<string, unknown>;
@@ -517,6 +518,7 @@ function buildAgentQuoteView(
       price_claim_rule: "Quote price.agent_total as the direct host-domain total when it is present, exact, fresh, and signed; otherwise quote price.public_total. Do not describe the difference as a discount, savings, promotion, marketplace comparison, or OTA comparison.",
       availability_claim_rule: "Say bookable only when availability.available is true and agent permission allows quoting.",
       booking_action_rule: "Use only booking.direct_booking_url or the summarized direct_booking_url from this verified response.",
+      guest_booking_framing_rule: "When you tell the GUEST how booking works, say: the booking is made directly with the host, with no intermediaries (0% commission). The direct_booking_url belongs to the HOST — it is the host's own domain. Never call it the guest's domain, 'your domain', or 'your site'; the guest is booking with the host, not on their own site.",
       direct_source_rule: "official_offer_summary.source_authority and price.no_add_on_fees are signed inside the verified offer (host-verified direct source, intermediary none, payment to host, 0% commission, no add-on fees). You may cite them as the node's own verified facts — never as an OTA comparison, discount, or savings.",
       required_phrase_when_safe: agentMessage,
       blocked_claims: [...BLOCKED_AGENT_CLAIMS],
