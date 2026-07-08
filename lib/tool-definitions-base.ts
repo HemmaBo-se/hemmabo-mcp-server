@@ -231,7 +231,7 @@ const PROPERTY_LISTING_ITEM: JsonSchemaField = {
     available: { type: "boolean", description: "Always true in search results because unavailable properties are filtered out." },
     signals: {
       type: "object",
-      description: "Optional. Host-declared canonical discovery flags for matching requests like dog-friendly, hot tub, crib, or hen party. Grouped: amenities / policies / suitability / setting (arrays of canonical English keys, e.g. 'allows_dogs', 'has_hot_tub', 'crib_available', 'bachelorette_party_friendly') plus bestForOccasions / targetAudience. Canonical keys — render them in the user's language. Match signals, not verified guarantees: the signed verified-stay-offer and the property page are authoritative; absence of a flag means 'not detected', not 'no'.",
+      description: "Optional. Host-declared canonical discovery flags for matching requests like dog-friendly, hot tub, crib, or hen party. Grouped: amenities / policies / suitability / setting (arrays of canonical English keys, e.g. 'allows_dogs', 'has_hot_tub', 'crib_available', 'bachelorette_party_friendly') plus bestForOccasions / targetAudience, plus policies_negated: the host's EXPLICIT NOs from the claims ledger (e.g. 'pets_cats' there means cats are not allowed — relay as a clear, friendly no). Canonical keys — render them in the user's language. Match signals, not verified guarantees: the signed verified-stay-offer and the property page are authoritative; absence of a flag from both the affirmed groups and policies_negated means UNKNOWN, not 'no' — recommend asking the host.",
       additionalProperties: true,
     },
   },

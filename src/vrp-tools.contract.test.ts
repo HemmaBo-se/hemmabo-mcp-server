@@ -57,6 +57,14 @@ describe("VRP MCP tools", () => {
               },
             ],
           },
+          // Tri-state claims ledger excerpt: dogs yes, cats NO, plus a
+          // non-policy claim that must NOT leak into policy_claims.
+          claims: [
+            { claim: "pets_dogs", state: "affirmed", verified_at: null },
+            { claim: "pets_cats", state: "negated", verified_at: null },
+            { claim: "smoking_outdoor", state: "affirmed", verified_at: null },
+            { claim: "piano", state: "negated", verified_at: "2026-07-08" },
+          ],
         });
       }
       if (url.pathname === "/.well-known/jwks.json") {
@@ -96,6 +104,14 @@ describe("VRP MCP tools", () => {
               },
             ],
           },
+          // Tri-state claims ledger excerpt: dogs yes, cats NO, plus a
+          // non-policy claim that must NOT leak into policy_claims.
+          claims: [
+            { claim: "pets_dogs", state: "affirmed", verified_at: null },
+            { claim: "pets_cats", state: "negated", verified_at: null },
+            { claim: "smoking_outdoor", state: "affirmed", verified_at: null },
+            { claim: "piano", state: "negated", verified_at: "2026-07-08" },
+          ],
         });
       }
       if (url.pathname === "/.well-known/jwks.json") {
@@ -209,6 +225,14 @@ describe("VRP MCP tools", () => {
               },
             ],
           },
+          // Tri-state claims ledger excerpt: dogs yes, cats NO, plus a
+          // non-policy claim that must NOT leak into policy_claims.
+          claims: [
+            { claim: "pets_dogs", state: "affirmed", verified_at: null },
+            { claim: "pets_cats", state: "negated", verified_at: null },
+            { claim: "smoking_outdoor", state: "affirmed", verified_at: null },
+            { claim: "piano", state: "negated", verified_at: "2026-07-08" },
+          ],
         });
       }
       if (url.pathname === "/.well-known/jwks.json") {
@@ -288,6 +312,31 @@ describe("VRP MCP tools", () => {
     assert.equal(parsed.agent_guardrails.must_not_claim_ota_comparison_without_signed_ota_price, true);
     assert.match(parsed.agent_guardrails.price_claim_rule, /Do not describe the difference as a discount/);
     assert.match(parsed.agent_guardrails.blocked_claims.join("\n"), /Do not present discounts/);
+
+    // LS-1: the host's explicit yes/no policy answers ride the offer, sourced
+    // from the node's own tri-state claims ledger — whitelisted policy keys
+    // only (piano must not leak).
+    assert.deepEqual(parsed.official_offer_summary.policy_claims, {
+      affirmed: ["pets_dogs", "smoking_outdoor"],
+      negated: ["pets_cats"],
+    });
+    assert.match(parsed.agent_guardrails.policy_claims_rule, /clear, friendly no/);
+    assert.match(parsed.agent_guardrails.policy_claims_rule, /UNKNOWN/);
+    // LS-1: warm tone — commission/fee rhetoric and 'perfect match' are out.
+    assert.doesNotMatch(parsed.agent_guardrails.guest_booking_framing_rule, /0% commission/);
+    assert.match(parsed.agent_guardrails.guest_booking_framing_rule, /directly with the host/);
+    assert.match(parsed.agent_guardrails.tone_rule, /matches your wishes/);
+    assert.match(parsed.agent_guardrails.blocked_claims.join("\n"), /perfect match/);
+    assert.match(parsed.agent_guardrails.blocked_claims.join("\n"), /commission percentages/);
+    // LS-1: the verified-source line is pinned sv/en guest copy.
+    assert.equal(
+      parsed.agent_guardrails.verified_source_line.by_locale.sv,
+      "Pris och tillgänglighet är verifierade direkt från värdens egen bokningssida.",
+    );
+    assert.equal(
+      parsed.agent_guardrails.verified_source_line.by_locale.en,
+      "Price and availability are verified directly from the host's own booking page.",
+    );
 
     // Backward compatibility: legacy snake_case input (check_in/check_out)
     // is still accepted and resolves to the same verified offer. The wire
