@@ -1,4 +1,5 @@
 import { createPublicKey, verify as cryptoVerify } from "node:crypto";
+import { formatAmenityLabel } from "./tools-base.js";
 import type { ToolResult } from "./tools-base.js";
 
 export const VRP_PROTOCOL = "vacation-rental-protocol";
@@ -374,15 +375,19 @@ function sourceAuthoritySummary(offer: JsonRecord): JsonRecord | null {
   };
 }
 
-function amenitiesFromDiscovery(discovery: JsonRecord): string[] {
+export function amenitiesFromDiscovery(discovery: JsonRecord): string[] {
   const raw = Array.isArray(discovery.amenities) ? discovery.amenities : [];
   const labels: string[] = [];
   for (const item of raw) {
     const s = stringValue(item);
-    // Keep human display labels only — skip snake_case machine keys
-    // (e.g. "hot_tub") which duplicate the readable ones ("Hot tub").
-    if (!s || s.includes("_")) continue;
-    if (!labels.includes(s)) labels.push(s);
+    if (!s) continue;
+    // The node file emits CANONICAL snake_case tokens (one format since
+    // smart-stays #2073). Display-format them — the old "skip anything with
+    // an underscore" filter silently dropped hot_tub/ev_charging from the
+    // widget and the agent-visible amenity list, which made agents narrate
+    // a signals-vs-offer discrepancy to guests.
+    const label = formatAmenityLabel(s);
+    if (label && !labels.includes(label)) labels.push(label);
     if (labels.length >= 4) break;
   }
   return labels;

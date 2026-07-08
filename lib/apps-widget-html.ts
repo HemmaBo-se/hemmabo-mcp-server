@@ -558,7 +558,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       available: available !== false,
       directUrl: directUrl,
       logo: property.logo_url || property.logo || listing.logo_url || (summary.property && summary.property.logo_url) || "",
-      amenities: asArray(property.amenities).filter(function (a) { return typeof a === "string" && a && a.indexOf("_") === -1; }).slice(0, 4),
+      amenities: asArray(property.amenities).filter(function (a) { return typeof a === "string" && !!a; }).map(function (a) { return String(a).indexOf("_") === -1 ? a : a.split("_").join(" ").replace(/^./, function (c) { return c.toUpperCase(); }); }).slice(0, 4),
       image: imageList[0] || "",
       images: imageList,
       alternatives: alternatives,

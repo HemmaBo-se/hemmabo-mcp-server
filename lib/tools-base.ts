@@ -88,6 +88,29 @@ const SIGNAL_SELECT_COLUMNS = [
 type PropertySignals = Record<string, string[]>;
 
 /**
+ * Display-format a canonical amenity token for human/agent-visible text
+ * ("hot_tub" -> "Hot tub", "wifi" -> "WiFi"). Raw snake_case keys must never
+ * render in guest-facing prose or the stay-offer widget (same rule as
+ * smart-stays contracts/ts/amenity-labels.ts).
+ */
+const AMENITY_DISPLAY_SPECIAL: Record<string, string> = {
+  wifi: "WiFi",
+  bbq: "BBQ",
+  tv: "TV",
+  ev_charging: "EV charging",
+};
+
+export function formatAmenityLabel(token: string): string {
+  const t = String(token || "").trim();
+  if (!t) return "";
+  const special = AMENITY_DISPLAY_SPECIAL[t.toLowerCase()];
+  if (special) return special;
+  const words = t.replace(/_/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+
+/**
  * Amenity signal column → canonical attested-claim token
  * (`property_attested_claims.claim_key`).
  *
@@ -162,14 +185,25 @@ function signalIsOn(
   return row[col] === true;
 }
 
-function buildPropertySignals(
+export function buildPropertySignals(
   row: Record<string, unknown> | undefined,
   claims?: PropertyClaims,
 ): PropertySignals | null {
   if (!row) return null;
   const out: PropertySignals = {};
   for (const [group, cols] of Object.entries(SIGNAL_GROUPS)) {
-    const on = cols.filter((c) => signalIsOn(group, c, row, claims));
+    let on = cols.filter((c) => signalIsOn(group, c, row, claims));
+    if (group === "amenities") {
+      // Emit the CANONICAL claim token (hot_tub), never the internal column
+      // name (has_hot_tub) — signalsGuidance promises canonical keys, and
+      // agents were quoting the raw column names to guests.
+      on = Array.from(new Set(on.map((c) => AMENITY_COLUMN_TO_CLAIM[c] ?? c)));
+    }
+    if (group === "policies" && on.includes("outdoor_smoking_only")) {
+      // outdoor_smoking_only IS the accurate smoking signal; emitting
+      // smoking_allowed alongside it reads as a contradiction.
+      on = on.filter((c) => c !== "smoking_allowed");
+    }
     if (on.length > 0) out[group] = on;
   }
   for (const [col, label] of Object.entries(SIGNAL_ARRAY_FIELDS)) {
@@ -851,7 +885,7 @@ export async function executeTool(
                 : matchedProperties.length > 0
                   ? "Matching properties were found, but the requested dates and nearby same-month alternatives are unavailable. Ask whether the guest can change month or guest count."
                   : "No published property matched the location and capacity. Ask for a broader destination or fewer guests.",
-            signalsGuidance: "Each property's `signals` are host-declared, language-independent discovery flags (amenities / policies / suitability / setting, plus bestForOccasions / targetAudience) for matching requests like dog-friendly, hot tub, crib, or hen party. They are canonical English keys — render them in the user's language. Treat them as match signals, not verified guarantees: the signed verified-stay-offer and the property's own page are authoritative. Absence of a flag means 'not detected', not 'no'.",
+            signalsGuidance: "Each property's `signals` are host-declared, language-independent discovery flags (amenities / policies / suitability / setting, plus bestForOccasions / targetAudience) for matching requests like dog-friendly, hot tub, crib, or hen party. They are canonical keys — ALWAYS render them as translated human labels in the user's language and NEVER show the raw keys, parenthesized identifiers, or internal field names to the user. Treat them as match signals, not verified guarantees: the signed verified-stay-offer and the property's own page are authoritative. Absence of a flag means 'not detected', not 'no'. Never describe internal data-layer differences (e.g. signals vs the signed offer's amenity list) to the guest — if a detail matters, verify it on the property page instead of narrating the discrepancy.",
           }, null, 2),
         }],
       };
