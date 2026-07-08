@@ -17,7 +17,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveQuote } from "./pricing.js";
-import { checkAvailability } from "./availability.js";
+import { checkAvailability, findFreeWindowsInMonth } from "./availability.js";
 import {
   checkIcalImportFreshness,
   calendarFreshnessUnavailablePayload,
@@ -474,51 +474,6 @@ export function propertyMatchesLocation(
   return regionOk && countryOk;
 }
 
-function parseIsoDate(date: string): Date {
-  return new Date(`${date}T00:00:00.000Z`);
-}
-
-function formatIsoDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-function addDays(date: Date, days: number): Date {
-  const out = new Date(date);
-  out.setUTCDate(out.getUTCDate() + days);
-  return out;
-}
-
-function nightsBetween(checkIn: string, checkOut: string): number {
-  const ms = parseIsoDate(checkOut).getTime() - parseIsoDate(checkIn).getTime();
-  return Math.max(1, Math.round(ms / 86_400_000));
-}
-
-export function buildSameMonthDateWindows(checkIn: string, checkOut: string, max = 12): Array<{ checkIn: string; checkOut: string }> {
-  const requestedStart = parseIsoDate(checkIn);
-  const nights = nightsBetween(checkIn, checkOut);
-  const month = requestedStart.getUTCMonth();
-  const year = requestedStart.getUTCFullYear();
-  const windows: Array<{ checkIn: string; checkOut: string }> = [];
-  const seen = new Set<string>();
-
-  for (let offset = 1; windows.length < max && offset <= 31; offset++) {
-    for (const direction of [1, -1]) {
-      const start = addDays(requestedStart, offset * direction);
-      const end = addDays(start, nights);
-      if (start.getUTCFullYear() !== year || start.getUTCMonth() !== month) continue;
-      if (end.getUTCFullYear() !== year || end.getUTCMonth() !== month) continue;
-      const window = { checkIn: formatIsoDate(start), checkOut: formatIsoDate(end) };
-      const key = `${window.checkIn}/${window.checkOut}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      windows.push(window);
-      if (windows.length >= max) break;
-    }
-  }
-
-  return windows;
-}
-
 async function findAlternativeDates(
   supabase: SupabaseClient,
   propertyId: string,
@@ -537,10 +492,19 @@ async function findAlternativeDates(
     return alternatives;
   }
 
-  for (const window of buildSameMonthDateWindows(checkIn, checkOut)) {
-    const avail = await checkAvailability(supabase, propertyId, window.checkIn, window.checkOut);
-    if (!avail.available) continue;
-    const alternative: Record<string, unknown> = { ...window, available: true };
+  // Scan the requested month's free nights and offer each maximal contiguous
+  // gap — including gaps shorter than the requested stay — flagged with its
+  // night count so the agent never meets an empty wall. Windows are already
+  // sorted nearest-to-requested-length first and free by construction.
+  const freeWindows = await findFreeWindowsInMonth(supabase, propertyId, checkIn, checkOut);
+  for (const window of freeWindows) {
+    const alternative: Record<string, unknown> = {
+      checkIn: window.checkIn,
+      checkOut: window.checkOut,
+      nights: window.nights,
+      shorterThanRequested: window.shorterThanRequested,
+      available: true,
+    };
     if (typeof guests === "number") {
       const quote = await resolveQuote(supabase, propertyId, window.checkIn, window.checkOut, guests);
       if (!("error" in quote)) {
