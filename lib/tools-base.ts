@@ -180,6 +180,19 @@ const POLICY_NEGATION_CLAIM_KEYS = [
 ] as const;
 
 /**
+ * Amenity claims guests search for by name but that have NO boolean column on
+ * property_detected_amenities (so the column-driven SIGNAL_GROUPS can never
+ * emit them). Affirmed claims from this whitelist are appended to the
+ * amenities signal group. The villa incident: blackout_curtains was live in
+ * the node file since PR A but invisible to agent search. Keep the list
+ * deliberately short — signals stay compact.
+ */
+const CLAIMS_ONLY_AMENITY_SIGNALS = [
+  "blackout_curtains",
+  "air_conditioning",
+] as const;
+
+/**
  * Resolve a single discovery signal to on/off. For the `amenities` group the
  * attested-claims ledger (write-master) wins over the stale boolean column: if the
  * node has ANY claim for the amenity, affirmed = on / negated = off; only when no
@@ -213,7 +226,15 @@ export function buildPropertySignals(
       // Emit the CANONICAL claim token (hot_tub), never the internal column
       // name (has_hot_tub) — signalsGuidance promises canonical keys, and
       // agents were quoting the raw column names to guests.
-      on = Array.from(new Set(on.map((c) => AMENITY_COLUMN_TO_CLAIM[c] ?? c)));
+      const tokens = new Set(on.map((c) => AMENITY_COLUMN_TO_CLAIM[c] ?? c));
+      // Claims-only amenities (no boolean column): affirmed ledger claims
+      // like blackout_curtains join the group directly.
+      if (claims) {
+        for (const key of CLAIMS_ONLY_AMENITY_SIGNALS) {
+          if (claims.affirmed.has(key)) tokens.add(key);
+        }
+      }
+      on = Array.from(tokens);
     }
     if (group === "policies" && on.includes("outdoor_smoking_only")) {
       // outdoor_smoking_only IS the accurate smoking signal; emitting

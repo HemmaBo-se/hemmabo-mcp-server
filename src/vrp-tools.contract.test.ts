@@ -64,7 +64,24 @@ describe("VRP MCP tools", () => {
             { claim: "pets_cats", state: "negated", verified_at: null },
             { claim: "smoking_outdoor", state: "affirmed", verified_at: null },
             { claim: "piano", state: "negated", verified_at: "2026-07-08" },
+            { claim: "blackout_curtains", state: "affirmed", verified_at: "2026-07-08" },
+            { claim: "air_conditioning", state: "negated", verified_at: null },
           ],
+          // LS-2/6 long-tail source blocks (mirrors the villa node file shape).
+          capacity: {
+            max_guests: 6,
+            bedrooms: 3,
+            beds: {
+              double: 3,
+              single: 0,
+              rooms: [
+                { label: "Sovrum 1", beds: [{ type: "double", count: 1, firmness: "medium" }] },
+                { label: "Sovrum 3 Loft", beds: [{ type: "double", count: 1, firmness: "firm" }] },
+              ],
+            },
+          },
+          availability: { check_in_time: "16:00", check_out_time: "11:00" },
+          policies: { allow_early_checkin: false, allow_late_checkout: false },
         });
       }
       if (url.pathname === "/.well-known/jwks.json") {
@@ -111,7 +128,24 @@ describe("VRP MCP tools", () => {
             { claim: "pets_cats", state: "negated", verified_at: null },
             { claim: "smoking_outdoor", state: "affirmed", verified_at: null },
             { claim: "piano", state: "negated", verified_at: "2026-07-08" },
+            { claim: "blackout_curtains", state: "affirmed", verified_at: "2026-07-08" },
+            { claim: "air_conditioning", state: "negated", verified_at: null },
           ],
+          // LS-2/6 long-tail source blocks (mirrors the villa node file shape).
+          capacity: {
+            max_guests: 6,
+            bedrooms: 3,
+            beds: {
+              double: 3,
+              single: 0,
+              rooms: [
+                { label: "Sovrum 1", beds: [{ type: "double", count: 1, firmness: "medium" }] },
+                { label: "Sovrum 3 Loft", beds: [{ type: "double", count: 1, firmness: "firm" }] },
+              ],
+            },
+          },
+          availability: { check_in_time: "16:00", check_out_time: "11:00" },
+          policies: { allow_early_checkin: false, allow_late_checkout: false },
         });
       }
       if (url.pathname === "/.well-known/jwks.json") {
@@ -232,7 +266,24 @@ describe("VRP MCP tools", () => {
             { claim: "pets_cats", state: "negated", verified_at: null },
             { claim: "smoking_outdoor", state: "affirmed", verified_at: null },
             { claim: "piano", state: "negated", verified_at: "2026-07-08" },
+            { claim: "blackout_curtains", state: "affirmed", verified_at: "2026-07-08" },
+            { claim: "air_conditioning", state: "negated", verified_at: null },
           ],
+          // LS-2/6 long-tail source blocks (mirrors the villa node file shape).
+          capacity: {
+            max_guests: 6,
+            bedrooms: 3,
+            beds: {
+              double: 3,
+              single: 0,
+              rooms: [
+                { label: "Sovrum 1", beds: [{ type: "double", count: 1, firmness: "medium" }] },
+                { label: "Sovrum 3 Loft", beds: [{ type: "double", count: 1, firmness: "firm" }] },
+              ],
+            },
+          },
+          availability: { check_in_time: "16:00", check_out_time: "11:00" },
+          policies: { allow_early_checkin: false, allow_late_checkout: false },
         });
       }
       if (url.pathname === "/.well-known/jwks.json") {
@@ -337,6 +388,25 @@ describe("VRP MCP tools", () => {
       parsed.agent_guardrails.verified_source_line.by_locale.en,
       "Price and availability are verified directly from the host's own booking page.",
     );
+
+    // LS-2/3/6: bed firmness per room, comfort claims (tri-state), and stay
+    // times ride the offer from the node's own discovery doc.
+    const stay = parsed.official_offer_summary.stay_details;
+    assert.equal(stay.bed_configuration.bedrooms, 3);
+    assert.deepEqual(stay.bed_configuration.rooms[1], {
+      label: "Sovrum 3 Loft",
+      beds: [{ type: "double", count: 1, mattress_firmness: "firm" }],
+    });
+    assert.deepEqual(stay.comfort_claims, {
+      affirmed: ["blackout_curtains"],
+      negated: ["air_conditioning"],
+    });
+    assert.equal(stay.check_in_time, "16:00");
+    assert.equal(stay.check_out_time, "11:00");
+    assert.equal(stay.early_checkin_available, false);
+    assert.equal(stay.late_checkout_available, false);
+    assert.match(parsed.agent_guardrails.stay_details_rule, /mattress_firmness/);
+    assert.match(parsed.agent_guardrails.stay_details_rule, /UNKNOWN/);
 
     // Backward compatibility: legacy snake_case input (check_in/check_out)
     // is still accepted and resolves to the same verified offer. The wire
