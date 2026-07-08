@@ -16,7 +16,6 @@ export {
   normalizeLocationTerm,
   expandLocationTerms,
   propertyMatchesLocation,
-  buildSameMonthDateWindows,
 } from "./tools-base.js";
 export { isHostOnboardingToolName } from "./host-onboarding.js";
 export type { ToolClients, ToolResult } from "./tools-base.js";

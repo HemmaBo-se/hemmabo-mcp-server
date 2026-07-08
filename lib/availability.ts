@@ -132,3 +132,152 @@ export async function checkAvailability(
 
   return { propertyId, checkIn, checkOut, available: true };
 }
+
+// ── Alternative-date discovery ────────────────────────────────────────────────
+//
+// When the requested dates are unavailable, agents must be offered concrete
+// bookable windows instead of an empty wall. We scan the requested month's
+// free nights and emit each MAXIMAL contiguous free run as a candidate window
+// (floor: 1 night) — so a 2-night gap surfaces even when the request was for 4.
+// The old approach only slid a fixed-length window sideways, so shorter gaps
+// could never be produced.
+
+const ALTERNATIVE_LOOKAHEAD_DAYS = 14;
+
+export interface FreeWindow {
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  shorterThanRequested: boolean;
+}
+
+function monthStartKey(dateKey: string): string {
+  return `${dateKey.slice(0, 7)}-01`;
+}
+
+function nextMonthStartKey(dateKey: string): string {
+  const d = new Date(`${dateKey.slice(0, 7)}-01T12:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function nightsBetweenKeys(startKey: string, endKey: string): number {
+  const ms =
+    new Date(`${endKey}T12:00:00Z`).getTime() - new Date(`${startKey}T12:00:00Z`).getTime();
+  return Math.round(ms / 86_400_000);
+}
+
+/**
+ * Returns bookable date windows within the requested month, derived from the
+ * SAME three availability layers as checkAvailability (blocked dates, bookings,
+ * booking locks) so a returned window is free by construction.
+ *
+ * Each maximal run of contiguous free nights becomes one window. A run whose
+ * first night falls within the requested month is kept even if it extends past
+ * the month boundary (the same-month clamp is eased on the end side); the scan
+ * reaches ALTERNATIVE_LOOKAHEAD_DAYS into the next month so such runs can form.
+ * Runs are sorted nearest-to-requested-length first, then nearest to the
+ * requested check-in. Fail-closed: any query error yields no windows, so we
+ * never surface dates we could not verify.
+ */
+export async function findFreeWindowsInMonth(
+  supabase: SupabaseClient,
+  propertyId: string,
+  refCheckIn: string,
+  refCheckOut: string,
+): Promise<FreeWindow[]> {
+  const requestedNights = Math.max(1, nightsBetweenKeys(refCheckIn, refCheckOut));
+  const monthStart = monthStartKey(refCheckIn);
+  const nextMonthStart = nextMonthStartKey(refCheckIn);
+  const scanEnd = addUtcDays(nextMonthStart, ALTERNATIVE_LOOKAHEAD_DAYS);
+
+  // 1. Blocked dates overlapping the scan range.
+  const { data: blocked, error: blockedErr } = await supabase
+    .from("property_blocked_dates")
+    .select("start_date, end_date")
+    .eq("property_id", propertyId)
+    .lt("start_date", scanEnd)
+    .gte("end_date", monthStart);
+  if (blockedErr) return [];
+
+  // 2. Confirmed / fresh-pending bookings (same stale-pending filter as checkAvailability).
+  const pendingCutoff = new Date(Date.now() - PENDING_BOOKING_TTL_MS).toISOString();
+  const { data: bookings, error: bookingsErr } = await supabase
+    .from("bookings")
+    .select("check_in_date, check_out_date, status")
+    .eq("property_id", propertyId)
+    .or(`status.eq.confirmed,and(status.eq.pending,created_at.gte.${pendingCutoff})`)
+    .lt("check_in_date", scanEnd)
+    .gt("check_out_date", monthStart);
+  if (bookingsErr) return [];
+
+  // 3. Active booking locks.
+  const { data: locks, error: locksErr } = await supabase
+    .from("booking_locks")
+    .select("check_in, check_out, locked_until")
+    .eq("property_id", propertyId)
+    .gt("locked_until", new Date().toISOString())
+    .lt("check_in", scanEnd)
+    .gt("check_out", monthStart);
+  if (locksErr) return [];
+
+  // Mark every blocked night in the scan range (half-open [start, end)).
+  const blockedNights = new Set<string>();
+  const markBlocked = (startKey: string, endExclusiveKey: string) => {
+    let d = startKey < monthStart ? monthStart : startKey;
+    const end = endExclusiveKey > scanEnd ? scanEnd : endExclusiveKey;
+    while (d < end) {
+      blockedNights.add(d);
+      d = addUtcDays(d, 1);
+    }
+  };
+  for (const row of blocked ?? []) {
+    markBlocked(row.start_date, blockedEndExclusive(row.start_date, row.end_date));
+  }
+  for (const row of bookings ?? []) {
+    markBlocked(row.check_in_date, row.check_out_date);
+  }
+  for (const row of locks ?? []) {
+    markBlocked(row.check_in, row.check_out);
+  }
+
+  // Emit each maximal run of contiguous free nights whose start is in-month.
+  const windows: FreeWindow[] = [];
+  const pushWindow = (startKey: string, endExclusiveKey: string) => {
+    if (startKey >= nextMonthStart) return; // start must fall within the requested month
+    const nights = nightsBetweenKeys(startKey, endExclusiveKey);
+    if (nights < 1) return;
+    windows.push({
+      checkIn: startKey,
+      checkOut: endExclusiveKey,
+      nights,
+      shorterThanRequested: nights < requestedNights,
+    });
+  };
+
+  let runStart: string | null = null;
+  for (let night = monthStart; night < scanEnd; night = addUtcDays(night, 1)) {
+    const isFree = !blockedNights.has(night);
+    if (isFree && runStart === null) {
+      runStart = night;
+    } else if (!isFree && runStart !== null) {
+      pushWindow(runStart, night);
+      runStart = null;
+    }
+  }
+  if (runStart !== null) pushWindow(runStart, scanEnd);
+
+  // Nearest to the requested trip length first, then nearest to the requested
+  // check-in date. Keeps the most relevant window at the front for the cap.
+  windows.sort((a, b) => {
+    const lenDelta =
+      Math.abs(a.nights - requestedNights) - Math.abs(b.nights - requestedNights);
+    if (lenDelta !== 0) return lenDelta;
+    return (
+      Math.abs(nightsBetweenKeys(refCheckIn, a.checkIn)) -
+      Math.abs(nightsBetweenKeys(refCheckIn, b.checkIn))
+    );
+  });
+
+  return windows;
+}
