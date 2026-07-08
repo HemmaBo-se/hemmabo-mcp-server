@@ -45,6 +45,14 @@ const POLICY_CLAIM_KEYS = [
 ] as const;
 
 /**
+ * Comfort-detail claim keys guests ask about by name ("mörkläggningsgardiner?",
+ * "AC?"). Same tri-state semantics as POLICY_CLAIM_KEYS: affirmed = yes,
+ * negated = clear no, absent = unknown. Extend deliberately — signals and
+ * offer stay compact by design.
+ */
+const COMFORT_CLAIM_KEYS = ["blackout_curtains", "air_conditioning"] as const;
+
+/**
  * The verified-source line relayed to the guest after the price. sv/en are
  * pinned copy (approved 2026-07-08); other locales carry the meaning, so the
  * agent translates faithfully rather than relaying English to a non-English
@@ -460,12 +468,15 @@ function mediaImagesFromDiscovery(discovery: JsonRecord): JsonRecord[] {
 }
 
 /**
- * Extract the host's explicit yes/no policy answers from the node's tri-state
- * claims ledger (discovery `claims`: [{claim, state}, …]). Only whitelisted
- * policy keys are surfaced; a key absent from both lists is UNKNOWN (the host
+ * Extract the host's explicit yes/no answers for a whitelisted set of keys
+ * from the node's tri-state claims ledger (discovery `claims`:
+ * [{claim, state}, …]). A key absent from both lists is UNKNOWN (the host
  * never answered), which the agent must not turn into either a yes or a no.
  */
-function policyClaimsFromDiscovery(discovery: JsonRecord): JsonRecord | null {
+function claimsFromDiscovery(
+  discovery: JsonRecord,
+  keys: readonly string[],
+): JsonRecord | null {
   const claims = Array.isArray(discovery.claims) ? discovery.claims : [];
   if (claims.length === 0) return null;
   const affirmed: string[] = [];
@@ -473,13 +484,77 @@ function policyClaimsFromDiscovery(discovery: JsonRecord): JsonRecord | null {
   for (const item of claims) {
     const record = asRecord(item);
     const key = stringValue(record?.claim);
-    if (!key || !(POLICY_CLAIM_KEYS as readonly string[]).includes(key)) continue;
+    if (!key || !keys.includes(key)) continue;
     const state = stringValue(record?.state);
     if (state === "affirmed") affirmed.push(key);
     else if (state === "negated") negated.push(key);
   }
   if (affirmed.length === 0 && negated.length === 0) return null;
   return { affirmed, negated };
+}
+
+function policyClaimsFromDiscovery(discovery: JsonRecord): JsonRecord | null {
+  return claimsFromDiscovery(discovery, POLICY_CLAIM_KEYS);
+}
+
+/**
+ * LS-2/3/6: bed configuration, comfort claims, and stay times from the node's
+ * own discovery document — the long-tail answers guests actually ask about
+ * ("are the beds firm?", "blackout curtains?", "when is check-in?"). All read
+ * from the already-fetched discovery doc; no extra I/O. Every sub-block is
+ * optional: a node that has not declared it emits nothing (unknown ≠ no).
+ */
+function stayDetailsFromDiscovery(discovery: JsonRecord): JsonRecord | null {
+  const out: JsonRecord = {};
+
+  const capacity = asRecord(discovery.capacity);
+  const beds = asRecord(capacity?.beds);
+  const roomsRaw = Array.isArray(beds?.rooms) ? beds.rooms : [];
+  const rooms: JsonRecord[] = [];
+  for (const item of roomsRaw) {
+    const room = asRecord(item);
+    if (!room) continue;
+    const label = stringValue(room.label);
+    const bedList = Array.isArray(room.beds) ? room.beds : [];
+    const cleanBeds: JsonRecord[] = [];
+    for (const bedItem of bedList) {
+      const bed = asRecord(bedItem);
+      if (!bed) continue;
+      const type = stringValue(bed.type);
+      if (!type) continue;
+      const clean: JsonRecord = { type };
+      const count = numberValue(bed.count);
+      if (count !== null) clean.count = count;
+      const firmness = stringValue(bed.firmness);
+      if (firmness) clean.mattress_firmness = firmness;
+      cleanBeds.push(clean);
+    }
+    if (!label && cleanBeds.length === 0) continue;
+    rooms.push({ label, beds: cleanBeds });
+  }
+  if (rooms.length > 0) {
+    const bedConfiguration: JsonRecord = { rooms };
+    const bedroomCount = numberValue(capacity?.bedrooms);
+    if (bedroomCount !== null) bedConfiguration.bedrooms = bedroomCount;
+    out.bed_configuration = bedConfiguration;
+  }
+
+  const comfort = claimsFromDiscovery(discovery, COMFORT_CLAIM_KEYS);
+  if (comfort) out.comfort_claims = comfort;
+
+  const availability = asRecord(discovery.availability);
+  const checkInTime = stringValue(availability?.check_in_time);
+  const checkOutTime = stringValue(availability?.check_out_time);
+  if (checkInTime) out.check_in_time = checkInTime;
+  if (checkOutTime) out.check_out_time = checkOutTime;
+
+  const policies = asRecord(discovery.policies);
+  const earlyCheckin = booleanValue(policies?.allow_early_checkin);
+  if (earlyCheckin !== null) out.early_checkin_available = earlyCheckin;
+  const lateCheckout = booleanValue(policies?.allow_late_checkout);
+  if (lateCheckout !== null) out.late_checkout_available = lateCheckout;
+
+  return Object.keys(out).length > 0 ? out : null;
 }
 
 function formatMoney(amount: unknown, currency: unknown): string | null {
@@ -562,6 +637,7 @@ function buildAgentQuoteView(
       bookable: safeToQuote,
       source_authority: sourceAuthoritySummary(offer),
       policy_claims: policyClaimsFromDiscovery(discovery),
+      stay_details: stayDetailsFromDiscovery(discovery),
     },
     widget_media: {
       source: "vacation-rental.json",
@@ -587,6 +663,7 @@ function buildAgentQuoteView(
       direct_source_rule: "official_offer_summary.source_authority and price.no_add_on_fees are signed facts inside the verified offer (host-verified direct source, payment goes to the host). Cite them only when the guest asks how booking or pricing works, phrased plainly ('the price comes directly from the host') — never as an OTA comparison, discount, or savings, and never as fee rhetoric.",
       tone_rule: "Introduce the stay warmly and in plain language — e.g. 'I found a villa that matches your wishes.' Never 'perfect match', never superlative promises. For a detail with no verified answer, say: 'There is no verified information about that — if it matters to you, ask the host before booking.' Keep prose short when the stay-offer widget is visible; it already shows price, dates, and amenities.",
       policy_claims_rule: "official_offer_summary.policy_claims are the host's explicit yes/no answers from the node's own claims ledger (e.g. pets_dogs affirmed + pets_cats negated = dogs are welcome, cats are not allowed). Relay negated claims as a clear, friendly no. A key absent from both lists is UNKNOWN — say there is no verified information and suggest asking the host before booking.",
+      stay_details_rule: "official_offer_summary.stay_details carries the node's own long-tail answers: bed_configuration lists each bedroom with bed type and mattress_firmness (so 'are the beds firm?' gets a precise, warm answer per room — e.g. 'Sovrum 3 Loft has a firm mattress; the other rooms are medium and soft'); comfort_claims follows the same yes/no/unknown semantics as policy_claims (e.g. blackout_curtains affirmed = yes); check_in_time / check_out_time are the host's stated times; early_checkin_available / late_checkout_available say whether the host offers flexible times — mention them only when the guest asks, and phrase a false plainly and kindly ('the host does not offer early check-in'). Anything missing from stay_details is UNKNOWN — never guess.",
       verified_source_line: {
         rule: "After quoting the price, relay this line in the guest's language. sv/en are pinned copy — relay VERBATIM; for other locales translate the meaning faithfully.",
         by_locale: VERIFIED_SOURCE_LINE_BY_LOCALE,

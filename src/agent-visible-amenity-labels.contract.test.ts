@@ -160,6 +160,37 @@ describe("buildPropertySignals — explicit host NOs (LS-1)", () => {
   });
 });
 
+describe("buildPropertySignals — claims-only amenities (LS-3)", () => {
+  it("REGRESSION: blackout_curtains has no boolean column — affirmed claim must reach the agent", () => {
+    // The villa: blackout_curtains live in the node file since PR A (#2073)
+    // but invisible in agent search, so guests were told 'not registered'.
+    const signals = buildPropertySignals(
+      { wifi_included: true },
+      {
+        affirmed: new Set(["blackout_curtains", "wifi"]),
+        negated: new Set<string>(),
+        known: new Set(["blackout_curtains", "wifi"]),
+      },
+    );
+    assert.ok(signals);
+    assert.ok(signals.amenities.includes("blackout_curtains"));
+  });
+
+  it("negated or unknown claims-only amenities do NOT appear (affirmed-only matching)", () => {
+    const signals = buildPropertySignals(
+      { wifi_included: true },
+      {
+        affirmed: new Set<string>(),
+        negated: new Set(["air_conditioning"]),
+        known: new Set(["air_conditioning"]),
+      },
+    );
+    assert.ok(signals);
+    assert.ok(!signals.amenities.includes("air_conditioning"));
+    assert.ok(!signals.amenities.includes("blackout_curtains"));
+  });
+});
+
 describe("guidance — agents are told to hide the machine layer", () => {
   const source = readFileSync(new URL("../lib/tools-base.ts", import.meta.url), "utf-8");
 
