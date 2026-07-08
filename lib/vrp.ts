@@ -24,8 +24,36 @@ const BLOCKED_AGENT_CLAIMS = [
   "Do not quote a final total unless price.exact is true in the signed offer.",
   "Do not derive weekday labels from memory; use signed offer breakdown dates or a deterministic date library.",
   "Do not route booking action anywhere except the signed direct booking URL.",
-  "Do not call the direct booking URL the guest's own domain, 'your domain', or 'your site'; it is the host's own domain and the guest books directly with the host, without intermediaries.",
+  "Do not call the direct booking URL the guest's own domain, 'your domain', or 'your site'; it is the host's own domain and the guest books directly with the host.",
+  "Do not mention commission percentages, platform fees, middlemen, or 'no hidden fees' in guest-facing copy; say instead that booking and payment are made directly with the host.",
+  "Do not call the stay a 'perfect match' or promise perfection; say it matches the guest's wishes.",
+  "Do not tell the guest something is 'not flagged' or 'not in the data'; if policy_claims marks it negated, relay a clear friendly no — otherwise say there is no verified information about it and suggest asking the host before booking.",
 ] as const;
+
+/**
+ * Policy-domain claim keys surfaced from the node's own tri-state claims
+ * ledger (discovery `claims` array) so an agent can answer "can I bring a
+ * cat?" with the host's explicit yes/no instead of guessing from a generic
+ * pets flag. Mirrors POLICY_NEGATION_CLAIM_KEYS in lib/tools-base.ts —
+ * keep in sync.
+ */
+const POLICY_CLAIM_KEYS = [
+  "pets_dogs",
+  "pets_cats",
+  "smoking_indoor",
+  "smoking_outdoor",
+] as const;
+
+/**
+ * The verified-source line relayed to the guest after the price. sv/en are
+ * pinned copy (approved 2026-07-08); other locales carry the meaning, so the
+ * agent translates faithfully rather than relaying English to a non-English
+ * guest.
+ */
+const VERIFIED_SOURCE_LINE_BY_LOCALE: Record<string, string> = {
+  sv: "Pris och tillgänglighet är verifierade direkt från värdens egen bokningssida.",
+  en: "Price and availability are verified directly from the host's own booking page.",
+};
 
 type JsonRecord = Record<string, unknown>;
 
@@ -431,6 +459,29 @@ function mediaImagesFromDiscovery(discovery: JsonRecord): JsonRecord[] {
   return collected;
 }
 
+/**
+ * Extract the host's explicit yes/no policy answers from the node's tri-state
+ * claims ledger (discovery `claims`: [{claim, state}, …]). Only whitelisted
+ * policy keys are surfaced; a key absent from both lists is UNKNOWN (the host
+ * never answered), which the agent must not turn into either a yes or a no.
+ */
+function policyClaimsFromDiscovery(discovery: JsonRecord): JsonRecord | null {
+  const claims = Array.isArray(discovery.claims) ? discovery.claims : [];
+  if (claims.length === 0) return null;
+  const affirmed: string[] = [];
+  const negated: string[] = [];
+  for (const item of claims) {
+    const record = asRecord(item);
+    const key = stringValue(record?.claim);
+    if (!key || !(POLICY_CLAIM_KEYS as readonly string[]).includes(key)) continue;
+    const state = stringValue(record?.state);
+    if (state === "affirmed") affirmed.push(key);
+    else if (state === "negated") negated.push(key);
+  }
+  if (affirmed.length === 0 && negated.length === 0) return null;
+  return { affirmed, negated };
+}
+
 function formatMoney(amount: unknown, currency: unknown): string | null {
   const numeric = numberValue(amount);
   if (numeric === null) return null;
@@ -510,6 +561,7 @@ function buildAgentQuoteView(
       valid_until: validUntil,
       bookable: safeToQuote,
       source_authority: sourceAuthoritySummary(offer),
+      policy_claims: policyClaimsFromDiscovery(discovery),
     },
     widget_media: {
       source: "vacation-rental.json",
@@ -531,8 +583,14 @@ function buildAgentQuoteView(
       price_claim_rule: "Quote price.agent_total as the direct host-domain total when it is present, exact, fresh, and signed; otherwise quote price.public_total. Do not describe the difference as a discount, savings, promotion, marketplace comparison, or OTA comparison.",
       availability_claim_rule: "Say bookable only when availability.available is true and agent permission allows quoting.",
       booking_action_rule: "Use only booking.direct_booking_url or the summarized direct_booking_url from this verified response.",
-      guest_booking_framing_rule: "When you tell the GUEST how booking works, say: the booking is made directly with the host, with no intermediaries (0% commission). The direct_booking_url belongs to the HOST — it is the host's own domain. Never call it the guest's domain, 'your domain', or 'your site'; the guest is booking with the host, not on their own site.",
-      direct_source_rule: "official_offer_summary.source_authority and price.no_add_on_fees are signed inside the verified offer (host-verified direct source, intermediary none, payment to host, 0% commission, no add-on fees). You may cite them as the node's own verified facts — never as an OTA comparison, discount, or savings.",
+      guest_booking_framing_rule: "When you tell the GUEST how booking works, say it plainly and warmly: booking and payment are made directly with the host, on the host's own booking page. Do not mention commissions, fee percentages, middlemen, or 'no hidden fees' — 'directly with the host' is the whole message. The direct_booking_url belongs to the HOST — it is the host's own domain. Never call it the guest's domain, 'your domain', or 'your site'; the guest is booking with the host, not on their own site.",
+      direct_source_rule: "official_offer_summary.source_authority and price.no_add_on_fees are signed facts inside the verified offer (host-verified direct source, payment goes to the host). Cite them only when the guest asks how booking or pricing works, phrased plainly ('the price comes directly from the host') — never as an OTA comparison, discount, or savings, and never as fee rhetoric.",
+      tone_rule: "Introduce the stay warmly and in plain language — e.g. 'I found a villa that matches your wishes.' Never 'perfect match', never superlative promises. For a detail with no verified answer, say: 'There is no verified information about that — if it matters to you, ask the host before booking.' Keep prose short when the stay-offer widget is visible; it already shows price, dates, and amenities.",
+      policy_claims_rule: "official_offer_summary.policy_claims are the host's explicit yes/no answers from the node's own claims ledger (e.g. pets_dogs affirmed + pets_cats negated = dogs are welcome, cats are not allowed). Relay negated claims as a clear, friendly no. A key absent from both lists is UNKNOWN — say there is no verified information and suggest asking the host before booking.",
+      verified_source_line: {
+        rule: "After quoting the price, relay this line in the guest's language. sv/en are pinned copy — relay VERBATIM; for other locales translate the meaning faithfully.",
+        by_locale: VERIFIED_SOURCE_LINE_BY_LOCALE,
+      },
       required_phrase_when_safe: agentMessage,
       blocked_claims: [...BLOCKED_AGENT_CLAIMS],
     },

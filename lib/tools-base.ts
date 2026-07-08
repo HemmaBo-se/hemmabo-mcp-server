@@ -160,8 +160,24 @@ const AMENITY_COLUMN_TO_CLAIM: Record<string, string> = {
   ski_in_ski_out: "ski_in_ski_out",
 };
 
-/** Per-property attested-claim state: which amenity tokens are affirmed, and which are known (affirmed or negated). */
-type PropertyClaims = { affirmed: Set<string>; known: Set<string> };
+/** Per-property attested-claim state: which amenity tokens are affirmed, which are explicitly negated, and which are known (affirmed or negated). */
+type PropertyClaims = { affirmed: Set<string>; negated: Set<string>; known: Set<string> };
+
+/**
+ * Guest-safety policy questions ("can I bring a cat?", "is smoking allowed?")
+ * need the host's explicit NO, not just the absence of a yes — an agent that
+ * only sees `allows_pets` will tell a cat owner "probably fine" when the host
+ * has said no. These claim keys are emitted under `signals.policies_negated`
+ * when the ledger marks them negated. Deliberately a small whitelist: matching
+ * stays affirmed-only (CEO decision, one-truth program); negations are for
+ * answering policy questions, not for filtering.
+ */
+const POLICY_NEGATION_CLAIM_KEYS = [
+  "pets_dogs",
+  "pets_cats",
+  "smoking_indoor",
+  "smoking_outdoor",
+] as const;
 
 /**
  * Resolve a single discovery signal to on/off. For the `amenities` group the
@@ -206,6 +222,13 @@ export function buildPropertySignals(
     }
     if (on.length > 0) out[group] = on;
   }
+  if (claims) {
+    // Explicit host NOs on policy questions. Sourced from the claims ledger
+    // only — the boolean columns default to false and cannot distinguish
+    // "host said no" from "never asked".
+    const negated = POLICY_NEGATION_CLAIM_KEYS.filter((k) => claims.negated.has(k));
+    if (negated.length > 0) out.policies_negated = negated;
+  }
   for (const [col, label] of Object.entries(SIGNAL_ARRAY_FIELDS)) {
     const v = row[col];
     if (Array.isArray(v)) {
@@ -241,11 +264,12 @@ async function fetchPropertyClaims(
     if (!pid || !key) continue;
     let entry = byId.get(pid);
     if (!entry) {
-      entry = { affirmed: new Set<string>(), known: new Set<string>() };
+      entry = { affirmed: new Set<string>(), negated: new Set<string>(), known: new Set<string>() };
       byId.set(pid, entry);
     }
     entry.known.add(key);
     if (r.state === "affirmed") entry.affirmed.add(key);
+    if (r.state === "negated") entry.negated.add(key);
   }
   return byId;
 }
@@ -885,7 +909,7 @@ export async function executeTool(
                 : matchedProperties.length > 0
                   ? "Matching properties were found, but the requested dates and nearby same-month alternatives are unavailable. Ask whether the guest can change month or guest count."
                   : "No published property matched the location and capacity. Ask for a broader destination or fewer guests.",
-            signalsGuidance: "Each property's `signals` are host-declared, language-independent discovery flags (amenities / policies / suitability / setting, plus bestForOccasions / targetAudience) for matching requests like dog-friendly, hot tub, crib, or hen party. They are canonical keys — ALWAYS render them as translated human labels in the user's language and NEVER show the raw keys, parenthesized identifiers, or internal field names to the user. Treat them as match signals, not verified guarantees: the signed verified-stay-offer and the property's own page are authoritative. Absence of a flag means 'not detected', not 'no'. Never describe internal data-layer differences (e.g. signals vs the signed offer's amenity list) to the guest — if a detail matters, verify it on the property page instead of narrating the discrepancy.",
+            signalsGuidance: "Each property's `signals` are host-declared, language-independent discovery flags (amenities / policies / suitability / setting, plus bestForOccasions / targetAudience) for matching requests like dog-friendly, hot tub, crib, or hen party. They are canonical keys — ALWAYS render them as translated human labels in the user's language and NEVER show the raw keys, parenthesized identifiers, or internal field names to the user. `policies_negated` lists the host's EXPLICIT NOs (e.g. pets_cats there means cats are not allowed) — relay those as a clear, friendly no. For anything absent from both lists the answer is UNKNOWN, not 'no': say something like 'There is no verified information about that — if it matters to you, ask the host before booking', never machine-speak like 'not flagged in the data'. Treat flags as match signals, not verified guarantees: the signed verified-stay-offer and the property's own page are authoritative. Never describe internal data-layer differences (e.g. signals vs the signed offer's amenity list) to the guest. Tone: warm and plain — say the stay 'matches your wishes', never call it a 'perfect match', and never mention commissions, fee percentages, or 'no hidden fees'; simply say booking and payment are made directly with the host.",
           }, null, 2),
         }],
       };

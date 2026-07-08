@@ -76,7 +76,7 @@ describe("amenitiesFromDiscovery — the widget/offer amenity list", () => {
 });
 
 describe("buildPropertySignals — canonical tokens, not DB column names", () => {
-  const noClaims = { affirmed: new Set<string>(), known: new Set<string>() };
+  const noClaims = { affirmed: new Set<string>(), negated: new Set<string>(), known: new Set<string>() };
 
   it("REGRESSION: amenity signals emit claim tokens (hot_tub), never column names (has_hot_tub)", () => {
     const signals = buildPropertySignals(
@@ -92,7 +92,7 @@ describe("buildPropertySignals — canonical tokens, not DB column names", () =>
   it("claims-ledger still wins over the stale boolean column (unchanged behaviour)", () => {
     const signals = buildPropertySignals(
       { has_hot_tub: false },
-      { affirmed: new Set(["hot_tub"]), known: new Set(["hot_tub"]) },
+      { affirmed: new Set(["hot_tub"]), negated: new Set<string>(), known: new Set(["hot_tub"]) },
     );
     assert.ok(signals);
     assert.deepEqual(signals.amenities, ["hot_tub"]);
@@ -111,6 +111,52 @@ describe("buildPropertySignals — canonical tokens, not DB column names", () =>
     const signals = buildPropertySignals({ smoking_allowed: true }, noClaims);
     assert.ok(signals);
     assert.deepEqual(signals.policies, ["smoking_allowed"]);
+  });
+});
+
+describe("buildPropertySignals — explicit host NOs (LS-1)", () => {
+  it("REGRESSION: cat owner asks, host said no — pets_cats negated must reach the agent", () => {
+    // The villa incident 2026-07-08: allows_pets=true + allows_dogs=true made
+    // the agent tell a cat owner 'probably fine' while the ledger said no.
+    const signals = buildPropertySignals(
+      { allows_pets: true, allows_dogs: true },
+      {
+        affirmed: new Set(["pets_dogs"]),
+        negated: new Set(["pets_cats"]),
+        known: new Set(["pets_dogs", "pets_cats"]),
+      },
+    );
+    assert.ok(signals);
+    assert.deepEqual(signals.policies_negated, ["pets_cats"]);
+    assert.deepEqual(signals.policies.sort(), ["allows_dogs", "allows_pets"]);
+  });
+
+  it("non-policy negations (piano) do NOT leak into policies_negated", () => {
+    const signals = buildPropertySignals(
+      { allows_pets: true },
+      {
+        affirmed: new Set<string>(),
+        negated: new Set(["piano", "arcade", "smoking_indoor"]),
+        known: new Set(["piano", "arcade", "smoking_indoor"]),
+      },
+    );
+    assert.ok(signals);
+    assert.deepEqual(signals.policies_negated, ["smoking_indoor"]);
+  });
+
+  it("no negated policy claims → no policies_negated key (compact signals)", () => {
+    const signals = buildPropertySignals(
+      { allows_pets: true },
+      { affirmed: new Set<string>(), negated: new Set<string>(), known: new Set<string>() },
+    );
+    assert.ok(signals);
+    assert.equal("policies_negated" in signals, false);
+  });
+
+  it("no claims at all (un-migrated node) → signals unchanged, no crash", () => {
+    const signals = buildPropertySignals({ allows_pets: true }, undefined);
+    assert.ok(signals);
+    assert.equal("policies_negated" in signals, false);
   });
 });
 
