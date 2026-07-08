@@ -73,7 +73,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     background: var(--navy-3);
     cursor: pointer;
   }
-  .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo img { width: 100%; height: 100%; object-fit: cover; display: block; transition: opacity 0.45s ease; }
   .paper {
     flex: 1;
     min-width: 0;
@@ -160,11 +160,13 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
   .unfold {
     max-height: 0;
     overflow: hidden;
+    -webkit-overflow-scrolling: touch;
     transition: max-height 0.55s ease;
     border-left: 1px solid var(--gold);
     border-right: 1px solid var(--gold);
     background: #0C1830;
   }
+  .unfold.open { overflow-y: auto; }
   .unfold-in { padding: 13px 16px; display: flex; flex-direction: column; gap: 10px; }
   .gal { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
   .gthumb {
@@ -177,6 +179,13 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
   }
   .chips2 { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--gold-soft); }
   .fact2 { font-size: 11.5px; color: #7C8CA3; }
+  .lpitch {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--gold-soft);
+  }
   .lip {
     position: relative;
     height: 46px;
@@ -208,6 +217,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     cursor: pointer;
   }
   .hbcoin {
+    display: block;
     position: absolute;
     right: 26px;
     bottom: 20px;
@@ -261,7 +271,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
   @keyframes hbspin { to { transform: rotateY(360deg); } }
   @media (prefers-reduced-motion: reduce) { .hbcoin-in { animation: none; } }
   .full-hero { position: relative; height: 230px; border-radius: 8px 8px 0 0; overflow: hidden; border: 1px solid var(--gold); border-bottom: none; background: var(--navy-3); }
-  .full-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .full-hero img { width: 100%; height: 100%; object-fit: cover; display: block; transition: opacity 0.45s ease; }
   @media (max-width: 560px) {
     .stage { padding: 14px 14px 12px; }
     .letter { flex-direction: column; min-height: 0; }
@@ -532,9 +542,8 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     var imageList = [];
     for (var i = 0; i < images.length; i += 1) {
       collectImagesFrom(images[i], imageList);
-      var image = firstImageFrom(images[i]);
-      if (image) break;
     }
+    imageList = imageList.slice(0, 8);
     if (!imageList.length && domain === "villaakerlyckan.se") imageList.push(VILLA_IMAGE);
     var alternatives = asArray(data.alternativeDates);
     if (!alternatives.length) alternatives = asArray(listing.alternativeDates);
@@ -558,7 +567,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       available: available !== false,
       directUrl: directUrl,
       logo: property.logo_url || property.logo || listing.logo_url || (summary.property && summary.property.logo_url) || "",
-      amenities: asArray(property.amenities).filter(function (a) { return typeof a === "string" && a && a.indexOf("_") === -1; }).slice(0, 4),
+      amenities: asArray(property.amenities).filter(function (a) { return typeof a === "string" && !!a; }).map(function (a) { return String(a).indexOf("_") === -1 ? a : a.split("_").join(" ").replace(/^./, function (c) { return c.toUpperCase(); }); }).slice(0, 4),
       image: imageList[0] || "",
       images: imageList,
       alternatives: alternatives,
@@ -582,15 +591,15 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     }, "*");
   }
 
-  function openExternal(href) {
-    if (!href) return;
+  function tryHostOpen(href) {
+    if (!href) return false;
     try {
       if (window.openai && typeof window.openai.openExternal === "function") {
         window.openai.openExternal({ href: href, redirectUrl: false });
-        return;
+        return true;
       }
     } catch (e) {}
-    window.open(href, "_blank", "noopener,noreferrer");
+    return false;
   }
 
   function setLoading(message) {
@@ -679,6 +688,50 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     if (hbLastData) render(hbLastData);
   }
 
+  // CEO-LOCKED guest source-boundary copy — mirror of lib/vrp-trust-copy.ts
+  // (SoT: hemmabo-smart-stays docs/CANONICAL_TRUST_LAYER_COPY.md \u00a74b).
+  // Rendered verbatim in the guest's language; en is the explicit fallback.
+  var GUEST_COPY = {
+    sv: "V\u00e4lkommen till {nameGenitive} egen officiella bokningssida. H\u00e4r bokar du direkt hos v\u00e4rden \u2013 utan mellanh\u00e4nder. Priset du ser kommer direkt fr\u00e5n v\u00e4rden och betalningen g\u00e5r direkt till v\u00e4rden. All information p\u00e5 denna sida kan verifieras \u2013 \u00e4ven av AI-assistenter.",
+    en: "Welcome to {nameGenitive} own official booking page. Here you book directly with the host \u2013 no middlemen. The price you see comes directly from the host and your payment goes directly to the host. Everything on this page can be verified \u2013 including by AI assistants.",
+    de: "Willkommen auf der eigenen offiziellen Buchungsseite von {name}. Hier buchen Sie direkt beim Gastgeber \u2013 ohne Zwischenh\u00e4ndler. Der Preis, den Sie sehen, kommt direkt vom Gastgeber und Ihre Zahlung geht direkt an den Gastgeber. Alles auf dieser Seite kann \u00fcberpr\u00fcft werden \u2013 auch von KI-Assistenten.",
+    fr: "Bienvenue sur la page de r\u00e9servation officielle de {name}. Ici, vous r\u00e9servez directement aupr\u00e8s de l'h\u00f4te \u2013 sans interm\u00e9diaires. Le prix affich\u00e9 vient directement de l'h\u00f4te et votre paiement va directement \u00e0 l'h\u00f4te. Tout sur cette page peut \u00eatre v\u00e9rifi\u00e9 \u2013 y compris par des assistants IA.",
+    da: "Velkommen til {nameGenitive} egen officielle bookingside. Her booker du direkte hos v\u00e6rten \u2013 uden mellemled. Prisen, du ser, kommer direkte fra v\u00e6rten, og din betaling g\u00e5r direkte til v\u00e6rten. Alt p\u00e5 denne side kan verificeres \u2013 ogs\u00e5 af AI-assistenter.",
+    no: "Velkommen til {nameGenitive} egen offisielle bookingside. Her booker du direkte hos verten \u2013 uten mellomledd. Prisen du ser, kommer direkte fra verten, og betalingen g\u00e5r direkte til verten. Alt p\u00e5 denne siden kan verifiseres \u2013 ogs\u00e5 av AI-assistenter.",
+    fi: "Tervetuloa kohteen {name} omalle viralliselle varaussivulle. T\u00e4\u00e4ll\u00e4 varaat suoraan is\u00e4nn\u00e4lt\u00e4 \u2013 ilman v\u00e4lik\u00e4si\u00e4. N\u00e4kem\u00e4si hinta tulee suoraan is\u00e4nn\u00e4lt\u00e4 ja maksusi menee suoraan is\u00e4nn\u00e4lle. Kaikki t\u00e4ll\u00e4 sivulla voidaan todentaa \u2013 my\u00f6s teko\u00e4lyavustajien toimesta.",
+    nl: "Welkom op de eigen offici\u00eble boekingspagina van {name}. Hier boek je rechtstreeks bij de gastheer \u2013 zonder tussenpersonen. De prijs die je ziet komt rechtstreeks van de gastheer en je betaling gaat rechtstreeks naar de gastheer. Alles op deze pagina kan worden geverifieerd \u2013 ook door AI-assistenten.",
+    es: "Bienvenido a la p\u00e1gina de reservas oficial de {name}. Aqu\u00ed reservas directamente con el anfitri\u00f3n \u2013 sin intermediarios. El precio que ves viene directamente del anfitri\u00f3n y tu pago va directamente al anfitri\u00f3n. Todo en esta p\u00e1gina puede verificarse \u2013 tambi\u00e9n por asistentes de IA.",
+    it: "Benvenuto nella pagina di prenotazione ufficiale di {name}. Qui prenoti direttamente con l'host \u2013 senza intermediari. Il prezzo che vedi arriva direttamente dall'host e il tuo pagamento va direttamente all'host. Tutto su questa pagina pu\u00f2 essere verificato \u2013 anche dagli assistenti IA.",
+    pl: "Witamy na oficjalnej stronie rezerwacji obiektu {name}. Tutaj rezerwujesz bezpo\u015brednio u gospodarza \u2013 bez po\u015bredni\u00f3w. Cena, kt\u00f3r\u0105 widzisz, pochodzi bezpo\u015brednio od gospodarza, a p\u0142atno\u015b\u0107 trafia bezpo\u015brednio do gospodarza. Wszystko na tej stronie mo\u017cna zweryfikowa\u0107 \u2013 tak\u017ce przez asystent\u00f3w AI.",
+    ar: "\u0645\u0631\u062d\u0628\u064b\u0627 \u0628\u0643 \u0641\u064a \u0635\u0641\u062d\u0629 \u0627\u0644\u062d\u062c\u0632 \u0627\u0644\u0631\u0633\u0645\u064a\u0629 \u0627\u0644\u062e\u0627\u0635\u0629 \u0628\u0640{name}. \u0647\u0646\u0627 \u062a\u062d\u062c\u0632 \u0645\u0628\u0627\u0634\u0631\u0629 \u0644\u062f\u0649 \u0627\u0644\u0645\u0636\u064a\u0641 \u2013 \u062f\u0648\u0646 \u0648\u0633\u0637\u0627\u0621. \u0627\u0644\u0633\u0639\u0631 \u0627\u0644\u0630\u064a \u062a\u0631\u0627\u0647 \u064a\u0623\u062a\u064a \u0645\u0628\u0627\u0634\u0631\u0629 \u0645\u0646 \u0627\u0644\u0645\u0636\u064a\u0641\u060c \u0648\u062f\u0641\u0639\u062a\u0643 \u062a\u0630\u0647\u0628 \u0645\u0628\u0627\u0634\u0631\u0629 \u0625\u0644\u0649 \u0627\u0644\u0645\u0636\u064a\u0641. \u0643\u0644 \u0645\u0627 \u0641\u064a \u0647\u0630\u0647 \u0627\u0644\u0635\u0641\u062d\u0629 \u0642\u0627\u0628\u0644 \u0644\u0644\u062a\u062d\u0642\u0642 \u2013 \u062d\u062a\u0649 \u0645\u0646 \u0642\u0650\u0628\u0644 \u0645\u0633\u0627\u0639\u062f\u064a \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064a.",
+  };
+
+  function svGen(name) {
+    var trimmed = String(name || "").trim();
+    return /[sxz]$/i.test(trimmed) ? trimmed : trimmed + "s";
+  }
+
+  function enGen(name) {
+    var trimmed = String(name || "").trim();
+    return /s$/i.test(trimmed) ? trimmed + "'" : trimmed + "'s";
+  }
+
+  function guestCopyLocale() {
+    var lang = "";
+    try { lang = (navigator.language || "").toLowerCase().split("-")[0]; } catch (e) {}
+    return GUEST_COPY[lang] ? lang : "en";
+  }
+
+  function guestWelcome(name) {
+    var trimmed = String(name || "").trim();
+    if (!trimmed) return "";
+    var loc = guestCopyLocale();
+    var interp = trimmed;
+    if (loc === "sv" || loc === "da" || loc === "no") interp = svGen(trimmed);
+    else if (loc === "en") interp = enGen(trimmed);
+    return GUEST_COPY[loc].replace("{nameGenitive}", interp).replace("{name}", interp);
+  }
+
   function widgetStrings() {
     var sv = false;
     try {
@@ -711,6 +764,27 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
   }
 
   var hbUnfolded = false;
+  var hbCarouselTimer = null;
+  var hbCarouselIdx = 0;
+
+  function startCarousel(heroMain, list) {
+    if (hbCarouselTimer) { clearInterval(hbCarouselTimer); hbCarouselTimer = null; }
+    if (!heroMain || !list || list.length < 2) return;
+    try {
+      if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    } catch (e) {}
+    hbCarouselTimer = setInterval(function () {
+      if (!heroMain.isConnected) { clearInterval(hbCarouselTimer); hbCarouselTimer = null; return; }
+      hbCarouselIdx = (hbCarouselIdx + 1) % list.length;
+      var next = list[hbCarouselIdx];
+      heroMain.style.opacity = "0";
+      setTimeout(function () {
+        heroMain.style.display = "";
+        heroMain.src = next;
+        heroMain.style.opacity = "1";
+      }, 240);
+    }, 5000);
+  }
 
   function render(data) {
     var root = document.getElementById("root");
@@ -766,12 +840,14 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     if (offer.maxGuests) factBits.push(T.upTo + " " + offer.maxGuests + " " + T.guests);
     if (offer.propertyType) factBits.push(offer.propertyType);
     var factsHtml = factBits.length ? '<div class="fact2">' + esc(factBits.join(" · ")) + '</div>' : "";
+    var pitch = guestWelcome(offer.name);
+    var pitchHtml = pitch ? '<div class="lpitch">' + esc(pitch) + '</div>' : "";
 
-    var sealHtml = '<div id="verifySeal" class="hbcoin" title="' + esc(offer.name) + '" role="button" tabindex="0" aria-label="Verified stay offer">' +
+    var sealHtml = '<a id="verifySeal" class="hbcoin" title="' + esc(offer.name) + '" href="' + esc(verifyUrl) + '" target="_blank" rel="noopener noreferrer" aria-label="Verified stay offer">' +
       '<div class="hbcoin-in">' +
         '<div class="hbf"><span>VRP</span></div>' +
         '<div class="hbb" aria-hidden="true"><span>Ed25519</span></div>' +
-      '</div></div>';
+      '</div></a>';
 
     var letterInner =
       '<div class="photo" id="photoBox">' + photoHtml + '</div>' +
@@ -790,7 +866,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
 
     var unfoldHtml =
       '<div class="unfold" id="unfoldBox">' +
-        '<div class="unfold-in">' + galHtml + chipsHtml + factsHtml + '</div>' +
+        '<div class="unfold-in">' + pitchHtml + galHtml + chipsHtml + factsHtml + '</div>' +
       '</div>';
 
     var lipHtml =
@@ -820,8 +896,8 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
               '</div>' +
             '</div>' +
           '</div>' +
-          '<div class="unfold" id="unfoldBox" style="max-height:none;">' +
-            '<div class="unfold-in">' + galHtml + chipsHtml + factsHtml + '</div>' +
+          '<div class="unfold open" id="unfoldBox" style="max-height:none;">' +
+            '<div class="unfold-in">' + pitchHtml + galHtml + chipsHtml + factsHtml + '</div>' +
           '</div>' +
           lipHtml + sealHtml +
         '</div>';
@@ -839,25 +915,28 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     var bookLink = document.getElementById("bookLink");
     if (bookLink) {
       bookLink.addEventListener("click", function (e) {
-        e.preventDefault();
-        openExternal(bookUrl);
+        if (tryHostOpen(bookUrl)) e.preventDefault();
       });
     }
     var verifySeal = document.getElementById("verifySeal");
     if (verifySeal) {
-      verifySeal.addEventListener("click", function () { openExternal(verifyUrl); });
+      verifySeal.addEventListener("click", function (e) {
+        if (tryHostOpen(verifyUrl)) e.preventDefault();
+      });
     }
     var unfoldBtn = document.getElementById("unfoldBtn");
     var unfoldBox = document.getElementById("unfoldBox");
     if (unfoldBtn && unfoldBox && !isFull) {
       if (hbUnfolded) {
-        unfoldBox.style.maxHeight = "320px";
+        unfoldBox.style.maxHeight = "420px";
+        unfoldBox.classList.add("open");
         unfoldBtn.textContent = T.less;
         unfoldBtn.setAttribute("aria-expanded", "true");
       }
       unfoldBtn.addEventListener("click", function () {
         hbUnfolded = !hbUnfolded;
-        unfoldBox.style.maxHeight = hbUnfolded ? "320px" : "0";
+        unfoldBox.style.maxHeight = hbUnfolded ? "420px" : "0";
+        unfoldBox.classList.toggle("open", hbUnfolded);
         unfoldBtn.textContent = hbUnfolded ? T.less : T.more;
         unfoldBtn.setAttribute("aria-expanded", hbUnfolded ? "true" : "false");
       });
@@ -881,8 +960,17 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     if (heroMain) {
       heroMain.addEventListener("error", function () { heroMain.style.display = "none"; }, { once: true });
     }
+    hbCarouselIdx = 0;
+    startCarousel(heroMain, heroList);
     root.querySelectorAll(".gthumb").forEach(function (t) {
-      t.addEventListener("click", function () { if (heroMain) heroMain.src = t.src; });
+      t.addEventListener("click", function () {
+        if (!heroMain) return;
+        heroMain.style.display = "";
+        heroMain.src = t.src;
+        var at = heroList.indexOf(t.getAttribute("src"));
+        if (at >= 0) hbCarouselIdx = at;
+        startCarousel(heroMain, heroList);
+      });
       t.addEventListener("error", function () { t.style.display = "none"; }, { once: true });
     });
   }
