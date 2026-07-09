@@ -235,6 +235,12 @@ describe("VRP MCP tools", () => {
         direct_booking_url: "https://villaakerlyckan.se/book?offer=vrp-test",
         offer_id: "vrp-test",
       },
+      rules: {
+        pets: "allowed",
+        // Signed cancellation terms (vrp-spec §5.3) — inside the SAME JWS
+        // as the price; the summary must relay them verbatim.
+        refund_schedule: [{ hours_before_checkin: 24, refund_percent: 100 }],
+      },
       agent_permission: {
         may_quote_as_official_direct_offer: true,
       },
@@ -407,6 +413,17 @@ describe("VRP MCP tools", () => {
     assert.equal(stay.late_checkout_available, false);
     assert.match(parsed.agent_guardrails.stay_details_rule, /mattress_firmness/);
     assert.match(parsed.agent_guardrails.stay_details_rule, /UNKNOWN/);
+
+    // LS-6: the signed refund schedule rides the summary VERBATIM, with the
+    // §5.4 class map marking it verifiable (read from the signed payload).
+    assert.deepEqual(parsed.official_offer_summary.refund_schedule, [
+      { hours_before_checkin: 24, refund_percent: 100 },
+    ]);
+    assert.match(parsed.agent_guardrails.refund_schedule_rule, /VERBATIM from the SIGNED offer payload/);
+    assert.match(parsed.agent_guardrails.refund_schedule_rule, /NEVER re-label/);
+    assert.match(parsed.agent_guardrails.verifiability_classes_rule, /WHERE it was read/);
+    assert.ok(parsed.agent_guardrails.verifiability.verifiable.includes("refund_schedule"));
+    assert.ok(parsed.agent_guardrails.verifiability.attested.includes("policy_claims"));
 
     // Backward compatibility: legacy snake_case input (check_in/check_out)
     // is still accepted and resolves to the same verified offer. The wire

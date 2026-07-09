@@ -498,6 +498,28 @@ function policyClaimsFromDiscovery(discovery: JsonRecord): JsonRecord | null {
 }
 
 /**
+ * Extract rules.refund_schedule from the VERIFIED offer payload — the
+ * signed source, never the discovery document (vrp-spec §5.4: the class of
+ * a value follows WHERE it was read; only the signed payload is
+ * "verifiable"). Rows are passed through verbatim after a defensive shape
+ * check; anything malformed degrades to null (unknown), never to a guess.
+ */
+function refundScheduleFromOffer(offer: JsonRecord): unknown {
+  const rules = asRecord(offer.rules);
+  const schedule = rules?.refund_schedule;
+  if (schedule === null || schedule === undefined) return null;
+  if (!Array.isArray(schedule)) return null;
+  for (const item of schedule) {
+    const row = asRecord(item);
+    if (!row) return null;
+    if (typeof row.hours_before_checkin !== "number" || typeof row.refund_percent !== "number") {
+      return null;
+    }
+  }
+  return schedule;
+}
+
+/**
  * LS-2/3/6: bed configuration, comfort claims, and stay times from the node's
  * own discovery document — the long-tail answers guests actually ask about
  * ("are the beds firm?", "blackout curtains?", "when is check-in?"). All read
@@ -638,6 +660,12 @@ function buildAgentQuoteView(
       source_authority: sourceAuthoritySummary(offer),
       policy_claims: policyClaimsFromDiscovery(discovery),
       stay_details: stayDetailsFromDiscovery(discovery),
+      // LS-5/6: the computable cancellation terms, relayed VERBATIM from the
+      // SIGNED offer payload (vrp-spec §5.3) — NOT from the discovery doc.
+      // Same Ed25519 signature and transparency-log leaf as the price:
+      // class "verifiable" per §5.4. null = the node has not published
+      // computable terms (unknown — never invent a refund promise).
+      refund_schedule: refundScheduleFromOffer(offer),
     },
     widget_media: {
       source: "vacation-rental.json",
@@ -663,6 +691,12 @@ function buildAgentQuoteView(
       direct_source_rule: "official_offer_summary.source_authority and price.no_add_on_fees are signed facts inside the verified offer (host-verified direct source, payment goes to the host). Cite them only when the guest asks how booking or pricing works, phrased plainly ('the price comes directly from the host') — never as an OTA comparison, discount, or savings, and never as fee rhetoric.",
       tone_rule: "Introduce the stay warmly and in plain language — e.g. 'I found a villa that matches your wishes.' Never 'perfect match', never superlative promises. For a detail with no verified answer, say: 'There is no verified information about that — if it matters to you, ask the host before booking.' Keep prose short when the stay-offer widget is visible; it already shows price, dates, and amenities.",
       policy_claims_rule: "official_offer_summary.policy_claims are the host's explicit yes/no answers from the node's own claims ledger (e.g. pets_dogs affirmed + pets_cats negated = dogs are welcome, cats are not allowed). Relay negated claims as a clear, friendly no. A key absent from both lists is UNKNOWN — say there is no verified information and suggest asking the host before booking.",
+      refund_schedule_rule: "official_offer_summary.refund_schedule is relayed VERBATIM from the SIGNED offer payload (vrp-spec §5.3) — the same Ed25519 signature and transparency-log entry as the price, so the guest's agent can prove these were the cancellation terms at quote time. Each row means: cancelling at least hours_before_checkin whole hours before the check-in moment returns refund_percent of the paid total; rows sort descending, the first matching row applies, no matching row (including after check-in) means 0%. Relay the rows as hours/percent to the guest — NEVER re-label them into named tiers ('flexible', 'moderate', …). null = the node has not published computable terms: say there is no verified cancellation information and suggest asking the host — never invent a refund promise.",
+      verifiability_classes_rule: "Per vrp-spec §5.4 the class of a fact follows WHERE it was read, never how it is phrased. In this response: price, availability, valid_until, source_authority and refund_schedule come from the verified SIGNED offer payload = class 'verifiable' (provable after the fact). policy_claims, stay_details and the property amenity list come from the node's discovery claims = class 'attested' (the host's explicit statement, not purchase-bound). Review data, when present, is 'reputational'. NEVER present a lower class with higher-class language — an attested amenity is not 'verified', and 'verified'-sounding wording on unsigned data is a class violation.",
+      verifiability: {
+        verifiable: ["price", "availability", "valid_until", "source_authority", "refund_schedule"],
+        attested: ["policy_claims", "stay_details", "property.amenities"],
+      },
       stay_details_rule: "official_offer_summary.stay_details carries the node's own long-tail answers: bed_configuration lists each bedroom with bed type and mattress_firmness (so 'are the beds firm?' gets a precise, warm answer per room — e.g. 'Sovrum 3 Loft has a firm mattress; the other rooms are medium and soft'); comfort_claims follows the same yes/no/unknown semantics as policy_claims (e.g. blackout_curtains affirmed = yes); check_in_time / check_out_time are the host's stated times; early_checkin_available / late_checkout_available say whether the host offers flexible times — mention them only when the guest asks, and phrase a false plainly and kindly ('the host does not offer early check-in'). Anything missing from stay_details is UNKNOWN — never guess.",
       verified_source_line: {
         rule: "After quoting the price, relay this line in the guest's language. sv/en are pinned copy — relay VERBATIM; for other locales translate the meaning faithfully.",
