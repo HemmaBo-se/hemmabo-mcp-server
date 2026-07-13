@@ -127,7 +127,7 @@ policy blocks fetching pulsemcp.com / mcp.so / hemmabo.com directly (proxy
 | PulseMCP | Mirrors official registry (2026-05-19 audit) | Verify it picked up 3.2.16; only if not mirrored after ~a week, submit the canonical record manually. **No duplicate listing.** |
 | MCP.so | ⚠️ Stale (old tool names, old repo ref) per 2026-05-19 audit | Send the support/update text from `2026-05-19-pulse-mcpso-registry-audit.md` (update its version refs to 3.2.16 / 15 runtime tools first). **No duplicate listing.** |
 | mcpservers.org | Not listed (unverified from sandbox) | Submit canonical record (copy blocks above). |
-| Docker MCP Registry | 🟡 **Staged** — entry in fork PR [HemmaBo-se/mcp-registry#3](https://github.com/HemmaBo-se/mcp-registry/pull/3), validated with `cmd/catalog` | CEO opens the upstream PR from that branch to `docker/mcp-registry`. |
+| Docker MCP Registry | 🟡 **Staged twice** — fork PR [#2](https://github.com/HemmaBo-se/mcp-registry/pull/2) (Cursor, 2026-06-26, `server.yaml` only) and fork PR [#3](https://github.com/HemmaBo-se/mcp-registry/pull/3) (2026-07-13, full three-file set per CONTRIBUTING, `cmd/validate` green except an icon-fetch warning that is inconclusive from the sandbox). **Not published**: `hub.docker.com/mcp/server/hemmabo` returns 404 (verified 2026-07-13). | CEO picks ONE branch, closes the other PR, syncs the fork with upstream (fork content is from 2026-04-12) and re-runs `cmd/validate`, then opens the upstream PR to `docker/mcp-registry`. Never merge a fork-internal staging PR into the fork's `main`. |
 | ChatGPT Apps | Kit ready in `submission/` | CEO submits form when ready. |
 
 ### AI-tool directories (Tier 1 — manual form, use short description)
