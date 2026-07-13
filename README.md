@@ -165,6 +165,10 @@ npm run build
 npm test
 ```
 
+## Security
+
+To report a security vulnerability, email **info@hemmabo.se** (subject starting with `SECURITY:`) — please do not open a public issue. See [SECURITY.md](SECURITY.md) for the responsible-disclosure policy.
+
 ## License
 
 Apache-2.0 - see [LICENSE](LICENSE) and [NOTICE](NOTICE).
