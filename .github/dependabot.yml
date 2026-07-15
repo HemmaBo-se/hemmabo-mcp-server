@@ -16,6 +16,14 @@ updates:
       # until we either upgrade to Node 22 or wire `ws` into createClient.
       - dependency-name: "@supabase/supabase-js"
         versions: [">=2.105.2"]
+      # typescript 7.x is the native Go port and no longer exposes the JS
+      # compiler API that Vercel's build introspects: the build dies at
+      # "Cannot read properties of undefined (reading 'readFile')" seconds
+      # after "Using TypeScript 7.0.2 (local user-provided)". GitHub CI passes
+      # (it runs plain `tsc`) — this is Vercel-side only. See PR #260.
+      # Drop this ignore once Vercel supports TypeScript 7.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
