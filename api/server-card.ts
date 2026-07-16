@@ -40,11 +40,11 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
         },
         language: {
           type: "string",
-          description: "Preferred response language (ISO 639-1 code, e.g. 'en', 'sv', 'de', 'it', 'fr', 'es'). Defaults to English.",
+          description: "Preferred response language (ISO 639-1, e.g. 'en', 'sv', 'de'). Defaults to English.",
         },
         currency: {
           type: "string",
-          description: "Preferred display currency (ISO 4217, e.g. 'EUR', 'SEK', 'USD'). Defaults to the property's native currency.",
+          description: "Preferred display currency (ISO 4217, e.g. 'EUR', 'SEK'). Defaults to the property's currency.",
         },
       },
       required: [],
