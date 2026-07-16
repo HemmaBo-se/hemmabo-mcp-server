@@ -54,7 +54,7 @@ export const CONFIG_SCHEMA = {
   properties: {
     propertyDomain: {
       type: "string",
-      description: "Your vacation rental domain (e.g. 'villaakerlyckan.se'). Optional — used when connecting to a specific host node.",
+      description: "Vacation rental domain (e.g. 'villaakerlyckan.se'). Optional — connect to a specific host node.",
     },
     region: {
       type: "string",
@@ -62,11 +62,11 @@ export const CONFIG_SCHEMA = {
     },
     currency: {
       type: "string",
-      description: "Preferred display currency (ISO 4217, e.g. 'EUR', 'SEK', 'USD'). Defaults to the property's native currency.",
+      description: "Preferred display currency (ISO 4217, e.g. 'EUR', 'SEK'). Defaults to the property's currency.",
     },
     language: {
       type: "string",
-      description: "Preferred response language (ISO 639-1 code, e.g. 'en', 'sv', 'de', 'it', 'fr', 'es'). Defaults to English.",
+      description: "Preferred response language (ISO 639-1, e.g. 'en', 'sv', 'de'). Defaults to English.",
     },
   },
   additionalProperties: false,
