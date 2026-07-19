@@ -71,4 +71,22 @@ jobs:
       - name: Publish server.json to the MCP Registry
         if: steps.auth.outputs.ready == 'true'
         run: |
-          "$MCP_PUBLISHER" publish
+          # Idempotent publish: the registry rejects re-publishing an existing
+          # version with "cannot publish duplicate version". That happens
+          # whenever a manual dispatch already published the version a release
+          # later fires for (seen 2026-06-28, v3.2.16) — the registry is
+          # already correct, so a red run would only teach people to ignore
+          # red runs. Treat exactly that error as success (with a notice);
+          # every other failure stays red.
+          set +e
+          out=$("$MCP_PUBLISHER" publish 2>&1)
+          status=$?
+          set -e
+          echo "$out"
+          if [ "$status" -ne 0 ]; then
+            if echo "$out" | grep -q "cannot publish duplicate version"; then
+              echo "::notice::Version already published in the MCP Registry — registry is current, nothing to do."
+              exit 0
+            fi
+            exit "$status"
+          fi
