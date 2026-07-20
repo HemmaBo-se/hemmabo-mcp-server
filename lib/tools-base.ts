@@ -835,8 +835,8 @@ async function _runCheckout(
 
   // MPP enrichment: if payment_intent mode, retrieve client_secret.
   // SECURITY NOTE: client_secret and payment_intent_id are intentionally
-  // returned here — this is required by the Stripe Mobile Payment Protocol
-  // (MPP) so the agent/client SDK can confirm the payment directly without
+  // returned here — this is required by MPP (Machine Payments Protocol)
+  // so the agent/client SDK can confirm the payment directly without
   // a redirect. Do not remove these fields without a separate policy decision.
   if (effectivePaymentMode === "payment_intent" && session.payment_intent) {
     const pi = await retrievePaymentIntent(session.payment_intent);
@@ -847,7 +847,10 @@ async function _runCheckout(
       client_secret: pi.client_secret,
       amount: totalPrice,
       currency,
-      supported_payment_methods: ["card", "klarna", "swish", "link"],
+      // Agent-channel checkouts are card-only by policy (redirect methods
+      // require a human at a bank app) — see ADR 2026-07-05 (Swish retired).
+      // This declaration must state what the session actually accepts.
+      supported_payment_methods: ["card"],
       confirmation_url: session.url,
     };
   }
