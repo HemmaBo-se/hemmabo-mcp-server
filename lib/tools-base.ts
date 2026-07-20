@@ -1229,8 +1229,9 @@ export async function executeTool(
       let bookingCreateResult: ToolResult;
       try {
         // Re-check availability under lock to guard against concurrent requests
-        // that passed the first check before the lock was acquired.
-        const availUnderLock = await checkAvailability(supabase, propertyId, checkIn, checkOut);
+        // that passed the first check before the lock was acquired. The caller's
+        // own lock must be excluded or the re-check defeats itself.
+        const availUnderLock = await checkAvailability(supabase, propertyId, checkIn, checkOut, undefined, lockId);
         if (!availUnderLock.available) {
           bookingCreateResult = { content: [{ type: "text", text: JSON.stringify({ error: "Not available", ...availUnderLock }) }], isError: true };
         } else {
@@ -1404,8 +1405,9 @@ export async function executeTool(
       let checkoutResult: ToolResult;
       try {
         // Re-check availability under lock to guard against concurrent requests
-        // that passed the first check before the lock was acquired.
-        const availUnderLock = await checkAvailability(supabase, propertyId, checkIn, checkOut);
+        // that passed the first check before the lock was acquired. The caller's
+        // own lock must be excluded or the re-check defeats itself.
+        const availUnderLock = await checkAvailability(supabase, propertyId, checkIn, checkOut, undefined, lockId);
         if (!availUnderLock.available) {
           checkoutResult = { content: [{ type: "text", text: JSON.stringify({ error: "Not available", ...availUnderLock }) }], isError: true };
         } else {
