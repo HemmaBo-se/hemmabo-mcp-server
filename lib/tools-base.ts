@@ -615,9 +615,21 @@ function directBookingPriceFields(quote: {
 const LOCK_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 /**
+ * Postgres error codes that mean the slot is genuinely held by a live lock:
+ *   23P01 exclusion_violation — booking_locks_no_overlap (gist, property+daterange)
+ *   23505 unique_violation    — defensive, in case a unique slot index is added
+ * Any other code (23502 not-null, 23514 check, RLS denial, …) is an internal
+ * defect, NOT a date conflict, and must never be reported as "already locked".
+ */
+const LOCK_CONFLICT_CODES = new Set(["23P01", "23505"]);
+
+type LockAcquireResult = { lockId: string } | { lockError: "conflict" | "db_error" };
+
+/**
  * Attempts to acquire a booking lock for property+date-range.
  * First cleans up any expired locks for that property, then inserts a new one.
- * Returns the lock UUID on success, null if the slot is already locked.
+ * Returns { lockId } on success, { lockError: "conflict" } when another live
+ * lock holds the slot, and { lockError: "db_error" } on any other DB failure.
  *
  * Uses service-role client (writes to booking_locks are denied for anon).
  */
@@ -626,7 +638,7 @@ async function acquireBookingLock(
   propertyId: string,
   checkIn: string,
   checkOut: string
-): Promise<string | null> {
+): Promise<LockAcquireResult> {
   // 1. Clean up expired locks for this property (best-effort; failure is non-fatal)
   await supabase
     .from("booking_locks")
@@ -634,7 +646,9 @@ async function acquireBookingLock(
     .eq("property_id", propertyId)
     .lt("locked_until", new Date().toISOString());
 
-  // 2. Attempt to insert a new lock
+  // 2. Attempt to insert a new lock. booking_locks.source is NOT NULL with a
+  //    CHECK constraint ('hemmabo','ai_agent','guest','system'); this path is
+  //    always an agent flow, matching mcp-booking's acquireBookingLock call.
   const lockedUntil = new Date(Date.now() + LOCK_TTL_MS).toISOString();
   const { data, error } = await supabase
     .from("booking_locks")
@@ -643,12 +657,13 @@ async function acquireBookingLock(
       check_in: checkIn,
       check_out: checkOut,
       locked_until: lockedUntil,
+      source: "ai_agent",
     })
     .select("id")
     .single();
 
   if (error || !data) {
-    // Unique constraint violation or other DB error → slot already locked.
+    const errorCode = error?.code ?? "unknown";
     // Log without PII for spike / attack detection.
     console.warn(
       JSON.stringify({
@@ -656,13 +671,23 @@ async function acquireBookingLock(
         propertyId,
         checkIn,
         checkOut,
-        errorCode: error?.code ?? "unknown",
+        errorCode,
         ts: new Date().toISOString(),
       })
     );
-    return null;
+    return { lockError: LOCK_CONFLICT_CODES.has(errorCode) ? "conflict" : "db_error" };
   }
-  return data.id as string;
+  return { lockId: data.id as string };
+}
+
+const LOCK_CONFLICT_MESSAGE =
+  "Dates temporarily locked — another booking is in progress. Please try again shortly.";
+const LOCK_DB_ERROR_MESSAGE =
+  "Booking lock could not be acquired due to an internal error (not a date conflict). Please try again; if it persists, contact the host.";
+
+function lockErrorResult(lockError: "conflict" | "db_error"): ToolResult {
+  const message = lockError === "conflict" ? LOCK_CONFLICT_MESSAGE : LOCK_DB_ERROR_MESSAGE;
+  return { content: [{ type: "text", text: JSON.stringify({ error: message }) }], isError: true };
 }
 
 /**
@@ -1195,10 +1220,11 @@ export async function executeTool(
 
       // Acquire a short-term booking lock to close the TOCTOU window between
       // the availability check above and the insert below.
-      const lockId = await acquireBookingLock(supabase, propertyId, checkIn, checkOut);
-      if (!lockId) {
-        return { content: [{ type: "text", text: JSON.stringify({ error: "Dates temporarily locked — another booking is in progress. Please try again shortly." }) }], isError: true };
+      const lock = await acquireBookingLock(supabase, propertyId, checkIn, checkOut);
+      if ("lockError" in lock) {
+        return lockErrorResult(lock.lockError);
       }
+      const lockId = lock.lockId;
 
       let bookingCreateResult: ToolResult;
       try {
@@ -1369,10 +1395,11 @@ export async function executeTool(
 
       // Acquire a short-term booking lock to close the TOCTOU window between
       // the availability check above and the booking insert below.
-      const lockId = await acquireBookingLock(supabase, propertyId, checkIn, checkOut);
-      if (!lockId) {
-        return { content: [{ type: "text", text: JSON.stringify({ error: "Dates temporarily locked — another booking is in progress. Please try again shortly." }) }], isError: true };
+      const lock = await acquireBookingLock(supabase, propertyId, checkIn, checkOut);
+      if ("lockError" in lock) {
+        return lockErrorResult(lock.lockError);
       }
+      const lockId = lock.lockId;
 
       let checkoutResult: ToolResult;
       try {

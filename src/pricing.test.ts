@@ -341,7 +341,10 @@ describe("booking_locks — TOCTOU prevention", () => {
     let lockDeleteCount = 0;
     let bookingInsertCount = 0;
 
-    // The lock stub: first insert succeeds, second fails (simulates unique constraint)
+    // The lock stub: first insert succeeds, second fails with the real Postgres
+    // unique-violation code (23505) — a slot conflict, like production's
+    // booking_locks_no_overlap gist constraint (23P01). A code-less error would
+    // be classified as db_error, which is a different (schema-defect) path.
     const makeLockInsert = () => {
       lockInsertCount++;
       const succeed = lockInsertCount === 1;
@@ -350,7 +353,7 @@ describe("booking_locks — TOCTOU prevention", () => {
           single: () =>
             succeed
               ? Promise.resolve({ data: { id: "lock-uuid-1" }, error: null })
-              : Promise.resolve({ data: null, error: { message: "duplicate key" } }),
+              : Promise.resolve({ data: null, error: { code: "23505", message: "duplicate key" } }),
         }),
       };
     };
@@ -655,6 +658,130 @@ describe("booking_locks — TOCTOU prevention", () => {
       lockInsertCalls > lockInsertBeforeRetry,
       `Second attempt did not try to acquire a lock. lockInsertCalls=${lockInsertCalls}`
     );
+  });
+});
+
+// ── booking_locks schema contract (source column + error-code separation) ─────
+//
+// Production schema: booking_locks.source is NOT NULL with CHECK
+// ('hemmabo','ai_agent','guest','system'), and slot exclusivity is enforced by
+// the gist constraint booking_locks_no_overlap (error code 23P01). A lock
+// insert that omits `source` fails 23502 on EVERY call — and if that failure
+// is reported as "temporarily locked", the whole agent booking path is bricked
+// while looking like a busy calendar. These tests pin both halves of the fix.
+
+describe("acquireBookingLock — booking_locks schema contract", () => {
+  const LOCKED_MESSAGE =
+    "Dates temporarily locked — another booking is in progress. Please try again shortly.";
+
+  const makeLockStub = (opts: {
+    onLockInsert: (row: Record<string, unknown>) =>
+      { data: { id: string } | null; error: { code?: string; message: string } | null };
+  }) => {
+    const makeFrom = (table: string) => {
+      const q: any = {
+        select: () => q,
+        eq: () => q,
+        neq: () => q,
+        gte: () => q,
+        lte: () => q,
+        lt: () => q,
+        gt: () => q,
+        or: () => q,
+        delete: () => q,
+        limit: () => q,
+        order: () => q,
+        single: () => Promise.resolve({ data: null, error: { message: "stub" } }),
+        then: (resolve: any) => Promise.resolve({ data: [], error: null }).then(resolve),
+        update: () => ({ eq: () => Promise.resolve({ error: null }) }),
+        insert: (row: Record<string, unknown>) => {
+          if (table === "booking_locks") {
+            const outcome = opts.onLockInsert(row);
+            return { select: () => ({ single: () => Promise.resolve(outcome) }) };
+          }
+          return {
+            select: () => ({ single: () => Promise.resolve({ data: null, error: { message: "stub" } }) }),
+          };
+        },
+      };
+      return q;
+    };
+    const stubSupabase: any = { from: (table: string) => makeFrom(table) };
+    const stubReader: any = {
+      from: () => {
+        const r: any = {
+          select: () => r,
+          eq: () => r,
+          single: () =>
+            Promise.resolve({
+              data: { name: "P", domain: "p.se", host_id: "h1", currency: "SEK", direct_booking_discount: 0 },
+              error: null,
+            }),
+        };
+        return r;
+      },
+    };
+    return { stubSupabase, stubReader };
+  };
+
+  const args = {
+    propertyId: "00000000-0000-0000-0000-000000000042",
+    checkIn: "2025-11-01",
+    checkOut: "2025-11-02",
+    guests: 2,
+    guestName: "Lock Contract",
+    guestEmail: "lock-contract@example.com",
+  };
+
+  it("lock insert includes source: 'ai_agent' (booking_locks.source is NOT NULL + CHECK)", async () => {
+    const { executeTool } = await import("../lib/tools.js");
+    let capturedRow: Record<string, unknown> | null = null;
+    const { stubSupabase, stubReader } = makeLockStub({
+      onLockInsert: (row) => {
+        capturedRow = row;
+        return { data: { id: "lock-contract-1" }, error: null };
+      },
+    });
+
+    await executeTool("hemmabo_booking_checkout", args, { supabase: stubSupabase, reader: stubReader });
+
+    assert.ok(capturedRow, "booking_locks insert was never attempted");
+    assert.equal(
+      (capturedRow as Record<string, unknown>).source,
+      "ai_agent",
+      "lock insert must set source: 'ai_agent' or the NOT NULL/CHECK constraint rejects every lock"
+    );
+  });
+
+  it("genuine slot conflict (23P01 exclusion violation) reports 'temporarily locked'", async () => {
+    const { executeTool } = await import("../lib/tools.js");
+    const { stubSupabase, stubReader } = makeLockStub({
+      onLockInsert: () => ({ data: null, error: { code: "23P01", message: "exclusion violation" } }),
+    });
+
+    const result = await executeTool("hemmabo_booking_checkout", args, { supabase: stubSupabase, reader: stubReader });
+
+    assert.equal(result.isError, true);
+    const parsed = JSON.parse(result.content[0].text);
+    assert.equal(parsed.error, LOCKED_MESSAGE);
+  });
+
+  it("schema/DB defect (23502 not-null violation) is NOT masked as 'temporarily locked'", async () => {
+    const { executeTool } = await import("../lib/tools.js");
+    const { stubSupabase, stubReader } = makeLockStub({
+      onLockInsert: () => ({ data: null, error: { code: "23502", message: "null value in column" } }),
+    });
+
+    const result = await executeTool("hemmabo_booking_checkout", args, { supabase: stubSupabase, reader: stubReader });
+
+    assert.equal(result.isError, true);
+    const parsed = JSON.parse(result.content[0].text);
+    assert.notEqual(
+      parsed.error,
+      LOCKED_MESSAGE,
+      "a schema failure must not masquerade as a busy calendar — that hides a bricked booking path"
+    );
+    assert.match(parsed.error, /internal error/i);
   });
 });
 
