@@ -45,7 +45,8 @@ export async function checkAvailability(
   propertyId: string,
   checkIn: string,
   checkOut: string,
-  excludeBookingId?: string
+  excludeBookingId?: string,
+  excludeLockId?: string
 ): Promise<AvailabilityResult> {
   // 1. Check blocked dates (overlapping ranges)
   const { data: blocked, error: blockedErr } = await supabase
@@ -108,14 +109,22 @@ export async function checkAvailability(
     };
   }
 
-  // 3. Check active booking locks
-  const { data: locks, error: locksErr } = await supabase
+  // 3. Check active booking locks. A caller re-checking availability while
+  // HOLDING a lock must exclude its own lock (excludeLockId), or the re-check
+  // deterministically sees the caller's own row and defeats the booking.
+  let locksQuery = supabase
     .from("booking_locks")
-    .select("check_in, check_out, locked_until")
+    .select("id, check_in, check_out, locked_until")
     .eq("property_id", propertyId)
     .gt("locked_until", new Date().toISOString())
     .lt("check_in", checkOut)
     .gt("check_out", checkIn);
+
+  if (excludeLockId) {
+    locksQuery = locksQuery.neq("id", excludeLockId);
+  }
+
+  const { data: locks, error: locksErr } = await locksQuery;
 
   // Fail-closed: DB error → treat as unavailable to avoid double-booking
   if (locksErr) return { propertyId, checkIn, checkOut, available: false, reason: "Availability check failed (locks query error)" };
