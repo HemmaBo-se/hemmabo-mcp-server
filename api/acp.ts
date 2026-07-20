@@ -155,7 +155,7 @@ async function buildACPState(bookingId: string, base: string): Promise<ACPChecko
     ],
     payment_provider: {
       provider: "stripe",
-      supported_payment_methods: ["card", "klarna", "swish"],
+      supported_payment_methods: ["card"],
     },
     messages: status === "ready_for_payment"
       ? [{ type: "info", text: `Booking ready for payment: ${prop?.name}, ${booking.check_in_date} to ${booking.check_out_date}, ${booking.guests_count} guests.` }]
@@ -621,7 +621,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         complete: "POST /acp/checkouts/:id/complete",
         cancel: "POST /acp/checkouts/:id/cancel",
       },
-      payment_provider: { provider: "stripe", supported_payment_methods: ["card", "klarna", "swish"] },
+      payment_provider: { provider: "stripe", supported_payment_methods: ["card"] },
       supported_tokens: ["SharedPaymentToken (spt_...)", "PaymentMethod (pm_...)"],
     });
   }
