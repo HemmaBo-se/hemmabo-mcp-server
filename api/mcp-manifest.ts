@@ -104,7 +104,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       url: "https://hemmabo.com",
       email: "support@hemmabo.com",
     },
-    privacy_policy_url: "https://hemmabo.com/privacy",
+    privacy_policy_url: "https://www.hemmabo.com/privacy",
     terms_of_service_url: "https://hemmabo.com/terms",
     categories: ["travel", "lodging"],
     safety_disclosures: {

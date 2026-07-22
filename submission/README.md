@@ -35,7 +35,7 @@ The OpenAI submission form (App Info → MCP Server → Testing → Screenshots 
 | https://hemmabo-mcp-server.vercel.app/.well-known/mcp.json | 200 | Discovery manifest |
 | https://hemmabo-mcp-server.vercel.app/icon.png | 200, image/png, 27.9 KB | App logo |
 | https://hemmabo-mcp-server.vercel.app/oauth/token | 200 | OAuth client_credentials |
-| https://hemmabo-mcp-server.vercel.app/oauth/register | **400 on current smoke test** | Dynamic client registration needs separate review before relying on it for automated OAuth onboarding |
+| https://hemmabo-mcp-server.vercel.app/oauth/register | **201 — confirmed 2026-07-22** with an RFC 7591-shaped payload (`client_name`, `redirect_uris`, `grant_types: [authorization_code, refresh_token]`, `token_endpoint_auth_method: none`) | Dynamic client registration works for the authorization_code flow (Claude.ai-shaped requests) |
 
 ## Demo credentials
 
@@ -61,9 +61,26 @@ The submission JSON now includes one positive test case for each exposed MCP too
 12. `hemmabo_booking_reschedule`
 13. `hemmabo_booking_cancel`
 
-## Open issue disclosed in submission
+## Open issue disclosed in submission — RESOLVED 2026-07-22
 
-`/oauth/register` returned HTTP 400 during the current smoke test. Do not rely on dynamic client registration for reviewer onboarding until this endpoint is fixed or confirmed with the exact OpenAI registration payload.
+An earlier smoke test recorded `/oauth/register` returning HTTP 400 and this
+note advised against relying on it. Re-tested 2026-07-22 with a correctly
+RFC 7591-shaped payload (the exact shape Claude.ai sends): the endpoint
+returned **HTTP 201** with a valid `client_id`/`client_secret` pair. The
+earlier 400 was not reproduced against a spec-conformant request — code
+review of `api/oauth-register.ts` confirms every 400 branch is a documented
+RFC 7591 validation (missing `client_name`, unsupported `grant_type`, missing
+`redirect_uris` for `authorization_code`, etc.), so the most likely explanation
+is that the earlier smoke test sent an incomplete or malformed payload, not a
+server defect. Dynamic client registration is confirmed safe to rely on for
+Claude.ai / Anthropic connector onboarding.
+
+**Still worth doing, not a submission blocker:** the handler assumes the
+request body is already-parsed JSON; a non-JSON `Content-Type` on an
+incoming request would currently surface as a generic `invalid_client_metadata`
+400 rather than a clear "send `Content-Type: application/json`" error. Minor
+hardening, tracked separately — does not affect ChatGPT Apps or Claude.ai
+submissions, both of which send correct headers.
 
 ## Repo discipline
 
