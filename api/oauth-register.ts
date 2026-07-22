@@ -113,7 +113,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
   }
 
-  const body = (req.body ?? {}) as Record<string, unknown>;
+  // #272 hardening: Vercel only parses the body into an object when
+  // Content-Type: application/json is set. A client that omits or gets that
+  // header wrong receives req.body as a raw string/Buffer — every field then
+  // reads as undefined, and the caller previously saw a confusing
+  // "client_name is required" 400 even when they DID send a client_name.
+  // Fail with a specific, actionable error instead of masquerading as a
+  // validation failure on an unrelated field.
+  if (req.body === null || typeof req.body !== "object" || Array.isArray(req.body)) {
+    return res.status(400).json({
+      error: "invalid_request",
+      error_description:
+        "Request body must be a JSON object sent with header 'Content-Type: application/json'.",
+    });
+  }
+
+  const body = req.body as Record<string, unknown>;
 
   const clientName = body.client_name;
   if (typeof clientName !== "string" || clientName.trim().length < 2) {

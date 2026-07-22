@@ -53,11 +53,18 @@ open cost gate — do not buy seats just for this without weighing it.
 - [ ] **Allowed link URIs** — the server returns host-domain
       `direct_booking_url`s; list the host-domain patterns so users are not
       prompted per-link.
-- [ ] OAuth 2.1 flow green end-to-end: authorization_code + PKCE + **DCR
-      (`/oauth/register`)**. ⚠️ The ChatGPT kit smoke test recorded
-      `/oauth/register` returning HTTP 400 — for the Claude.ai connector
-      flow DCR is load-bearing (ADR 0003). **Must be fixed and re-smoked
-      before any submission.** Tracked as a zero-tolerance defect.
+- [x] OAuth 2.1 flow — DCR (`/oauth/register`) confirmed 2026-07-22: a
+      Claude.ai-shaped RFC 7591 payload (`redirect_uris`,
+      `grant_types: [authorization_code, refresh_token]`,
+      `token_endpoint_auth_method: none`) returns **HTTP 201** with a valid
+      client_id/client_secret. The earlier "400 on smoke test" note (ChatGPT
+      kit) was a stale/incorrect record, not a live defect — corrected in
+      `submission/README.md`. Non-JSON `Content-Type` bodies now return a
+      clear `invalid_request` error instead of a confusing
+      `invalid_client_metadata` (hardened same day). Still needed before
+      submission: authorization_code + PKCE exercised end-to-end through
+      `/oauth/authorize` and `/oauth/token` (DCR alone does not prove the
+      full flow).
 - [ ] ADR 0003 acceptance test: "Add custom connector" in Claude.ai against
       `https://www.hemmabo.com/mcp`, screenshot saved in this folder.
 - [ ] Tool annotations accurate (read-only vs mutating) — reviewer checks

@@ -45,3 +45,6 @@ jobs:
 
       - name: Description sync — registry + runtime descriptions in lock-step
         run: node scripts/check-description-sync.mjs
+
+      - name: Version lockstep — package/server/glama/.plugin versions match
+        run: node scripts/check-version-lockstep.mjs
