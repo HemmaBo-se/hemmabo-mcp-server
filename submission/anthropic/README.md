@@ -59,9 +59,12 @@ open cost gate — do not buy seats just for this without weighing it.
       `token_endpoint_auth_method: none`) returns **HTTP 201** with a valid
       client_id/client_secret. The earlier "400 on smoke test" note (ChatGPT
       kit) was a stale/incorrect record, not a live defect — corrected in
-      `submission/README.md`. Still needed before submission:
-      authorization_code + PKCE exercised end-to-end through `/oauth/authorize`
-      and `/oauth/token` (DCR alone does not prove the full flow).
+      `submission/README.md`. Non-JSON `Content-Type` bodies now return a
+      clear `invalid_request` error instead of a confusing
+      `invalid_client_metadata` (hardened same day). Still needed before
+      submission: authorization_code + PKCE exercised end-to-end through
+      `/oauth/authorize` and `/oauth/token` (DCR alone does not prove the
+      full flow).
 - [ ] ADR 0003 acceptance test: "Add custom connector" in Claude.ai against
       `https://www.hemmabo.com/mcp`, screenshot saved in this folder.
 - [ ] Tool annotations accurate (read-only vs mutating) — reviewer checks
