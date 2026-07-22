@@ -89,6 +89,23 @@ describe("/oauth/register — accepts RFC 7591 fields", () => {
     );
   });
 
+  it("rejects a non-JSON-object body with a clear invalid_request error, not a confusing invalid_client_metadata", () => {
+    // #272: Vercel leaves req.body as a raw string/Buffer when the caller
+    // omits or mis-sets Content-Type: application/json — every field then
+    // reads undefined, and the handler used to answer with the misleading
+    // "client_name is required" instead of pointing at the real cause.
+    assert.match(
+      SRC,
+      /typeof\s+req\.body\s*!==\s*"object"/,
+      "must reject non-object bodies before reading any field off them"
+    );
+    assert.match(
+      SRC,
+      /error:\s*"invalid_request"[\s\S]{0,200}?Content-Type:\s*application\/json/,
+      "the rejection must name invalid_request and tell the caller to set Content-Type: application/json"
+    );
+  });
+
   it("never logs the plaintext client_secret", () => {
     // Scan each console.* call's argument list (up to the closing paren on the
     // same statement) for a reference to the local clientSecret binding.
