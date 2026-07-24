@@ -33,8 +33,12 @@ export const HEMMABO_CHATGPT_WIDGET_DOMAIN = chatgptWidgetOriginFromMcpEndpoint(
   HEMMABO_CANONICAL_MCP_ENDPOINT
 );
 
-export const HEMMABO_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v8.html";
-export const HEMMABO_PREVIOUS_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v7.html";
+// v9 (W5c villkorssymmetrin): starred "Det lilla extra" + cancellation line
+// on the compact card; What's included / Good to know / Terms groups in the
+// unfolded view (no duplicated amenity chips). URI bump = cache bust, same
+// pattern as every prior widget revision.
+export const HEMMABO_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v9.html";
+export const HEMMABO_PREVIOUS_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v8.html";
 export const HEMMABO_V3_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v3.html";
 export const HEMMABO_V2_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v2.html";
 export const HEMMABO_V1_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v1.html";

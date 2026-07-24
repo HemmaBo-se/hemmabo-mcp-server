@@ -179,6 +179,12 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
   }
   .chips2 { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--gold-soft); }
   .fact2 { font-size: 11.5px; color: #7C8CA3; }
+  /* W5c villkorssymmetrin: cancellation line on the card + the three quiet
+     groups (What's included / Good to know / Terms) in the unfolded view. */
+  .lcancel { font-size: 11.5px; color: #9AA8BC; margin-top: 2px; }
+  .grp { border-top: 1px solid rgba(244,181,63,0.18); padding-top: 8px; }
+  .grph { font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #8FA0B8; margin-bottom: 3px; font-weight: 600; }
+  .grpb { font-size: 12.5px; color: var(--gold-soft); line-height: 1.55; }
   .lpitch {
     font-family: Georgia, serif;
     font-style: italic;
@@ -571,6 +577,17 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       image: imageList[0] || "",
       images: imageList,
       alternatives: alternatives,
+      // W5c villkorssymmetrin: the host's starred "Det lilla extra", the
+      // SIGNED terms + minimum age (class verifiable, from the offer JWS via
+      // the summary), the verbatim refund ladder, and stay times. All
+      // absence-safe: older nodes without these fields render exactly as
+      // before (unknown is never invented into a yes or a no).
+      starred: asArray(property.starred_amenities).filter(function (a) { return typeof a === "string" && !!a; }).slice(0, 8),
+      terms: (summary.terms && typeof summary.terms === "object") ? summary.terms : null,
+      minAge: (typeof summary.minimum_guest_age === "number" && summary.minimum_guest_age > 0) ? Math.floor(summary.minimum_guest_age) : null,
+      refund: Array.isArray(summary.refund_schedule) ? summary.refund_schedule : null,
+      checkInTime: (summary.stay_details && typeof summary.stay_details.check_in_time === "string") ? summary.stay_details.check_in_time : "",
+      checkOutTime: (summary.stay_details && typeof summary.stay_details.check_out_time === "string") ? summary.stay_details.check_out_time : "",
       verified: data.verified === true || data.fresh === true || (data.signature && data.signature.verified === true),
       bookable: summary.bookable !== false && available !== false,
       requestedUnavailable: data.available === false || (asArray(data.unavailableMatches).length && !asArray(data.properties).length)
@@ -748,7 +765,18 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       upTo: "upp till",
       unavailable: "Datumen är inte lediga hos värden.",
       altReady: "Ett alternativt datumfönster visas nedan.",
-      datesTbc: "Datum bekräftas"
+      datesTbc: "Datum bekräftas",
+      // W5c villkorssymmetrin — wording mirrors smart-stays
+      // contracts/ts/booking-terms-email.ts (sv), pinned by contract test.
+      goodToKnow: "Bra att veta",
+      included: "Det här ingår",
+      termsHead: "Villkor",
+      minAge: "Minsta ålder",
+      checkin: "Incheckning",
+      checkout: "Utcheckning",
+      noWord: "nej",
+      cancelFree: "Avboka fritt till {h} h före incheckning",
+      cancelRow: "{p} % återbetalning senast {h} h före incheckning"
     } : {
       cta: "Continue on the host's site →",
       more: "More about the stay ▾",
@@ -759,8 +787,93 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       upTo: "up to",
       unavailable: "These dates aren't available at the host.",
       altReady: "An alternative date window is shown below.",
-      datesTbc: "Dates to confirm"
+      datesTbc: "Dates to confirm",
+      goodToKnow: "Good to know",
+      included: "What's included",
+      termsHead: "Terms",
+      minAge: "Minimum age",
+      checkin: "Check-in",
+      checkout: "Check-out",
+      noWord: "no",
+      cancelFree: "Free cancellation until {h}h before check-in",
+      cancelRow: "{p}% refund at least {h}h before check-in"
     };
+  }
+
+  // W5c villkorssymmetrin: fixed sv/en vocabulary for the term claim keys —
+  // byte-identical to smart-stays contracts/ts/booking-terms-email.ts for
+  // the shared keys (one source by test, not by import). Keys outside the
+  // map fall back to the same humanizer the amenity row uses — a machine
+  // key never renders raw.
+  var TERM_LABELS = {
+    linens_included: { sv: "Sängkläder ingår", en: "Bed linens included" },
+    towels_included: { sv: "Handdukar ingår", en: "Towels included" },
+    breakfast_included: { sv: "Frukost ingår", en: "Breakfast included" },
+    final_cleaning_included: { sv: "Slutstädning", en: "Final cleaning" },
+    wifi: { sv: "WiFi", en: "WiFi" },
+    welcome_package: { sv: "Välkomstpaket", en: "Welcome package" },
+    pets_dogs: { sv: "Hundar", en: "Dogs" },
+    pets_cats: { sv: "Katter", en: "Cats" },
+    smoking_indoor: { sv: "Rökning inomhus", en: "Indoor smoking" },
+    smoking_outdoor: { sv: "Rökning utomhus", en: "Outdoor smoking" }
+  };
+
+  function humanizeKey(key) {
+    var s = String(key || "");
+    return s.indexOf("_") === -1 ? s : s.split("_").join(" ").replace(/^./, function (c) { return c.toUpperCase(); });
+  }
+
+  function termLabel(key, sv) {
+    var entry = TERM_LABELS[key];
+    if (entry) return sv ? entry.sv : entry.en;
+    return humanizeKey(key);
+  }
+
+  function isSvUi() {
+    try { return (navigator.language || "").toLowerCase().indexOf("sv") === 0; } catch (e) { return false; }
+  }
+
+  /** One quiet cancellation line for the card, from the top refund row
+   *  (rows are the signed ladder, relayed verbatim — hours/percent form,
+   *  never re-labelled into named tiers). Empty/absent ⇒ "". */
+  function cancelLine(refund, T) {
+    if (!refund || !refund.length) return "";
+    var top = refund[0];
+    for (var i = 1; i < refund.length; i += 1) {
+      if (refund[i] && refund[i].hours_before_checkin > top.hours_before_checkin) top = refund[i];
+    }
+    if (!top || typeof top.hours_before_checkin !== "number" || typeof top.refund_percent !== "number") return "";
+    if (top.refund_percent === 100) return T.cancelFree.replace("{h}", String(top.hours_before_checkin));
+    return T.cancelRow.replace("{p}", String(top.refund_percent)).replace("{h}", String(top.hours_before_checkin));
+  }
+
+  /** The three quiet unfolded groups: What's included / Good to know /
+   *  Terms. Built from the SIGNED terms + refund ladder + stay times.
+   *  Returns "" when the node publishes no terms (older nodes) — the
+   *  caller then keeps the legacy amenity chips instead. */
+  function termGroupsHtml(offer, T) {
+    if (!offer.terms) return "";
+    var sv = isSvUi();
+    var terms = offer.terms;
+    var included = asArray(terms.service_included).map(function (k) { return termLabel(k, sv); });
+    var good = [];
+    asArray(terms.service_not_included).forEach(function (k) { good.push(termLabel(k, sv) + ": " + T.noWord); });
+    var negated = (terms.policy_claims && asArray(terms.policy_claims.negated)) || [];
+    negated.forEach(function (k) { good.push(termLabel(k, sv) + ": " + T.noWord); });
+    if (offer.minAge) good.push(T.minAge + ": " + offer.minAge + "+");
+    var termBits = [];
+    asArray(offer.refund).forEach(function (row) {
+      if (row && typeof row.hours_before_checkin === "number" && typeof row.refund_percent === "number") {
+        termBits.push(T.cancelRow.replace("{p}", String(row.refund_percent)).replace("{h}", String(row.hours_before_checkin)));
+      }
+    });
+    if (offer.checkInTime) termBits.push(T.checkin + " " + offer.checkInTime);
+    if (offer.checkOutTime) termBits.push(T.checkout + " " + offer.checkOutTime);
+    var html = "";
+    if (included.length) html += '<div class="grp"><div class="grph">' + esc(T.included) + '</div><div class="grpb">' + esc(included.join(" · ")) + '</div></div>';
+    if (good.length) html += '<div class="grp"><div class="grph">' + esc(T.goodToKnow) + '</div><div class="grpb">' + esc(good.join(" · ")) + '</div></div>';
+    if (termBits.length) html += '<div class="grp"><div class="grph">' + esc(T.termsHead) + '</div><div class="grpb">' + esc(termBits.join(" · ")) + '</div></div>';
+    return html;
   }
 
   var hbUnfolded = false;
@@ -812,7 +925,14 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       }
     }
     var heroList = asArray(offer.images).length ? asArray(offer.images) : (offer.image ? [offer.image] : []);
-    var matchLine = asArray(offer.amenities).join(" · ");
+    // W5c: the compact card carries the HOST'S starred "Det lilla extra"
+    // when curated (max 8); the generic amenity row stays as fallback.
+    var matchLine = asArray(offer.starred).length
+      ? asArray(offer.starred).join(" · ")
+      : asArray(offer.amenities).join(" · ");
+    var cancelHtml = "";
+    var cancelText = cancelLine(offer.refund, T);
+    if (cancelText) cancelHtml = '<div class="lcancel">' + esc(cancelText) + '</div>';
     var dateBits = [];
     if (offer.checkIn || offer.checkOut) dateBits.push(formatRange(offer.checkIn, offer.checkOut));
     else dateBits.push(T.datesTbc);
@@ -833,9 +953,17 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
         return '<img class="gthumb" src="' + esc(src) + '" alt="" aria-hidden="true" referrerpolicy="no-referrer">';
       }).join("") + '</div>';
     }
-    var chipsHtml = asArray(offer.amenities).length
-      ? '<div class="chips2">' + asArray(offer.amenities).map(function (a) { return '<span>' + esc(a) + '</span>'; }).join("") + '</div>'
-      : "";
+    // W5c: when the node publishes SIGNED terms, the unfolded view shows the
+    // three quiet groups (What's included / Good to know / Terms) and the
+    // legacy amenity chips are dropped — the compact card already carries
+    // the highlights, so repeating them wasted the surface. Older nodes
+    // without terms keep the chips exactly as before.
+    var groupsHtml = termGroupsHtml(offer, T);
+    var chipsHtml = groupsHtml
+      ? groupsHtml
+      : (asArray(offer.amenities).length
+        ? '<div class="chips2">' + asArray(offer.amenities).map(function (a) { return '<span>' + esc(a) + '</span>'; }).join("") + '</div>'
+        : "");
     var factBits = [];
     if (offer.maxGuests) factBits.push(T.upTo + " " + offer.maxGuests + " " + T.guests);
     if (offer.propertyType) factBits.push(offer.propertyType);
@@ -858,6 +986,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
         '</div>' +
         (matchLine ? '<div class="lmatch">' + esc(matchLine) + '</div>' : "") +
         '<div class="ldates">' + esc(dateLine) + '</div>' +
+        cancelHtml +
         '<div class="lrow">' +
           '<span class="price">' + esc(money(offer.finalAmount, offer.currency)) + '</span>' +
           '<a id="bookLink" class="cta" aria-label="Open direct booking URL" href="' + esc(bookUrl) + '" target="_blank" rel="noopener">' + esc(T.cta) + '</a>' +
@@ -890,6 +1019,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
               '</div>' +
               (matchLine ? '<div class="lmatch" style="-webkit-line-clamp:3;">' + esc(matchLine) + '</div>' : "") +
               '<div class="ldates">' + esc(dateLine) + '</div>' +
+              cancelHtml +
               '<div class="lrow">' +
                 '<span class="price">' + esc(money(offer.finalAmount, offer.currency)) + '</span>' +
                 '<a id="bookLink" class="cta" aria-label="Open direct booking URL" href="' + esc(bookUrl) + '" target="_blank" rel="noopener">' + esc(T.cta) + '</a>' +

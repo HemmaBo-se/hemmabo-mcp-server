@@ -122,9 +122,54 @@ describe("widget mobile behaviour", () => {
 });
 
 describe("widget URI bumped so connected hosts refetch the fixed HTML", () => {
-  it("current is v8, previous is v7", () => {
-    assert.equal(HEMMABO_WIDGET_URI, "ui://hemmabo/verified-stay-offer-v8.html");
-    assert.equal(HEMMABO_PREVIOUS_WIDGET_URI, "ui://hemmabo/verified-stay-offer-v7.html");
+  it("current is v9, previous is v8", () => {
+    assert.equal(HEMMABO_WIDGET_URI, "ui://hemmabo/verified-stay-offer-v9.html");
+    assert.equal(HEMMABO_PREVIOUS_WIDGET_URI, "ui://hemmabo/verified-stay-offer-v8.html");
+  });
+});
+
+describe("W5c villkorssymmetrin — starred card row, cancellation line, term groups", () => {
+  it("compact card prefers the host's starred claims and falls back to amenities", () => {
+    assert.match(VERIFIED_STAY_OFFER_HTML, /asArray\(offer\.starred\)\.length\s*\?\s*asArray\(offer\.starred\)\.join\(" · "\)/);
+  });
+
+  it("card carries one verbatim cancellation line from the signed ladder (never tier names)", () => {
+    assert.match(VERIFIED_STAY_OFFER_HTML, /function cancelLine\(/);
+    assert.match(VERIFIED_STAY_OFFER_HTML, /Avboka fritt till \{h\} h före incheckning/);
+    assert.match(VERIFIED_STAY_OFFER_HTML, /% återbetalning senast \{h\} h före incheckning/);
+    // Never re-labelled into named tiers.
+    assert.doesNotMatch(VERIFIED_STAY_OFFER_HTML, /flexible|moderate|strict cancellation/i);
+  });
+
+  it("unfolded view renders the three quiet groups from SIGNED terms, chips only as legacy fallback", () => {
+    assert.match(VERIFIED_STAY_OFFER_HTML, /function termGroupsHtml\(/);
+    assert.match(VERIFIED_STAY_OFFER_HTML, /var groupsHtml = termGroupsHtml\(offer, T\);/);
+    assert.match(VERIFIED_STAY_OFFER_HTML, /groupsHtml\s*\?\s*groupsHtml/);
+    assert.match(VERIFIED_STAY_OFFER_HTML, /Bra att veta/);
+    assert.match(VERIFIED_STAY_OFFER_HTML, /Det här ingår/);
+    assert.match(VERIFIED_STAY_OFFER_HTML, /Good to know/);
+  });
+
+  it("term labels mirror smart-stays booking-terms-email vocabulary byte-for-byte (sv)", () => {
+    // One source by test, not by import: these strings MUST stay identical
+    // to contracts/ts/booking-terms-email.ts in hemmabo-smart-stays.
+    for (const s of [
+      "Sängkläder ingår",
+      "Handdukar ingår",
+      "Frukost ingår",
+      "Slutstädning",
+      "Välkomstpaket",
+      "Rökning inomhus",
+      "Minsta ålder",
+    ]) {
+      assert.ok(VERIFIED_STAY_OFFER_HTML.includes(s), s);
+    }
+  });
+
+  it("signed terms surface in normalizeOffer absence-safely (older nodes unchanged)", () => {
+    assert.match(VERIFIED_STAY_OFFER_HTML, /terms: \(summary\.terms && typeof summary\.terms === "object"\) \? summary\.terms : null/);
+    assert.match(VERIFIED_STAY_OFFER_HTML, /minAge: \(typeof summary\.minimum_guest_age === "number"/);
+    assert.match(VERIFIED_STAY_OFFER_HTML, /refund: Array\.isArray\(summary\.refund_schedule\)/);
   });
 });
 
