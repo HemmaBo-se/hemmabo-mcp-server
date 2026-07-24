@@ -504,6 +504,63 @@ function policyClaimsFromDiscovery(discovery: JsonRecord): JsonRecord | null {
  * "verifiable"). Rows are passed through verbatim after a defensive shape
  * check; anything malformed degrades to null (unknown), never to a guess.
  */
+/**
+ * W5 (villkorssymmetrin, smart-stays ADR 2026-07-24): the host's proudly
+ * starred claims — "Det lilla extra" (discovery claims[] rows with
+ * starred:true, host-curated in the dashboard, max 8 by the editor's rule).
+ * The widget's compact card shows THESE instead of a generic amenity row.
+ * Labels via the same formatter as the amenity list. Empty ⇒ absent.
+ */
+function starredAmenitiesFromDiscovery(discovery: JsonRecord): string[] {
+  const claims = Array.isArray(discovery.claims) ? discovery.claims : [];
+  const labels: string[] = [];
+  for (const item of claims) {
+    const record = asRecord(item);
+    if (!record || record.starred !== true) continue;
+    if (stringValue(record.state) !== "affirmed") continue;
+    const key = stringValue(record.claim);
+    if (!key) continue;
+    const label = formatAmenityLabel(key);
+    if (label && !labels.includes(label)) labels.push(label);
+    if (labels.length >= 8) break;
+  }
+  return labels;
+}
+
+/**
+ * W1/W5 (villkorssymmetrin): the host's explicit terms from INSIDE the
+ * Ed25519-signed offer payload — class "verifiable" (vrp-spec §5.4), unlike
+ * the discovery-tier policy_claims which remain "attested". Verbatim
+ * passthrough after a defensive shape check; malformed ⇒ null (unknown),
+ * never a guess. A key absent from every list is UNKNOWN — never a no.
+ */
+function termsFromOffer(offer: JsonRecord): JsonRecord | null {
+  const terms = asRecord(offer.terms);
+  if (!terms) return null;
+  const strings = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  const policy = asRecord(terms.policy_claims);
+  const out: JsonRecord = {
+    policy_claims: {
+      affirmed: strings(policy?.affirmed),
+      negated: strings(policy?.negated),
+    },
+    service_included: strings(terms.service_included),
+    service_not_included: strings(terms.service_not_included),
+  };
+  return out;
+}
+
+/** W1/W5: host-required minimum guest age from the SIGNED payload
+ *  (offer.rules.minimum_guest_age). null = the host published none —
+ *  unknown, never "no minimum". */
+function minimumGuestAgeFromOffer(offer: JsonRecord): number | null {
+  const rules = asRecord(offer.rules);
+  const age = rules?.minimum_guest_age;
+  if (typeof age !== "number" || !Number.isFinite(age) || age <= 0) return null;
+  return Math.floor(age);
+}
+
 function refundScheduleFromOffer(offer: JsonRecord): unknown {
   const rules = asRecord(offer.rules);
   const schedule = rules?.refund_schedule;
@@ -639,6 +696,10 @@ function buildAgentQuoteView(
   }
   const widgetAmenities = amenitiesFromDiscovery(discovery);
   if (widgetAmenities.length) summaryProperty.amenities = widgetAmenities;
+  // W5: the host's starred "Det lilla extra" — the compact widget card's
+  // row when present; the generic amenities above stay as fallback.
+  const starredAmenities = starredAmenitiesFromDiscovery(discovery);
+  if (starredAmenities.length) summaryProperty.starred_amenities = starredAmenities;
   const nodeName = stringValue(summaryProperty.name);
 
   return {
@@ -666,6 +727,13 @@ function buildAgentQuoteView(
       // class "verifiable" per §5.4. null = the node has not published
       // computable terms (unknown — never invent a refund promise).
       refund_schedule: refundScheduleFromOffer(offer),
+      // W1/W5 (villkorssymmetrin): the host's explicit terms + minimum
+      // guest age from INSIDE the signed payload — class "verifiable",
+      // provable after the fact by the booking that binds this JWS. The
+      // widget's "Bra att veta" group renders terms.service_not_included +
+      // terms.policy_claims.negated + minimum_guest_age.
+      terms: termsFromOffer(offer),
+      minimum_guest_age: minimumGuestAgeFromOffer(offer),
     },
     widget_media: {
       source: "vacation-rental.json",
@@ -694,9 +762,19 @@ function buildAgentQuoteView(
       refund_schedule_rule: "official_offer_summary.refund_schedule is relayed VERBATIM from the SIGNED offer payload (vrp-spec §5.3) — the same Ed25519 signature and transparency-log entry as the price, so the guest's agent can prove these were the cancellation terms at quote time. Each row means: cancelling at least hours_before_checkin whole hours before the check-in moment returns refund_percent of the paid total; rows sort descending, the first matching row applies, no matching row (including after check-in) means 0%. Relay the rows as hours/percent to the guest — NEVER re-label them into named tiers ('flexible', 'moderate', …). null = the node has not published computable terms: say there is no verified cancellation information and suggest asking the host — never invent a refund promise.",
       verifiability_classes_rule: "Per vrp-spec §5.4 the class of a fact follows WHERE it was read, never how it is phrased. In this response: price, availability, valid_until, source_authority and refund_schedule come from the verified SIGNED offer payload = class 'verifiable' (provable after the fact). policy_claims, stay_details and the property amenity list come from the node's discovery claims = class 'attested' (the host's explicit statement, not purchase-bound). Review data, when present, is 'reputational'. NEVER present a lower class with higher-class language — an attested amenity is not 'verified', and 'verified'-sounding wording on unsigned data is a class violation.",
       verifiability: {
-        verifiable: ["price", "availability", "valid_until", "source_authority", "refund_schedule"],
-        attested: ["policy_claims", "stay_details", "property.amenities"],
+        verifiable: [
+          "price",
+          "availability",
+          "valid_until",
+          "source_authority",
+          "refund_schedule",
+          "terms",
+          "minimum_guest_age",
+        ],
+        attested: ["policy_claims", "stay_details", "property.amenities", "property.starred_amenities"],
       },
+      terms_rule:
+        "official_offer_summary.terms and minimum_guest_age come from INSIDE the Ed25519-signed offer payload (villkorssymmetrin W1) — class 'verifiable': a booking that binds this offer's JWS proves these terms were part of the deal, both ways. terms.service_not_included means NOT INCLUDED in the price ('bring your own linens', final_cleaning_included negated = the guest cleans) — never 'does not exist', and NEVER a fee. Relay the watch-out subset (service_not_included, terms.policy_claims.negated, minimum_guest_age) plainly and warmly BEFORE the guest books — good to know, not sales copy. When terms is present it takes precedence over the discovery-tier policy_claims for the same keys (signed beats attested); keys absent from every list are UNKNOWN — say there is no verified information and suggest asking the host.",
       stay_details_rule: "official_offer_summary.stay_details carries the node's own long-tail answers: bed_configuration lists each bedroom with bed type and mattress_firmness (so 'are the beds firm?' gets a precise, warm answer per room — e.g. 'Sovrum 3 Loft has a firm mattress; the other rooms are medium and soft'); comfort_claims follows the same yes/no/unknown semantics as policy_claims (e.g. blackout_curtains affirmed = yes); check_in_time / check_out_time are the host's stated times; early_checkin_available / late_checkout_available say whether the host offers flexible times — mention them only when the guest asks, and phrase a false plainly and kindly ('the host does not offer early check-in'). Anything missing from stay_details is UNKNOWN — never guess.",
       verified_source_line: {
         rule: "After quoting the price, relay this line in the guest's language. sv/en are pinned copy — relay VERBATIM; for other locales translate the meaning faithfully.",
