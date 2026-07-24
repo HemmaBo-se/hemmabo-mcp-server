@@ -66,6 +66,12 @@ describe("VRP MCP tools", () => {
             { claim: "piano", state: "negated", verified_at: "2026-07-08" },
             { claim: "blackout_curtains", state: "affirmed", verified_at: "2026-07-08" },
             { claim: "air_conditioning", state: "negated", verified_at: null },
+            // W5: the host's starred "Det lilla extra" (starred only on
+            // affirmed rows per the editor's write rule). A starred NEGATED
+            // row must never surface (defensive — the editor forbids it).
+            { claim: "hot_tub", state: "affirmed", verified_at: "2026-07-08", starred: true },
+            { claim: "ev_charging", state: "affirmed", verified_at: null, starred: true },
+            { claim: "sauna", state: "negated", verified_at: null, starred: true },
           ],
           // LS-2/6 long-tail source blocks (mirrors the villa node file shape).
           capacity: {
@@ -130,6 +136,12 @@ describe("VRP MCP tools", () => {
             { claim: "piano", state: "negated", verified_at: "2026-07-08" },
             { claim: "blackout_curtains", state: "affirmed", verified_at: "2026-07-08" },
             { claim: "air_conditioning", state: "negated", verified_at: null },
+            // W5: the host's starred "Det lilla extra" (starred only on
+            // affirmed rows per the editor's write rule). A starred NEGATED
+            // row must never surface (defensive — the editor forbids it).
+            { claim: "hot_tub", state: "affirmed", verified_at: "2026-07-08", starred: true },
+            { claim: "ev_charging", state: "affirmed", verified_at: null, starred: true },
+            { claim: "sauna", state: "negated", verified_at: null, starred: true },
           ],
           // LS-2/6 long-tail source blocks (mirrors the villa node file shape).
           capacity: {
@@ -240,6 +252,15 @@ describe("VRP MCP tools", () => {
         // Signed cancellation terms (vrp-spec §5.3) — inside the SAME JWS
         // as the price; the summary must relay them verbatim.
         refund_schedule: [{ hours_before_checkin: 24, refund_percent: 100 }],
+        // W1 villkorssymmetrin: minimum age inside the signed payload.
+        minimum_guest_age: 21,
+      },
+      // W1 villkorssymmetrin: the host's explicit terms INSIDE the JWS —
+      // the summary must relay them as class "verifiable".
+      terms: {
+        policy_claims: { affirmed: ["pets_dogs"], negated: ["pets_cats", "smoking_indoor"] },
+        service_included: ["breakfast_included", "wifi"],
+        service_not_included: ["linens_included"],
       },
       agent_permission: {
         may_quote_as_official_direct_offer: true,
@@ -274,6 +295,12 @@ describe("VRP MCP tools", () => {
             { claim: "piano", state: "negated", verified_at: "2026-07-08" },
             { claim: "blackout_curtains", state: "affirmed", verified_at: "2026-07-08" },
             { claim: "air_conditioning", state: "negated", verified_at: null },
+            // W5: the host's starred "Det lilla extra" (starred only on
+            // affirmed rows per the editor's write rule). A starred NEGATED
+            // row must never surface (defensive — the editor forbids it).
+            { claim: "hot_tub", state: "affirmed", verified_at: "2026-07-08", starred: true },
+            { claim: "ev_charging", state: "affirmed", verified_at: null, starred: true },
+            { claim: "sauna", state: "negated", verified_at: null, starred: true },
           ],
           // LS-2/6 long-tail source blocks (mirrors the villa node file shape).
           capacity: {
@@ -423,6 +450,25 @@ describe("VRP MCP tools", () => {
     assert.match(parsed.agent_guardrails.refund_schedule_rule, /NEVER re-label/);
     assert.match(parsed.agent_guardrails.verifiability_classes_rule, /WHERE it was read/);
     assert.ok(parsed.agent_guardrails.verifiability.verifiable.includes("refund_schedule"));
+
+    // W1/W5 villkorssymmetrin: signed terms + minimum age relayed verbatim,
+    // class "verifiable"; starred claims surface as the host's own curation.
+    assert.deepEqual(parsed.official_offer_summary.terms, {
+      policy_claims: { affirmed: ["pets_dogs"], negated: ["pets_cats", "smoking_indoor"] },
+      service_included: ["breakfast_included", "wifi"],
+      service_not_included: ["linens_included"],
+    });
+    assert.equal(parsed.official_offer_summary.minimum_guest_age, 21);
+    assert.ok(parsed.agent_guardrails.verifiability.verifiable.includes("terms"));
+    assert.ok(parsed.agent_guardrails.verifiability.verifiable.includes("minimum_guest_age"));
+    assert.match(parsed.agent_guardrails.terms_rule, /NEVER a fee/);
+    assert.match(parsed.agent_guardrails.terms_rule, /signed beats attested/);
+    // Starred: affirmed-only (the starred NEGATED sauna row must not leak),
+    // labeled via the same formatter as the amenity row.
+    assert.deepEqual(parsed.official_offer_summary.property.starred_amenities, [
+      "Hot tub",
+      "EV charging",
+    ]);
     assert.ok(parsed.agent_guardrails.verifiability.attested.includes("policy_claims"));
 
     // Backward compatibility: legacy snake_case input (check_in/check_out)
