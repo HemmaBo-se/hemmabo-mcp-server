@@ -153,7 +153,9 @@ Optional environment variables:
 | `/oauth/register` | POST | Dynamic client registration |
 | `/oauth/token` | POST | OAuth token endpoint |
 | `/oauth/authorize` | GET/POST | Authorization-code consent flow |
-| `/acp/checkouts` | POST/GET/PUT | Legacy authenticated checkout lifecycle where explicitly configured; not the VRP booking path |
+| `/acp/checkouts` | POST/GET/PUT | Agentic Commerce Protocol checkout lifecycle. Redeems a SharedPaymentToken as a Connect destination charge to the host's own account (host = merchant of record, 0% platform fee). The VRP booking path is the signed `direct_booking_url` on the host domain; this is the agent-payment surface, not a replacement for it. |
+| `/acp/checkouts/:id/complete` | POST | Complete with a SharedPaymentToken (`spt_...`) or PaymentMethod (`pm_...`) |
+| `/acp/checkouts/:id/cancel` | POST | Cancel; refunds a settled charge, cancels an unsettled intent |
 
 ## Transports
 
