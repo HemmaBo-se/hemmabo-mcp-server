@@ -13,6 +13,10 @@ const ACP_PROTOCOL_STATUSES = [
   "completed",
   "canceled",
   "in_progress",
+  // ADR 0012: a payment awaiting customer authentication (3DS) answers on
+  // 200 with this spec-defined status instead of a 402. Response state only —
+  // bookings.status stays `pending` until the webhook confirms.
+  "authentication_required",
 ] as const;
 
 const MCP_COMPAT_BOOKING_STATUS_ENUM = [

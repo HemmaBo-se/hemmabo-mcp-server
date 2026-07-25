@@ -309,6 +309,29 @@ describe("ACP complete path wiring", () => {
     assert.ok(keyIndex > -1 && keyIndex < fetchIndex, "the key must be set before the charge is sent");
   });
 
+  it("answers requires_action with 200 + authentication_required, per ADR 0012", () => {
+    // The ACP spec reserves 4xx Error for "no valid session state to return".
+    // A payment awaiting 3DS is a valid session: status authentication_required
+    // with a MessageError (requires_3ds) in messages[]. A 402 here makes an
+    // ACP agent retry with a fresh token instead of completing the auth.
+    assert.match(
+      acpSource,
+      /paymentStatus === "requires_action"[\s\S]{0,600}?authState\.status = "authentication_required"/,
+      "requires_action must set the spec-defined session status"
+    );
+    assert.match(
+      acpSource,
+      /code: "requires_3ds"/,
+      "the message must carry the ACP MessageError code"
+    );
+    const authIdx = acpSource.indexOf('authState.status = "authentication_required"');
+    const declineIdx = acpSource.indexOf('"Payment not completed"');
+    assert.ok(
+      authIdx > -1 && authIdx < declineIdx,
+      "the authentication branch must run before the 402 decline fallback"
+    );
+  });
+
   it("gives an agent what it needs to finish an authentication", () => {
     assert.match(acpSource, /payment_intent_id: typeof pi\.id === "string"/);
     assert.match(acpSource, /next_action: pi\.next_action \?\? null/);
@@ -316,6 +339,16 @@ describe("ACP complete path wiring", () => {
       acpSource,
       /client_secret: /,
       "no client secret on an endpoint that answers unauthenticated callers in open mode"
+    );
+  });
+
+  it("fails closed on an unreadable payment outcome instead of calling it a decline", () => {
+    // Stripe said 2xx but the body was unparseable: the money may have moved.
+    // A 402 would read as a clean decline and invite a second charge.
+    assert.match(
+      acpSource,
+      /paymentStatus === "unknown"[\s\S]{0,400}?res\.status\(502\)/,
+      "an unknown payment state must be a 502 processing_error, not a 402 decline"
     );
   });
 
