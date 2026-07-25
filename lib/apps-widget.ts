@@ -39,11 +39,35 @@ export const HEMMABO_CHATGPT_WIDGET_DOMAIN = chatgptWidgetOriginFromMcpEndpoint(
 // pattern as every prior widget revision.
 export const HEMMABO_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v9.html";
 export const HEMMABO_PREVIOUS_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v8.html";
+export const HEMMABO_V7_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v7.html";
+export const HEMMABO_V6_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v6.html";
+export const HEMMABO_V5_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v5.html";
+export const HEMMABO_V4_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v4.html";
 export const HEMMABO_V3_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v3.html";
 export const HEMMABO_V2_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v2.html";
 export const HEMMABO_V1_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v1.html";
 export const HEMMABO_LEGACY_WIDGET_URI = "ui://hemmabo/property-card";
 export const HEMMABO_WIDGET_MIME_TYPE = "text/html;profile=mcp-app";
+
+// Every URI this server has EVER published as a widget template. A ChatGPT
+// app approval freezes the tool metadata — including the template URI — at
+// submission time, so every historical URI must stay readable forever:
+// dropping one turns the published app's card into "Failed to fetch
+// template" for real users (observed live 2026-07-25 when v4–v7 were
+// missing). resources/list advertises only the current URI; resources/read
+// honors them all with the current HTML.
+export const HEMMABO_ALL_WIDGET_URIS: readonly string[] = [
+  HEMMABO_WIDGET_URI,
+  HEMMABO_PREVIOUS_WIDGET_URI,
+  HEMMABO_V7_WIDGET_URI,
+  HEMMABO_V6_WIDGET_URI,
+  HEMMABO_V5_WIDGET_URI,
+  HEMMABO_V4_WIDGET_URI,
+  HEMMABO_V3_WIDGET_URI,
+  HEMMABO_V2_WIDGET_URI,
+  HEMMABO_V1_WIDGET_URI,
+  HEMMABO_LEGACY_WIDGET_URI,
+];
 
 const VILLA_AKERLYCKAN_SUPABASE_DOMAIN = "https://vfalgymbhyfqsyxkvpqg.supabase.co";
 

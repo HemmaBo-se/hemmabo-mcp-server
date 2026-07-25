@@ -3,14 +3,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { RESOURCES, TOOLS, readResource } from "../api/mcp.js";
 import {
+  HEMMABO_ALL_WIDGET_URIS,
   HEMMABO_CANONICAL_MCP_ENDPOINT,
   HEMMABO_CHATGPT_WIDGET_DOMAIN,
   HEMMABO_CLAUDE_WIDGET_DOMAIN,
   HEMMABO_LEGACY_WIDGET_URI,
-  HEMMABO_PREVIOUS_WIDGET_URI,
-  HEMMABO_V1_WIDGET_URI,
-  HEMMABO_V2_WIDGET_URI,
-  HEMMABO_V3_WIDGET_URI,
   HEMMABO_WIDGET_MIME_TYPE,
   HEMMABO_WIDGET_URI,
   claudeMcpAppDomain,
@@ -46,12 +43,24 @@ describe("ChatGPT Apps verified stay widget", () => {
     assert.ok(resource._meta["openai/widgetDescription"]);
   });
 
-  it("serves the current widget URI plus previous/legacy widget URIs", () => {
-    for (const uri of [HEMMABO_WIDGET_URI, HEMMABO_PREVIOUS_WIDGET_URI, HEMMABO_V3_WIDGET_URI, HEMMABO_V2_WIDGET_URI, HEMMABO_V1_WIDGET_URI, HEMMABO_LEGACY_WIDGET_URI]) {
+  it("serves EVERY historical widget URI (frozen app snapshots depend on it)", () => {
+    // v1..v9 without holes plus the legacy alias: a published ChatGPT app is
+    // frozen on the URI it was approved with — a missing version = red
+    // "Failed to fetch template" for real users (observed live 2026-07-25).
+    for (let v = 1; v <= 9; v += 1) {
+      assert.ok(
+        HEMMABO_ALL_WIDGET_URIS.includes(`ui://hemmabo/verified-stay-offer-v${v}.html`),
+        `v${v} must stay readable forever`
+      );
+    }
+    assert.ok(HEMMABO_ALL_WIDGET_URIS.includes(HEMMABO_LEGACY_WIDGET_URI));
+    assert.equal(readResource("ui://hemmabo/verified-stay-offer-v999.html"), null);
+
+    for (const uri of HEMMABO_ALL_WIDGET_URIS) {
       const result = readResource(uri);
       assert.ok(result, `resource should resolve for ${uri}`);
       const content = result.contents[0];
-      assert.equal(content.uri, HEMMABO_WIDGET_URI);
+      assert.equal(content.uri, uri, "read must echo the requested URI, not the current one");
       assert.equal(content.mimeType, HEMMABO_WIDGET_MIME_TYPE);
       assert.match(content.text, /Verified stay offer/);
       assert.doesNotMatch(content.text, /discount badge/i);

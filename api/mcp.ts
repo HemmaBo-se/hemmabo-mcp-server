@@ -22,14 +22,9 @@ import { baseUrl } from "../lib/base-url.js";
 import { isVrpToolName } from "../lib/vrp.js";
 import { SERVER_DESCRIPTION, SERVER_INSTRUCTIONS, SERVER_NAME, SERVER_VERSION } from "../lib/server-metadata.js";
 import {
+  HEMMABO_ALL_WIDGET_URIS,
   HEMMABO_CANONICAL_MCP_ENDPOINT,
-  HEMMABO_LEGACY_WIDGET_URI,
-  HEMMABO_PREVIOUS_WIDGET_URI,
-  HEMMABO_V3_WIDGET_URI,
-  HEMMABO_V1_WIDGET_URI,
-  HEMMABO_V2_WIDGET_URI,
   HEMMABO_WIDGET_MIME_TYPE,
-  HEMMABO_WIDGET_URI,
   buildWidgetResource,
   buildWidgetResourceMeta,
   mcpEndpointFromBaseUrl,
@@ -161,19 +156,15 @@ export function readResource(
   uri: string,
   mcpEndpointUrl: string = HEMMABO_CANONICAL_MCP_ENDPOINT
 ): { contents: { uri: string; mimeType: string; text: string; _meta?: Record<string, unknown> }[] } | null {
-  if (
-    uri === HEMMABO_WIDGET_URI ||
-    uri === HEMMABO_PREVIOUS_WIDGET_URI ||
-    uri === HEMMABO_V3_WIDGET_URI ||
-    uri === HEMMABO_V2_WIDGET_URI ||
-    uri === HEMMABO_V1_WIDGET_URI ||
-    uri === HEMMABO_LEGACY_WIDGET_URI
-  ) {
+  if (HEMMABO_ALL_WIDGET_URIS.includes(uri)) {
     const meta = buildWidgetResourceMeta(mcpEndpointUrl);
     return {
       contents: [
         {
-          uri: HEMMABO_WIDGET_URI,
+          // Echo the *requested* URI: a frozen app snapshot asks for the
+          // template it was approved with; answering under a different URI
+          // can fail strict clients even when the bytes are right.
+          uri,
           mimeType: HEMMABO_WIDGET_MIME_TYPE,
           text: VERIFIED_STAY_OFFER_HTML,
           _meta: meta as unknown as Record<string, unknown>,
