@@ -68,7 +68,7 @@ function getStripeKey(): string {
 
 interface ACPCheckoutState {
   id: string;
-  status: "not_ready_for_payment" | "ready_for_payment" | "completed" | "canceled" | "in_progress";
+  status: "not_ready_for_payment" | "ready_for_payment" | "completed" | "canceled" | "in_progress" | "authentication_required";
   currency: string;
   buyer?: {
     first_name: string;
@@ -100,7 +100,9 @@ interface ACPCheckoutState {
     provider: string;
     supported_payment_methods: string[];
   };
-  messages: { type: string; text: string }[];
+  // `code` follows the ACP MessageError enum (e.g. "requires_3ds") — present
+  // only on messages that carry a machine-actionable business error.
+  messages: { type: string; text: string; code?: string }[];
   links: { rel: string; href: string }[];
   // HemmaBo-specific metadata
   metadata?: Record<string, unknown>;
@@ -670,22 +672,59 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
   }
 
   if (outcome !== "succeeded") {
-    // Stripe accepted the request but took no money: authentication is
-    // required, the method was declined, or the intent is dead. Fail closed —
-    // never answer with a booking this endpoint cannot prove was paid for.
-    return res.status(402).json({
-      error: "Payment not completed",
-      payment_status: paymentStatus,
+    if (paymentStatus === "requires_action") {
+      // ADR 0012: a payment awaiting customer authentication is a VALID
+      // session, and the ACP spec answers it on 200 — status
+      // `authentication_required` plus a MessageError (`requires_3ds`) in
+      // messages[]. A 402 here reads as a generic failure and makes the agent
+      // retry with a fresh token instead of completing the authentication.
+      const authState = await buildACPState(checkoutId, base);
+      if (!authState) return res.status(404).json({ error: "Checkout not found" });
+      authState.status = "authentication_required";
+      authState.messages = [
+        {
+          type: "error",
+          code: "requires_3ds",
+          text: "The payment needs customer authentication. Complete next_action (see metadata), then poll this checkout — the booking confirms automatically when the authentication succeeds.",
+        },
+      ];
       // The agent drives the authentication, so give it what that takes: the
       // intent to act on and Stripe's own next_action payload. No client
       // secret — this endpoint answers unauthenticated callers in open mode.
+      authState.metadata = {
+        ...authState.metadata,
+        payment_intent_id: typeof pi.id === "string" ? pi.id : null,
+        next_action_type: pi.next_action?.type ?? null,
+        next_action: pi.next_action ?? null,
+        ...(isSpt ? { stripe_api_version: sptApiVersion() } : {}),
+      };
+      return res.json(authState);
+    }
+
+    if (paymentStatus === "unknown") {
+      // Stripe answered 2xx but the body yielded no readable status. The
+      // payment may well have happened — this is not a decline, and saying so
+      // would invite a second charge. Fail closed; the intent id (persisted
+      // above when readable) and the webhook carry reconciliation.
+      return res.status(502).json({
+        type: "processing_error",
+        error: "Payment state unreadable",
+        message: "Stripe's response could not be parsed, so the payment outcome is unknown. Do not retry blindly — poll the checkout; the booking confirms via webhook if the payment succeeded.",
+        stripe_api_version: isSpt ? sptApiVersion() : null,
+      });
+    }
+
+    // Declined or dead (requires_payment_method, canceled, requires_capture):
+    // Stripe took no money and will not on its own. Fail closed. Kept on 402
+    // deliberately — the ACP-pure alternative (200 + payment_declined, session
+    // payable again) requires changing what payment_intent.payment_failed
+    // writes, which ADR 0005 locks. See ADR 0012 §3.
+    return res.status(402).json({
+      error: "Payment not completed",
+      payment_status: paymentStatus,
       payment_intent_id: typeof pi.id === "string" ? pi.id : null,
-      next_action_type: pi.next_action?.type ?? null,
-      next_action: pi.next_action ?? null,
       hint:
-        paymentStatus === "requires_action"
-          ? "The payment needs customer authentication (e.g. 3DS). Complete next_action, then poll this checkout — the webhook confirms the booking if the authentication succeeds."
-          : paymentStatus === "requires_capture"
+        paymentStatus === "requires_capture"
           ? "The payment is authorized but not captured. This integration does not capture authorizations, so the booking cannot be confirmed; cancel the checkout to release the hold."
           : "Stripe did not take the payment. Retry with a valid, unused token; the booking is still pending.",
       stripe_api_version: isSpt ? sptApiVersion() : null,
@@ -909,6 +948,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
       payment_provider: { provider: "stripe", supported_payment_methods: ["card"] },
       supported_tokens: ["SharedPaymentToken (spt_...)", "PaymentMethod (pm_...)"],
+      // The response-status set agents can observe (ADR 0005/0012). Advertised
+      // so an integrator never has to reverse-engineer it from responses.
+      statuses: [
+        "not_ready_for_payment",
+        "ready_for_payment",
+        "in_progress",
+        "authentication_required",
+        "completed",
+        "canceled",
+      ],
     });
   }
 
