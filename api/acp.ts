@@ -36,6 +36,7 @@ import {
   sptApiVersion,
   stripeErrorMessage,
   toStripeMinorUnits,
+  type PaymentIntentOutcome,
 } from "../src/stripe.js";
 import { verifyAp2PaymentMandate, resolveAp2IssuerJwks } from "../lib/ap2.js";
 
@@ -105,18 +106,9 @@ interface ACPCheckoutState {
   metadata?: Record<string, unknown>;
 }
 
-/**
- * `statusOverride` reports a payment state the booking row cannot express.
- * A charge that is still processing leaves the booking `pending`, which
- * mapStatus would render as `ready_for_payment` — an invitation to pay a
- * second time for the same stay. The override lets the response say
- * `in_progress` without inventing a booking status (ADR 0005: ACP protocol
- * statuses are response states, not `bookings.status` values).
- */
 async function buildACPState(
   bookingId: string,
-  base: string,
-  statusOverride?: ACPCheckoutState["status"]
+  base: string
 ): Promise<ACPCheckoutState | null> {
   const supabase = getSupabase();
   const { data: booking, error } = await supabase
@@ -128,7 +120,7 @@ async function buildACPState(
   if (error || !booking) return null;
 
   const prop = booking.properties;
-  const status = statusOverride ?? mapStatus(booking.status);
+  const status = deriveACPStatus(booking);
   const totalAmountCents = toStripeMinorUnits(booking.total_price); // ACP uses smallest currency unit
   const nights = Math.round(
     (new Date(booking.check_out_date).getTime() - new Date(booking.check_in_date).getTime()) / 86400000
@@ -180,7 +172,7 @@ async function buildACPState(
       : status === "completed"
       ? [{ type: "success", text: "Booking confirmed and paid." }]
       : status === "in_progress"
-      ? [{ type: "info", text: "Payment is processing. Do not pay again — the booking confirms automatically once Stripe reports the payment succeeded." }]
+      ? [{ type: "info", text: `Payment is processing. Do not pay again — poll ${base}/acp/checkouts/${booking.id} until it reports completed or canceled.` }]
       : status === "canceled"
       ? [{ type: "info", text: "Booking has been cancelled." }]
       : [{ type: "info", text: "Booking created, awaiting details." }],
@@ -209,6 +201,76 @@ function mapStatus(dbStatus: string): ACPCheckoutState["status"] {
     case "cancelled": return "canceled";
     default: return "not_ready_for_payment";
   }
+}
+
+/**
+ * The ACP status a booking row deserves, derived from data so every surface
+ * agrees — GET, PUT and complete must never contradict each other.
+ *
+ * A `pending` booking that already carries a PaymentIntent is NOT
+ * `ready_for_payment`: a charge exists and may still settle. Rendering it as
+ * payable is an invitation to redeem a second token for the same stay, which
+ * is exactly what the payment-truth gate in completeCheckout exists to
+ * prevent. ADR 0005 keeps ACP protocol statuses as response states, so this
+ * derives a *response* status and invents no `bookings.status` value.
+ */
+function deriveACPStatus(booking: {
+  status: string;
+  stripe_payment_intent_id?: string | null;
+}): ACPCheckoutState["status"] {
+  if (booking.status === "pending" && booking.stripe_payment_intent_id) {
+    return "in_progress";
+  }
+  return mapStatus(booking.status);
+}
+
+/**
+ * Read a PaymentIntent's live outcome from Stripe.
+ *
+ * The booking row cannot answer "did the money move": writes can fail between
+ * a settled charge and `status = confirmed`, and a payment in flight leaves the
+ * row `pending` by design. Both the complete and the cancel path ask Stripe
+ * through this one helper, so they can never disagree about what "paid" means.
+ *
+ * `reachable: false` means the state could not be established at all — callers
+ * must fail closed rather than assume the payment did or did not happen.
+ */
+async function readPaymentIntentOutcome(paymentIntentId: string): Promise<{
+  reachable: boolean;
+  outcome: PaymentIntentOutcome;
+  status: string;
+  detail?: string;
+}> {
+  const stripeKey = getStripeKey();
+  let resp: Response;
+  try {
+    resp = await fetch(
+      `https://api.stripe.com/v1/payment_intents/${encodeURIComponent(paymentIntentId)}`,
+      { headers: { "Authorization": `Bearer ${stripeKey}` } }
+    );
+  } catch (err) {
+    return {
+      reachable: false,
+      outcome: "not_paid",
+      status: "unknown",
+      detail: err instanceof Error ? err.message : String(err),
+    };
+  }
+
+  const { body, raw, parsed } = await readStripeBody(resp);
+  if (!resp.ok) {
+    return {
+      reachable: false,
+      outcome: "not_paid",
+      status: "unknown",
+      detail: stripeErrorMessage(body, raw, resp, parsed),
+    };
+  }
+  return {
+    reachable: true,
+    outcome: classifyPaymentIntentOutcome(body.status),
+    status: typeof body.status === "string" ? body.status : "unknown",
+  };
 }
 
 // ── ACP Endpoints ────────────────────────────────────────────────
@@ -313,6 +375,15 @@ async function updateCheckout(checkoutId: string, body: Record<string, unknown>,
     .single();
   if (bookErr || !booking) return res.status(404).json({ error: "Checkout not found" });
   if (booking.status === "cancelled") return res.status(409).json({ error: "Checkout is cancelled" });
+  // A charge exists for this checkout. Repricing it now would leave the stay's
+  // dates and total disagreeing with the payment already in flight for the old
+  // ones — cancel and start a new checkout instead of mutating a paid-for stay.
+  if (booking.stripe_payment_intent_id) {
+    return res.status(409).json({
+      error: "Checkout has a payment in progress and can no longer be modified",
+      hint: "Cancel this checkout and create a new one to change dates or guests.",
+    });
+  }
 
   const updates: Record<string, unknown> = {};
 
@@ -386,6 +457,35 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
   if (bookErr || !booking) return res.status(404).json({ error: "Checkout not found" });
   if (booking.status === "confirmed") return res.status(409).json({ error: "Checkout already completed" });
   if (booking.status === "cancelled") return res.status(409).json({ error: "Checkout is cancelled" });
+
+  // Re-entrancy: a charge already exists for this checkout. The booking status
+  // alone cannot guard this any more — a payment left in flight keeps the row
+  // `pending`, which is precisely when a retrying agent would create a SECOND
+  // PaymentIntent for the same stay. Read the existing intent and answer from
+  // it instead of charging again. Stripe's own Idempotency-Key covers an
+  // identical retry; this covers a retry that arrives with a different token.
+  if (booking.stripe_payment_intent_id) {
+    const existing = await readPaymentIntentOutcome(booking.stripe_payment_intent_id);
+    if (existing.reachable && existing.outcome !== "not_paid") {
+      if (existing.outcome === "succeeded") {
+        // The charge settled but the booking never reached confirmed (a write
+        // failed, or the process died between the two). Self-heal rather than
+        // charging the guest a second time.
+        await supabase.from("bookings").update({ status: "confirmed" }).eq("id", checkoutId);
+      }
+      const state = await buildACPState(checkoutId, base);
+      if (!state) return res.status(404).json({ error: "Checkout not found" });
+      return res.json(state);
+    }
+    if (!existing.reachable) {
+      // Unknown payment state. Fail closed: creating a new intent here risks
+      // charging twice for one stay.
+      return res.status(502).json({
+        error: "Could not read the existing payment for this checkout",
+        hint: "A PaymentIntent already exists for this booking and Stripe could not be reached to check it. Retry shortly; no new charge was created.",
+      });
+    }
+  }
 
   // ── Direct-to-host routing (Stripe Connect destination charge) ──────
   // The host is merchant of record: funds settle to the host's own connected
@@ -517,7 +617,11 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
   // the token as well as the checkout keeps legitimate retries working: the
   // same token replays Stripe's original result, a different payment method
   // after a decline is a genuinely new attempt.
-  piHeaders["Idempotency-Key"] = `acp_complete_${booking.id}_${idemFingerprint(token).slice(0, 32)}`;
+  // The amount is part of the key: Stripe replays the ORIGINAL PaymentIntent
+  // for 24h, so a checkout repriced between attempts would otherwise replay a
+  // charge for the old total and be read as payment for the new one.
+  piHeaders["Idempotency-Key"] =
+    `acp_complete_${booking.id}_${amountCents}_${currency}_${idemFingerprint(token).slice(0, 24)}`;
 
   const piResp = await fetch("https://api.stripe.com/v1/payment_intents", {
     method: "POST",
@@ -525,12 +629,12 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
     body: piBody.toString(),
   });
 
-  const { body: piJson, raw: piRaw } = await readStripeBody(piResp);
+  const { body: piJson, raw: piRaw, parsed: piParsed } = await readStripeBody(piResp);
 
   if (!piResp.ok) {
     return res.status(402).json({
       error: "Payment failed",
-      stripe_error: stripeErrorMessage(piJson, piRaw, piResp),
+      stripe_error: stripeErrorMessage(piJson, piRaw, piResp, piParsed),
       hint: "Provide a valid SharedPaymentToken (spt_...) or payment_method (pm_...)",
       // Surfaced so a failed SPT redemption can be told apart from a wrong
       // preview version without re-reading the deploy's env.
@@ -555,12 +659,12 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
   }
 
   if (outcome === "in_flight") {
-    // No money yet, but it can still arrive on its own (processing, or an
-    // uncaptured authorization). The booking stays `pending` and the
-    // `payment_intent.succeeded` webhook — the authoritative Stripe-event
-    // reconciler per ADR 0006 — confirms it if and when the funds land.
-    // Reporting `in_progress` keeps the agent from re-paying a live charge.
-    const inFlightState = await buildACPState(checkoutId, base, "in_progress");
+    // No money yet, but it can still arrive on its own. The booking stays
+    // `pending` and the `payment_intent.succeeded` webhook — the authoritative
+    // Stripe-event reconciler per ADR 0006 — confirms it if and when the funds
+    // land. The state now reads `in_progress` (derived from the persisted
+    // PaymentIntent id), so a polling agent is never told to pay again.
+    const inFlightState = await buildACPState(checkoutId, base);
     if (!inFlightState) return res.status(404).json({ error: "Checkout not found" });
     return res.json(inFlightState);
   }
@@ -572,10 +676,17 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
     return res.status(402).json({
       error: "Payment not completed",
       payment_status: paymentStatus,
+      // The agent drives the authentication, so give it what that takes: the
+      // intent to act on and Stripe's own next_action payload. No client
+      // secret — this endpoint answers unauthenticated callers in open mode.
+      payment_intent_id: typeof pi.id === "string" ? pi.id : null,
       next_action_type: pi.next_action?.type ?? null,
+      next_action: pi.next_action ?? null,
       hint:
         paymentStatus === "requires_action"
-          ? "The payment needs customer authentication (e.g. 3DS). The booking stays pending and confirms automatically if the authentication completes."
+          ? "The payment needs customer authentication (e.g. 3DS). Complete next_action, then poll this checkout — the webhook confirms the booking if the authentication succeeds."
+          : paymentStatus === "requires_capture"
+          ? "The payment is authorized but not captured. This integration does not capture authorizations, so the booking cannot be confirmed; cancel the checkout to release the hold."
           : "Stripe did not take the payment. Retry with a valid, unused token; the booking is still pending.",
       stripe_api_version: isSpt ? sptApiVersion() : null,
     });
@@ -613,50 +724,92 @@ async function cancelCheckout(checkoutId: string, res: VercelResponse, base: str
 
   // If paid, issue refund
   let refund = null;
-  // A PaymentIntent id is recorded as soon as the intent exists, including for
-  // payments that never took the money (completeCheckout persists it so the
-  // charge stays traceable). Only a booking that reached `confirmed` has a
-  // payment to give back; refunding an intent that never succeeded returns a
-  // Stripe error and would strand the guest in a booking they cannot cancel.
-  const wasPaid = booking.status === "confirmed";
-  if (booking.stripe_payment_intent_id && !wasPaid) {
-    // Money never moved. Ask Stripe to cancel the intent so an authentication
-    // finished after this point cannot charge a guest for a cancelled stay.
-    // Best-effort: an intent that is already dead — or too far along to cancel
-    // — must never block the cancellation the guest asked for.
-    try {
-      const stripeKey = getStripeKey();
-      const cancelResp = await fetch(
-        `https://api.stripe.com/v1/payment_intents/${encodeURIComponent(booking.stripe_payment_intent_id)}/cancel`,
-        {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${stripeKey}`,
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-        }
+  const paymentIntentId = booking.stripe_payment_intent_id as string | null;
+  let liveOutcome: PaymentIntentOutcome | null = null;
+  let livePaymentStatus = "unknown";
+
+  if (paymentIntentId) {
+    // Ask Stripe what the money actually did — never infer it from the booking
+    // row. Two writes stand between a settled charge and status='confirmed',
+    // so a real payment can sit on a booking that still reads `pending`, and
+    // trusting the row would cancel a paid stay while refunding nothing.
+    const live = await readPaymentIntentOutcome(paymentIntentId);
+
+    if (!live.reachable) {
+      // We cannot establish what the money did. Refuse to finalise: a cancel
+      // that abandons a live payment is how a guest ends up charged for a stay
+      // that no longer exists.
+      console.error(
+        `ACP cancel: payment state unreadable for booking ${checkoutId} (PI ${paymentIntentId}):`,
+        live.detail
       );
-      if (!cancelResp.ok) {
-        const { body: cancelErr, raw } = await readStripeBody(cancelResp);
+      return res.status(502).json({
+        error: "Could not read the payment status — booking left in non-final state",
+        detail: live.detail ?? "stripe_unreachable",
+      });
+    }
+
+    livePaymentStatus = live.status;
+    liveOutcome = live.outcome;
+
+    if (liveOutcome === "in_flight") {
+      // The money is on its way and can be neither cancelled nor refunded yet.
+      // Cancelling the booking now would let the charge settle against a stay
+      // that no longer exists — and the payment_intent.succeeded webhook would
+      // then confirm the cancelled booking straight back to life.
+      return res.status(409).json({
+        error: "Payment still processing — cannot cancel yet",
+        payment_status: livePaymentStatus,
+        hint: "The charge has not settled. Retry the cancellation once the payment reaches a final state; the booking stays pending until then.",
+      });
+    }
+
+    if (liveOutcome === "not_paid") {
+      // Nothing settled. Cancel the intent so an authentication completed after
+      // this point cannot charge a guest for a cancelled stay, and so a held
+      // authorization is released. Best-effort: an intent Stripe already closed
+      // must never block the cancellation the guest asked for.
+      try {
+        const cancelResp = await fetch(
+          `https://api.stripe.com/v1/payment_intents/${encodeURIComponent(paymentIntentId)}/cancel`,
+          {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${getStripeKey()}`,
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+          }
+        );
+        if (!cancelResp.ok) {
+          const { body: cancelErr, raw, parsed } = await readStripeBody(cancelResp);
+          console.warn(
+            `ACP cancel: PaymentIntent ${paymentIntentId} (status ${livePaymentStatus}) not cancellable for booking ${checkoutId}:`,
+            stripeErrorMessage(cancelErr, raw, cancelResp, parsed)
+          );
+        }
+      } catch (err) {
         console.warn(
-          `ACP cancel: PaymentIntent ${booking.stripe_payment_intent_id} not cancellable for booking ${checkoutId}:`,
-          stripeErrorMessage(cancelErr, raw, cancelResp)
+          `ACP cancel: could not reach Stripe to cancel PaymentIntent for booking ${checkoutId}:`,
+          err instanceof Error ? err.message : String(err)
         );
       }
-    } catch (err) {
-      console.warn(
-        `ACP cancel: could not reach Stripe to cancel PaymentIntent for booking ${checkoutId}:`,
-        err instanceof Error ? err.message : String(err)
-      );
     }
   }
+
   // ADR 0002 §2.2 clause 5: do not flip booking to 'cancelled' until refund
   // is confirmed (or no refund was needed). Refund failures must surface to
   // the caller and persist on the booking row so support can reconstruct.
-  if (booking.stripe_payment_intent_id && wasPaid) {
+  if (paymentIntentId && liveOutcome === "succeeded") {
     const stripeKey = getStripeKey();
     const refundBody = new URLSearchParams();
-    refundBody.append("payment_intent", booking.stripe_payment_intent_id);
+    refundBody.append("payment_intent", paymentIntentId);
+    // Destination charge: without reverse_transfer the host keeps the guest's
+    // money and the refund is drawn from HemmaBo's platform balance — putting
+    // HemmaBo in the flow of funds for a stay, which the charter forbids.
+    // Stripe: "the destination account keeps the funds that were transferred
+    // to it, leaving the platform account to cover the negative balance"
+    // (docs.stripe.com/connect/destination-charges#issue-refunds).
+    refundBody.append("reverse_transfer", "true");
 
     let refundResp: Response;
     try {

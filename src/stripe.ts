@@ -71,7 +71,12 @@ export type PaymentIntentOutcome = "succeeded" | "in_flight" | "not_paid";
  */
 export function classifyPaymentIntentOutcome(status: unknown): PaymentIntentOutcome {
   if (status === "succeeded") return "succeeded";
-  if (status === "processing" || status === "requires_capture") return "in_flight";
+  if (status === "processing") return "in_flight";
+  // `requires_capture` is NOT in_flight: nothing in this repository ever calls
+  // /capture, and the webhook does not handle amount_capturable_updated, so an
+  // authorization would sit on the guest's card until it expires while the
+  // booking waited for a confirmation that no code path can deliver. Report it
+  // as unpaid — honest, and it routes the intent to cancellation on cancel.
   return "not_paid";
 }
 
@@ -86,17 +91,18 @@ export function classifyPaymentIntentOutcome(status: unknown): PaymentIntentOutc
  */
 export async function readStripeBody(
   resp: Response
-): Promise<{ body: Record<string, unknown>; raw: string }> {
+): Promise<{ body: Record<string, unknown>; raw: string; parsed: boolean }> {
   const raw = await resp.text().catch(() => "");
-  if (!raw) return { body: {}, raw: "" };
+  if (!raw) return { body: {}, raw: "", parsed: false };
   try {
-    const parsed: unknown = JSON.parse(raw);
+    const value: unknown = JSON.parse(raw);
     return {
-      body: parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {},
+      body: value && typeof value === "object" ? (value as Record<string, unknown>) : {},
       raw,
+      parsed: true,
     };
   } catch {
-    return { body: {}, raw };
+    return { body: {}, raw, parsed: false };
   }
 }
 
@@ -108,11 +114,18 @@ export async function readStripeBody(
 export function stripeErrorMessage(
   body: Record<string, unknown>,
   raw: string,
-  resp: { status: number; statusText: string }
+  resp: { status: number; statusText: string },
+  parsed = false
 ): string {
-  const err = body.error as { message?: string } | undefined;
+  const err = body.error as { message?: string; code?: string; type?: string } | undefined;
   if (err?.message) return err.message;
-  if (raw) return `Non-JSON response from Stripe (HTTP ${resp.status}): ${raw.slice(0, 200)}`;
+  // A well-formed Stripe error without a message still carries code/type. Say
+  // so rather than blaming the transport: during the SPT test window a false
+  // "Non-JSON response" would send whoever debugs it hunting an edge problem
+  // that does not exist.
+  if (err?.code || err?.type) return `Stripe error ${err.code ?? err.type} (HTTP ${resp.status})`;
+  if (raw && !parsed) return `Non-JSON response from Stripe (HTTP ${resp.status}): ${raw.slice(0, 200)}`;
+  if (raw) return `Stripe returned HTTP ${resp.status}: ${raw.slice(0, 200)}`;
   return resp.statusText || `HTTP ${resp.status}`;
 }
 
@@ -262,6 +275,16 @@ export async function createRefund(
   const body = new URLSearchParams();
   body.append("payment_intent", paymentIntentId);
   body.append("amount", String(toStripeMinorUnits(amount)));
+  // Every stay is a destination charge to the host's connected account. Stripe:
+  // "When refunding a charge that has a transfer_data[destination], by default
+  // the destination account keeps the funds that were transferred to it,
+  // leaving the platform account to cover the negative balance from the
+  // refund." (docs.stripe.com/connect/destination-charges#issue-refunds)
+  // Without reverse_transfer the host keeps the guest's money and HemmaBo pays
+  // the refund out of its own balance — HemmaBo would be in the flow of funds
+  // for a stay, which the charter forbids outright. The platform fee is 0, so
+  // refund_application_fee has nothing to return and stays unset.
+  body.append("reverse_transfer", "true");
 
   const resp = await fetch("https://api.stripe.com/v1/refunds", {
     method: "POST",

@@ -16,7 +16,37 @@ import { SupabaseClient } from "@supabase/supabase-js";
 // with no payment can otherwise block the calendar indefinitely. The 24 h
 // cut-off matches Stripe's default session TTL; confirmed bookings are
 // unaffected and continue to block regardless of age.
+//
+// A pending row that carries a `stripe_payment_intent_id` is EXEMPT from this
+// cut-off: it is not an abandoned checkout, it is a stay with a live payment.
+// The ACP path keeps such a booking pending until Stripe reports the money
+// settled (api/acp.ts), and async methods can take days — dropping those dates
+// back into inventory would let a second guest book them while the first
+// guest's payment is still in flight, ending in two confirmed bookings for the
+// same nights.
 const PENDING_BOOKING_TTL_MS = 24 * 60 * 60 * 1000;
+
+export interface PendingBookingRow {
+  status?: string | null;
+  created_at?: string | null;
+  stripe_payment_intent_id?: string | null;
+}
+
+/**
+ * Does this booking row still hold its dates?
+ *
+ * Confirmed always blocks. A pending row blocks while it is younger than
+ * PENDING_BOOKING_TTL_MS, or — at any age — while it carries a PaymentIntent:
+ * that is a live payment, not an abandoned checkout, and releasing its nights
+ * would let a second guest book them while the first guest's money is still in
+ * flight. Anything else is stale and no longer blocks.
+ */
+export function blocksAvailability(row: PendingBookingRow, pendingCutoffIso: string): boolean {
+  if (row.status === "confirmed") return true;
+  if (row.status !== "pending") return false;
+  if (row.stripe_payment_intent_id) return true;
+  return typeof row.created_at === "string" && row.created_at >= pendingCutoffIso;
+}
 
 function addUtcDays(dateKey: string, days: number): string {
   const d = new Date(`${dateKey}T12:00:00Z`);
@@ -82,11 +112,17 @@ export async function checkAvailability(
   // MCP-04b: confirmed rows always count; pending rows only count while
   // younger than PENDING_BOOKING_TTL_MS (stale-pending filter).
   const pendingCutoff = new Date(Date.now() - PENDING_BOOKING_TTL_MS).toISOString();
+  // Widen the query to every overlapping confirmed or pending row and apply the
+  // stale-pending rule in code below. Expressing "pending AND has a payment
+  // intent" as a PostgREST `or(...and(...))` string cannot be verified by the
+  // test suite (the mocks stub `.or()` out), and a filter that silently parses
+  // wrong here would quietly resell occupied dates. Overlapping rows for one
+  // property in one date range are few, so reading them costs nothing.
   let bookingsQuery = supabase
     .from("bookings")
-    .select("check_in_date, check_out_date, status")
+    .select("check_in_date, check_out_date, status, created_at, stripe_payment_intent_id")
     .eq("property_id", propertyId)
-    .or(`status.eq.confirmed,and(status.eq.pending,created_at.gte.${pendingCutoff})`)
+    .or(`status.eq.confirmed,status.eq.pending`)
     .lt("check_in_date", checkOut)
     .gt("check_out_date", checkIn);
 
@@ -94,10 +130,14 @@ export async function checkAvailability(
     bookingsQuery = bookingsQuery.neq("id", excludeBookingId);
   }
 
-  const { data: bookings, error: bookingsErr } = await bookingsQuery;
+  const { data: bookingRows, error: bookingsErr } = await bookingsQuery;
 
   // Fail-closed: DB error → treat as unavailable to avoid double-booking
   if (bookingsErr) return { propertyId, checkIn, checkOut, available: false, reason: "Availability check failed (bookings query error)" };
+
+  const bookings = (bookingRows ?? []).filter((row) =>
+    blocksAvailability(row as PendingBookingRow, pendingCutoff)
+  );
 
   if (bookings?.length) {
     return {
