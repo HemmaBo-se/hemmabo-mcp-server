@@ -135,6 +135,7 @@ Required environment variables:
 Optional environment variables:
 
 - `STRIPE_SECRET_KEY` - enables fallback non-VRP checkout, cancellation, refund, and reschedule helpers for the host/operator's own Stripe account. VRP offers should route to the signed host-domain booking URL instead.
+- `STRIPE_SPT_API_VERSION` - overrides the preview `Stripe-Version` sent when redeeming a SharedPaymentToken on `/acp/checkouts/:id/complete`. Defaults to the version pinned in `src/stripe.ts`; set it only to follow a Stripe-side preview roll without a deploy.
 - `MCP_API_KEY` - enables Bearer-token auth for protected tools.
 - `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` - enable shared rate limiting.
 
