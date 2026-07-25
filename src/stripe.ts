@@ -8,6 +8,39 @@
 const FALLBACK_DOMAIN = "hemmabo.se";
 
 /**
+ * Stripe preview API version required to redeem a SharedPaymentToken (SPT).
+ *
+ * SPT redemption lives behind a preview API version: on an account's default
+ * version Stripe does not accept
+ * `payment_method_data[shared_payment_granted_token]`, so this header is not
+ * optional for the agent-checkout path — without it the redemption fails no
+ * matter how correct the rest of the PaymentIntent is.
+ *
+ * Confirmed by Stripe (Agentic Commerce, case 00721792, 2026-07-25) as the
+ * current version for SPT redemption on a PaymentIntent:
+ *   https://docs.stripe.com/api/shared-payment/granted-token?api-version=2026-07-08.preview
+ * Supersedes 2026-04-22.preview, which was only ever used in the June 2026
+ * parameter probe (Stripe accepted the param shape; no redemption ever ran).
+ *
+ * Pin it here rather than at the call site so there is exactly one place to
+ * change when Stripe rolls the next preview.
+ */
+export const SPT_API_VERSION_DEFAULT = "2026-07-08.preview";
+
+/**
+ * The preview API version to send when redeeming an SPT.
+ *
+ * `STRIPE_SPT_API_VERSION` overrides the pinned default so a Stripe-side
+ * version roll can be followed from configuration — a preview version bump
+ * must never require a code deploy mid-test-cycle. Blank or whitespace-only
+ * values fall back to the pinned default rather than sending an empty header.
+ */
+export function sptApiVersion(): string {
+  const override = process.env.STRIPE_SPT_API_VERSION?.trim();
+  return override ? override : SPT_API_VERSION_DEFAULT;
+}
+
+/**
  * Convert a decimal price to Stripe minor units (cents / öre).
  *
  * Plain `price * 100` produces floating-point garbage (`19.99 * 100 ===

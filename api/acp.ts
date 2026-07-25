@@ -30,7 +30,7 @@ import {
   bearerIdentifier,
   checkRateLimit,
 } from "../lib/rate-limit.js";
-import { toStripeMinorUnits } from "../src/stripe.js";
+import { sptApiVersion, toStripeMinorUnits } from "../src/stripe.js";
 import { verifyAp2PaymentMandate, resolveAp2IssuerJwks } from "../lib/ap2.js";
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -452,7 +452,8 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
   piBody.append("metadata[acp_checkout]", "true");
 
   // Use SharedPaymentToken if it starts with spt_, otherwise treat as payment_method
-  if (paymentData.token.startsWith("spt_")) {
+  const isSpt = paymentData.token.startsWith("spt_");
+  if (isSpt) {
     piBody.append("payment_method_data[shared_payment_granted_token]", paymentData.token);
   } else {
     piBody.append("payment_method", paymentData.token);
@@ -468,12 +469,20 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
     piBody.append("on_behalf_of", hostAccountId);
   }
 
+  // SPT redemption requires the preview API version header (see
+  // src/stripe.ts:SPT_API_VERSION_DEFAULT). Send it ONLY on the SPT branch:
+  // a preview version changes request/response behaviour across the whole
+  // API surface, and an ordinary pm_ charge must keep running on the
+  // account's default version.
+  const piHeaders: Record<string, string> = {
+    "Authorization": `Bearer ${stripeKey}`,
+    "Content-Type": "application/x-www-form-urlencoded",
+  };
+  if (isSpt) piHeaders["Stripe-Version"] = sptApiVersion();
+
   const piResp = await fetch("https://api.stripe.com/v1/payment_intents", {
     method: "POST",
-    headers: {
-      "Authorization": `Bearer ${stripeKey}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
+    headers: piHeaders,
     body: piBody.toString(),
   });
 
@@ -483,6 +492,9 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
       error: "Payment failed",
       stripe_error: err.error?.message ?? piResp.statusText,
       hint: "Provide a valid SharedPaymentToken (spt_...) or payment_method (pm_...)",
+      // Surfaced so a failed SPT redemption can be told apart from a wrong
+      // preview version without re-reading the deploy's env.
+      stripe_api_version: isSpt ? sptApiVersion() : null,
     });
   }
 
