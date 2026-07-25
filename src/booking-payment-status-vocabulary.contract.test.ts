@@ -288,6 +288,20 @@ describe("MCP booking/payment status vocabulary contract", () => {
       acp,
       /\/\/ Update booking to confirmed[\s\S]*?\.from\("bookings"\)\s*\.update\(\{[\s\S]*?status:\s*"confirmed"/,
     );
+    // ADR 0006 permits the synchronous ACP write only "after Stripe has
+    // accepted and confirmed the payment intent". A 2xx is acceptance;
+    // status "succeeded" is confirmation. The gate below is that clause in
+    // code — removing it re-opens confirming a stay nobody paid for.
+    const acpGateIndex = acp.indexOf('if (outcome !== "succeeded")');
+    const acpConfirmedIndex = acp.indexOf("// Update booking to confirmed");
+    assert.ok(
+      acpGateIndex > -1,
+      "ACP completeCheckout must gate the confirmed write on the PaymentIntent outcome (ADR 0006).",
+    );
+    assert.ok(
+      acpGateIndex < acpConfirmedIndex,
+      "The succeeded-gate must run BEFORE the confirmed write, not after it.",
+    );
     assert.match(
       webhook,
       /case "payment_intent\.succeeded":[\s\S]*?\.update\(\{\s*status:\s*"confirmed"/,

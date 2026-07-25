@@ -41,6 +41,95 @@ export function sptApiVersion(): string {
 }
 
 /**
+ * What a confirmed PaymentIntent's status means for a booking.
+ *
+ *   succeeded  — the money moved. The only outcome that may confirm a stay.
+ *   in_flight  — no money yet, but the payment can still complete on its own.
+ *                The booking stays pending; the `payment_intent.succeeded`
+ *                webhook is the authoritative writer that confirms it later.
+ *   not_paid   — the payment needs something (authentication, another payment
+ *                method) or is dead. Fail closed and tell the caller.
+ */
+export type PaymentIntentOutcome = "succeeded" | "in_flight" | "not_paid";
+
+/**
+ * Stripe answers HTTP 200 for a `confirm=true` PaymentIntent that has NOT
+ * taken the money — `requires_action` (3DS), `processing` (funds in flight),
+ * `requires_payment_method` (soft decline). A 2xx is therefore not proof of
+ * payment, and treating it as such would book the stay, block the host's
+ * calendar, and report "confirmed and paid" with nothing settled.
+ *
+ * ADR 0006 permits the ACP path to write `confirmed` only *after Stripe has
+ * accepted **and confirmed** the payment intent*. This function is that
+ * "and confirmed" — the single place where the meaning of each status is
+ * decided, so the money path reads as one rule rather than scattered
+ * comparisons.
+ *
+ * `requires_capture` is deliberately NOT `succeeded`: under manual capture the
+ * funds are authorized, not captured, and an authorization is not a paid stay.
+ * Unknown/absent statuses fall through to `not_paid` — the safe direction.
+ */
+export function classifyPaymentIntentOutcome(status: unknown): PaymentIntentOutcome {
+  if (status === "succeeded") return "succeeded";
+  if (status === "processing") return "in_flight";
+  // `requires_capture` is NOT in_flight: nothing in this repository ever calls
+  // /capture, and the webhook does not handle amount_capturable_updated, so an
+  // authorization would sit on the guest's card until it expires while the
+  // booking waited for a confirmation that no code path can deliver. Report it
+  // as unpaid — honest, and it routes the intent to cancellation on cancel.
+  return "not_paid";
+}
+
+/**
+ * Read a Stripe response body without letting a non-JSON payload throw.
+ *
+ * `await resp.json()` on an HTML 502 from Stripe's edge (or an empty body)
+ * raises a SyntaxError that escapes to the router's catch and becomes an
+ * opaque 500 — losing the payment status and version diagnostics that the
+ * caller needs precisely when something murky happened. Returns the parsed
+ * object when possible and always the raw text for the error message.
+ */
+export async function readStripeBody(
+  resp: Response
+): Promise<{ body: Record<string, unknown>; raw: string; parsed: boolean }> {
+  const raw = await resp.text().catch(() => "");
+  if (!raw) return { body: {}, raw: "", parsed: false };
+  try {
+    const value: unknown = JSON.parse(raw);
+    return {
+      body: value && typeof value === "object" ? (value as Record<string, unknown>) : {},
+      raw,
+      parsed: true,
+    };
+  } catch {
+    return { body: {}, raw, parsed: false };
+  }
+}
+
+/**
+ * Human-readable failure text for a non-2xx Stripe response. Falls back to the
+ * raw body (truncated) so an HTML error page still says something useful
+ * instead of collapsing into "Internal error".
+ */
+export function stripeErrorMessage(
+  body: Record<string, unknown>,
+  raw: string,
+  resp: { status: number; statusText: string },
+  parsed = false
+): string {
+  const err = body.error as { message?: string; code?: string; type?: string } | undefined;
+  if (err?.message) return err.message;
+  // A well-formed Stripe error without a message still carries code/type. Say
+  // so rather than blaming the transport: during the SPT test window a false
+  // "Non-JSON response" would send whoever debugs it hunting an edge problem
+  // that does not exist.
+  if (err?.code || err?.type) return `Stripe error ${err.code ?? err.type} (HTTP ${resp.status})`;
+  if (raw && !parsed) return `Non-JSON response from Stripe (HTTP ${resp.status}): ${raw.slice(0, 200)}`;
+  if (raw) return `Stripe returned HTTP ${resp.status}: ${raw.slice(0, 200)}`;
+  return resp.statusText || `HTTP ${resp.status}`;
+}
+
+/**
  * Convert a decimal price to Stripe minor units (cents / öre).
  *
  * Plain `price * 100` produces floating-point garbage (`19.99 * 100 ===
@@ -186,6 +275,16 @@ export async function createRefund(
   const body = new URLSearchParams();
   body.append("payment_intent", paymentIntentId);
   body.append("amount", String(toStripeMinorUnits(amount)));
+  // Every stay is a destination charge to the host's connected account. Stripe:
+  // "When refunding a charge that has a transfer_data[destination], by default
+  // the destination account keeps the funds that were transferred to it,
+  // leaving the platform account to cover the negative balance from the
+  // refund." (docs.stripe.com/connect/destination-charges#issue-refunds)
+  // Without reverse_transfer the host keeps the guest's money and HemmaBo pays
+  // the refund out of its own balance — HemmaBo would be in the flow of funds
+  // for a stay, which the charter forbids outright. The platform fee is 0, so
+  // refund_application_fee has nothing to return and stays unset.
+  body.append("reverse_transfer", "true");
 
   const resp = await fetch("https://api.stripe.com/v1/refunds", {
     method: "POST",
