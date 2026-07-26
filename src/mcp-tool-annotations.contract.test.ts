@@ -5,8 +5,6 @@ import { TOOLS } from "../api/mcp.js";
 const EXPECTED: Record<string, { readOnlyHint: boolean; openWorldHint: boolean; destructiveHint: boolean }> = {
   "hemmabo_search_properties":   { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
   "hemmabo_search_availability": { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
-  "hemmabo_search_similar":      { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
-  "hemmabo_compare_properties":  { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
   "hemmabo_booking_quote":       { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
   "hemmabo_booking_create":      { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
   "hemmabo_booking_negotiate":   { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
@@ -21,13 +19,13 @@ const EXPECTED: Record<string, { readOnlyHint: boolean; openWorldHint: boolean; 
 };
 
 describe("mcp tool annotations contract", () => {
-  it("exposes exactly the 15 expected tools", () => {
+  it("exposes exactly the 13 expected tools", () => {
     const actualNames = TOOLS.map((t) => t.name).sort();
     const expectedNames = Object.keys(EXPECTED).sort();
     assert.deepEqual(
       actualNames,
       expectedNames,
-      "TOOLS array must contain exactly the 11 HemmaBo federation tools plus 2 host onboarding tools plus 2 VRP tools."
+      "TOOLS array must contain exactly the 9 HemmaBo federation tools plus 2 host onboarding tools plus 2 VRP tools."
     );
   });
 

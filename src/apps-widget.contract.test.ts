@@ -79,8 +79,6 @@ describe("ChatGPT Apps verified stay widget", () => {
     const dataTools = [
       "hemmabo_search_properties",
       "hemmabo_search_availability",
-      "hemmabo_search_similar",
-      "hemmabo_compare_properties",
       "hemmabo_booking_quote",
       "hemmabo_booking_create",
       "hemmabo_booking_negotiate",

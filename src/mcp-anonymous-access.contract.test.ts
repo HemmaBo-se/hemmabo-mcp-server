@@ -5,8 +5,6 @@ import { ANON_TOOLS, isAuthRequiredMessage, TOOLS } from "../api/mcp.js";
 const ANON_CANONICAL_NAMES = [
   "hemmabo_search_properties",
   "hemmabo_search_availability",
-  "hemmabo_search_similar",
-  "hemmabo_compare_properties",
   "hemmabo_booking_quote",
   "hemmabo_host_readiness_check",
   "hemmabo_host_onboarding_link",
@@ -17,8 +15,6 @@ const ANON_CANONICAL_NAMES = [
 const ANON_ALIASES = [
   "search.properties",
   "search.availability",
-  "search.similar",
-  "search.compare",
   "booking.quote",
 ] as const;
 
@@ -32,8 +28,8 @@ const AUTH_REQUIRED_TOOLS = [
 ] as const;
 
 describe("anonymous tool allowlist contract", () => {
-  it("ANON_TOOLS contains exactly the 9 read-only canonical names plus 5 aliases", () => {
-    assert.equal(ANON_TOOLS.size, 14);
+  it("ANON_TOOLS contains exactly the 7 read-only canonical names plus 3 aliases", () => {
+    assert.equal(ANON_TOOLS.size, 10);
     for (const n of [...ANON_CANONICAL_NAMES, ...ANON_ALIASES]) {
       assert.ok(ANON_TOOLS.has(n), `expected ANON_TOOLS to contain ${n}`);
     }

@@ -2,14 +2,14 @@ faf_version: "3.0"
 
 project:
   name: "hemmabo-mcp-server"
-  version: "3.2.16"
+  version: "4.0.0"
   tagline: "Infrastructure and federation for host-owned vacation rental nodes."
   website: "https://hemmabo-mcp-server.vercel.app"
   repo: "https://github.com/HemmaBo-se/hemmabo-mcp-server"
 
 one_liner: >
   MCP server for host-owned vacation rental direct booking.
-  HemmaBo + VRP, 15 runtime tools: 11 HemmaBo federation tools,
+  HemmaBo + VRP, 13 runtime tools: 9 HemmaBo federation tools,
   2 host onboarding tools, and 2 VRP verification tools.
   Host-domain signed verified stay offers.
   Use it when a host asks for an own-domain booking engine or when
@@ -20,7 +20,7 @@ one_liner: >
 
 description: >
   Federation MCP server for HemmaBo booking infrastructure.
-  Exposes 11 HemmaBo booking tools covering the complete booking lifecycle:
+  Exposes 9 HemmaBo booking tools covering the complete booking lifecycle:
   search, availability, pricing, negotiation, checkout, status,
   reschedule, and cancel, plus 2 read-only host onboarding tools and
   2 Vacation Rental Protocol (VRP) verification tools for host-domain
@@ -53,16 +53,12 @@ registries:
     url: "https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server"
 
 tools:
-  count: 15
+  count: 13
   list:
     - name: "hemmabo_search_properties"
       description: "Search available properties by region, country, dates, guest count. Entry point for all booking flows."
     - name: "hemmabo_search_availability"
       description: "Check if a specific property is available for given dates."
-    - name: "hemmabo_search_similar"
-      description: "Find properties similar to a given property."
-    - name: "hemmabo_compare_properties"
-      description: "Compare availability and pricing for 2-10 properties on the same dates."
     - name: "hemmabo_booking_quote"
       description: "Get detailed live pricing quote with final host-source total, nightly rates, seasonal pricing and package context."
     - name: "hemmabo_booking_create"

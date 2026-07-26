@@ -390,8 +390,6 @@ export const ANON_TOOLS: ReadonlySet<string> = new Set([
   // Canonical snake_case names (#59 — claude.ai web rejects dots)
   "hemmabo_search_properties",
   "hemmabo_search_availability",
-  "hemmabo_search_similar",
-  "hemmabo_compare_properties",
   "hemmabo_booking_quote",
   "hemmabo_host_readiness_check",
   "hemmabo_host_onboarding_link",
@@ -400,8 +398,6 @@ export const ANON_TOOLS: ReadonlySet<string> = new Set([
   // Legacy dotted aliases (inbound compatibility — TOOL_NAME_ALIASES)
   "search.properties",
   "search.availability",
-  "search.similar",
-  "search.compare",
   "booking.quote",
 ]);
 
