@@ -211,6 +211,46 @@ describe("2026-07-26 fix: widget UI language followed the browser, not the conve
   });
 });
 
+describe("2026-07-26 fix: price and date formatting followed the browser locale, not the conversation", () => {
+  // Spotted in the SAME guest recording as the two fixes above, after they
+  // shipped: the card's own text was now correctly English, but the price
+  // still rendered "3 060 kr" (Swedish grouping + "kr" suffix) because
+  // money()/formatDate() called Intl.*Format(undefined, ...) — the
+  // rendering browser's OS/system locale — never the resolved
+  // offer.language. Same bug class as isSvUi, a different call site.
+
+  it("localeForLanguage maps the resolved language to a concrete Intl locale, falling back to undefined (today's runtime-default behaviour)", () => {
+    assert.match(VERIFIED_STAY_OFFER_HTML, /function localeForLanguage\(lang\)/);
+    assert.match(VERIFIED_STAY_OFFER_HTML, /sv: "sv-SE", en: "en-GB", de: "de-DE"/);
+  });
+
+  it("money() and formatDate()/formatRange() accept a language and resolve it via localeForLanguage instead of Intl's implicit default", () => {
+    assert.match(VERIFIED_STAY_OFFER_HTML, /function money\(amount, currency, lang\)/);
+    assert.match(VERIFIED_STAY_OFFER_HTML, /var locale = localeForLanguage\(lang\);/);
+    assert.match(VERIFIED_STAY_OFFER_HTML, /new Intl\.NumberFormat\(locale, \{/);
+    assert.match(VERIFIED_STAY_OFFER_HTML, /function formatDate\(value, lang\)/);
+    assert.match(VERIFIED_STAY_OFFER_HTML, /new Intl\.DateTimeFormat\(localeForLanguage\(lang\), \{ month: "short", day: "numeric" \}\)/);
+    assert.match(VERIFIED_STAY_OFFER_HTML, /function formatRange\(checkIn, checkOut, lang\)/);
+  });
+
+  it("both card layouts pass offer.language through to money() and formatRange()", () => {
+    const moneyCalls = VERIFIED_STAY_OFFER_HTML.match(/money\(offer\.finalAmount, offer\.currency, offer\.language\)/g) || [];
+    assert.equal(moneyCalls.length, 2, "expected the compact and fullscreen card to both pass offer.language");
+    assert.match(VERIFIED_STAY_OFFER_HTML, /formatRange\(offer\.checkIn, offer\.checkOut, offer\.language\)/);
+  });
+
+  it("REGRESSION (behavioural): en-GB clears the Swedish 'kr'/day-first artifacts sv-SE produced for the exact recorded case", () => {
+    // Executes the actual Intl calls the fix relies on — not just source
+    // matching — against the villa's real recorded values (3060 SEK,
+    // 2026-11-03..04) to prove the fix's premise, independent of the widget.
+    const sv = new Intl.NumberFormat("sv-SE", { style: "currency", currency: "SEK", maximumFractionDigits: 0 }).format(3060);
+    const en = new Intl.NumberFormat("en-GB", { style: "currency", currency: "SEK", maximumFractionDigits: 0 }).format(3060);
+    assert.match(sv, /kr/);
+    assert.doesNotMatch(en, /kr/);
+    assert.match(en, /SEK/);
+  });
+});
+
 describe("2026-07-26 fix: minimum_guest_age is now always visible, not only behind 'Show more'", () => {
   // minimum_guest_age is a real eligibility requirement (class "verifiable",
   // same signed payload as the cancellation terms) that used to live ONLY

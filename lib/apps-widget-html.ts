@@ -408,19 +408,37 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     return Math.round((b - a) / 86400000);
   }
 
-  function formatDate(value) {
+  // 2026-07-26: date/price formatting used Intl.*Format(undefined, ...) —
+  // the RENDERING BROWSER's OS/system locale, same bug class as isSvUi
+  // before its fix. A guest recording in English still showed "3 NOV." (day
+  // before month) and "3 060 kr" (space-grouped SEK-with-"kr") because the
+  // recording machine's browser locale was Swedish, even though offer.text
+  // was correctly English by then. Map the SAME explicit language signal
+  // used elsewhere to a concrete locale; empty/unknown language keeps
+  // today's undefined-locale (runtime default) behaviour unchanged.
+  var LOCALE_BY_LANGUAGE = {
+    sv: "sv-SE", en: "en-GB", de: "de-DE", fr: "fr-FR", da: "da-DK",
+    no: "nb-NO", fi: "fi-FI", nl: "nl-NL", es: "es-ES", it: "it-IT",
+    pl: "pl-PL", ar: "ar"
+  };
+  function localeForLanguage(lang) {
+    var code = String(lang || "").toLowerCase().slice(0, 2);
+    return LOCALE_BY_LANGUAGE[code];
+  }
+
+  function formatDate(value, lang) {
     if (!value) return "";
     try {
-      return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(value + "T00:00:00"));
+      return new Intl.DateTimeFormat(localeForLanguage(lang), { month: "short", day: "numeric" }).format(new Date(value + "T00:00:00"));
     } catch (e) {
       return value;
     }
   }
 
-  function formatRange(checkIn, checkOut) {
+  function formatRange(checkIn, checkOut, lang) {
     if (!checkIn && !checkOut) return "Dates to confirm";
-    if (!checkOut) return formatDate(checkIn);
-    return formatDate(checkIn) + " - " + formatDate(checkOut);
+    if (!checkOut) return formatDate(checkIn, lang);
+    return formatDate(checkIn, lang) + " - " + formatDate(checkOut, lang);
   }
 
   function pickAmount(values) {
@@ -440,17 +458,18 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     return n;
   }
 
-  function money(amount, currency) {
+  function money(amount, currency, lang) {
     var normalized = normalizeAmount(amount, currency);
     if (normalized == null) return "Final price pending";
+    var locale = localeForLanguage(lang);
     try {
-      return new Intl.NumberFormat(undefined, {
+      return new Intl.NumberFormat(locale, {
         style: "currency",
         currency: currency || "SEK",
         maximumFractionDigits: 0
       }).format(normalized);
     } catch (e) {
-      return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(normalized) + " " + (currency || "");
+      return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(normalized) + " " + (currency || "");
     }
   }
 
@@ -952,7 +971,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     var minAgeHtml = "";
     if (offer.minAge) minAgeHtml = '<div class="lcancel">' + esc(T.minAge + ": " + offer.minAge + "+") + '</div>';
     var dateBits = [];
-    if (offer.checkIn || offer.checkOut) dateBits.push(formatRange(offer.checkIn, offer.checkOut));
+    if (offer.checkIn || offer.checkOut) dateBits.push(formatRange(offer.checkIn, offer.checkOut, offer.language));
     else dateBits.push(T.datesTbc);
     if (offer.nights) dateBits.push(offer.nights + " " + (offer.nights === 1 ? T.night : T.nights));
     if (offer.guests) dateBits.push(offer.guests + " " + T.guests);
@@ -1007,7 +1026,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
         cancelHtml +
         minAgeHtml +
         '<div class="lrow">' +
-          '<span class="price">' + esc(money(offer.finalAmount, offer.currency)) + '</span>' +
+          '<span class="price">' + esc(money(offer.finalAmount, offer.currency, offer.language)) + '</span>' +
           '<a id="bookLink" class="cta" aria-label="Open direct booking URL" href="' + esc(bookUrl) + '" target="_blank" rel="noopener">' + esc(T.cta) + '</a>' +
         '</div>' +
       '</div>';
@@ -1041,7 +1060,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
               cancelHtml +
               minAgeHtml +
               '<div class="lrow">' +
-                '<span class="price">' + esc(money(offer.finalAmount, offer.currency)) + '</span>' +
+                '<span class="price">' + esc(money(offer.finalAmount, offer.currency, offer.language)) + '</span>' +
                 '<a id="bookLink" class="cta" aria-label="Open direct booking URL" href="' + esc(bookUrl) + '" target="_blank" rel="noopener">' + esc(T.cta) + '</a>' +
               '</div>' +
             '</div>' +
