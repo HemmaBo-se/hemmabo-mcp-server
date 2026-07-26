@@ -262,7 +262,7 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "get_verified_stay_offer",
     description:
-      "Fetch, verify, and render a live host-domain signed VRP stay offer for exact dates and guest count. Verifies Ed25519 JWS against domain JWKS. Call after search returns a host domain, always before quoting final price or a booking link. Read-only: must not lock a quote, create a booking, collect guest details, or start checkout. Route booking only to the signed direct_booking_url on the host domain. The parameters work as a set: pass the same domain, checkIn, checkOut and guests the guest used at search; checkIn must be strictly before checkOut, and the resulting night count — not the dates themselves — drives the signed price and the host capacity check, so changing either date re-prices the offer. Omit language to inherit the host default; it never affects price or availability.",
+      "Fetch, verify, and render a live host-domain signed VRP stay offer for exact dates and guest count. Verifies Ed25519 JWS against domain JWKS. Call after search returns a host domain, always before quoting final price or a booking link. Read-only: must not lock a quote, create a booking, collect guest details, or start checkout. Route booking only to the signed direct_booking_url on the host domain. The parameters work as a set: pass the same domain, checkIn, checkOut and guests the guest used at search; checkIn must be strictly before checkOut, and the resulting night count — not the dates themselves — drives the signed price and the host capacity check, so changing either date re-prices the offer. Always pass language as the guest's actual conversation language so the rendered widget matches the guest; it never affects the signed price or availability, only formatting.",
     inputSchema: {
       type: "object",
       properties: {
@@ -288,7 +288,7 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
         language: {
           type: "string",
           description:
-            "Optional BCP-47 language tag for labels and formatting (e.g. 'en', 'sv', 'de', 'sv-SE'). Omit to use host default; does not change price or availability.",
+            "The guest's conversation language, as a BCP-47 tag (e.g. 'en', 'sv', 'de', 'sv-SE') — ALWAYS pass this, matching the language the guest is chatting in, so the rendered widget's labels, dates and currency formatting match the guest instead of falling back to the rendering client's own locale (which can silently disagree with the conversation). Never changes the signed price value or availability — only how it is displayed.",
         },
       },
       required: ["domain", "checkIn", "checkOut", "guests"],
