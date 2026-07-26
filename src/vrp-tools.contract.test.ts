@@ -412,6 +412,17 @@ describe("VRP MCP tools", () => {
     assert.match(parsed.agent_guardrails.tone_rule, /matches your wishes/);
     assert.match(parsed.agent_guardrails.blocked_claims.join("\n"), /perfect match/);
     assert.match(parsed.agent_guardrails.blocked_claims.join("\n"), /commission percentages/);
+    // 2026-07-26 fix: "own domain" is banned in guest-facing copy (nobody
+    // understands "domain" — CEO-locked, see never-say-own-domain memory).
+    // These two guardrail strings said "it is the host's own domain" as
+    // their OWN corrective framing, which then leaked "domain" into the
+    // model's guest-facing paraphrases across three separate recordings.
+    // The negative guard (never call it the GUEST's domain/site) stays;
+    // only the descriptor changes to "official booking page".
+    assert.doesNotMatch(parsed.agent_guardrails.guest_booking_framing_rule, /own domain/);
+    assert.match(parsed.agent_guardrails.guest_booking_framing_rule, /host's own official booking page/);
+    assert.doesNotMatch(parsed.agent_guardrails.blocked_claims.join("\n"), /own domain and the guest/);
+    assert.match(parsed.agent_guardrails.blocked_claims.join("\n"), /own official booking page, and the guest/);
     // LS-1: the verified-source line is pinned sv/en guest copy.
     assert.equal(
       parsed.agent_guardrails.verified_source_line.by_locale.sv,
