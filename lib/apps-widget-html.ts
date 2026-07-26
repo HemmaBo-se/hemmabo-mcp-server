@@ -408,14 +408,28 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     return Math.round((b - a) / 86400000);
   }
 
-  // 2026-07-26: date/price formatting used Intl.*Format(undefined, ...) —
-  // the RENDERING BROWSER's OS/system locale, same bug class as isSvUi
-  // before its fix. A guest recording in English still showed "3 NOV." (day
-  // before month) and "3 060 kr" (space-grouped SEK-with-"kr") because the
-  // recording machine's browser locale was Swedish, even though offer.text
-  // was correctly English by then. Map the SAME explicit language signal
-  // used elsewhere to a concrete locale; empty/unknown language keeps
-  // today's undefined-locale (runtime default) behaviour unchanged.
+  // 2026-07-26 (second pass): offer.language (the get_verified_stay_offer
+  // "language" arg) is only ever present when the MODEL chose to send it —
+  // optional, unenforceable from a tool description alone. A guest recording
+  // showed the model omit it, so the whole card fell back to
+  // navigator.language (the RENDERING DEVICE's OS/browser locale) — Swedish
+  // on that machine — while the amenity row (server-baked before the widget
+  // ever loads) fell back to English, producing a visibly split-language
+  // card. Per OpenAI's own Apps SDK docs (developers.openai.com/plugins/
+  // build/chatgpt-ui, "Widget localization"): "The host mirrors the locale
+  // to document.documentElement.lang." That is ChatGPT's own signal for the
+  // GUEST's actual locale, set unconditionally for every user regardless of
+  // what the model does — a strictly better fallback than navigator.language
+  // (the host machine's locale). navigator.language stays the last-resort
+  // fallback for hosts/clients that don't set documentElement.lang.
+  function hostLocaleSignal() {
+    try {
+      var docLang = document.documentElement && document.documentElement.lang;
+      if (docLang) return String(docLang).toLowerCase();
+    } catch (e) {}
+    try { return (navigator.language || "").toLowerCase(); } catch (e) { return ""; }
+  }
+
   var LOCALE_BY_LANGUAGE = {
     sv: "sv-SE", en: "en-GB", de: "de-DE", fr: "fr-FR", da: "da-DK",
     no: "nb-NO", fi: "fi-FI", nl: "nl-NL", es: "es-ES", it: "it-IT",
@@ -604,11 +618,12 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       starred: asArray(property.starred_amenities).filter(function (a) { return typeof a === "string" && !!a; }).slice(0, 8),
       // The explicit language the get_verified_stay_offer call was made
       // with (get_verified_stay_offer's "language" arg, echoed back by the
-      // tool) — the only signal that reflects the ACTUAL conversation
-      // language. Preferred over the rendering iframe's navigator.language,
-      // which is the browser/OS locale and can silently disagree with it
-      // (see isSvUi below).
-      language: (typeof data.language === "string" && data.language) || "",
+      // tool) is the strongest signal when the model actually sends it, but
+      // it's optional — when absent, prefer the HOST's own locale signal
+      // (document.documentElement.lang, set by ChatGPT for every guest
+      // regardless of model behavior) over the rendering device's
+      // navigator.language. See hostLocaleSignal() above.
+      language: (typeof data.language === "string" && data.language) || hostLocaleSignal(),
       terms: (summary.terms && typeof summary.terms === "object") ? summary.terms : null,
       minAge: (typeof summary.minimum_guest_age === "number" && summary.minimum_guest_age > 0) ? Math.floor(summary.minimum_guest_age) : null,
       refund: Array.isArray(summary.refund_schedule) ? summary.refund_schedule : null,
@@ -760,8 +775,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
   }
 
   function guestCopyLocale() {
-    var lang = "";
-    try { lang = (navigator.language || "").toLowerCase().split("-")[0]; } catch (e) {}
+    var lang = hostLocaleSignal().split("-")[0];
     return GUEST_COPY[lang] ? lang : "en";
   }
 
