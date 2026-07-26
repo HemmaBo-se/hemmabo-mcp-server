@@ -1,5 +1,5 @@
 /**
- * Shared tool execution — single source of truth for all 11 HemmaBo federation tools.
+ * Shared tool execution — single source of truth for all 9 HemmaBo federation tools.
  *
  * The MCP transport (api/mcp.ts) is a thin wrapper that:
  *  1. Constructs its own Supabase clients (service-role + anon reader).
@@ -351,8 +351,6 @@ const TOOL_NAME_ALIASES: Record<string, string> = {
   // Search tree
   "search.properties": "hemmabo_search_properties",
   "search.availability": "hemmabo_search_availability",
-  "search.similar": "hemmabo_search_similar",
-  "search.compare": "hemmabo_compare_properties",
   // Booking tree
   "booking.quote": "hemmabo_booking_quote",
   "booking.create": "hemmabo_booking_create",
@@ -1036,139 +1034,6 @@ export async function executeTool(
         if (calendarBlock) return calendarBlock;
       }
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    }
-
-    case "hemmabo_search_similar": {
-      const reqErr = validateRequiredArgs(args, ["propertyId", "checkIn", "checkOut"]);
-      if (reqErr) return toolError(reqErr);
-      const { propertyId, checkIn, checkOut, guests, limit } = args as {
-        propertyId: string; checkIn: string; checkOut: string; guests?: number; limit?: number;
-      };
-      const dateErr = validateDates(checkIn, checkOut);
-      if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }], isError: true };
-      const orderErr = validateDateOrder(checkIn, checkOut);
-      if (orderErr) return { content: [{ type: "text", text: JSON.stringify({ error: orderErr }) }], isError: true };
-
-      const { data: src, error: srcErr } = await reader
-        .from("properties")
-        .select("region, country, property_type, max_guests, published")
-        .eq("id", propertyId)
-        .single();
-      if (srcErr || !src) {
-        return { content: [{ type: "text", text: JSON.stringify({ error: "Source property not found" }) }], isError: true };
-      }
-
-      const effectiveGuests = guests ?? src.max_guests ?? 2;
-      const max = limit ?? 5;
-
-      let query = reader
-        .from("properties")
-        .select("id, name, domain, region, city, country, max_guests, currency, property_type, direct_booking_discount")
-        .eq("published", true)
-        .neq("id", propertyId)
-        .gte("max_guests", effectiveGuests);
-      if (src.region) query = query.ilike("region", `%${src.region}%`);
-      else if (src.country) query = query.ilike("country", `%${src.country}%`);
-      if (src.property_type) query = query.eq("property_type", src.property_type);
-
-      const { data: candidates, error: qErr } = await query.limit(max * 3);
-      if (qErr) return { content: [{ type: "text", text: JSON.stringify({ error: qErr.message }) }], isError: true };
-
-      const results: any[] = [];
-      for (const prop of candidates ?? []) {
-        if (results.length >= max) break;
-        // MCP-06: use service-role client so bookings table is visible to availability/gap checks
-        const avail = await checkAvailability(supabase, prop.id, checkIn, checkOut);
-        if (!avail.available) continue;
-        const quote = await resolveQuote(supabase, prop.id, checkIn, checkOut, effectiveGuests);
-        if ("error" in quote) continue;
-        results.push({
-          propertyId: prop.id,
-          name: prop.name, domain: prop.domain,
-          region: prop.region, city: prop.city, country: prop.country,
-          maxGuests: prop.max_guests, propertyType: prop.property_type,
-          currency: quote.currency, nights: quote.nights,
-          publicTotal: quote.publicTotal,
-          ...directBookingPriceFields(quote),
-          federationTotal: quote.federationTotal,
-          packageApplied: quote.packageApplied, available: true,
-        });
-      }
-
-      return {
-        content: [{
-          type: "text",
-          text: JSON.stringify({
-            sourcePropertyId: propertyId, checkIn, checkOut,
-            guests: effectiveGuests, count: results.length,
-            similarProperties: results,
-          }, null, 2),
-        }],
-      };
-    }
-
-    case "hemmabo_compare_properties": {
-      const reqErr = validateRequiredArgs(args, ["propertyIds", "checkIn", "checkOut", "guests"]);
-      if (reqErr) return toolError(reqErr);
-      const { propertyIds, checkIn, checkOut, guests } = args as {
-        propertyIds: string[]; checkIn: string; checkOut: string; guests: number;
-      };
-      const dateErr = validateDates(checkIn, checkOut);
-      if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }], isError: true };
-      const orderErr = validateDateOrder(checkIn, checkOut);
-      if (orderErr) return { content: [{ type: "text", text: JSON.stringify({ error: orderErr }) }], isError: true };
-      if (!Array.isArray(propertyIds) || propertyIds.length < 2 || propertyIds.length > 10) {
-        return { content: [{ type: "text", text: JSON.stringify({ error: "propertyIds must contain 2 to 10 UUIDs" }) }], isError: true };
-      }
-
-      const comparisons = await Promise.all(
-        propertyIds.map(async (id) => {
-          const { data: prop } = await reader
-            .from("properties")
-            .select("id, name, domain, region, city, country, max_guests, property_type, published")
-            .eq("id", id)
-            .single();
-          if (!prop || !prop.published) {
-            return { propertyId: id, available: false, error: "Property not found or not published" };
-          }
-          // MCP-06: use service-role client so bookings table is visible to availability/gap checks
-          const avail = await checkAvailability(supabase, id, checkIn, checkOut);
-          if (!avail.available) {
-            return { propertyId: prop.id, name: prop.name, domain: prop.domain, available: false, reason: avail };
-          }
-          const quote = await resolveQuote(supabase, id, checkIn, checkOut, guests);
-          if ("error" in quote) {
-            return { propertyId: prop.id, name: prop.name, domain: prop.domain, available: true, error: quote.error };
-          }
-          return {
-            propertyId: prop.id,
-            name: prop.name, domain: prop.domain,
-            region: prop.region, city: prop.city, country: prop.country,
-            maxGuests: prop.max_guests, propertyType: prop.property_type,
-            currency: quote.currency, nights: quote.nights,
-            publicTotal: quote.publicTotal,
-            ...directBookingPriceFields(quote),
-            federationTotal: quote.federationTotal,
-            gapTotal: quote.gapTotal,
-            packageApplied: quote.packageApplied, available: true,
-          };
-        })
-      );
-
-      comparisons.sort((a: any, b: any) => {
-        if (a.available && !b.available) return -1;
-        if (!a.available && b.available) return 1;
-        const ap = typeof a.federationTotal === "number" ? a.federationTotal : Infinity;
-        const bp = typeof b.federationTotal === "number" ? b.federationTotal : Infinity;
-        return ap - bp;
-      });
-
-      return {
-        content: [{
-          type: "text",
-          text: JSON.stringify({ checkIn, checkOut, guests, count: comparisons.length, comparison: comparisons }, null, 2),
-        }],
-      };
     }
 
     case "hemmabo_booking_quote": {

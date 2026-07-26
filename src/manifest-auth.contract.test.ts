@@ -35,12 +35,10 @@ function captureJson(handler: (req: any, res: any) => unknown): Promise<unknown>
 }
 
 describe("manifest per-tool auth contract", () => {
-  it("ANON_TOOLS contains the canonical 9 read-only tools", () => {
+  it("ANON_TOOLS contains the canonical 7 read-only tools", () => {
     for (const name of [
       "hemmabo_search_properties",
       "hemmabo_search_availability",
-      "hemmabo_search_similar",
-      "hemmabo_compare_properties",
       "hemmabo_booking_quote",
       "hemmabo_host_readiness_check",
       "hemmabo_host_onboarding_link",
@@ -51,10 +49,10 @@ describe("manifest per-tool auth contract", () => {
     }
   });
 
-  it("/.well-known/mcp.json exposes auth for all 15 tools", async () => {
+  it("/.well-known/mcp.json exposes auth for all 13 tools", async () => {
     const body = (await captureJson(manifestHandler as never)) as { tools: Tool[] };
     assert.ok(Array.isArray(body.tools), "manifest must have tools[]");
-    assert.equal(body.tools.length, 15, "manifest must list all 15 tools");
+    assert.equal(body.tools.length, 13, "manifest must list all 13 tools");
 
     for (const t of body.tools) {
       assert.ok(t.auth === "none" || t.auth === "bearer", `tool ${t.name} must declare auth`);

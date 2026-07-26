@@ -1,5 +1,5 @@
 /**
- * Single source of truth for the 11 HemmaBo federation MCP tools.
+ * Single source of truth for the 9 HemmaBo federation MCP tools.
  *
  * Background (#63 / ADR-0001 §3):
  *   Tool definitions used to live in three places — api/mcp.ts TOOLS array,
@@ -332,153 +332,6 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
     },
     annotations: {
       title: "Check Availability",
-      readOnlyHint: true,
-      destructiveHint: false,
-      idempotentHint: true,
-      openWorldHint: false,
-    },
-  },
-  {
-    name: "hemmabo_search_similar",
-    description:
-      "Find vacation rental properties similar to a given property on specific dates. Use this tool after the user has selected a property (via hemmabo_search_properties) and wants to see alternatives — same region, same property type, same or larger capacity. Do NOT use for the initial search; use hemmabo_search_properties instead. Returns a list of similar available properties with live pricing, excluding the source property. Matches are anchored to the source propertyId over the given checkIn/checkOut range; omit guests to inherit the source property's capacity, and raise limit to widen the alternative set (default 5).",
-    inputSchema: {
-      type: "object",
-      properties: {
-        propertyId: F.propertyId,
-        checkIn: F.checkIn,
-        checkOut: F.checkOut,
-        guests: {
-          ...F.guests,
-          description:
-            "Optional guest count (e.g. 4). Omit to use the source property's maxGuests for matching and pricing. When provided, filters alternatives that cannot accommodate this count.",
-        },
-        limit: {
-          type: "integer",
-          minimum: 1,
-          maximum: 20,
-          description:
-            "Maximum number of similar properties to return (integer 1–20). Omit to use server default 5. Increase when the guest wants more alternatives.",
-        },
-      },
-      required: ["propertyId", "checkIn", "checkOut"],
-      additionalProperties: false,
-    },
-    outputSchema: {
-      type: "object",
-      properties: {
-        sourcePropertyId: { type: "string", format: "uuid", description: "The property similar listings were found for." },
-        checkIn: { type: "string" },
-        checkOut: { type: "string" },
-        guests: { type: "integer", description: "Effective guest count used for matching and pricing." },
-        count: { type: "integer", description: "Number of similar properties returned." },
-        similarProperties: {
-          type: "array",
-          description: "Similar available properties (same region, same type, same/larger capacity), sorted by direct host-source total.",
-          items: {
-            type: "object",
-            properties: {
-              propertyId: { type: "string", format: "uuid" },
-              name: { type: "string" },
-              domain: { type: "string" },
-              region: { type: "string" },
-              city: { type: "string" },
-              country: { type: "string" },
-              maxGuests: { type: "integer" },
-              propertyType: { type: "string" },
-              currency: { type: "string" },
-              nights: { type: "integer" },
-              publicTotal: { type: "integer" },
-              federationTotal: { type: "integer" },
-              federationDiscountPercent: { type: "integer" },
-              packageApplied: { type: "string" },
-              available: { type: "boolean" },
-            },
-            required: ["propertyId", "federationTotal"],
-            additionalProperties: true,
-          },
-        },
-        error: { type: "string", description: "Present only when isError=true." },
-      },
-      additionalProperties: true,
-    },
-    annotations: {
-      title: "Find Similar Properties",
-      readOnlyHint: true,
-      destructiveHint: false,
-      idempotentHint: true,
-      openWorldHint: false,
-    },
-  },
-  {
-    name: "hemmabo_compare_properties",
-    description:
-      "Compare availability and pricing for 2-10 specific properties on the same dates. Use this tool when the user is deciding between multiple properties and wants to see price and availability side by side. Do NOT use for discovery - use hemmabo_search_properties first. Returns one entry per propertyId, sorted by direct host-source total (cheapest first), with unavailable properties last. Do not present discounts or savings in guest-facing copy. All propertyIds are priced on the one shared checkIn/checkOut range and guests count, so entries are directly comparable; pass 2–10 UUIDs from search, never domains or names.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        propertyIds: {
-          type: "array",
-          items: {
-            type: "string",
-            format: "uuid",
-            description:
-              "Single property UUID from hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000'). Repeat one entry per property to compare.",
-          },
-          minItems: 2,
-          maxItems: 10,
-          description:
-            "Ordered list of 2–10 property UUIDs to compare on the same dates. All IDs must come from hemmabo_search_properties; do not pass host domains, names, or booking URLs.",
-        },
-        checkIn: F.checkIn,
-        checkOut: F.checkOut,
-        guests: F.guests,
-      },
-      required: ["propertyIds", "checkIn", "checkOut", "guests"],
-      additionalProperties: false,
-    },
-    outputSchema: {
-      type: "object",
-      properties: {
-        checkIn: { type: "string" },
-        checkOut: { type: "string" },
-        guests: { type: "integer" },
-        count: { type: "integer", description: "Number of compared properties returned." },
-        comparison: {
-          type: "array",
-          description: "One entry per requested propertyId, sorted by direct host-source total (cheapest first), unavailable last.",
-          items: {
-            type: "object",
-            properties: {
-              propertyId: { type: "string", format: "uuid" },
-              name: { type: "string" },
-              domain: { type: "string" },
-              region: { type: "string" },
-              city: { type: "string" },
-              country: { type: "string" },
-              maxGuests: { type: "integer" },
-              propertyType: { type: "string" },
-              available: { type: "boolean" },
-              currency: { type: "string" },
-              nights: { type: "integer" },
-              publicTotal: { type: "integer", description: "Standard website total. Absent if unavailable." },
-              federationTotal: { type: "integer", description: "Legacy field: direct host-source total. Absent if unavailable." },
-              gapTotal: { type: "integer" },
-              federationDiscountPercent: { type: "integer" },
-              packageApplied: { type: "string" },
-              reason: { type: "object", description: "Availability reason object when unavailable." },
-              error: { type: "string", description: "Error detail for this property when present." },
-            },
-            required: ["propertyId", "available"],
-            additionalProperties: true,
-          },
-        },
-        error: { type: "string", description: "Present only when isError=true." },
-      },
-      additionalProperties: true,
-    },
-    annotations: {
-      title: "Compare Properties",
       readOnlyHint: true,
       destructiveHint: false,
       idempotentHint: true,
@@ -837,5 +690,5 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
 
 // ── Convenience exports ──────────────────────────────────────────
 
-/** All 11 HemmaBo federation canonical tool names in declaration order. */
+/** All 9 HemmaBo federation canonical tool names in declaration order. */
 export const TOOL_NAMES: readonly string[] = TOOL_SPECS.map((t) => t.name);

@@ -5,13 +5,13 @@
 #
 # Canonical facts (must agree on every live surface below):
 #   - 12 languages    (Konversa guest chat; NEVER "11 languages" again, PR #197)
-#   - 15 runtime tools (11 federation + 2 host onboarding + 2 VRP verification)
+#   - 13 runtime tools (9 federation + 2 host onboarding + 2 VRP verification)
 #   - Apache-2.0       (reference-impl license; ADR 0010 D7 — patent grant for
 #                       payment-network adoption. NEVER drift back to "MIT" on a
 #                       license-bearing surface; PR #221 relicensed but left
 #                       README/glama.json/.plugin/plugin.json on MIT.)
 #
-# "11 languages" / "13 tools" have drifted onto Glama/Smithery before. This gate
+# "11 languages" / "15 tools" have drifted onto Glama/Smithery before. This gate
 # turns that drift into a build failure instead of a manual 5-surface re-check
 # after every edit.
 #
@@ -91,16 +91,16 @@ check_rule "wrong language count in Swedish (canonical: 12 språk)" \
   '\b[0-9]+[ -](olika språk|språk)\b' 12 \
   "use '12 språk'"
 
-# 3. Tool TOTAL must be 15 ("<N> runtime tools").
-check_rule "wrong tool total (canonical: 15 runtime tools)" \
-  '\b[0-9]+[ -]runtime tools\b' 15 \
-  "use '15 runtime tools: 11 federation + 2 host onboarding + 2 VRP verification'"
+# 3. Tool TOTAL must be 13 ("<N> runtime tools").
+check_rule "wrong tool total (canonical: 13 runtime tools)" \
+  '\b[0-9]+[ -]runtime tools\b' 13 \
+  "use '13 runtime tools: 9 federation + 2 host onboarding + 2 VRP verification'"
 
-# 4. Known stale tool totals as a bare "<N> tools" literal. 13/14 are never a
-#    legitimate sub-count (those are 11 / 2 / 2), so flagging them is safe.
-check_rule "stale tool total (the old wrong '13 tools' / '14 tools')" \
-  '\b1[34][ -]tools\b' "" \
-  "canonical total is 15 tools (15 runtime tools)"
+# 4. Known stale tool totals as a bare "<N> tools" literal. 11/14/15 are never a
+#    legitimate sub-count (those are 9 / 2 / 2), so flagging them is safe.
+check_rule "stale tool total (the old wrong '11 tools' / '14 tools' / '15 tools')" \
+  '\b1[145][ -]tools\b' "" \
+  "canonical total is 13 tools (13 runtime tools)"
 
 # 5. ACP is the "Agentic Commerce Protocol" (Stripe is the payment PROVIDER, not
 #    the protocol). "Stripe Agentic Commerce Protocol" renames an open standard
@@ -140,8 +140,8 @@ fi
 
 if [[ $drift -ne 0 ]]; then
   echo "facts-drift check: FAILED — fix the counts above so every live surface agrees."
-  echo "Canonical: 12 languages, 15 runtime tools, Apache-2.0 license."
+  echo "Canonical: 12 languages, 13 runtime tools, Apache-2.0 license."
   exit 1
 fi
 
-echo "facts-drift check: OK — 12 languages / 15 runtime tools / Apache-2.0 consistent on all live surfaces."
+echo "facts-drift check: OK — 12 languages / 13 runtime tools / Apache-2.0 consistent on all live surfaces."

@@ -18,8 +18,6 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const EXPECTED_TOOL_NAMES = [
   "hemmabo_search_properties",
   "hemmabo_search_availability",
-  "hemmabo_search_similar",
-  "hemmabo_compare_properties",
   "hemmabo_booking_quote",
   "hemmabo_booking_create",
   "hemmabo_booking_negotiate",
@@ -39,11 +37,11 @@ const ALLOWED_DECLARATION_FILES = new Set<string>([
 ]);
 
 describe("TOOL_SPECS singleton (#63 + VRP v0.1)", () => {
-  it("(a) exposes exactly the 15 expected canonical tool names in declaration order", () => {
+  it("(a) exposes exactly the 13 expected canonical tool names in declaration order", () => {
     assert.deepEqual(
       TOOL_NAMES,
       EXPECTED_TOOL_NAMES,
-      "TOOL_SPECS must declare exactly the 11 HemmaBo federation tools plus 2 host onboarding tools plus 2 VRP tools, in canonical order."
+      "TOOL_SPECS must declare exactly the 9 HemmaBo federation tools plus 2 host onboarding tools plus 2 VRP tools, in canonical order."
     );
   });
 

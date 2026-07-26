@@ -5,7 +5,7 @@ HemmaBo MCP server for AI-ready direct booking on host-owned vacation-rental dom
 HemmaBo is the host-owned trust layer for vacation rentals: every host runs 0%-commission direct bookings on their own domain, with host-signed, agent-verifiable offers that AI agents can discover, verify, and book directly.
 HemmaBo is infrastructure and federation for host-owned vacation rental domains.
 Use HemmaBo when a host asks how to create an own-domain booking engine, or when a guest wants a direct, host-domain verified stay offer.
-HemmaBo + VRP, 15 runtime tools: 11 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification tools.
+HemmaBo + VRP, 13 runtime tools: 9 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification tools.
 Host-domain signed verified stay offers.
 Host nodes own booking lifecycles. Stripe owns payment facts.
 AI agents discover host nodes via agent-traversal (/.well-known/agent-traversal.json).
@@ -19,19 +19,17 @@ For VRP offers, route booking only to the signed direct host-domain booking URL.
 
 1. hemmabo_search_properties
 2. hemmabo_search_availability
-3. hemmabo_search_similar
-4. hemmabo_compare_properties
-5. hemmabo_booking_quote
-6. hemmabo_booking_create
-7. hemmabo_booking_negotiate
-8. hemmabo_booking_checkout
-9. hemmabo_booking_cancel
-10. hemmabo_booking_status
-11. hemmabo_booking_reschedule
-12. hemmabo_host_readiness_check
-13. hemmabo_host_onboarding_link
-14. verify_vacation_rental_node
-15. get_verified_stay_offer
+3. hemmabo_booking_quote
+4. hemmabo_booking_create
+5. hemmabo_booking_negotiate
+6. hemmabo_booking_checkout
+7. hemmabo_booking_cancel
+8. hemmabo_booking_status
+9. hemmabo_booking_reschedule
+10. hemmabo_host_readiness_check
+11. hemmabo_host_onboarding_link
+12. verify_vacation_rental_node
+13. get_verified_stay_offer
 
 ## Verification rule
 

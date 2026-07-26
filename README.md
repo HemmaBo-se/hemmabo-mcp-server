@@ -14,7 +14,7 @@ Each host node runs on the host's own domain and is the source of truth for the 
 Host nodes own booking lifecycles. Stripe owns payment facts.
 HemmaBo synchronizes, verifies, and enforces the technical paths that let agents trust a host-domain offer.
 AI agents discover host nodes via agent-traversal (`/.well-known/agent-traversal.json`).
-HemmaBo + VRP, 15 runtime tools: 11 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification tools.
+HemmaBo + VRP, 13 runtime tools: 9 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification tools.
 Host-domain signed verified stay offers.
 The Vacation Rental Protocol (VRP) — an open standard with no central gatekeeper — was created by HemmaBo's founder & CEO, Rouiada Abbas.
 
@@ -84,8 +84,6 @@ Canonical tool names use `snake_case`. Legacy dotted aliases are accepted inboun
 |------|---------|-----------|
 | `hemmabo_search_properties` | Search published vacation rentals by location, dates, and guest count. | Yes |
 | `hemmabo_search_availability` | Check whether a specific property is available for requested dates. | Yes |
-| `hemmabo_search_similar` | Find available alternatives after a user has selected a source property and asked for alternatives. Do not use for initial discovery. | Yes |
-| `hemmabo_compare_properties` | Compare availability and pricing for 2-10 known property IDs on the same dates. | Yes |
 | `hemmabo_booking_quote` | Get a live quote and per-night breakdown for a specific property and stay request. | Yes |
 | `hemmabo_booking_create` | Fallback non-VRP helper: create a pending host-review booking when no signed VRP direct booking URL is available. | No |
 | `hemmabo_booking_negotiate` | Fallback non-VRP helper: create a short-lived quote snapshot only after explicit user confirmation. | No |
