@@ -412,7 +412,7 @@ function sourceAuthoritySummary(offer: JsonRecord): JsonRecord | null {
   };
 }
 
-export function amenitiesFromDiscovery(discovery: JsonRecord): string[] {
+export function amenitiesFromDiscovery(discovery: JsonRecord, language?: string): string[] {
   const raw = Array.isArray(discovery.amenities) ? discovery.amenities : [];
   const labels: string[] = [];
   for (const item of raw) {
@@ -423,7 +423,7 @@ export function amenitiesFromDiscovery(discovery: JsonRecord): string[] {
     // an underscore" filter silently dropped hot_tub/ev_charging from the
     // widget and the agent-visible amenity list, which made agents narrate
     // a signals-vs-offer discrepancy to guests.
-    const label = formatAmenityLabel(s);
+    const label = formatAmenityLabel(s, language);
     if (label && !labels.includes(label)) labels.push(label);
     if (labels.length >= 4) break;
   }
@@ -523,7 +523,7 @@ function policyClaimsFromDiscovery(discovery: JsonRecord): JsonRecord | null {
  * The widget's compact card shows THESE instead of a generic amenity row.
  * Labels via the same formatter as the amenity list. Empty ⇒ absent.
  */
-function starredAmenitiesFromDiscovery(discovery: JsonRecord): string[] {
+function starredAmenitiesFromDiscovery(discovery: JsonRecord, language?: string): string[] {
   const claims = Array.isArray(discovery.claims) ? discovery.claims : [];
   const labels: string[] = [];
   for (const item of claims) {
@@ -532,7 +532,7 @@ function starredAmenitiesFromDiscovery(discovery: JsonRecord): string[] {
     if (stringValue(record.state) !== "affirmed") continue;
     const key = stringValue(record.claim);
     if (!key) continue;
-    const label = formatAmenityLabel(key);
+    const label = formatAmenityLabel(key, language);
     if (label && !labels.includes(label)) labels.push(label);
     if (labels.length >= 8) break;
   }
@@ -687,6 +687,7 @@ function buildAgentQuoteView(
   response: JsonRecord,
   validUntil: string | null,
   discovery: JsonRecord,
+  language?: string,
 ): JsonRecord {
   const mayQuote = mayQuoteOfficialOffer(offer, response);
   const available = offerAvailable(offer, response);
@@ -706,11 +707,11 @@ function buildAgentQuoteView(
   if (discoveryRegion && !stringValue(summaryProperty.region)) {
     summaryProperty.region = discoveryRegion;
   }
-  const widgetAmenities = amenitiesFromDiscovery(discovery);
+  const widgetAmenities = amenitiesFromDiscovery(discovery, language);
   if (widgetAmenities.length) summaryProperty.amenities = widgetAmenities;
   // W5: the host's starred "Det lilla extra" — the compact widget card's
   // row when present; the generic amenities above stay as fallback.
-  const starredAmenities = starredAmenitiesFromDiscovery(discovery);
+  const starredAmenities = starredAmenitiesFromDiscovery(discovery, language);
   if (starredAmenities.length) summaryProperty.starred_amenities = starredAmenities;
   const nodeName = stringValue(summaryProperty.name);
 
@@ -878,7 +879,7 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
   const fresh = Boolean(validUntil && Date.parse(validUntil) > Date.now());
   if (!fresh) throw new Error("verified_stay_offer is expired or missing valid_until");
 
-  const quoteView = buildAgentQuoteView(offer, response, validUntil, node.discovery);
+  const quoteView = buildAgentQuoteView(offer, response, validUntil, node.discovery, language ?? undefined);
   const hostAlternatives = asRecord(response.host_alternatives);
   const agentNextStep = buildAgentNextStep(hostAlternatives);
   return toolOk({
@@ -886,6 +887,12 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
     checkIn,
     checkOut,
     guests,
+    // The widget has no other reliable signal for which language the guest
+    // is actually being served in — without this it fell back to the
+    // rendering browser's navigator.language, which can silently disagree
+    // with the conversation (2026-07-26 recording: English chat, Swedish
+    // widget chrome, because the reviewer's browser locale was Swedish).
+    ...(language ? { language } : {}),
     verified: true,
     signature: {
       alg: VRP_JWS_ALG,

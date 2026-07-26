@@ -488,6 +488,105 @@ describe("VRP MCP tools", () => {
     assert.equal(legacyParsed.checkOut, "2026-07-08");
   });
 
+  it("get_verified_stay_offer localizes the amenity row and echoes the requested language (2026-07-26 fix)", async () => {
+    // Regression for a guest recording where the widget's headline amenity
+    // row stayed English ("Breakfast included · EV charging · … · WiFi")
+    // inside an otherwise-Swedish card: formatAmenityLabel never saw the
+    // requested language, and the tool response never carried one either,
+    // so the widget had no signal beyond the rendering browser's locale.
+    const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+    const jwk = publicKey.export({ format: "jwk" }) as Record<string, unknown>;
+    jwk.kid = "vrp-test-key";
+    jwk.alg = "EdDSA";
+    jwk.use = "sig";
+
+    const offer = {
+      kind: "verified_stay_offer",
+      protocol_version: "0.1",
+      canonical_domain: "villaakerlyckan.se",
+      node_id: "villaakerlyckan.se",
+      generated_at: new Date().toISOString(),
+      valid_until: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      property: { id: "prop-test", name: "Villa Åkerlyckan", domain: "villaakerlyckan.se" },
+      availability: { available: true, source: "official_host_domain", reason: null },
+      price: { currency: "SEK", total: 3060, public_total: 3060, agent_total: 3060, exact: true, no_add_on_fees: true, package_applied: null, breakdown: [], adjustments: [], reconciliation: { nightly_subtotal: 3060, adjustments_total: 0, computed_total: 3060, matches_quoted_total: true } },
+      source_authority: { model: "host_verified_direct_source", is_official_source_for_property: true, intermediary: "none", payment_recipient: "host", booking_model: "direct_with_host", booking_commission_pct: 0 },
+      booking: { direct_booking_url: "https://villaakerlyckan.se/book?offer=vrp-test", offer_id: "vrp-test" },
+      agent_permission: { may_quote_as_official_direct_offer: true },
+    };
+    const jws = compactJws(offer, privateKey);
+    const requestedLanguages: (string | null)[] = [];
+
+    mock.method(globalThis, "fetch", async (input: string | URL | Request) => {
+      const url = new URL(String(input));
+      if (url.pathname === "/.well-known/vacation-rental.json") {
+        return jsonResponse({
+          protocol: "vacation-rental-protocol",
+          protocol_version: "0.1",
+          canonical_domain: "villaakerlyckan.se",
+          jwks_uri: "https://villaakerlyckan.se/.well-known/jwks.json",
+          verified_stay_offer_endpoint: "https://villaakerlyckan.se/api/verified-stay-offer",
+          amenities: ["wifi", "hot_tub", "grill"],
+          claims: [
+            { claim: "breakfast_included", state: "affirmed", verified_at: null, starred: true },
+            { claim: "ev_charging", state: "affirmed", verified_at: null, starred: true },
+            { claim: "garden", state: "affirmed", verified_at: null, starred: true },
+          ],
+        });
+      }
+      if (url.pathname === "/.well-known/jwks.json") return jsonResponse({ keys: [jwk] });
+      if (url.pathname === "/api/verified-stay-offer") {
+        // The mock is reused for the "omit language" call below too — record
+        // what was actually requested instead of asserting a fixed value here.
+        requestedLanguages.push(url.searchParams.get("language"));
+        return jsonResponse({
+          kind: "signed_verified_stay_offer",
+          protocol_version: "0.1",
+          offer,
+          signature: { format: "jws_compact", alg: "EdDSA", kid: "vrp-test-key", jws },
+        });
+      }
+      return new Response("not found", { status: 404 });
+    });
+
+    const result = await executeTool("get_verified_stay_offer", {
+      domain: "villaakerlyckan.se",
+      checkIn: "2026-11-03",
+      checkOut: "2026-11-04",
+      guests: 6,
+      language: "sv",
+    }, clients);
+
+    assert.equal(result.isError, undefined);
+    const parsed = JSON.parse(result.content[0].text);
+    assert.equal(requestedLanguages[0], "sv", "the host offer endpoint must still see the requested language");
+    assert.equal(parsed.language, "sv", "the requested language must be echoed back for the widget to read");
+    assert.deepEqual(parsed.official_offer_summary.property.starred_amenities, [
+      "Frukost ingår",
+      "Elbilsladdning",
+      "Trädgård",
+    ]);
+    assert.deepEqual(parsed.official_offer_summary.property.amenities, ["WiFi", "Spabad", "Grill"]);
+
+    // Omitting language keeps today's English behaviour byte-for-byte —
+    // this fix must never change output for existing callers.
+    const englishResult = await executeTool("get_verified_stay_offer", {
+      domain: "villaakerlyckan.se",
+      checkIn: "2026-11-03",
+      checkOut: "2026-11-04",
+      guests: 6,
+    }, clients);
+    assert.equal(englishResult.isError, undefined);
+    const englishParsed = JSON.parse(englishResult.content[0].text);
+    assert.equal(requestedLanguages[1], null, "omitting language must not send one to the host either");
+    assert.equal(englishParsed.language, undefined);
+    assert.deepEqual(englishParsed.official_offer_summary.property.starred_amenities, [
+      "Breakfast included",
+      "EV charging",
+      "Garden",
+    ]);
+  });
+
   it("get_verified_stay_offer refuses quoteable status for signed but unavailable offers", async () => {
     const { publicKey, privateKey } = generateKeyPairSync("ed25519");
     const jwk = publicKey.export({ format: "jwk" }) as Record<string, unknown>;

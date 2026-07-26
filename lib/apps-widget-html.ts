@@ -583,6 +583,13 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       // absence-safe: older nodes without these fields render exactly as
       // before (unknown is never invented into a yes or a no).
       starred: asArray(property.starred_amenities).filter(function (a) { return typeof a === "string" && !!a; }).slice(0, 8),
+      // The explicit language the get_verified_stay_offer call was made
+      // with (get_verified_stay_offer's "language" arg, echoed back by the
+      // tool) — the only signal that reflects the ACTUAL conversation
+      // language. Preferred over the rendering iframe's navigator.language,
+      // which is the browser/OS locale and can silently disagree with it
+      // (see isSvUi below).
+      language: (typeof data.language === "string" && data.language) || "",
       terms: (summary.terms && typeof summary.terms === "object") ? summary.terms : null,
       minAge: (typeof summary.minimum_guest_age === "number" && summary.minimum_guest_age > 0) ? Math.floor(summary.minimum_guest_age) : null,
       refund: Array.isArray(summary.refund_schedule) ? summary.refund_schedule : null,
@@ -749,12 +756,8 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     return GUEST_COPY[loc].replace("{nameGenitive}", interp).replace("{name}", interp);
   }
 
-  function widgetStrings() {
-    var sv = false;
-    try {
-      var lang = (navigator.language || "").toLowerCase();
-      sv = lang.indexOf("sv") === 0;
-    } catch (e) {}
+  function widgetStrings(offer) {
+    var sv = isSvUi(offer);
     return sv ? {
       cta: "Fortsätt till värdens sida →",
       more: "Se mer om boendet ▾",
@@ -829,7 +832,15 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     return humanizeKey(key);
   }
 
-  function isSvUi() {
+  // 2026-07-26: was navigator.language-only (the rendering browser/OS
+  // locale) — that silently disagreed with the guest's actual conversation
+  // language (English chat rendered a Swedish card because the reviewer's
+  // browser was set to Swedish). offer.language, when the tool call carried
+  // one, is now the primary signal; navigator.language stays the fallback
+  // for older callers that never passed a language.
+  function isSvUi(offer) {
+    var explicit = offer && typeof offer.language === "string" ? offer.language.toLowerCase() : "";
+    if (explicit) return explicit.indexOf("sv") === 0;
     try { return (navigator.language || "").toLowerCase().indexOf("sv") === 0; } catch (e) { return false; }
   }
 
@@ -853,7 +864,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
    *  caller then keeps the legacy amenity chips instead. */
   function termGroupsHtml(offer, T) {
     if (!offer.terms) return "";
-    var sv = isSvUi();
+    var sv = isSvUi(offer);
     var terms = offer.terms;
     var included = asArray(terms.service_included).map(function (k) { return termLabel(k, sv); });
     var good = [];
@@ -907,8 +918,8 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       return;
     }
     hbLastData = data;
-    var T = widgetStrings();
     var offer = normalizeOffer(data);
+    var T = widgetStrings(offer);
     var location = [offer.city, offer.region].filter(Boolean).join(" · ") || cleanDomain(offer.domain);
     var notice = "";
     if (!offer.available || offer.requestedUnavailable) {
@@ -933,6 +944,13 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     var cancelHtml = "";
     var cancelText = cancelLine(offer.refund, T);
     if (cancelText) cancelHtml = '<div class="lcancel">' + esc(cancelText) + '</div>';
+    // 2026-07-26: minimum_guest_age used to live ONLY inside the collapsed
+    // "Good to know" group (termGroupsHtml) — a real eligibility requirement
+    // (class "verifiable", same signed payload as the cancellation terms)
+    // that a guest could miss entirely without clicking "show more". Now
+    // also a quiet always-visible line, same treatment as cancelHtml.
+    var minAgeHtml = "";
+    if (offer.minAge) minAgeHtml = '<div class="lcancel">' + esc(T.minAge + ": " + offer.minAge + "+") + '</div>';
     var dateBits = [];
     if (offer.checkIn || offer.checkOut) dateBits.push(formatRange(offer.checkIn, offer.checkOut));
     else dateBits.push(T.datesTbc);
@@ -987,6 +1005,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
         (matchLine ? '<div class="lmatch">' + esc(matchLine) + '</div>' : "") +
         '<div class="ldates">' + esc(dateLine) + '</div>' +
         cancelHtml +
+        minAgeHtml +
         '<div class="lrow">' +
           '<span class="price">' + esc(money(offer.finalAmount, offer.currency)) + '</span>' +
           '<a id="bookLink" class="cta" aria-label="Open direct booking URL" href="' + esc(bookUrl) + '" target="_blank" rel="noopener">' + esc(T.cta) + '</a>' +
@@ -1020,6 +1039,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
               (matchLine ? '<div class="lmatch" style="-webkit-line-clamp:3;">' + esc(matchLine) + '</div>' : "") +
               '<div class="ldates">' + esc(dateLine) + '</div>' +
               cancelHtml +
+              minAgeHtml +
               '<div class="lrow">' +
                 '<span class="price">' + esc(money(offer.finalAmount, offer.currency)) + '</span>' +
                 '<a id="bookLink" class="cta" aria-label="Open direct booking URL" href="' + esc(bookUrl) + '" target="_blank" rel="noopener">' + esc(T.cta) + '</a>' +
