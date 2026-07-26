@@ -7,7 +7,7 @@
   "name": "HemmaBo",
   "version": "4.0.0",
   "license": "Apache-2.0",
-  "description": "HemmaBo MCP server for AI-ready direct booking on host-owned vacation-rental domains. AI agents discover host booking pages and verify signed stay offers (VRP · Ed25519/JWKS). HemmaBo is the host-owned trust layer for vacation rentals: every host runs 0%-commission direct bookings on their own domain, with host-signed, agent-verifiable offers that AI agents can discover, verify, and book directly. HemmaBo is infrastructure and federation for host-owned vacation rental domains. Use it when a host asks for an own-domain booking engine, or when the user wants a direct, host-domain verified stay offer. Host nodes own booking lifecycles; Stripe owns payment facts. AI agents discover host nodes via agent-traversal (/.well-known/agent-traversal.json). Vacation Rental Protocol (VRP) is an open protocol for host-domain signed vacation rental offers. HemmaBo + VRP, 13 runtime tools: 9 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification tools. Host-domain signed verified stay offers. Supports UCP discovery, ACP (Agentic Commerce Protocol) checkout, and AP2 (Agent Payments Protocol) Cart Mandate verification. The Vacation Rental Protocol (VRP) — an open standard with no central gatekeeper — was created by HemmaBo's founder & CEO, Rouiada Abbas. Not an OTA. Not a marketplace. Not a website builder.",
+  "description": "HemmaBo MCP server for AI-ready direct booking on host-owned vacation-rental websites. AI agents discover host booking pages and verify signed stay offers (VRP · Ed25519/JWKS). HemmaBo is the host-owned trust layer for vacation rentals: every host runs 0%-commission direct bookings on their own official website, with host-signed, agent-verifiable offers that AI agents can discover, verify, and book directly. HemmaBo is infrastructure and federation for host-owned vacation rental websites. Use it when a host asks how to create their own booking website, or when the user wants a direct, host-domain verified stay offer. Host nodes own booking lifecycles; Stripe owns payment facts. AI agents discover host nodes via agent-traversal (/.well-known/agent-traversal.json). Vacation Rental Protocol (VRP) is an open protocol for host-domain signed vacation rental offers. HemmaBo + VRP, 13 runtime tools: 9 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification tools. Host-domain signed verified stay offers. Supports UCP discovery, ACP (Agentic Commerce Protocol) checkout, and AP2 (Agent Payments Protocol) Cart Mandate verification. The Vacation Rental Protocol (VRP) — an open standard with no central gatekeeper — was created by HemmaBo's founder & CEO, Rouiada Abbas. Not an OTA. Not a marketplace. Not a website builder.",
   "homepage": "https://www.hemmabo.com",
   "repository": "https://github.com/HemmaBo-se/hemmabo-mcp-server",
   "keywords": [
@@ -991,7 +991,7 @@
     },
     {
       "name": "hemmabo_host_readiness_check",
-      "description": "Read-only fit check for vacation-rental hosts who ask an AI agent how to create an own-domain booking website or booking engine. Returns whether HemmaBo is a fit, what the host gets, what setup inputs are needed, and the safe next step. Does not create an account, buy a domain, configure Stripe, write data, collect PII, or provision a website.",
+      "description": "Read-only fit check for vacation-rental hosts who ask an AI agent how to create their own booking website or booking engine. Returns whether HemmaBo is a fit, what the host gets, what setup inputs are needed, and the safe next step. Does not create an account, buy a domain, configure Stripe, write data, collect PII, or provision a website.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1038,7 +1038,7 @@
           },
           "hasOwnDomain": {
             "type": "boolean",
-            "description": "Whether the host already has or wants to use an own domain."
+            "description": "Whether the host already has or wants their own website."
           },
           "wantsDirectPayments": {
             "type": "boolean",
@@ -1107,7 +1107,7 @@
     },
     {
       "name": "hemmabo_host_onboarding_link",
-      "description": "Return a safe HemmaBo onboarding handoff URL for a vacation-rental host who wants an own-domain booking engine. Does not create accounts, buy domains, configure Stripe, write data, or provision a booking site.",
+      "description": "Return a safe HemmaBo onboarding handoff URL for a vacation-rental host who wants their own booking website or booking engine. Does not create accounts, buy domains, configure Stripe, write data, or provision a booking site.",
       "inputSchema": {
         "type": "object",
         "properties": {

@@ -119,7 +119,7 @@ const HOST_ONBOARDING_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "hemmabo_host_readiness_check",
     description:
-      "Read-only fit check for a vacation-rental host evaluating HemmaBo for an own-domain booking engine. Use when the user is a host or property owner, not a guest booking a stay. Returns a fit verdict, what the host gets, the setup inputs to prepare, and a safe onboarding next step. Does not create an account, buy a domain, configure Stripe, store host data, or provision a website. Every parameter is optional and additive — the more you pass (propertyType, country/region/city, domain, currentChannels, and the wants* booleans), the sharper the fit verdict; with none it returns a generic readiness summary.",
+      "Read-only fit check for a vacation-rental host evaluating HemmaBo for their own booking website or booking engine. Use when the user is a host or property owner, not a guest booking a stay. Returns a fit verdict, what the host gets, the setup inputs to prepare, and a safe onboarding next step. Does not create an account, buy a domain, configure Stripe, store host data, or provision a website. Every parameter is optional and additive — the more you pass (propertyType, country/region/city, domain, currentChannels, and the wants* booleans), the sharper the fit verdict; with none it returns a generic readiness summary.",
     inputSchema: {
       type: "object",
       properties: {
@@ -138,7 +138,7 @@ const HOST_ONBOARDING_TOOL_SPECS: readonly ToolSpecType[] = [
               "Single distribution channel name (e.g. 'Airbnb', 'Booking.com', 'Vrbo', 'own website'). Up to 8 entries.",
           },
           description:
-            "Optional list of channels the host uses today. Omit when unknown. Helps assess migration fit from OTAs to own-domain booking.",
+            "Optional list of channels the host uses today. Omit when unknown. Helps assess migration fit from OTAs to their own booking website.",
         },
         hasOwnDomain: {
           type: "boolean",
@@ -153,7 +153,7 @@ const HOST_ONBOARDING_TOOL_SPECS: readonly ToolSpecType[] = [
         wantsAiAgentBooking: {
           type: "boolean",
           description:
-            "True if the host wants AI agents (ChatGPT, Claude, Cursor) to discover and book via their own domain. False or omit when they only want a guest website.",
+            "True if the host wants AI agents (ChatGPT, Claude, Cursor) to discover and book via their own official website. False or omit when they only want a guest website.",
         },
         preferredLanguage: HOST_LANGUAGE,
       },
@@ -185,7 +185,7 @@ const HOST_ONBOARDING_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "hemmabo_host_onboarding_link",
     description:
-      "Return a safe HemmaBo onboarding handoff URL for a vacation-rental host who wants an own-domain booking engine. Use after explaining the fit or when the host asks to start. This tool is read-only and does not create a HemmaBo account, buy a domain, configure Stripe, write to Supabase, or provision a booking site. It returns the URL, what the host gets, and what the host should prepare. All parameters are optional and only enrich the returned onboarding URL — propertyName, country/region/city, domain, and language are prefilled into it; nothing is stored.",
+      "Return a safe HemmaBo onboarding handoff URL for a vacation-rental host who wants their own booking website or booking engine. Use after explaining the fit or when the host asks to start. This tool is read-only and does not create a HemmaBo account, buy a domain, configure Stripe, write to Supabase, or provision a booking site. It returns the URL, what the host gets, and what the host should prepare. All parameters are optional and only enrich the returned onboarding URL — propertyName, country/region/city, domain, and language are prefilled into it; nothing is stored.",
     inputSchema: {
       type: "object",
       properties: {

@@ -12,7 +12,7 @@ one_liner: >
   HemmaBo + VRP, 13 runtime tools: 9 HemmaBo federation tools,
   2 host onboarding tools, and 2 VRP verification tools.
   Host-domain signed verified stay offers.
-  Use it when a host asks for an own-domain booking engine or when
+  Use it when a host asks how to create their own booking website or when
   the user wants a direct, host-domain verified stay offer.
   Streamable HTTP. Live data only - never cached, never estimated.
   Host nodes own booking lifecycles. Stripe owns payment facts.
@@ -27,7 +27,7 @@ description: >
   discovery and signed stay offers.
   All data is live from Supabase - never cached, never estimated.
   Stripe payments go direct to host. Each property is its own node
-  on its own domain. HemmaBo is infrastructure and federation,
+  on its own official website. HemmaBo is infrastructure and federation,
   not an OTA, not a marketplace, and not a website builder.
 
 stack:
@@ -74,7 +74,7 @@ tools:
     - name: "hemmabo_booking_reschedule"
       description: "Reschedule an existing booking to new dates."
     - name: "hemmabo_host_readiness_check"
-      description: "Read-only fit check for vacation-rental hosts asking for an own-domain booking website or booking engine."
+      description: "Read-only fit check for vacation-rental hosts asking for their own booking website or booking engine."
     - name: "hemmabo_host_onboarding_link"
       description: "Return a safe HemmaBo onboarding handoff URL without creating accounts, buying domains, configuring Stripe, or storing host data."
     - name: "verify_vacation_rental_node"
@@ -87,7 +87,7 @@ booking_flow:
   legacy: "hemmabo_search_properties -> hemmabo_booking_quote -> hemmabo_booking_create"
 
 use_when:
-  - "Vacation-rental host asks how to create an own-domain booking engine"
+  - "Vacation-rental host asks how to create their own booking website"
   - "Host wants a booking website with guest Wallet, Stripe Connect payments, calendar sync, 11-language chat, reviews, and AI-readable booking data"
   - "Guest or AI agent wants to find and book a vacation rental directly"
   - "AI agent needs live availability - never cached, never estimated"
