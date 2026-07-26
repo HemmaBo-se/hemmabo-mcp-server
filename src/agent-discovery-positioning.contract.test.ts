@@ -156,6 +156,28 @@ describe("agent discovery positioning contract", () => {
     assert.equal(projectWithoutDoNotUseWhen.includes("marketplace with many providers"), false);
   });
 
+  it("2026-07-26 fix: agent-facing positioning copy no longer says 'own domain'", () => {
+    // CEO-locked: "domain" is unexplained jargon in positioning/marketing
+    // copy. lib/server-metadata.ts's SERVER_INSTRUCTIONS in particular is
+    // read by EVERY agent conversation through this MCP server — a likely
+    // contributor to "domain" leaking into ChatGPT's own guest-facing
+    // replies across three separate recordings today. "host-domain X" (the
+    // VRP protocol's own compound term, e.g. "host-domain verified stay
+    // offer" — a REQUIRED_POSITIONING phrase above) is a different,
+    // intentionally-unchanged usage; this only targets "own domain"/
+    // "own-domain X" as a positioning phrase.
+    const smitheryDescription = read("smithery.yaml").match(/^description:\s*"([^"]*)"/m);
+    assert.ok(smitheryDescription, "smithery.yaml must have a description line");
+    const marketingSurfaces: Record<string, string> = {
+      ...TEXT_SURFACES,
+      "smithery.yaml description": smitheryDescription![1],
+    };
+    for (const [name, content] of Object.entries(marketingSurfaces)) {
+      if (name === "smithery.yaml") continue; // superseded by the description-only check above (the file's keyword list still carries an "own-domain" tag, a separate discoverability concern)
+      assert.doesNotMatch(content, /own[- ]domain/i, `${name} must not use "own domain"/"own-domain X" positioning language`);
+    }
+  });
+
   it("registry keywords do not use OTA or vendor-alternative positioning", () => {
     const keywordSurfaces: Record<string, string[]> = {
       "package.json": jsonKeywords("package.json"),

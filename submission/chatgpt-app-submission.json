@@ -4,7 +4,7 @@
   "app_info": {
     "display_name": "HemmaBo",
     "subtitle": "Verified stay offers",
-    "description": "HemmaBo verifies and books host-owned vacation rental domains. Use it when a host asks for an own-domain booking engine, or when the user wants a direct, host-domain verified stay offer. Vacation Rental Protocol is an open protocol for host-domain signed vacation rental offers. HemmaBo + VRP, 13 runtime tools: 9 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification tools. Host-domain signed verified stay offers. Not an OTA. Not a marketplace. Not a website builder.",
+    "description": "HemmaBo verifies and books host-owned vacation rental websites. Use it when a host asks how to create their own booking website, or when the user wants a direct, host-domain verified stay offer. Vacation Rental Protocol is an open protocol for host-domain signed vacation rental offers. HemmaBo + VRP, 13 runtime tools: 9 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification tools. Host-domain signed verified stay offers. Not an OTA. Not a marketplace. Not a website builder.",
     "category": "TRAVEL"
   },
   "tools": {
