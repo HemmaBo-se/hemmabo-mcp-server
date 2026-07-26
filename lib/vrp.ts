@@ -648,16 +648,49 @@ function stayDetailsFromDiscovery(discovery: JsonRecord): JsonRecord | null {
   return Object.keys(out).length > 0 ? out : null;
 }
 
-function formatMoney(amount: unknown, currency: unknown): string | null {
+/**
+ * Mirrors lib/apps-widget-html.ts's LOCALE_BY_LANGUAGE/localeForLanguage —
+ * one vocabulary by test, not by import (the widget is a client-side string
+ * template, not an importable module). 2026-07-26: a guest recording showed
+ * the model's own prose quoting "3060 SEK" (formatMoney's plain string)
+ * right next to the widget's Intl-formatted "SEK 3,060" — same number,
+ * visibly different strings in the same reply. Absent/unmapped language
+ * keeps today's plain "<amount> <CODE>" string unchanged (no regression);
+ * only a resolved language upgrades to the SAME Intl formatting the widget
+ * uses, so prose and widget never show two different-looking prices again.
+ */
+const LOCALE_BY_LANGUAGE: Record<string, string> = {
+  sv: "sv-SE", en: "en-GB", de: "de-DE", fr: "fr-FR", da: "da-DK",
+  no: "nb-NO", fi: "fi-FI", nl: "nl-NL", es: "es-ES", it: "it-IT",
+  pl: "pl-PL", ar: "ar",
+};
+
+function localeForLanguage(language: string | undefined): string | undefined {
+  const code = String(language || "").toLowerCase().slice(0, 2);
+  return LOCALE_BY_LANGUAGE[code];
+}
+
+function formatMoney(amount: unknown, currency: unknown, language?: string): string | null {
   const numeric = numberValue(amount);
   if (numeric === null) return null;
   const currencyCode = stringValue(currency);
-  return currencyCode ? `${numeric} ${currencyCode}` : String(numeric);
+  if (!currencyCode) return String(numeric);
+  const locale = localeForLanguage(language);
+  if (!locale) return `${numeric} ${currencyCode}`;
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: currencyCode,
+      maximumFractionDigits: 0,
+    }).format(numeric);
+  } catch {
+    return `${numeric} ${currencyCode}`;
+  }
 }
 
-function officialAgentMessage(price: JsonRecord, safeToQuote: boolean): string | null {
+function officialAgentMessage(price: JsonRecord, safeToQuote: boolean, language?: string): string | null {
   if (!safeToQuote) return null;
-  const agentTotal = formatMoney(price.agent_total, price.currency);
+  const agentTotal = formatMoney(price.agent_total, price.currency, language);
   if (!agentTotal) return OFFICIAL_AGENT_MESSAGE;
   return `${OFFICIAL_AGENT_MESSAGE} ${AGENT_DIRECT_TOTAL_MESSAGE_PREFIX}: ${agentTotal}.`;
 }
@@ -696,7 +729,7 @@ function buildAgentQuoteView(
   const priceExact = price.exact === true;
   const safeToQuote = mayQuote && available && priceExact && Boolean(directBookingUrl);
   const blockedReason = quoteBlockedReason(mayQuote, available, priceExact, directBookingUrl);
-  const agentMessage = officialAgentMessage(price, safeToQuote);
+  const agentMessage = officialAgentMessage(price, safeToQuote, language);
   const widgetImages = mediaImagesFromDiscovery(discovery);
   const summaryProperty = propertySummary(offer);
   if (widgetImages.length) summaryProperty.images = widgetImages;

@@ -587,6 +587,93 @@ describe("VRP MCP tools", () => {
     ]);
   });
 
+  it("agent_message quotes the price with the SAME Intl formatting the widget uses, so prose and widget never show two different-looking numbers (2026-07-26 fix)", async () => {
+    // A guest recording showed the model's required "Direct host-domain
+    // total: 3060 SEK." sentence right next to a widget showing "SEK 3,060"
+    // — same number, visibly different strings. formatMoney() now shares
+    // the exact locale mapping/Intl call the widget's money() uses.
+    const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+    const jwk = publicKey.export({ format: "jwk" }) as Record<string, unknown>;
+    jwk.kid = "vrp-test-key";
+    jwk.alg = "EdDSA";
+    jwk.use = "sig";
+
+    const offer = {
+      kind: "verified_stay_offer",
+      protocol_version: "0.1",
+      canonical_domain: "villaakerlyckan.se",
+      node_id: "villaakerlyckan.se",
+      generated_at: new Date().toISOString(),
+      valid_until: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      property: { id: "prop-test", name: "Villa Åkerlyckan", domain: "villaakerlyckan.se" },
+      availability: { available: true, source: "official_host_domain", reason: null },
+      price: { currency: "SEK", total: 3060, public_total: 3060, agent_total: 3060, exact: true, no_add_on_fees: true, package_applied: null, breakdown: [], adjustments: [], reconciliation: { nightly_subtotal: 3060, adjustments_total: 0, computed_total: 3060, matches_quoted_total: true } },
+      source_authority: { model: "host_verified_direct_source", is_official_source_for_property: true, intermediary: "none", payment_recipient: "host", booking_model: "direct_with_host", booking_commission_pct: 0 },
+      booking: { direct_booking_url: "https://villaakerlyckan.se/book?offer=vrp-test", offer_id: "vrp-test" },
+      agent_permission: { may_quote_as_official_direct_offer: true },
+    };
+    const jws = compactJws(offer, privateKey);
+
+    mock.method(globalThis, "fetch", async (input: string | URL | Request) => {
+      const url = new URL(String(input));
+      if (url.pathname === "/.well-known/vacation-rental.json") {
+        return jsonResponse({
+          protocol: "vacation-rental-protocol",
+          protocol_version: "0.1",
+          canonical_domain: "villaakerlyckan.se",
+          jwks_uri: "https://villaakerlyckan.se/.well-known/jwks.json",
+          verified_stay_offer_endpoint: "https://villaakerlyckan.se/api/verified-stay-offer",
+        });
+      }
+      if (url.pathname === "/.well-known/jwks.json") return jsonResponse({ keys: [jwk] });
+      if (url.pathname === "/api/verified-stay-offer") {
+        return jsonResponse({
+          kind: "signed_verified_stay_offer",
+          protocol_version: "0.1",
+          offer,
+          signature: { format: "jws_compact", alg: "EdDSA", kid: "vrp-test-key", jws },
+        });
+      }
+      return new Response("not found", { status: 404 });
+    });
+
+    const englishResult = await executeTool("get_verified_stay_offer", {
+      domain: "villaakerlyckan.se",
+      checkIn: "2026-11-03",
+      checkOut: "2026-11-04",
+      guests: 6,
+      language: "en",
+    }, clients);
+    assert.equal(englishResult.isError, undefined);
+    const englishParsed = JSON.parse(englishResult.content[0].text);
+
+    // Cross-check against the exact Intl call the widget's money() makes —
+    // not a hardcoded string — so this test fails if either side drifts.
+    const widgetFormatted = new Intl.NumberFormat("en-GB", { style: "currency", currency: "SEK", maximumFractionDigits: 0 }).format(3060);
+    assert.equal(
+      englishParsed.agent_citation.agent_message,
+      `I found the official host-domain verified offer for this stay. Direct host-domain total: ${widgetFormatted}.`,
+    );
+    // Sanity check on the shape (avoids hardcoding Intl's exact separator
+    // character, e.g. a non-breaking space between "SEK" and the amount).
+    assert.match(widgetFormatted, /SEK/);
+    assert.match(widgetFormatted, /3.060/);
+
+    // Omitting language keeps today's plain "<amount> <CODE>" string
+    // byte-for-byte — this fix must never change output for existing callers.
+    const noLangResult = await executeTool("get_verified_stay_offer", {
+      domain: "villaakerlyckan.se",
+      checkIn: "2026-11-03",
+      checkOut: "2026-11-04",
+      guests: 6,
+    }, clients);
+    const noLangParsed = JSON.parse(noLangResult.content[0].text);
+    assert.equal(
+      noLangParsed.agent_citation.agent_message,
+      "I found the official host-domain verified offer for this stay. Direct host-domain total: 3060 SEK.",
+    );
+  });
+
   it("get_verified_stay_offer refuses quoteable status for signed but unavailable offers", async () => {
     const { publicKey, privateKey } = generateKeyPairSync("ed25519");
     const jwk = publicKey.export({ format: "jwk" }) as Record<string, unknown>;
