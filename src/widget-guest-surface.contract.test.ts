@@ -180,10 +180,10 @@ describe("2026-07-26 fix: widget UI language followed the browser, not the conve
   // locale — with no way to know what language get_verified_stay_offer was
   // actually called with.
 
-  it("normalizeOffer carries the tool response's language field onto the offer", () => {
+  it("normalizeOffer carries the tool response's language field onto the offer, falling back to the host locale signal (not \"\")", () => {
     assert.match(
       VERIFIED_STAY_OFFER_HTML,
-      /language: \(typeof data\.language === "string" && data\.language\) \|\| ""/,
+      /language: \(typeof data\.language === "string" && data\.language\) \|\| hostLocaleSignal\(\)/,
     );
   });
 
@@ -207,6 +207,47 @@ describe("2026-07-26 fix: widget UI language followed the browser, not the conve
     assert.match(
       VERIFIED_STAY_OFFER_HTML,
       /var offer = normalizeOffer\(data\);\s*\n\s*var T = widgetStrings\(offer\);/,
+    );
+  });
+});
+
+describe("2026-07-26 fix (second pass): prefer the host's document.documentElement.lang over navigator.language", () => {
+  // offer.language only exists when the MODEL chooses to send it — optional,
+  // unenforceable from a tool description alone (see #286). A guest
+  // recording showed the model omit it, so the card fell back to
+  // navigator.language (the RENDERING DEVICE's OS/browser locale, Swedish on
+  // that machine) while the server-baked amenity row fell back to English —
+  // a visibly split-language card. Per OpenAI's Apps SDK docs
+  // (developers.openai.com/plugins/build/chatgpt-ui, "Widget localization"):
+  // "The host mirrors the locale to document.documentElement.lang" — set
+  // unconditionally for every guest, regardless of model behavior.
+
+  it("hostLocaleSignal() reads document.documentElement.lang before navigator.language", () => {
+    assert.match(VERIFIED_STAY_OFFER_HTML, /function hostLocaleSignal\(\)/);
+    assert.match(
+      VERIFIED_STAY_OFFER_HTML,
+      /var docLang = document\.documentElement && document\.documentElement\.lang;/,
+    );
+    assert.match(VERIFIED_STAY_OFFER_HTML, /if \(docLang\) return String\(docLang\)\.toLowerCase\(\);/);
+    // navigator.language survives as the last-resort fallback only.
+    assert.match(VERIFIED_STAY_OFFER_HTML, /return \(navigator\.language \|\| ""\)\.toLowerCase\(\);/);
+  });
+
+  it("normalizeOffer's language fallback calls hostLocaleSignal(), not navigator.language directly", () => {
+    assert.match(
+      VERIFIED_STAY_OFFER_HTML,
+      /language: \(typeof data\.language === "string" && data\.language\) \|\| hostLocaleSignal\(\)/,
+    );
+  });
+
+  it("guestCopyLocale (the CEO-locked pitch's 12-language picker) also uses hostLocaleSignal()", () => {
+    assert.match(
+      VERIFIED_STAY_OFFER_HTML,
+      /function guestCopyLocale\(\) \{\s*\n\s*var lang = hostLocaleSignal\(\)\.split\("-"\)\[0\];/,
+    );
+    assert.doesNotMatch(
+      VERIFIED_STAY_OFFER_HTML.split("function guestCopyLocale")[1].split("function guestWelcome")[0],
+      /navigator\.language/,
     );
   });
 });
