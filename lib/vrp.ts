@@ -445,18 +445,30 @@ function logoFromDiscovery(discovery: JsonRecord): string | null {
 
 function mediaImagesFromDiscovery(discovery: JsonRecord): JsonRecord[] {
   const media = asRecord(discovery.media);
-  const images = Array.isArray(media?.images) ? media.images : [];
+  // The node's vacation-rental.json publishes photos at the TOP LEVEL
+  // (`hero_image` + `images`), per smart-stays api/vacation-rental.json.js.
+  // Reading only `media.images` (which the doc never emits) left widget_media
+  // empty, so the widget fell back to a hard-coded per-node image URL that
+  // 404s the moment the host re-uploads a photo. Read the real published
+  // fields — hero_image first, then the gallery, then media.images for compat.
+  const sources: unknown[] = [
+    ...(typeof discovery.hero_image === "string" ? [discovery.hero_image] : []),
+    ...(Array.isArray(discovery.images) ? discovery.images : []),
+    ...(Array.isArray(media?.images) ? media.images : []),
+  ];
   const collected: JsonRecord[] = [];
-  for (const item of images) {
+  const seen = new Set<string>();
+  for (const item of sources) {
     const record = asRecord(item);
     const url = stringValue(record?.url) ?? (typeof item === "string" ? stringValue(item) : null);
-    if (!url) continue;
+    if (!url || seen.has(url)) continue;
     try {
       const parsed = new URL(url);
       if (parsed.protocol !== "https:") continue;
     } catch {
       continue;
     }
+    seen.add(url);
     collected.push({
       url,
       alt: stringValue(record?.alt),
