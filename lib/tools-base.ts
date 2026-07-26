@@ -100,9 +100,39 @@ const AMENITY_DISPLAY_SPECIAL: Record<string, string> = {
   ev_charging: "EV charging",
 };
 
-export function formatAmenityLabel(token: string): string {
+/**
+ * Real, previously-reviewed amenity-token translations, ported verbatim from
+ * hemmabo-smart-stays/src/lib/amenityTranslations.ts (one vocabulary by test,
+ * not by import — separate deployables, same pattern as TERM_LABELS in
+ * hemmabo-mcp-server/lib/apps-widget-html.ts). 2026-07-26: found via a guest
+ * recording where the widget's headline amenity row stayed English inside an
+ * otherwise-Swedish card, because formatAmenityLabel never saw the requested
+ * language. Tokens/languages absent here fall back to the English label
+ * below — never a guessed/unreviewed translation.
+ */
+const AMENITY_LABEL_TRANSLATIONS: Record<string, Record<string, string>> = {
+  wifi: { sv: "WiFi", de: "WLAN", fr: "WiFi", da: "WiFi", nl: "WiFi", no: "WiFi" },
+  hot_tub: { sv: "Spabad", de: "Whirlpool", fr: "Jacuzzi", da: "Boblebad", nl: "Jacuzzi", no: "Boblebad" },
+  fireplace: { sv: "Öppen spis", de: "Kamin", fr: "Cheminée", da: "Pejs", nl: "Open haard", no: "Peis" },
+  garden: { sv: "Trädgård", de: "Garten", fr: "Jardin", da: "Have", nl: "Tuin", no: "Hage" },
+  terrace: { sv: "Terrass", de: "Terrasse", fr: "Terrasse", da: "Terrasse", nl: "Terras", no: "Terrasse" },
+  ev_charging: { sv: "Elbilsladdning", de: "E-Auto Ladestation", fr: "Borne de recharge", da: "Elbil-opladning", nl: "Elektrisch opladen", no: "Elbil-lading" },
+  breakfast_included: { sv: "Frukost ingår", de: "Frühstück inklusive", fr: "Petit-déjeuner inclus", da: "Morgenmad inkluderet", nl: "Ontbijt inbegrepen", no: "Frokost inkludert" },
+  air_conditioning: { sv: "Luftkonditionering", de: "Klimaanlage", fr: "Climatisation", da: "Aircondition", nl: "Airconditioning", no: "Klimaanlegg" },
+  // grill/bbq are the same real-world amenity (CANONICAL_AMENITY_CLAIM_ALIASES
+  // in smart-stays merges them) — both canonical keys share the bbq translation.
+  grill: { sv: "Grill", de: "Grill", fr: "Barbecue", da: "Grill", nl: "BBQ", no: "Grill" },
+  bbq: { sv: "Grill", de: "Grill", fr: "Barbecue", da: "Grill", nl: "BBQ", no: "Grill" },
+};
+
+export function formatAmenityLabel(token: string, language?: string): string {
   const t = String(token || "").trim();
   if (!t) return "";
+  const lang = String(language || "").trim().toLowerCase().slice(0, 2);
+  if (lang && lang !== "en") {
+    const translated = AMENITY_LABEL_TRANSLATIONS[t.toLowerCase()]?.[lang];
+    if (translated) return translated;
+  }
   const special = AMENITY_DISPLAY_SPECIAL[t.toLowerCase()];
   if (special) return special;
   const words = t.replace(/_/g, " ").trim();

@@ -173,6 +173,68 @@ describe("W5c villkorssymmetrin — starred card row, cancellation line, term gr
   });
 });
 
+describe("2026-07-26 fix: widget UI language followed the browser, not the conversation", () => {
+  // A guest recording showed an English chat rendering a Swedish card
+  // (dates/CTA/cancel-line/"Good to know") because the widget's language
+  // switch read ONLY navigator.language — the rendering iframe's browser/OS
+  // locale — with no way to know what language get_verified_stay_offer was
+  // actually called with.
+
+  it("normalizeOffer carries the tool response's language field onto the offer", () => {
+    assert.match(
+      VERIFIED_STAY_OFFER_HTML,
+      /language: \(typeof data\.language === "string" && data\.language\) \|\| ""/,
+    );
+  });
+
+  it("isSvUi prefers offer.language over navigator.language (fallback preserved for older callers)", () => {
+    assert.match(VERIFIED_STAY_OFFER_HTML, /function isSvUi\(offer\)/);
+    assert.match(
+      VERIFIED_STAY_OFFER_HTML,
+      /var explicit = offer && typeof offer\.language === "string" \? offer\.language\.toLowerCase\(\) : "";/,
+    );
+    assert.match(VERIFIED_STAY_OFFER_HTML, /if \(explicit\) return explicit\.indexOf\("sv"\) === 0;/);
+    // The old navigator.language-only line must still exist as the fallback
+    // for tool responses that never carried a language.
+    assert.match(VERIFIED_STAY_OFFER_HTML, /return \(navigator\.language \|\| ""\)\.toLowerCase\(\)\.indexOf\("sv"\) === 0;/);
+  });
+
+  it("widgetStrings and termGroupsHtml both resolve sv/en via isSvUi(offer), not their own navigator.language check", () => {
+    assert.match(VERIFIED_STAY_OFFER_HTML, /function widgetStrings\(offer\)/);
+    assert.match(VERIFIED_STAY_OFFER_HTML, /var sv = isSvUi\(offer\);/g);
+    // render() must compute offer before calling widgetStrings so the signal
+    // is available — order regression guard.
+    assert.match(
+      VERIFIED_STAY_OFFER_HTML,
+      /var offer = normalizeOffer\(data\);\s*\n\s*var T = widgetStrings\(offer\);/,
+    );
+  });
+});
+
+describe("2026-07-26 fix: minimum_guest_age is now always visible, not only behind 'Show more'", () => {
+  // minimum_guest_age is a real eligibility requirement (class "verifiable",
+  // same signed payload as the cancellation terms) that used to live ONLY
+  // inside the collapsed "Good to know" group — a guest recording showed a
+  // 21+ villa with no age mention anywhere the guest actually saw. Now it
+  // gets the same quiet always-visible treatment as the cancellation line.
+
+  it("compact card builds a minAgeHtml line from offer.minAge", () => {
+    assert.match(
+      VERIFIED_STAY_OFFER_HTML,
+      /if \(offer\.minAge\) minAgeHtml = '<div class="lcancel">' \+ esc\(T\.minAge \+ ": " \+ offer\.minAge \+ "\+"\) \+ '<\/div>';/,
+    );
+  });
+
+  it("minAgeHtml is placed in BOTH the compact and fullscreen letter cards, right after cancelHtml", () => {
+    const occurrences = VERIFIED_STAY_OFFER_HTML.match(/cancelHtml \+\s*\n\s*minAgeHtml \+/g) || [];
+    assert.equal(occurrences.length, 2, "expected cancelHtml immediately followed by minAgeHtml in both card layouts");
+  });
+
+  it("still also renders in the collapsed 'Good to know' group (belt and suspenders, unchanged)", () => {
+    assert.match(VERIFIED_STAY_OFFER_HTML, /if \(offer\.minAge\) good\.push\(T\.minAge \+ ": " \+ offer\.minAge \+ "\+"\);/);
+  });
+});
+
 describe("agent payload carries the locked welcome with a verbatim rule", () => {
   const vrpSource = readFileSync(new URL("../lib/vrp.ts", import.meta.url), "utf-8");
 

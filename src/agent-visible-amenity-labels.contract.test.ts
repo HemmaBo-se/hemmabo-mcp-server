@@ -49,6 +49,46 @@ describe("formatAmenityLabel — no raw snake_case token reaches a guest surface
   });
 });
 
+describe("formatAmenityLabel(token, language) — 2026-07-26 fix: widget amenity row was English-only", () => {
+  it("REGRESSION: a guest recording showed 'Breakfast included · EV charging · … · WiFi' inside an otherwise-Swedish card — the formatter never saw the requested language", () => {
+    assert.equal(formatAmenityLabel("wifi", "sv"), "WiFi");
+    assert.equal(formatAmenityLabel("hot_tub", "sv"), "Spabad");
+    assert.equal(formatAmenityLabel("breakfast_included", "sv"), "Frukost ingår");
+    assert.equal(formatAmenityLabel("ev_charging", "sv"), "Elbilsladdning");
+    assert.equal(formatAmenityLabel("garden", "sv"), "Trädgård");
+    assert.equal(formatAmenityLabel("terrace", "sv"), "Terrass");
+    assert.equal(formatAmenityLabel("grill", "sv"), "Grill");
+  });
+
+  it("also translates to German/French/Danish/Dutch/Norwegian when a real translation exists", () => {
+    assert.equal(formatAmenityLabel("hot_tub", "de"), "Whirlpool");
+    assert.equal(formatAmenityLabel("hot_tub", "fr"), "Jacuzzi");
+    assert.equal(formatAmenityLabel("hot_tub", "da"), "Boblebad");
+    assert.equal(formatAmenityLabel("hot_tub", "nl"), "Jacuzzi");
+    assert.equal(formatAmenityLabel("hot_tub", "no"), "Boblebad");
+  });
+
+  it("omitting language, or passing 'en', keeps today's English behaviour byte-for-byte", () => {
+    for (const token of ["wifi", "hot_tub", "fireplace", "garden", "terrace", "ev_charging", "breakfast_included"]) {
+      const withoutLang = formatAmenityLabel(token);
+      assert.equal(formatAmenityLabel(token, "en"), withoutLang);
+      assert.equal(formatAmenityLabel(token, "en-US"), withoutLang);
+    }
+  });
+
+  it("a token with no ported translation falls back to the English label — never a guess", () => {
+    // sound_system has no reviewed translation anywhere in the codebase yet;
+    // a fix here must never invent one.
+    assert.equal(formatAmenityLabel("sound_system", "sv"), "Sound system");
+    assert.equal(formatAmenityLabel("sound_system", "de"), "Sound system");
+  });
+
+  it("an unsupported language code falls back to English, not a crash", () => {
+    assert.equal(formatAmenityLabel("hot_tub", "xx"), "Hot tub");
+    assert.equal(formatAmenityLabel("hot_tub", ""), "Hot tub");
+  });
+});
+
 describe("amenitiesFromDiscovery — the widget/offer amenity list", () => {
   it("REGRESSION: hot_tub survives a tokens-only node file (the incident)", () => {
     // Post smart-stays #2073 the node discovery file emits canonical tokens
@@ -72,6 +112,14 @@ describe("amenitiesFromDiscovery — the widget/offer amenity list", () => {
       amenities: ["has_hot_tub", "crib_available", "ev_charging"],
     });
     for (const label of labels) assert.ok(!label.includes("_"), label);
+  });
+
+  it("2026-07-26 fix: threads the requested language through to each label", () => {
+    const labels = amenitiesFromDiscovery(
+      { amenities: ["wifi", "hot_tub", "garden", "ev_charging"] },
+      "sv",
+    );
+    assert.deepEqual(labels, ["WiFi", "Spabad", "Trädgård", "Elbilsladdning"]);
   });
 });
 
