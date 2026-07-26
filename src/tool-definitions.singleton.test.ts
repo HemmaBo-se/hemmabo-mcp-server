@@ -94,6 +94,36 @@ describe("TOOL_SPECS singleton (#63 + VRP v0.1)", () => {
   });
 });
 
+describe("get_verified_stay_offer language param — 2026-07-26 fix", () => {
+  // A guest recording showed English chat still producing "3 060 kr"
+  // (Swedish price formatting) because the old description framed `language`
+  // as a skippable nicety ("Omit to use host default; does not change price
+  // or availability") rather than telling the model to always pass the
+  // guest's conversation language. Widget-side (#284/#285) now honours the
+  // signal correctly; this locks in that the model is actually told to send it.
+  const spec = TOOL_SPECS.find((t) => t.name === "get_verified_stay_offer");
+
+  it("tool spec exists", () => {
+    assert.ok(spec, "get_verified_stay_offer must be declared in TOOL_SPECS");
+  });
+
+  it("instructs the model to ALWAYS pass the guest's conversation language", () => {
+    const languageDescription = (spec!.inputSchema as any).properties.language.description as string;
+    assert.match(languageDescription, /ALWAYS pass/);
+    assert.match(languageDescription, /guest's conversation language/);
+    assert.match(languageDescription, /rendering client's own locale/);
+  });
+
+  it("still tells the model this never changes the signed price value — a formatting-only signal", () => {
+    const languageDescription = (spec!.inputSchema as any).properties.language.description as string;
+    assert.match(languageDescription, /Never changes the signed price value or availability/);
+  });
+
+  it("top-level tool description also carries the always-pass instruction (belt and suspenders)", () => {
+    assert.match(spec!.description, /Always pass language as the guest's actual conversation language/);
+  });
+});
+
 function collectSourceFiles(root: string): string[] {
   const out: string[] = [];
   const queue: string[] = ["src", "api", "lib"];
