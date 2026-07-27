@@ -50,16 +50,16 @@ The submission JSON now includes one positive test case for each exposed MCP too
 1. `hemmabo_search_properties`
 2. `hemmabo_search_availability`
 3. `hemmabo_booking_quote`
-4. `hemmabo_search_similar`
-5. `hemmabo_compare_properties`
-6. `verify_vacation_rental_node`
-7. `get_verified_stay_offer`
-8. `hemmabo_booking_create`
-9. `hemmabo_booking_negotiate`
-10. `hemmabo_booking_checkout`
-11. `hemmabo_booking_status`
-12. `hemmabo_booking_reschedule`
-13. `hemmabo_booking_cancel`
+4. `verify_vacation_rental_node`
+5. `get_verified_stay_offer`
+6. `hemmabo_booking_create`
+7. `hemmabo_booking_negotiate`
+8. `hemmabo_booking_checkout`
+9. `hemmabo_booking_status`
+10. `hemmabo_booking_reschedule`
+11. `hemmabo_booking_cancel`
+12. `hemmabo_host_readiness_check`
+13. `hemmabo_host_onboarding_link`
 
 ## Open issue disclosed in submission — RESOLVED 2026-07-22
 
