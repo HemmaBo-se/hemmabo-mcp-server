@@ -3,6 +3,7 @@ name: Publish to npm
 on:
   release:
     types: [published]
+  workflow_dispatch:
 
 jobs:
   publish:
@@ -19,7 +20,10 @@ jobs:
           registry-url: "https://registry.npmjs.org"
 
       # OIDC trusted publishing requires npm >= 11.5.1 (Node 20 ships npm 10).
-      - run: npm install -g npm@latest
+      # Pin to npm@11: `npm@latest` is now v12, which requires Node >= 22 and
+      # fails on this Node 20 runner with EBADENGINE. npm@11 (currently 11.18,
+      # >= 11.5.1) supports trusted publishing and runs on Node 20.
+      - run: npm install -g npm@11
 
       - run: npm ci
 
