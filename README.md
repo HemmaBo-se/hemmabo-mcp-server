@@ -26,7 +26,7 @@ Use this package when an MCP client needs to:
 
 - help a vacation-rental host evaluate HemmaBo for their own booking website or booking engine,
 - hand a host to HemmaBo onboarding without claiming the agent created an account, bought a domain, configured Stripe, or provisioned a site,
-- search published HemmaBo vacation-rental properties,
+- search published host-owned vacation-rental properties,
 - check availability for requested dates,
 - get a live quote from published property data,
 - verify a signed host-domain offer and route the guest to the host's own booking URL, or
