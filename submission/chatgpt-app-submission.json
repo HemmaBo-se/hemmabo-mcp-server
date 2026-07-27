@@ -167,11 +167,11 @@
   },
   "test_cases": [
     {
-      "description": "Find direct-bookable HemmaBo properties.",
-      "user_prompt": "Find direct-bookable HemmaBo properties in Skane for 6 guests from 2026-10-10 to 2026-10-17.",
+      "description": "Find direct-bookable host-owned vacation rentals.",
+      "user_prompt": "Use HemmaBo to find direct-bookable host-owned vacation rentals in Skane for 6 guests from 2026-11-04 to 2026-11-05.",
       "file_attachment_urls": null,
       "tools_triggered": "hemmabo_search_properties",
-      "expected_output": "Returns published HemmaBo property data with propertyId, host domain, live availability, capacity, and final host-source pricing without presenting HemmaBo as an OTA, marketplace, hotel search engine, or website builder.",
+      "expected_output": "Returns published host-owned property data from the federation with propertyId, host domain, live availability, capacity, and final host-source pricing without presenting HemmaBo as an OTA, marketplace, hotel search engine, or website builder.",
       "expected_output_url": null
     },
     {
@@ -200,7 +200,7 @@
     },
     {
       "description": "Render the verified stay offer widget from a signed host-domain offer.",
-      "user_prompt": "Show the verified stay offer for villaakerlyckan.se from 2026-10-10 to 2026-10-17 for 6 guests.",
+      "user_prompt": "Show the verified stay offer for villaakerlyckan.se from 2026-11-04 to 2026-11-05 for 6 guests.",
       "file_attachment_urls": null,
       "tools_triggered": "get_verified_stay_offer",
       "expected_output": "Returns a fresh signed offer, signature verification, safe-to-quote summary, direct booking URL, and the visual stay-offer widget.",
