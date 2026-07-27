@@ -138,6 +138,20 @@ if [[ ${#LIC_FILES[@]} -gt 0 ]]; then
   fi
 fi
 
+# ---------------------------------------------------------------------------
+# Rule #7 (ADR 0013): navigable platform URLs must be canonical www, never apex.
+# Apex https://hemmabo.com is only a 308 redirect; the DID anchor is
+# did:web:www.hemmabo.com. Scanned surfaces are navigable metadata ONLY and are
+# verified free of hemmabo.com/ns/ namespace identifiers — do NOT add a file here
+# without first grepping it for 'hemmabo.com/ns/' (the regex below matches '/').
+APEX_SURFACES=(README.md package.json glama.json smithery.yaml api/mcp-manifest.ts .plugin/plugin.json api/acp.ts server.json llms.txt)
+for f in "${APEX_SURFACES[@]}"; do
+  if [[ -f "$f" ]] && grep -nE 'https://hemmabo\.com([^a-zA-Z0-9.-]|$)' "$f"; then
+    echo "::error::facts-drift — apex platform URL in $f (ADR 0013: use https://www.hemmabo.com)"
+    drift=1
+  fi
+done
+
 if [[ $drift -ne 0 ]]; then
   echo "facts-drift check: FAILED — fix the counts above so every live surface agrees."
   echo "Canonical: 12 languages, 13 runtime tools, Apache-2.0 license."

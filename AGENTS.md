@@ -56,3 +56,4 @@ read source to make a claim, or start building:
   confirming it against origin/main (or prod). A stale clone is not evidence.
 - Don't confuse repos: `vrp-spec` = CC0 (spec text); `hemmabo-mcp-server` =
   Apache-2.0 (reference code). Different licenses, different layers.
+- **Canonical URLs:** platform navigable URLs are `https://www.hemmabo.com` (with www); node domains stay apex; `/ns/` URIs are apex-locked identifiers. See `docs/adr/0013-canonical-urls-apex-vs-www.md`. Enforced by `scripts/check-facts-drift.sh`.
