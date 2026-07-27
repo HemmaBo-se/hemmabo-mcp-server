@@ -139,7 +139,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       "Find a pet-friendly villa in Sweden for 6 guests in July",
       "Verify villaakerlyckan.se as a Vacation Rental Protocol node",
       "Get the official signed stay offer from villaakerlyckan.se for my dates",
-      "Check availability for a HemmaBo villa in Sweden on my dates and its direct host-domain booking link",
+      "Check availability for a host-owned villa in Sweden on my dates and its direct host-domain booking link",
     ],
     registry: {
       glama: "https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server",
