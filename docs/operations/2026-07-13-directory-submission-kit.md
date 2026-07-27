@@ -1,5 +1,7 @@
 # Directory Submission Kit — HemmaBo + VRP visibility
 
+> **CORRECTION 2026-07-27:** Canonical facts are now **13 runtime tools (9 HemmaBo federation + 2 host onboarding + 2 VRP verification)**, version **4.0.0**, endpoint **https://www.hemmabo.com/mcp**, **12 languages**. The "15 runtime tools / 11 federation" values below were true on 2026-07-13 and are kept as history. Any line telling you never to reuse "13 tools" is SUPERSEDED — 13 is canonical again (a different 13 than the May-2026 composition).
+
 Date: 2026-07-13
 Scope: discovery/metadata only. No runtime booking logic, no new MCP tools,
 no new registry identities (ADR 2026-05-16 single-source, ADR 0004 lockstep).
@@ -26,7 +28,7 @@ directories require an account + CAPTCHA, so — like the ChatGPT Apps kit in
 | Live reference host | https://www.villaakerlyckan.se |
 
 `check-facts-drift.sh` guards the live surfaces; every submission must agree
-with these values. "13 tools" and "11 languages" are stale — never reuse them.
+with these values. "11 languages" is stale — never reuse it. (Corrected 2026-07-27: "13 tools" is canonical again — 13 = 9+2+2; "15 tools" is the stale value.)
 
 ## Red lines — apply to EVERY listing, every platform
 
