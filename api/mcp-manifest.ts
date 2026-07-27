@@ -95,13 +95,21 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     homepage: "https://hemmabo.com",
     icon: `${base}/icon.png`,
     // ── ChatGPT Apps directory fields ─────────────────────────────
+    // HemmaBo is an enskild näringsverksamhet (sole proprietorship), NOT an AB.
+    // "HemmaBo AB" named a legal entity that does not exist, and it was the only
+    // surface claiming it: /terms §12, the site JSON-LD and agent-card.json all
+    // say "HemmaBo". support@hemmabo.com is not a mailbox we use either — the
+    // contact address is info@hemmabo.se, as stated in /terms §12.
     developer: {
-      name: "HemmaBo AB",
+      name: "HemmaBo",
       url: "https://hemmabo.com",
-      email: "support@hemmabo.com",
+      email: "info@hemmabo.se",
     },
     privacy_policy_url: "https://www.hemmabo.com/privacy",
-    terms_of_service_url: "https://hemmabo.com/terms",
+    // www, matching privacy_policy_url above. The apex form resolves (308 -> www,
+    // by design on the platform domain) but handing a reviewer a redirecting URL
+    // when the sibling field is already canonical is needless inconsistency.
+    terms_of_service_url: "https://www.hemmabo.com/terms",
     categories: ["travel", "lodging"],
     safety_disclosures: {
       handles_payments: true,

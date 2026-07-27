@@ -18,10 +18,10 @@ The OpenAI submission form (App Info → MCP Server → Testing → Screenshots 
 | **Categories** | Travel | submission JSON `app_info.category` |
 | **Privacy policy URL** | https://www.hemmabo.com/privacy | verified 200 |
 | **Terms of Service URL** | https://www.hemmabo.com/terms | verified 200 |
-| **Developer name** | HemmaBo AB | manifest |
-| **Developer email** | support@hemmabo.com | manifest |
-| **MCP Server URL** | `https://hemmabo-mcp-server.vercel.app/mcp` | live, transport: streamable-http |
-| **Auth** | OAuth 2.0, `client_credentials`, token endpoint `https://hemmabo-mcp-server.vercel.app/oauth/token` | api/oauth.ts |
+| **Developer name** | HemmaBo | manifest — enskild näringsverksamhet, NOT an AB (see /terms §12) |
+| **Developer email** | info@hemmabo.se | manifest, matches /terms §12 |
+| **MCP Server URL** | `https://www.hemmabo.com/mcp` | live 200, transport: streamable-http — the canonical platform domain (`did:web:www.hemmabo.com`), same value as `mcp_endpoint` in `/.well-known/mcp.json`. The `hemmabo-mcp-server.vercel.app` origin also answers, but it is infrastructure, not the address to submit. |
+| **Auth** | OAuth 2.0, `client_credentials`, token endpoint `https://www.hemmabo.com/oauth/token` | matches `/.well-known/oauth-authorization-server`; DCR at `/oauth/register` returns 201 |
 | **Test cases** | 13 positive test cases and 5 negative test cases in submission JSON | generated from the live tool surface |
 
 ⚠ **Subtitle note**: the manifest description is the long version. The form's 30-char subtitle is a shortened variant — keep both in sync if the long form changes.
@@ -41,7 +41,7 @@ The OpenAI submission form (App Info → MCP Server → Testing → Screenshots 
 
 Not strictly required — `tools/list`, `resources/read`, `prompts/list` are all open and reviewers can inspect the full app surface without auth.
 
-If reviewers want to exercise `tools/call` end-to-end (search → quote → checkout): request a temporary OAuth client via support@hemmabo.com. The live test property `villaakerlyckan.se` is real; checkout uses Stripe test mode on the review tier.
+If reviewers want to exercise `tools/call` end-to-end (search → quote → checkout): request a temporary OAuth client via info@hemmabo.se. The live test property `villaakerlyckan.se` is real; checkout uses Stripe test mode on the review tier.
 
 ## Test case set
 
