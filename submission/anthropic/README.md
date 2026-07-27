@@ -45,7 +45,7 @@ open cost gate — do not buy seats just for this without weighing it.
 - [ ] **Privacy policy URL** — missing/incomplete privacy policy is an
       immediate rejection. Verify a public privacy policy exists and covers
       the MCP data flows.
-- [ ] Documentation URL (public, current 15-tool list).
+- [ ] Documentation URL (public, current 13-tool list).
 - [ ] Support channel (e.g. info@hemmabo.se or a support page).
 - [ ] Icon (`https://hemmabo-mcp-server.vercel.app/icon.png` — proven
       serving HTTP 200 image/png 2026-07-19).
