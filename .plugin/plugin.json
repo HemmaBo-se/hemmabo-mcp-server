@@ -7,10 +7,10 @@
   "author": {
     "name": "HemmaBo",
     "email": "info@hemmabo.se",
-    "url": "https://hemmabo.com"
+    "url": "https://www.hemmabo.com"
   },
   "license": "Apache-2.0",
-  "homepage": "https://hemmabo.com",
+  "homepage": "https://www.hemmabo.com",
   "repository": "https://github.com/HemmaBo-se/hemmabo-mcp-server",
   "keywords": [
     "vacation-rental",
