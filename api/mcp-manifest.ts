@@ -92,7 +92,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
           "Register an OAuth client to obtain client_id and client_secret. Use POST /oauth/token with grant_type=client_credentials to get an access token.",
       },
     },
-    homepage: "https://hemmabo.com",
+    homepage: "https://www.hemmabo.com",
     icon: `${base}/icon.png`,
     // ── ChatGPT Apps directory fields ─────────────────────────────
     // HemmaBo is an enskild näringsverksamhet (sole proprietorship), NOT an AB.
@@ -102,7 +102,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     // contact address is info@hemmabo.se, as stated in /terms §12.
     developer: {
       name: "HemmaBo",
-      url: "https://hemmabo.com",
+      url: "https://www.hemmabo.com",
       email: "info@hemmabo.se",
     },
     privacy_policy_url: "https://www.hemmabo.com/privacy",
