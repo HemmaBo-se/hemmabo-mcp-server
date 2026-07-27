@@ -179,7 +179,7 @@ async function buildACPState(
       ? [{ type: "info", text: "Booking has been cancelled." }]
       : [{ type: "info", text: "Booking created, awaiting details." }],
     links: [
-      { rel: "property", href: prop?.domain ? `https://${prop.domain}` : "https://hemmabo.com" },
+      { rel: "property", href: prop?.domain ? `https://${prop.domain}` : "https://www.hemmabo.com" },
       { rel: "booking_status", href: `${base}/acp/checkouts/${booking.id}` },
     ],
     metadata: {
