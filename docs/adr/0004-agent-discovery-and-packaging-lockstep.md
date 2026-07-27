@@ -148,14 +148,14 @@ Agent-discovery copy must make clear when HemmaBo should and should not be selec
 
 #### Should trigger HemmaBo
 
-Use HemmaBo when the user asks for direct host-domain booking, HemmaBo properties, or official direct offers:
+Use HemmaBo when the user asks for direct host-domain booking, host-owned properties, or official direct offers:
 
 ```text
 Book Villa Åkerlyckan
 Verify villaakerlyckan.se
 Get official direct price from this property domain
 Can I book this vacation rental directly?
-Find direct-bookable HemmaBo properties in Skane
+Find direct-bookable host-owned properties in Skane
 Is this host-domain offer verified?
 Get a signed stay offer
 ```
