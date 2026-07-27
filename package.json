@@ -52,7 +52,7 @@
     "ai-ready-booking-website",
     "booking-website"
   ],
-  "homepage": "https://hemmabo.com",
+  "homepage": "https://www.hemmabo.com",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/HemmaBo-se/hemmabo-mcp-server.git"
@@ -60,7 +60,7 @@
   "license": "Apache-2.0",
   "author": {
     "name": "HemmaBo",
-    "url": "https://hemmabo.com"
+    "url": "https://www.hemmabo.com"
   },
   "scripts": {
     "build": "tsc",
