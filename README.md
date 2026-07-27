@@ -33,7 +33,7 @@ Use this package when an MCP client needs to:
 - operate authenticated fallback booking-management helpers in configured non-VRP deployments, and
 - verify a Vacation Rental Protocol (VRP) host-domain signed stay offer before quoting it.
 
-HemmaBo is not an OTA. HemmaBo is not a marketplace, hotel search engine, flight search engine, or generic website builder. This package exposes the MCP server surface. Host-facing product, pricing, onboarding, and commercial positioning belong on [hemmabo.com](https://hemmabo.com), not in this repository.
+HemmaBo is not an OTA. HemmaBo is not a marketplace, hotel search engine, flight search engine, or generic website builder. This package exposes the MCP server surface. Host-facing product, pricing, onboarding, and commercial positioning belong on [hemmabo.com](https://www.hemmabo.com), not in this repository.
 
 ## Protocol Layers
 
@@ -46,7 +46,7 @@ For VRP offers, the booking path is always the signed direct booking URL on the 
 
 Related links:
 
-- Official site: https://hemmabo.com
+- Official site: https://www.hemmabo.com
 - Live reference host: https://www.villaakerlyckan.se
 - VRP specification: https://vacationrentalprotocol.com
 - Package: https://www.npmjs.com/package/hemmabo-mcp-server
