@@ -17,19 +17,19 @@
 #
 # SCOPE — only the live surfaces that feed agents/registries are checked.
 # Historical records (docs/adr/**, docs/operations/** audit receipts) correctly
-# say "13 tools" because that was true at the time; rewriting them would falsify
-# history, so they are intentionally OUT of scope (same reason check-docs-drift
-# uses a fixed file list rather than a repo-wide scan).
+# say "11 tools" / "15 tools" because that was true in their era; rewriting them
+# would falsify history, so they are intentionally OUT of scope (same reason
+# check-docs-drift uses a fixed file list rather than a repo-wide scan).
 #
 # Matching is PER-OCCURRENCE (grep -o), not per-line: a single packed line that
-# legitimately says "15 runtime tools" AND wrongly says "13 runtime tools" still
-# fails on the "13" — the canonical value elsewhere on the line does not mask it.
+# legitimately says "13 runtime tools" AND wrongly says "15 runtime tools" still
+# fails on the "15" — the canonical value elsewhere on the line does not mask it.
 #
 # NO false positives by construction:
 #   * Only PLURAL "languages" / "språk" is a count claim. Singular "language" in
 #     "ISO 639-1 language hint" / "BCP-47 language tag" is left alone.
 #   * The tool TOTAL is matched only as "<N> runtime tools". The legitimate
-#     sub-counts ("11 HemmaBo federation tools", "2 host onboarding tools",
+#     sub-counts ("9 HemmaBo federation tools", "2 host onboarding tools",
 #     "2 VRP verification tools") never say "runtime tools", so they pass.
 #
 # Exits 0 on clean, 1 on drift.
