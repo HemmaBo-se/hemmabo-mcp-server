@@ -37,7 +37,7 @@ HemmaBo is not an OTA. HemmaBo is not a marketplace, hotel search engine, flight
 
 ## Protocol Layers
 
-- **HemmaBo MCP tools** expose search, availability, quote, booking-status, and VRP verification flows for published HemmaBo property data. Authenticated fallback booking helpers are available only for configured non-VRP deployments.
+- **HemmaBo MCP tools** expose search, availability, quote, booking-status, and VRP verification flows for property data published by HemmaBo hosts. Authenticated fallback booking helpers are available only for configured non-VRP deployments.
 - **Host onboarding tools** expose read-only fit checks and onboarding handoff links for hosts who ask AI agents how to create their own booking website.
 - **Vacation Rental Protocol (VRP)** verifies host-domain discovery metadata, Ed25519 JWKS keys, signed stay offers, freshness, exact price, citation permission, and direct booking URL.
 - **Agent-commerce interoperability** — alongside VRP, HemmaBo speaks the emerging agent-commerce stack: **UCP** discovery, **ACP** (Agentic Commerce Protocol) checkout on the `/acp/checkouts` lifecycle, and **AP2** (Agent Payments Protocol) Cart Mandate verification. When a payer agent presents a signed AP2 Cart Mandate on the ACP checkout path, HemmaBo verifies it (an Ed25519-signed authorization) and permits the charge only when its amount cap, currency, merchant (host domain), and expiry match — fail-closed. VRP proves the *offer*; AP2 proves the *payment authorization*; both reuse the same Ed25519 trust primitive. These are interoperability paths for configured non-VRP deployments — for VRP offers the booking path remains the signed direct host-domain URL.
@@ -109,7 +109,7 @@ Rate limits apply per source IP for anonymous requests and per token hash for au
 
 ## Pricing and Availability
 
-Quotes are computed from HemmaBo property data at request time. Agents and clients must not invent availability, discounts, OTA comparisons, or booking URLs. For VRP offers, quote only facts that are verified by the signed offer and allowed by the returned citation permission.
+Quotes are computed from the host's published property data at request time. Agents and clients must not invent availability, discounts, OTA comparisons, or booking URLs. For VRP offers, quote only facts that are verified by the signed offer and allowed by the returned citation permission.
 
 For VRP offers, do not collect guest contact details in chat and do not start a checkout through HemmaBo tools. Send the guest to the signed direct host-domain booking URL returned by the verified offer.
 
