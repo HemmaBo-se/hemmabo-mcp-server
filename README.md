@@ -50,6 +50,7 @@ Related links:
 - Live reference host: https://www.villaakerlyckan.se
 - VRP specification: https://vacationrentalprotocol.com
 - Package: https://www.npmjs.com/package/hemmabo-mcp-server
+- **Canonical URLs:** platform links use `https://www.hemmabo.com` (with www); see [ADR 0013](docs/adr/0013-canonical-urls-apex-vs-www.md).
 
 ## Quick Start
 
