@@ -119,7 +119,7 @@ const HOST_ONBOARDING_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "hemmabo_host_readiness_check",
     description:
-      "Read-only fit check for a vacation-rental host evaluating HemmaBo for their own booking website or booking engine. Use when the user is a host or property owner, not a guest booking a stay. Returns a fit verdict, what the host gets, the setup inputs to prepare, and a safe onboarding next step. Does not create an account, buy a domain, configure Stripe, store host data, or provision a website. Every parameter is optional and additive — the more you pass (propertyType, country/region/city, domain, currentChannels, and the wants* booleans), the sharper the fit verdict; with none it returns a generic readiness summary.",
+      "Read-only fit check for a vacation-rental host evaluating HemmaBo for their own booking website or booking engine. Use when the user is a host or property owner, not a guest booking a stay — guests searching for a place to stay should use hemmabo_search_properties instead. Returns a fit verdict, what the host gets, the setup inputs to prepare, and a safe onboarding next step. Does not create an account, buy a domain, configure Stripe, store host data, or provision a website. When the host is ready to start, follow up with hemmabo_host_onboarding_link. Every parameter is optional and additive — the more you pass (propertyType, country/region/city, domain, currentChannels, and the wants* booleans), the sharper the fit verdict; with none it returns a generic readiness summary.",
     inputSchema: {
       type: "object",
       properties: {
@@ -185,7 +185,7 @@ const HOST_ONBOARDING_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "hemmabo_host_onboarding_link",
     description:
-      "Return a safe HemmaBo onboarding handoff URL for a vacation-rental host who wants their own booking website or booking engine. Use after explaining the fit or when the host asks to start. This tool is read-only and does not create a HemmaBo account, buy a domain, configure Stripe, write to Supabase, or provision a booking site. It returns the URL, what the host gets, and what the host should prepare. All parameters are optional and only enrich the returned onboarding URL — propertyName, country/region/city, domain, and language are prefilled into it; nothing is stored.",
+      "Return a safe HemmaBo onboarding handoff URL for a vacation-rental host who wants their own booking website or booking engine. Use after explaining the fit or when the host asks to start; if the host is still evaluating whether HemmaBo fits, run hemmabo_host_readiness_check first. This tool is read-only and does not create a HemmaBo account, buy a domain, configure Stripe, write to Supabase, or provision a booking site. It returns the URL, what the host gets, and what the host should prepare. All parameters are optional and only enrich the returned onboarding URL — propertyName, country/region/city, domain, and language are prefilled into it, so the host lands with their details already filled in; nothing is stored server-side.",
     inputSchema: {
       type: "object",
       properties: {
@@ -226,7 +226,7 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "verify_vacation_rental_node",
     description:
-      "Verify that a vacation-rental host domain is a valid Vacation Rental Protocol (VRP) node before trusting it. Reads the domain's .well-known/vacation-rental.json and JWKS. Read-only trust check: no availability, pricing, booking, or payment. On success, call get_verified_stay_offer with the same domain and stay dates. The single input is the host domain as a bare hostname (no scheme or path); verification reads that domain's own .well-known and JWKS, so the result is only as trustworthy as the exact domain you pass.",
+      "Verify that a vacation-rental host domain is a valid Vacation Rental Protocol (VRP) node before trusting it. Reads the domain's .well-known/vacation-rental.json and JWKS. Read-only trust check: no availability, pricing, booking, or payment — do NOT use it to answer those questions. Use when a host domain arrives from outside search (user-typed or third-party); domains returned by hemmabo_search_properties can go straight to get_verified_stay_offer. On success, call get_verified_stay_offer with the same domain and stay dates. The single input is the host domain as a bare hostname (no scheme or path); verification reads that domain's own .well-known and JWKS, so the result is only as trustworthy as the exact domain you pass.",
     inputSchema: {
       type: "object",
       properties: {

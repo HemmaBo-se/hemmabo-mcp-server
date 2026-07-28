@@ -284,7 +284,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_search_availability",
     description:
-      "Check whether a specific property is available for the requested dates. Use this tool after the user has selected a property from hemmabo_search_properties and wants to confirm availability before getting a quote. Do NOT use for general browsing — use hemmabo_search_properties instead. Returns available=true/false with conflict details and same-month alternative date windows when unavailable. Use the propertyId from search with the exact checkIn/checkOut range; omit guests to check dates only, or pass it to get host-source totals for that party size in the returned alternative windows.",
+      "Check whether a specific property is available for the requested dates. Use this tool after the user has selected a property from hemmabo_search_properties and wants to confirm availability before getting a quote. Do NOT use for general browsing — use hemmabo_search_properties instead. Read-only: checking availability never places a hold or reserves dates. Returns available=true/false with conflict details and same-month alternative date windows when unavailable. Use the propertyId from search with the exact checkIn/checkOut range; omit guests to check dates only, or pass it to get host-source totals for that party size in the returned alternative windows.",
     inputSchema: {
       type: "object",
       properties: {
@@ -440,7 +440,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_negotiate",
     description:
-      "Create a binding price quote that locks the price for 15 minutes for configured non-VRP fallback checkout deployments. Use only when no signed direct_booking_url is available and the user explicitly asks to lock a price. Never use this for search, availability, VRP offers, rendering a stay-offer widget, or verified-offer display — use get_verified_stay_offer instead. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Writes a short-lived quote snapshot server-side. Rate-limited per token. Locks the propertyId's price for the exact checkIn/checkOut range and guests; the returned quoteId encodes that combination and is honored by hemmabo_booking_checkout only until validUntil.",
+      "Create a binding price quote that locks the price for 15 minutes for configured non-VRP fallback checkout deployments. Use only when no signed direct_booking_url is available and the user explicitly asks to lock a price. Never use this for search, availability, VRP offers, rendering a stay-offer widget, or verified-offer display — use get_verified_stay_offer instead. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Writes a short-lived quote snapshot server-side. Rate-limited per token. The parameters form one locked combination: the returned quoteId is honored by hemmabo_booking_checkout only for the identical propertyId + checkIn/checkOut + guests, and only until validUntil — changing any of them requires a new quote. Night count and guest count together select the price tier that gets locked, same as hemmabo_booking_quote.",
     inputSchema: {
       type: "object",
       properties: {
@@ -551,7 +551,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_cancel",
     description:
-      "Cancel a confirmed booking and process the Stripe refund per host cancellation policy. Use when the guest explicitly requests cancellation. Do not use for pending/unpaid bookings — those expire automatically. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Destructive and idempotent: cancelling an already-cancelled booking returns the same status. Rate-limited per token. reservationId must be the booking UUID from hemmabo_booking_checkout or hemmabo_booking_create — not a propertyId; reason is optional free text forwarded to the host.",
+      "Cancel a confirmed booking and process the Stripe refund per host cancellation policy. Use when the guest explicitly requests cancellation. Do not use for pending/unpaid bookings — those expire automatically. To preview the applicable policy first, read cancellationPolicy from hemmabo_booking_status. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Destructive and idempotent: cancelling an already-cancelled booking returns the same status. Rate-limited per token. reservationId must be the booking UUID from hemmabo_booking_checkout or hemmabo_booking_create — not a propertyId; reason is optional free text forwarded to the host.",
     inputSchema: {
       type: "object",
       properties: {
@@ -587,7 +587,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_status",
     description:
-      "Retrieve current status and full details of an existing booking by reservationId. Use to confirm checkout/create succeeded or before cancel/reschedule. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Read-only against the database but returns guest PII (name, email). Rate-limited per token. The only input is the reservationId returned by hemmabo_booking_checkout or hemmabo_booking_create — not the propertyId.",
+      "Retrieve current status and full details of an existing booking by reservationId. Use to confirm checkout/create succeeded or before cancel/reschedule. Do NOT use for property discovery, availability, or pricing — use hemmabo_search_properties, hemmabo_search_availability, or hemmabo_booking_quote for those. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Read-only against the database — never writes, so it is safe to poll after a checkout timeout — but returns guest PII (name, email). Rate-limited per token. The only input is the reservationId returned by hemmabo_booking_checkout or hemmabo_booking_create — never the propertyId; without a reservationId there is no booking to look up yet.",
     inputSchema: {
       type: "object",
       properties: {
@@ -630,7 +630,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_reschedule",
     description:
-      "Reschedule a confirmed or pending booking to new dates with automatic repricing and Stripe charge/refund. Use when the guest wants to change dates on an existing booking. Do not use if cancelled or if a protocol compatibility client reports completed — check hemmabo_booking_status first. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Destructive write that may charge or refund via Stripe. Rate-limited per token. Identify the existing booking by reservationId, then give the new stay as newCheckIn/newCheckOut (newCheckIn strictly before newCheckOut); the date change drives automatic repricing and a Stripe charge or refund for the difference.",
+      "Reschedule a confirmed or pending booking to new dates with automatic repricing and Stripe charge/refund. Use when the guest wants to change dates on an existing booking. Do not use if cancelled or if a protocol compatibility client reports completed — check hemmabo_booking_status first. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Destructive write: the original dates are released back to the host calendar and the original price no longer applies — the booking keeps the same reservationId (updated in place, never recreated), and the price difference is charged or refunded via Stripe. Rate-limited per token. Identify the existing booking by reservationId, then give the new stay as newCheckIn/newCheckOut (newCheckIn strictly before newCheckOut); the new night count re-prices the stay exactly like a fresh quote.",
     inputSchema: {
       type: "object",
       properties: {
