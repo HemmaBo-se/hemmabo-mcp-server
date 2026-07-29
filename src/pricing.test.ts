@@ -212,6 +212,9 @@ describe("tool parity", () => {
       limit: () => stubQuery,
       order: () => stubQuery,
       single: () => Promise.resolve({ data: null, error: { message: "stub" } }),
+      // null data = no channex mapping → the freshness gate's channex path
+      // stays inert (R6), matching a node that has never touched Channex.
+      maybeSingle: () => Promise.resolve({ data: null, error: null }),
       then: (resolve: any) => Promise.resolve({ data: [], error: null }).then(resolve),
     };
 
