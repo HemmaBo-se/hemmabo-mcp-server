@@ -1,56 +1,55 @@
 /**
- * Pricing Resolver — Source of Truth
+ * Pricing Resolver — MCP wrapper around the shared pricing core.
+ *
+ * The pure rack-quote engine and the gap-night decision logic live in
+ * `lib/pricing-core.ts` — a byte-identical vendored mirror of smart-stays
+ * `contracts/ts/pricing-core.ts` (repo-lockstep per ADR 0004; unification
+ * decided in smart-stays ADR `2026-07-29-pricing-shared-core.md`, PR-1b).
+ * This wrapper must NOT redeclare any constant, type, or pure helper that
+ * lives in the core — it imports from there.
  *
  * Reads real data from Supabase. Never guesses, never hardcodes.
  * Each host owns their own pricing via their property node.
  *
- * Pricing flow:
- *   rack          = sum of nightly rates (season × guest level × day type), or a
- *                   week/two-week package price when all nights share a season.
+ * Pricing flow (canonical node-side order: rack → channel fold → gap):
+ *   rack          = core `computeRackQuote` (season × guest staircase × day
+ *                   type, or a week/two-week package when all nights share a
+ *                   season type). Season-gap-fill now applies here too —
+ *                   dates outside configured seasons quote via the nearest
+ *                   season when the host has it enabled (parity with the
+ *                   website; previously the MCP path errored).
  *   direct total  = round(rack × (1 − direct_pct/100)) — the host's single
- *                   acquisition lever (property_channel_discounts → agent, else
- *                   legacy properties.direct_booking_discount). Folded INTO the
- *                   nightly rates (rounding residual absorbed into the last night)
- *                   so Σ nightly === total.
- *   public_total  = federation_total = direct total. The agent surface carries
- *                   ONE honest total — no spread, no second number, no "discount"
- *                   line — mirroring the signed verified-stay-offer
- *                   (smart-stays applyHostDirectPrice; CEO decision 2026-06-29b).
- *   gap_total     = round(federation_total × (1 − gap_night_discount_pct/100))
- *                   (only when calendar context shows a gap between booked nights)
- *
- * RULES (synced with main repo pricing-resolver.ts):
- * - Weekend = Friday + Saturday. Sunday is NEVER weekend.
- * - Week package = exactly 7 nights (not 8).
- * - Two-week package = exactly 14 nights.
- * - Package pricing only when ALL nights are same season type.
- * - Guest block = staircase: smallest block whose guest count >= requested.
- * - Gap discount reads from property_smart_pricing.gap_night_discount_pct.
+ *                   acquisition lever (property_channel_discounts → agent,
+ *                   else legacy properties.direct_booking_discount). Folded
+ *                   INTO the nightly rates (rounding residual absorbed into
+ *                   the last night) so Σ nightly === total.
+ *   public_total  = federation_total = direct total. ONE honest total — no
+ *                   spread (smart-stays applyHostDirectPrice; CEO decision
+ *                   2026-06-29b).
+ *   gap_total     = core `applyGapDiscount(federation_total, decision)` —
+ *                   only when the core's `decideGapNight` says the stay sits
+ *                   between two confirmed bookings (DB neighbor lookups stay
+ *                   here; the decision is core logic).
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
 import { pickChannelDiscountPct, type ChannelDiscountRow } from "./channel-discount.js";
+import {
+  computeRackQuote,
+  decideGapNight,
+  applyGapDiscount,
+  isWeekendDay,
+  findPriceBlock,
+  type PriceBlock,
+  type Season,
+} from "./pricing-core.js";
+
+// ── Re-exports (compat: tests + tools import these from this module) ──
+
+export { findPriceBlock, isWeekendDay as isWeekend };
+export type { PriceBlock, Season };
 
 // ── Types ──────────────────────────────────────────────────────────
-
-export interface PriceBlock {
-  guests: number;
-  low_weekday: number;
-  low_weekend: number;
-  high_weekday: number;
-  high_weekend: number;
-  low_week: number | null;
-  high_week: number | null;
-  low_two_weeks: number | null;
-  high_two_weeks: number | null;
-}
-
-export interface Season {
-  name: string;
-  date_from: string;
-  date_to: string;
-  type: "high" | "low";
-}
 
 export interface QuoteResult {
   propertyId: string;
@@ -82,42 +81,6 @@ function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr);
   d.setDate(d.getDate() + days);
   return d.toISOString().slice(0, 10);
-}
-
-/** Weekend = Friday (5) + Saturday (6). Sunday is NEVER weekend. */
-export function isWeekend(dateStr: string): boolean {
-  const d = new Date(dateStr + "T12:00:00Z");
-  const dow = d.getUTCDay(); // 0=Sun, 5=Fri, 6=Sat
-  return dow === 5 || dow === 6;
-}
-
-function getSeasonForDate(date: string, seasons: Season[]): Season | null {
-  for (const s of seasons) {
-    if (date >= s.date_from && date <= s.date_to) return s;
-  }
-  return null;
-}
-
-/**
- * Staircase pricing: find the smallest block whose guest count >= requested.
- * Example: blocks [2, 6] — 2 guests → 2g, 3-6 guests → 6g, 1 guest → 2g.
- * Returns null only if guests > all blocks (handled by max_guests check upstream).
- */
-export function findPriceBlock(guests: number, blocks: PriceBlock[]): PriceBlock | null {
-  const sorted = [...blocks].sort((a, b) => a.guests - b.guests);
-  for (const b of sorted) {
-    if (b.guests >= guests) return b;
-  }
-  // Guests exceed all blocks — shouldn't happen if max_guests is correct
-  return null;
-}
-
-function nightlyRate(block: PriceBlock, season: Season | null, weekend: boolean): number {
-  const seasonType = season?.type ?? "low";
-  if (seasonType === "high") {
-    return weekend ? block.high_weekend : block.high_weekday;
-  }
-  return weekend ? block.low_weekend : block.low_weekday;
 }
 
 /**
@@ -154,24 +117,14 @@ function applyHostDirectPrice(
   return total;
 }
 
-// ── Gap Night Detection ────────────────────────────────────────────
+// ── Gap Night Detection (DB neighbor lookups — decision is core logic) ──
 
-async function detectGap(
+async function findGapNeighbors(
   supabase: SupabaseClient,
   propertyId: string,
   checkIn: string,
   checkOut: string,
-  gapFillEnabled: boolean,
-  gapFillMinNights: number,
-  gapNightDiscountPct: number | null
-): Promise<{ isGap: boolean; discountPercent: number | null }> {
-  if (!gapFillEnabled) return { isGap: false, discountPercent: null };
-
-  const nights = daysBetween(checkIn, checkOut);
-  if (nights > gapFillMinNights + 1) {
-    return { isGap: false, discountPercent: null };
-  }
-
+): Promise<{ hasNeighborBefore: boolean; hasNeighborAfter: boolean }> {
   // Booking ending on or 1 day before check-in
   const { data: before } = await supabase
     .from("bookings")
@@ -192,11 +145,10 @@ async function detectGap(
     .lte("check_in_date", addDays(checkOut, 2))
     .limit(1);
 
-  const isGap = Boolean(before?.length && after?.length);
-  if (!isGap) return { isGap: false, discountPercent: null };
-
-  // Use gap_night_discount_pct from property_smart_pricing (NOT property_campaigns)
-  return { isGap, discountPercent: gapNightDiscountPct ?? null };
+  return {
+    hasNeighborBefore: Boolean(before?.length),
+    hasNeighborAfter: Boolean(after?.length),
+  };
 }
 
 // ── Main Resolver ──────────────────────────────────────────────────
@@ -234,95 +186,60 @@ export async function resolveQuote(
 
   if (!blocks?.length) return { error: "No pricing configured" };
 
-  // 3. Find guest block (staircase: smallest block >= guests)
-  const block = findPriceBlock(guests, blocks as PriceBlock[]);
-  if (!block) {
-    const available = (blocks as PriceBlock[]).map((b) => b.guests).sort((a, b) => a - b);
-    return {
-      error: `No price block covers ${guests} guests. Max tier is ${available[available.length - 1]} guests.`,
-      available_tiers: available,
-    };
-  }
-
-  // 4. Fetch seasons
+  // 3. Fetch seasons
   const { data: seasons } = await supabase
     .from("property_seasons")
     .select("name, date_from, date_to, type")
     .eq("property_id", propertyId);
 
-  // 5. Fetch smart pricing (gap settings + gap_night_discount_pct)
+  // 4. Fetch smart pricing (gap settings + season-gap-fill flag)
   const { data: smartPricing } = await supabase
     .from("property_smart_pricing")
-    .select("gap_fill_enabled, gap_fill_min_nights, gap_night_discount_pct")
+    .select("gap_fill_enabled, gap_fill_min_nights, gap_night_discount_pct, season_gap_fill_enabled")
     .eq("property_id", propertyId)
     .single();
 
-  // 5b. Channel acquisition discounts (same table the dashboard writes)
+  // 4b. Channel acquisition discounts (same table the dashboard writes)
   const { data: channelRows } = await supabase
     .from("property_channel_discounts")
     .select("channel, discount_pct")
     .eq("property_id", propertyId);
 
-  // 6. Calculate nightly rates
-  const nightlyRates: QuoteResult["breakdown"]["nightlyRates"] = [];
-  const seasonList = (seasons ?? []) as Season[];
+  // 5. Rack quote from the shared core (staircase, seasons incl. gap-fill,
+  //    weekend rule, 7/14-night packages — one engine, every door).
+  //    Default ON when the column is absent: refusing to quote is never a
+  //    safe SaaS default (same semantics as smart-stays fetchPriceMatrix).
+  const seasonGapFillEnabled =
+    typeof smartPricing?.season_gap_fill_enabled === "boolean"
+      ? smartPricing.season_gap_fill_enabled
+      : true;
 
-  // Check each night has a season
-  for (let i = 0; i < nights; i++) {
-    const date = addDays(checkIn, i);
-    const season = getSeasonForDate(date, seasonList);
-    if (!season) {
-      return { error: `No season defined for ${date} — property not bookable for this period` };
-    }
-    const weekend = isWeekend(date);
-    const rate = nightlyRate(block, season, weekend);
-    nightlyRates.push({
-      date,
-      rate,
-      season: season.name,
-      dayType: weekend ? "weekend" : "weekday",
-    });
-  }
-
-  // 7. Check for package pricing
-  let packageApplied: string | null = null;
-  let accommodationTotal: number;
-
-  const allSameSeasonType = nightlyRates.every(
-    (n) => {
-      const s = getSeasonForDate(n.date, seasonList);
-      return s?.type === getSeasonForDate(nightlyRates[0].date, seasonList)?.type;
-    }
+  const rack = computeRackQuote(
+    (seasons ?? []) as Season[],
+    (blocks ?? []) as PriceBlock[],
+    guests,
+    checkIn,
+    checkOut,
+    seasonGapFillEnabled,
   );
-  const firstSeason = getSeasonForDate(nightlyRates[0].date, seasonList);
-  const seasonType = firstSeason?.type ?? "low";
 
-  if (allSameSeasonType && nights === 14) {
-    // Two-week package: exactly 14 nights, same season
-    const pkg = seasonType === "low" ? block.low_two_weeks : block.high_two_weeks;
-    if (pkg !== null && pkg > 0) {
-      accommodationTotal = pkg;
-      packageApplied = "two_weeks";
-    } else {
-      accommodationTotal = nightlyRates.reduce((sum, n) => sum + n.rate, 0);
+  if (rack.success === false) {
+    if (rack.action === "clarify" && rack.available_tiers) {
+      return { error: rack.reason, available_tiers: rack.available_tiers };
     }
-  } else if (allSameSeasonType && nights === 7) {
-    // Week package: exactly 7 nights, same season
-    const pkg = seasonType === "low" ? block.low_week : block.high_week;
-    if (pkg !== null && pkg > 0) {
-      accommodationTotal = pkg;
-      packageApplied = "week";
-    } else {
-      accommodationTotal = nightlyRates.reduce((sum, n) => sum + n.rate, 0);
-    }
-  } else {
-    // Night-by-night
-    accommodationTotal = nightlyRates.reduce((sum, n) => sum + n.rate, 0);
+    return { error: rack.detail ? `${rack.reason} — ${rack.detail}` : rack.reason };
   }
 
-  const rackTotal = accommodationTotal;
+  const nightlyRates: QuoteResult["breakdown"]["nightlyRates"] = rack.breakdown.map((n) => ({
+    date: n.date,
+    rate: n.nightly_rate,
+    season: n.season_name,
+    dayType: n.is_weekend ? "weekend" : "weekday",
+  }));
 
-  // 8. Host's single direct-price lever (CEO decision 2026-06-29b).
+  const rackTotal = rack.rackTotal;
+
+  // 6. Host's single direct-price lever (CEO decision 2026-06-29b).
   //    The host lowers their price in ONE place — the agent acquisition discount
   //    (property_channel_discounts → agent, else legacy direct_booking_discount).
   //    That lever FOLDS the rack into one honest total; public and federation
@@ -337,21 +254,22 @@ export async function resolveQuote(
   const publicTotal = directTotal;
   const federationTotal = directTotal;
 
-  // 9. Gap night detection (reads gap_night_discount_pct from smart_pricing)
-  const { isGap, discountPercent: gapDiscountPct } = await detectGap(
-    supabase,
-    propertyId,
-    checkIn,
-    checkOut,
-    smartPricing?.gap_fill_enabled ?? false,
-    smartPricing?.gap_fill_min_nights ?? 2,
-    smartPricing?.gap_night_discount_pct ?? null
-  );
+  // 7. Gap-night: DB neighbor lookups here, decision in the core.
+  const gapEnabled = smartPricing?.gap_fill_enabled ?? false;
+  const neighbors = gapEnabled
+    ? await findGapNeighbors(supabase, propertyId, checkIn, checkOut)
+    : { hasNeighborBefore: false, hasNeighborAfter: false };
 
-  let gapTotal: number | null = null;
-  if (isGap && gapDiscountPct) {
-    gapTotal = Math.round(federationTotal * (1 - gapDiscountPct / 100));
-  }
+  const gapDecision = decideGapNight({
+    enabled: gapEnabled,
+    gapFillMinNights: smartPricing?.gap_fill_min_nights ?? 2,
+    nights,
+    hasNeighborBefore: neighbors.hasNeighborBefore,
+    hasNeighborAfter: neighbors.hasNeighborAfter,
+    discountPct: smartPricing?.gap_night_discount_pct ?? null,
+  });
+
+  const gapTotal = applyGapDiscount(federationTotal, gapDecision);
 
   return {
     propertyId,
@@ -365,9 +283,9 @@ export async function resolveQuote(
     federationTotal,
     // No public/agent spread — the direct lever is folded into the single total.
     federationDiscountPercent: 0,
-    packageApplied,
-    gapNight: isGap,
+    packageApplied: rack.package_applied,
+    gapNight: gapDecision.isGap,
     gapTotal,
-    gapDiscountPercent: isGap ? gapDiscountPct : null,
+    gapDiscountPercent: gapDecision.isGap ? gapDecision.discountPct : null,
   };
 }
