@@ -1,8 +1,15 @@
 # Directory Submission Kit — HemmaBo + VRP visibility
 
-> **CORRECTION 2026-07-27:** Canonical facts are now **13 runtime tools (9 HemmaBo federation + 2 host onboarding + 2 VRP verification)**, version **4.0.0**, endpoint **https://www.hemmabo.com/mcp**, **12 languages**. The "15 runtime tools / 11 federation" values below were true on 2026-07-13 and are kept as history. Any line telling you never to reuse "13 tools" is SUPERSEDED — 13 is canonical again (a different 13 than the May-2026 composition).
+> **CORRECTION 2026-07-29 (supersedes the 2026-07-27 note):** Canonical facts are
+> **13 runtime tools (9 HemmaBo federation + 2 host onboarding + 2 VRP verification)**,
+> version **4.0.1**, endpoint **https://www.hemmabo.com/mcp**, **12 languages**. The
+> stale "15 runtime tools / 11 federation" and "3.2.16" values that had been left in
+> the body (2026-07-13 history) are now **swept to canonical throughout this doc**.
+> Verified against live bytes 2026-07-29: npm `hemmabo-mcp-server@4.0.1`, `glama.json`
+> version 4.0.1, code = 13 tools (9+2+2). Any line telling you never to reuse "13 tools"
+> is SUPERSEDED — 13 is canonical (a different 13 than the May-2026 composition).
 
-Date: 2026-07-13
+Date: 2026-07-13 (facts swept current 2026-07-29)
 Scope: discovery/metadata only. No runtime booking logic, no new MCP tools,
 no new registry identities (ADR 2026-05-16 single-source, ADR 0004 lockstep).
 
@@ -19,16 +26,18 @@ directories require an account + CAPTCHA, so — like the ChatGPT Apps kit in
 | Product | HemmaBo — https://www.hemmabo.com |
 | Protocol | Vacation Rental Protocol (VRP) — https://vacationrentalprotocol.com |
 | Canonical repo | https://github.com/HemmaBo-se/hemmabo-mcp-server |
-| NPM | `hemmabo-mcp-server@3.2.16` |
+| NPM | `hemmabo-mcp-server@4.0.1` |
 | Canonical remote MCP | `https://www.hemmabo.com/mcp` (streamable-http) |
 | Registry identity | `com.hemmabo/hemmabo-mcp-server` (owned by this repo only) |
-| Tool surface | 15 runtime tools: 11 HemmaBo federation tools, 2 host onboarding tools, 2 VRP verification tools |
+| Tool surface | 13 runtime tools: 9 HemmaBo federation tools, 2 host onboarding tools, 2 VRP verification tools |
 | Languages | 12 languages (Konversa guest chat) |
 | License | Apache-2.0 |
 | Live reference host | https://www.villaakerlyckan.se |
 
 `check-facts-drift.sh` guards the live surfaces; every submission must agree
-with these values. "11 languages" is stale — never reuse it. (Corrected 2026-07-27: "13 tools" is canonical again — 13 = 9+2+2; "15 tools" is the stale value.)
+with these values. "11 languages" is stale — never reuse it. "15 runtime tools /
+11 federation" and version "3.2.16" are stale — never reuse them; 13 = 9+2+2 and
+version is 4.0.1.
 
 ## Red lines — apply to EVERY listing, every platform
 
@@ -85,8 +94,8 @@ comparison for guests.
 > open web, fetches a cryptographically signed offer (Ed25519, did:web) from
 > the host's own domain, verifies it against the domain's JWKS, and books
 > directly — no central marketplace, registry, or gatekeeper. The HemmaBo MCP
-> server (`hemmabo-mcp-server`, Apache-2.0) exposes 15 runtime tools —
-> 11 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification
+> server (`hemmabo-mcp-server`, Apache-2.0) exposes 13 runtime tools —
+> 9 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification
 > tools — so agents can search published properties, check availability, get
 > verified stay offers, and route guests to the host's own booking URL.
 > Alongside VRP, HemmaBo supports UCP discovery, ACP checkout, and AP2 Cart
@@ -115,19 +124,20 @@ AI agents, agent-verifiable, booking engine, short-term rental, own domain
 
 ## Status tracker
 
-Verified from this session on 2026-07-13 unless noted. The sandbox network
-policy blocks fetching pulsemcp.com / mcp.so / hemmabo.com directly (proxy
-403) — those rows must be eyeball-verified from a normal browser.
+Verified from this session on 2026-07-13 unless noted; version/tool-count refs
+swept to canonical (4.0.1 / 13 tools) 2026-07-29. The sandbox network policy
+blocks fetching pulsemcp.com / mcp.so / hemmabo.com directly (proxy 403) —
+those rows must be eyeball-verified from a normal browser.
 
 ### MCP surfaces (highest leverage — agents look here first)
 
 | Surface | Status 2026-07-13 | Next action |
 |---|---|---|
-| Official MCP Registry | ✅ **Live & current** — `com.hemmabo/hemmabo-mcp-server@3.2.16`, `isLatest`, active (verified via registry API today) | None. Re-publish only on version bump. |
-| Glama | `glama.json@3.2.16` in repo | Browser-verify listing renders 3.2.16 copy. |
-| Smithery | `smithery.yaml` + republish receipt 2026-05-19 | Browser-verify listing is on current positioning (15 runtime tools). |
-| PulseMCP | Mirrors official registry (2026-05-19 audit) | Verify it picked up 3.2.16; only if not mirrored after ~a week, submit the canonical record manually. **No duplicate listing.** |
-| MCP.so | ⚠️ Stale (old tool names, old repo ref) per 2026-05-19 audit | Send the support/update text from `2026-05-19-pulse-mcpso-registry-audit.md` (update its version refs to 3.2.16 / 15 runtime tools first). **No duplicate listing.** |
+| Official MCP Registry | ✅ **Live** — `com.hemmabo/hemmabo-mcp-server`; `@3.2.16` was `isLatest` when verified 2026-07-13, now `@4.0.1`. | None. Re-publish only on version bump. |
+| Glama | `glama.json` version 4.0.1 in repo | Browser-verify listing renders 4.0.1 copy (13 tools). |
+| Smithery | `smithery.yaml` + republish receipt 2026-05-19 | Browser-verify listing is on current positioning (13 runtime tools). |
+| PulseMCP | Mirrors official registry (2026-05-19 audit) | Verify it picked up 4.0.1; only if not mirrored after ~a week, submit the canonical record manually. **No duplicate listing.** |
+| MCP.so | ⚠️ Stale (old tool names, old repo ref) per 2026-05-19 audit | Send the support/update text from `2026-05-19-pulse-mcpso-registry-audit.md` (update its version refs to 4.0.1 / 13 runtime tools first). **No duplicate listing.** |
 | mcpservers.org | Not listed (unverified from sandbox) | Submit canonical record (copy blocks above). |
 | Docker MCP Registry | 🟠 **Submitted upstream, in review** — upstream PR [docker/mcp-registry#4413](https://github.com/docker/mcp-registry/pull/4413) (opened 2026-07-13 from fork branch `claude/hemmabo-directory-submissions-amz280`; reviewers `@docker/ai-tools-team` pinged 2026-07-18; two unchecked template tasks are N/A for remote servers). Duplicate fork PR #2 closed 2026-07-13. `cmd/validate` all green 2026-07-19; icon proven serving (HTTP 200, image/png) via Vercel. **Not yet published**: awaiting maintainer review. | Wait for Docker review; respond to reviewer comments on #4413. Do NOT open a second upstream PR (duplicate). |
 | awesome-mcp-servers (punkpeye) | ✅ **Live & merged** — upstream PR [punkpeye/awesome-mcp-servers#8863](https://github.com/punkpeye/awesome-mcp-servers/pull/8863) merged 2026-07-12; line verified present in upstream `README.md` (line ~3096, Travel & Transportation) against raw bytes 2026-07-19. | None. Do NOT resubmit (duplicate). Fork PR #1 can be closed as superseded. |
@@ -187,7 +197,7 @@ r/ShortTermRental) · LinkedIn · X (#MCP #AIagents)
 2. TAAFT + Capterra (Gartner account also unlocks Software Advice/GetApp).
 3. BetaList + Indie Hackers post.
 4. Remaining Tier 1/2/3 as time allows; verify Glama/Smithery/PulseMCP
-   render 3.2.16 while at it.
+   render 4.0.1 (13 tools) while at it.
 
 Every submission gets a receipt: date, platform, URL of the live listing,
 copy variant used — appended to this file or a sibling ops doc, only after
