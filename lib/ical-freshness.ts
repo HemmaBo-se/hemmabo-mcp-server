@@ -221,3 +221,75 @@ export function calendarFreshnessUnavailablePayload(
       "Do not quote bookability. Call get_verified_stay_offer on the host domain after calendar sync is fresh.",
   };
 }
+
+// ── Outbound channel-mirror heartbeat (OQ-3 / ADR §6 alt 1) ─────────────────
+//
+// Reads the node's OUTBOUND push heartbeat (property_channex_sync_state
+// outbound_* — written by the ARI push, smart-stays PR-3b). INFORMATIONAL
+// ONLY, by decision (R2): the node is the source of truth, so a stale
+// outbound mirror can never make the node's own dates unavailable — it only
+// means the mapped external channel may lag. This reader therefore has its
+// OWN reason-code namespace (channel_mirror_*) and MUST never feed the
+// `available` flag or reuse any calendar_sync_* code. Labels stay
+// vendor-neutral on the agent surface (same doctrine as
+// CHANNEL_MANAGER_SOURCE_LABEL above).
+
+/**
+ * The daily reconciliation sweep re-pushes every connected node at 03:15
+ * UTC; event pushes land within seconds-to-minutes. A healthy mirror is
+ * therefore never older than a day — 26 h adds slack for a slow sweep.
+ */
+export const CHANNEL_MIRROR_CURRENT_MAX_HOURS = 26;
+
+export type ChannelMirrorResult = {
+  status: "current" | "stale" | "partial" | "error" | "not_connected";
+  /** channel_mirror_stale | channel_mirror_partial | channel_mirror_error | channel_mirror_unverified | null */
+  reason: string | null;
+  last_pushed_at: string | null;
+  checked_at: string;
+  max_age_hours: number;
+};
+
+export async function checkChannelMirrorState(
+  supabase: SupabaseClient,
+  propertyId: string,
+  checkedAt: Date,
+): Promise<ChannelMirrorResult> {
+  const base = {
+    checked_at: checkedAt.toISOString(),
+    max_age_hours: CHANNEL_MIRROR_CURRENT_MAX_HOURS,
+    last_pushed_at: null as string | null,
+  };
+
+  const { data, error } = await supabase
+    .from("property_channex_sync_state")
+    .select("outbound_status, outbound_last_pushed_at")
+    .eq("property_id", propertyId)
+    .maybeSingle();
+
+  if (error) {
+    return { ...base, status: "error", reason: "channel_mirror_unverified" };
+  }
+  // No row = the node has no channel-manager connection; 'disabled' = the
+  // outbound path is intentionally paused. Both are a clean not-connected.
+  if (!data || data.outbound_status === "disabled") {
+    return { ...base, status: "not_connected", reason: null };
+  }
+  const lastPushedAt = (data.outbound_last_pushed_at as string | null) ?? null;
+  if (!lastPushedAt) {
+    // Mapped but never pushed (fresh connection): the auto-push lands within
+    // ~a minute — report as not_connected rather than inventing staleness.
+    return { ...base, status: "not_connected", reason: null };
+  }
+  if (data.outbound_status === "error") {
+    return { ...base, status: "error", reason: "channel_mirror_error", last_pushed_at: lastPushedAt };
+  }
+  if (data.outbound_status === "partial") {
+    return { ...base, status: "partial", reason: "channel_mirror_partial", last_pushed_at: lastPushedAt };
+  }
+  const ageMs = checkedAt.getTime() - new Date(lastPushedAt).getTime();
+  if (ageMs > CHANNEL_MIRROR_CURRENT_MAX_HOURS * 60 * 60 * 1000) {
+    return { ...base, status: "stale", reason: "channel_mirror_stale", last_pushed_at: lastPushedAt };
+  }
+  return { ...base, status: "current", reason: null, last_pushed_at: lastPushedAt };
+}

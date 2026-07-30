@@ -20,7 +20,9 @@ import { resolveQuote } from "./pricing.js";
 import { checkAvailability, findFreeWindowsInMonth } from "./availability.js";
 import {
   checkIcalImportFreshness,
+  checkChannelMirrorState,
   calendarFreshnessUnavailablePayload,
+  type CalendarFreshnessResult,
 } from "./ical-freshness.js";
 import {
   createCheckoutSession,
@@ -454,19 +456,22 @@ async function calendarFreshnessToolBlock(
   propertyId: string,
   checkIn: string,
   checkOut: string,
-): Promise<ToolResult | null> {
+): Promise<{ block: ToolResult | null; freshness: CalendarFreshnessResult }> {
   const calendarFreshness = await checkIcalImportFreshness(supabase, propertyId, new Date());
-  if (calendarFreshness.safe) return null;
+  if (calendarFreshness.safe) return { block: null, freshness: calendarFreshness };
   return {
-    content: [{
-      type: "text",
-      text: JSON.stringify(
-        calendarFreshnessUnavailablePayload(propertyId, checkIn, checkOut, calendarFreshness),
-        null,
-        2,
-      ),
-    }],
-    isError: true,
+    freshness: calendarFreshness,
+    block: {
+      content: [{
+        type: "text",
+        text: JSON.stringify(
+          calendarFreshnessUnavailablePayload(propertyId, checkIn, checkOut, calendarFreshness),
+          null,
+          2,
+        ),
+      }],
+      isError: true,
+    },
   };
 }
 
@@ -1059,11 +1064,24 @@ export async function executeTool(
           }],
         };
       }
-      {
-        const calendarBlock = await calendarFreshnessToolBlock(supabase, propertyId, checkIn, checkOut);
-        if (calendarBlock) return calendarBlock;
-      }
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      const { block: calendarBlock, freshness: calendarFreshness } =
+        await calendarFreshnessToolBlock(supabase, propertyId, checkIn, checkOut);
+      if (calendarBlock) return calendarBlock;
+      // OQ-3 (ADR §6 alt 1): both sync directions as FIRST-CLASS declared
+      // fields — inbound freshness (the gate above) and the outbound
+      // channel-mirror heartbeat. channel_mirror is informational only and
+      // never affects `available` (the node is the source of truth).
+      const channelMirror = await checkChannelMirrorState(supabase, propertyId, new Date());
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify(
+            { ...result, calendar_freshness: calendarFreshness, channel_mirror: channelMirror },
+            null,
+            2,
+          ),
+        }],
+      };
     }
 
     case "hemmabo_booking_quote": {
@@ -1111,10 +1129,9 @@ export async function executeTool(
       const avail = await checkAvailability(supabase, propertyId, checkIn, checkOut);
       if (!avail.available) return { content: [{ type: "text", text: JSON.stringify({ error: "Not available", ...avail }) }], isError: true };
 
-      {
-        const calendarBlock = await calendarFreshnessToolBlock(supabase, propertyId, checkIn, checkOut);
-        if (calendarBlock) return calendarBlock;
-      }
+      const { block: calendarBlock, freshness: bookingCalendarFreshness } =
+        await calendarFreshnessToolBlock(supabase, propertyId, checkIn, checkOut);
+      if (calendarBlock) return calendarBlock;
 
       // Acquire a short-term booking lock to close the TOCTOU window between
       // the availability check above and the insert below.
@@ -1157,6 +1174,10 @@ export async function executeTool(
             if (bookErr) {
               bookingCreateResult = { content: [{ type: "text", text: JSON.stringify({ error: bookErr.message }) }], isError: true };
             } else {
+              // OQ-3 (ADR §6 alt 1): both sync directions as first-class
+              // declared fields. channel_mirror is informational only —
+              // never affects `available` (the node is the source of truth).
+              const channelMirror = await checkChannelMirrorState(supabase, propertyId, new Date());
               bookingCreateResult = {
                 content: [{
                   type: "text",
@@ -1168,6 +1189,8 @@ export async function executeTool(
                     packageApplied: quote.packageApplied,
                     federationDiscountPercent: quote.federationDiscountPercent,
                     gapDiscountPercent: quote.gapDiscountPercent, createdAt: booking.created_at,
+                    calendar_freshness: bookingCalendarFreshness,
+                    channel_mirror: channelMirror,
                   }, null, 2),
                 }],
               };
