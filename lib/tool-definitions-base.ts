@@ -325,6 +325,18 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
             additionalProperties: true,
           },
         },
+        calendar_freshness: {
+          type: "object",
+          description:
+            "Incoming OTA calendar-sync freshness at answer time. The same object is embedded in the error payload when a stale calendar blocks the call — declared here so agents can treat it as a first-class field in both outcomes.",
+          additionalProperties: true,
+        },
+        channel_mirror: {
+          type: "object",
+          description:
+            "Outbound channel-manager mirror heartbeat for the host's mapped external channel (status: current|stale|partial|error|not_connected). Informational only — it never affects `available`; the host node is the source of truth for these dates.",
+          additionalProperties: true,
+        },
         error: { type: "string", description: "Present only when isError=true." },
       },
       required: ["available"],
@@ -424,6 +436,18 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         gapDiscountPercent: { type: "integer" },
         createdAt: { type: "string", format: "date-time" },
         status: { type: "string", enum: ["pending", "confirmed", "cancelled", "completed"], description: "Host-node booking status. 'completed' is a protocol compatibility output only, not a status this tool writes." },
+        calendar_freshness: {
+          type: "object",
+          description:
+            "Incoming OTA calendar-sync freshness at booking time. The same object is embedded in the error payload when a stale calendar blocks the call — declared here so agents can treat it as a first-class field in both outcomes.",
+          additionalProperties: true,
+        },
+        channel_mirror: {
+          type: "object",
+          description:
+            "Outbound channel-manager mirror heartbeat for the host's mapped external channel (status: current|stale|partial|error|not_connected). Informational only — it never affects availability or this booking; the host node is the source of truth.",
+          additionalProperties: true,
+        },
         error: { type: "string", description: "Present only when isError=true." },
       },
       required: ["bookingId", "status"],
