@@ -47,27 +47,27 @@
   },
   "test_cases": [
     {
-      "description": "Discover host-owned vacation rentals by location and dates.",
+      "description": "Discover host-owned nodes in the federation catalog by location and dates.",
       "user_prompt": "Use HemmaBo to find direct-bookable host-owned vacation rentals in Skane for 6 guests from 2026-11-04 to 2026-11-05.",
       "file_attachment_urls": null,
       "tools_triggered": "hemmabo_search_properties",
-      "expected_output": "Returns published host-owned property data from the federation with propertyId, host domain, and capacity. Does not create a booking, process a payment, or quote a final payable total, and does not present HemmaBo as an OTA, marketplace, or website builder.",
+      "expected_output": "Reads the HemmaBo federation catalog and returns the matching host-owned nodes — each with its own host domain, propertyId, and capacity. Does not rank or compare across hosts, create a booking, process a payment, or quote a final payable total, and does not present HemmaBo as an OTA, marketplace, or website builder.",
       "expected_output_url": null
     },
     {
-      "description": "Verify a host domain's VRP trust metadata.",
-      "user_prompt": "Verify the vacation rental node villaakerlyckan.se before I trust its offer.",
+      "description": "Verify one of the discovered host nodes (VRP trust metadata).",
+      "user_prompt": "From the HemmaBo results, verify the host node villaakerlyckan.se before I trust its offer.",
       "file_attachment_urls": null,
       "tools_triggered": "verify_vacation_rental_node",
       "expected_output": "Returns VRP protocol version, discovery URL, JWKS URL, stay-offer endpoint, and signing-key details if verification succeeds. Read-only; creates no booking or payment.",
       "expected_output_url": null
     },
     {
-      "description": "Show a cryptographically verified stay offer and hand off to the host's own website.",
-      "user_prompt": "Show the verified stay offer for villaakerlyckan.se from 2026-11-04 to 2026-11-05 for 6 guests.",
+      "description": "Show a cryptographically verified stay offer for a discovered node and hand off to the host's own website.",
+      "user_prompt": "Show the verified stay offer for the villaakerlyckan.se node from 2026-11-04 to 2026-11-05 for 6 guests.",
       "file_attachment_urls": null,
       "tools_triggered": "get_verified_stay_offer",
-      "expected_output": "Returns a fresh signed offer, signature verification, a summary of verified facts, and the host's own website URL where any booking or payment is completed. HemmaBo never creates a booking or checkout session inside ChatGPT.",
+      "expected_output": "Returns a fresh signed offer, signature verification, a summary of verified facts, and the host's OWN domain booking URL (never a hemmabo.com checkout) where any booking or payment is completed. HemmaBo never creates a booking or checkout session inside ChatGPT.",
       "expected_output_url": null
     }
   ],
