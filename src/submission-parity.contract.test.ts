@@ -19,7 +19,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { TOOLS } from "../api/mcp.js";
+import { TOOLS, CHATGPT_TOOL_NAMES } from "../api/mcp.js";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SUBMISSION_PATH = resolve(REPO_ROOT, "submission", "chatgpt-app-submission.json");
@@ -43,6 +43,12 @@ type Submission = {
 
 const submission = JSON.parse(readFileSync(SUBMISSION_PATH, "utf8")) as Submission;
 
+// The OpenAI app connects to the dedicated ChatGPT surface (/mcp/chatgpt),
+// which exposes ONLY CHATGPT_TOOL_NAMES. The submission must therefore mirror
+// that surface — NOT the full /mcp federation surface (TOOLS, 13). See the
+// McpSurface gate in api/mcp.ts and the OpenAI-rejection decode doc.
+const CHATGPT_TOOLS = TOOLS.filter((t) => CHATGPT_TOOL_NAMES.has(t.name));
+
 const ANNOTATION_KEYS = ["readOnlyHint", "openWorldHint", "destructiveHint"] as const;
 const JUSTIFICATION_KEYS = [
   "read_only_justification",
@@ -50,16 +56,26 @@ const JUSTIFICATION_KEYS = [
   "destructive_justification",
 ] as const;
 
-describe("chatgpt app submission parity", () => {
-  it("declares exactly the tools the server exposes", () => {
+// Words/phrases that carry the OpenAI commerce / digital-service rejection.
+// The submission description must stay clear of them (physical-goods-only rule).
+const FORBIDDEN_DESCRIPTION_PHRASES = [
+  "booking website",
+  "runtime tools",
+  "host onboarding",
+  "subscription",
+  "checkout",
+];
+
+describe("chatgpt app submission parity (ChatGPT surface)", () => {
+  it("declares exactly the tools the ChatGPT surface exposes", () => {
     assert.deepEqual(
       Object.keys(submission.tools).sort(),
-      TOOLS.map((t) => t.name).sort(),
-      "submission/chatgpt-app-submission.json tools must match the runtime TOOLS array exactly — no removed tools left behind, no live tool missing."
+      CHATGPT_TOOLS.map((t) => t.name).sort(),
+      "submission/chatgpt-app-submission.json tools must match the /mcp/chatgpt surface (CHATGPT_TOOL_NAMES) exactly — no booking/checkout/host-onboarding tools, no verification tool missing."
     );
   });
 
-  for (const tool of TOOLS) {
+  for (const tool of CHATGPT_TOOLS) {
     it(`${tool.name} carries the server's own annotation triplet`, () => {
       const entry = submission.tools[tool.name];
       assert.ok(entry, `'${tool.name}' must have a submission entry`);
@@ -91,33 +107,21 @@ describe("chatgpt app submission parity", () => {
     });
   }
 
-  it("never points a test case at a tool the server does not expose", () => {
-    const liveNames = new Set(TOOLS.map((t) => t.name));
+  it("never points a test case at a tool outside the ChatGPT surface", () => {
+    const allowed = new Set(CHATGPT_TOOLS.map((t) => t.name));
     const unknown = submission.test_cases
       .map((tc) => tc.tools_triggered)
-      .filter((name): name is string => typeof name === "string" && !liveNames.has(name));
-    assert.deepEqual(unknown, [], `test_cases trigger tools that do not exist: ${unknown.join(", ")}`);
+      .filter((name): name is string => typeof name === "string" && !allowed.has(name));
+    assert.deepEqual(unknown, [], `test_cases trigger tools outside the ChatGPT surface: ${unknown.join(", ")}`);
   });
 
-  it("states a tool total that matches the runtime surface", () => {
-    const match = submission.app_info.description.match(/(\d+) runtime tools/);
-    assert.ok(match, "app_info.description must state the runtime tool total (e.g. '13 runtime tools')");
-    assert.equal(
-      Number(match[1]),
-      TOOLS.length,
-      `app_info.description claims ${match[1]} runtime tools but the server exposes ${TOOLS.length}`
-    );
-  });
-
-  it("states sub-counts that add up to the tool total", () => {
-    const subCounts = [...submission.app_info.description.matchAll(/(\d+) (?:HemmaBo federation|host onboarding|VRP verification) tools/g)].map(
-      (m) => Number(m[1])
-    );
-    assert.equal(subCounts.length, 3, "description must break the total into federation, host onboarding and VRP counts");
-    assert.equal(
-      subCounts.reduce((a, b) => a + b, 0),
-      TOOLS.length,
-      `description sub-counts ${subCounts.join(" + ")} do not sum to ${TOOLS.length}`
-    );
+  it("keeps the description free of in-chat commerce / SaaS language", () => {
+    const desc = submission.app_info.description.toLowerCase();
+    for (const phrase of FORBIDDEN_DESCRIPTION_PHRASES) {
+      assert.ok(
+        !desc.includes(phrase),
+        `app_info.description must not contain '${phrase}' — it re-triggers the OpenAI commerce/digital-service rejection`
+      );
+    }
   });
 });

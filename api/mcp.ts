@@ -92,6 +92,28 @@ export const TOOLS = TOOL_SPECS.map((t) => {
   return wire;
 });
 
+// ── ChatGPT (OpenAI Apps) surface ────────────────────────────────
+//
+// OpenAI App Review requires the app surface to contain NO in-chat commerce
+// and NO digital-service/subscription onboarding (physical-goods-only rule).
+// The dedicated /mcp/chatgpt endpoint (api/mcp-chatgpt.ts) therefore exposes
+// ONLY these four read-only discovery + cryptographic-verification tools.
+// Any booking/checkout/host-onboarding tool is invisible in tools/list and
+// rejected in tools/call on this surface; all booking/payment happens on the
+// host's own website (via get_verified_stay_offer's returned URL).
+//
+// SCOPED + ADDITIVE: the default "full" surface (/mcp) — and therefore npm /
+// MCP registry / Smithery / Glama / every other client — stays byte-for-byte
+// unchanged. Do NOT reuse this set to gate any other surface.
+export type McpSurface = "full" | "chatgpt";
+
+export const CHATGPT_TOOL_NAMES: ReadonlySet<string> = new Set([
+  "hemmabo_search_properties",
+  "hemmabo_search_availability",
+  "verify_vacation_rental_node",
+  "get_verified_stay_offer",
+]);
+
 
 // ── Prompts ──────────────────────────────────────────────────────
 
@@ -233,12 +255,13 @@ function getSupabaseReader() {
 
 export async function handleJsonRpc(
   msg: { jsonrpc: string; method: string; id?: number | string; params?: Record<string, unknown> },
-  ctx: { agent: string; mcpEndpointUrl: string } = {
+  ctx: { agent: string; mcpEndpointUrl: string; surface?: McpSurface } = {
     agent: "unknown",
     mcpEndpointUrl: HEMMABO_CANONICAL_MCP_ENDPOINT,
   }
 ): Promise<Record<string, unknown> | null> {
   const { method, id, params } = msg;
+  const surface: McpSurface = ctx.surface ?? "full";
 
   switch (method) {
     case "initialize":
@@ -265,7 +288,14 @@ export async function handleJsonRpc(
       return null;
 
     case "tools/list":
-      return { jsonrpc: "2.0", id, result: { tools: TOOLS } };
+      return {
+        jsonrpc: "2.0", id,
+        result: {
+          tools: surface === "chatgpt"
+            ? TOOLS.filter((t) => CHATGPT_TOOL_NAMES.has(t.name))
+            : TOOLS,
+        },
+      };
 
     case "tools/call": {
       const rawToolName = (params as { name: string })?.name;
@@ -275,6 +305,24 @@ export async function handleJsonRpc(
       // checkIn/checkOut migration. validateToolArgs (#85) still rejects any
       // other unknown key so agents self-correct.
       const toolArgs = normalizeDateAliases((params as { arguments?: Record<string, unknown> })?.arguments ?? {});
+      // ChatGPT surface: only the four discovery/verification tools are callable.
+      // Everything else (booking, checkout, host onboarding) is off-surface and
+      // routed to the host's own website — no in-chat commerce.
+      if (surface === "chatgpt" && (typeof toolName !== "string" || !CHATGPT_TOOL_NAMES.has(toolName))) {
+        return {
+          jsonrpc: "2.0", id,
+          result: {
+            content: [{
+              type: "text",
+              text: JSON.stringify({
+                error: "Tool not available in ChatGPT.",
+                detail: "HemmaBo in ChatGPT only discovers and verifies host-owned vacation rentals. Any booking or payment is completed on the host's own website. Call get_verified_stay_offer to obtain that website URL.",
+              }),
+            }],
+            isError: true,
+          },
+        };
+      }
       const start = Date.now();
       let ok = true;
       let errMsg: string | undefined;
@@ -331,7 +379,14 @@ export async function handleJsonRpc(
     }
 
     case "prompts/list":
-      return { jsonrpc: "2.0", id, result: { prompts: PROMPTS } };
+      return {
+        jsonrpc: "2.0", id,
+        result: {
+          prompts: surface === "chatgpt"
+            ? PROMPTS.filter((p) => p.name !== "host_start")
+            : PROMPTS,
+        },
+      };
 
     case "resources/list":
       return {
@@ -422,7 +477,7 @@ export function isAuthRequiredMessage(msg: unknown): boolean {
 
 // ── HTTP handler ─────────────────────────────────────────────────
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export async function serve(req: VercelRequest, res: VercelResponse, surface: McpSurface = "full") {
   // Origin is intentionally unrestricted — MCP clients (Claude Desktop, Smithery,
   // Glama) are not browsers and do not send an Origin header. Browser-based CSRF
   // is mitigated by requiring the Authorization header on all POST requests:
@@ -453,7 +508,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // This keeps read-only public discovery separate from protected stateful actions
   // and PII reads, which remain behind authentication.
   const requestMessages = Array.isArray(req.body) ? req.body : [req.body];
-  const requiresAuth = requestMessages.some(isAuthRequiredMessage);
+  // ChatGPT surface: the only callable tools are the four anonymous read-only
+  // ones; every other tool is rejected in handleJsonRpc before any execution,
+  // so the Bearer gate is unnecessary here (the allowlist replaces it).
+  const requiresAuth = surface === "chatgpt" ? false : requestMessages.some(isAuthRequiredMessage);
   if (requiresAuth) {
     const authErr = await validateAuth(
       Array.isArray(req.headers["authorization"])
@@ -516,6 +574,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const ctx = {
     agent: ((req.headers["user-agent"] as string | undefined) ?? "unknown").slice(0, 80),
     mcpEndpointUrl: mcpEndpointFromBaseUrl(baseUrl(req)),
+    surface,
   };
 
   try {
@@ -541,4 +600,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error("MCP handler error:", message);
     return res.status(500).json({ jsonrpc: "2.0", error: { code: -32603, message } });
   }
+}
+
+// Default export = the full federation surface (/mcp). Behaviour is unchanged;
+// the dedicated ChatGPT surface is served by api/mcp-chatgpt.ts via serve(...,"chatgpt").
+export default function handler(req: VercelRequest, res: VercelResponse) {
+  return serve(req, res, "full");
 }

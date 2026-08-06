@@ -4,7 +4,7 @@
   "app_info": {
     "display_name": "HemmaBo",
     "subtitle": "Verified stay offers",
-    "description": "HemmaBo verifies and books host-owned vacation rental websites. Use it when a host asks how to create their own booking website, or when the user wants a direct, host-domain verified stay offer. Vacation Rental Protocol is an open protocol for host-domain signed vacation rental offers. HemmaBo + VRP, 13 runtime tools: 9 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification tools. Host-domain signed verified stay offers. Not an OTA. Not a marketplace. Not a website builder.",
+    "description": "HemmaBo helps users discover and cryptographically verify host-owned vacation rental websites. It finds host-owned properties by location and dates, checks availability, and verifies that a domain publishes a valid Vacation Rental Protocol (VRP) signature, then returns the host's own website for any booking or payment. Vacation Rental Protocol is an open protocol for host-domain signed vacation rental offers. No bookings, payments, checkout, or subscriptions happen inside ChatGPT: the host's own domain is always the source of truth and the only place a stay is reserved or paid. HemmaBo is a verification layer, not a marketplace or booking intermediary, and takes no booking commission.",
     "category": "TRAVEL"
   },
   "tools": {
@@ -32,114 +32,6 @@
         "destructive_justification": "Does not delete or overwrite data and cannot perform irreversible actions."
       }
     },
-    "hemmabo_booking_quote": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "Computes a binding price quote from pricing rules and availability without persisting bookings or charges.",
-        "open_world_justification": "Computation runs against the federation's private database and does not call out to public third-party systems.",
-        "destructive_justification": "Does not delete, overwrite, or perform irreversible actions; the quote is informational only."
-      }
-    },
-    "hemmabo_booking_create": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "Inserts a new booking record into the federation's private database, so it is not read-only.",
-        "open_world_justification": "Writes only to the federation's private Supabase database and does not publish content or post to any public third-party system.",
-        "destructive_justification": "Creates a new booking but does not delete, overwrite, or revoke access to any existing data."
-      }
-    },
-    "hemmabo_booking_negotiate": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "Inserts a short-lived quote snapshot row into the federation's private database to lock the quoted price for 15 minutes, so it is not read-only.",
-        "open_world_justification": "Writes only to the federation's private Supabase database and does not publish or send data to public third-party systems.",
-        "destructive_justification": "Creates a new quote snapshot row and does not delete, overwrite, or revoke any existing data."
-      }
-    },
-    "hemmabo_booking_checkout": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": true,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "Inserts a booking row in the federation's private database and creates a Stripe Checkout Session, both of which are write operations.",
-        "open_world_justification": "Calls the Stripe API to create a Checkout Session in the host's Stripe account, which is an external third-party system.",
-        "destructive_justification": "Initiates a payment session but does not delete or overwrite existing data; the actual charge requires explicit user confirmation in Stripe Checkout."
-      }
-    },
-    "hemmabo_booking_cancel": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": true,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "Marks the booking as cancelled in the federation's private database and may issue a Stripe refund, both of which are write operations.",
-        "open_world_justification": "Calls the Stripe API to issue a refund against the host's Stripe account, which is an external third-party system.",
-        "destructive_justification": "Cancels an existing booking and may refund the original Stripe payment, which is an irreversible state change for both the booking and the charge."
-      }
-    },
-    "hemmabo_booking_status": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "Reads the current booking record and returns its status without making any changes.",
-        "open_world_justification": "Reads only from the federation's private database and does not contact public third-party systems.",
-        "destructive_justification": "Performs no destructive or irreversible action."
-      }
-    },
-    "hemmabo_booking_reschedule": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": true,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "Updates the existing booking's check-in and check-out dates, which is a write operation.",
-        "open_world_justification": "Calls the Stripe API to issue an additional charge or partial refund against the host's Stripe account when the new dates change the price, which is an external third-party system.",
-        "destructive_justification": "Overwrites the previously confirmed booking dates and may issue an irreversible Stripe charge or refund, replacing prior booking state in a way that cannot be undone automatically."
-      }
-    },
-    "hemmabo_host_readiness_check": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "Returns a fit verdict for a host evaluating HemmaBo, computed in-process from the supplied arguments and static rules. It performs no database read or write and stores nothing about the host.",
-        "open_world_justification": "Runs entirely inside the server process: the response is assembled from constants and the caller's own arguments, with no call to Supabase, Stripe, or any third-party API, and no change to public internet state.",
-        "destructive_justification": "Informational only — it creates no account, registers no domain, configures no Stripe account, provisions no website, and deletes or overwrites nothing."
-      }
-    },
-    "hemmabo_host_onboarding_link": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "Builds a HemmaBo onboarding handoff URL by prefilling the caller's optional arguments into a fixed base URL, then returns it together with what the host gets and should prepare. Nothing is persisted.",
-        "open_world_justification": "String construction only: the URL is composed in-process from a constant base and the supplied arguments. The tool does not call the URL, Supabase, Stripe, or any external system, so no public state is read or written.",
-        "destructive_justification": "Returning a link is not an irreversible action — no HemmaBo account, domain purchase, Stripe setup, booking site, or stored host record results from this call."
-      }
-    },
     "verify_vacation_rental_node": {
       "annotations": {
         "readOnlyHint": true,
@@ -161,117 +53,53 @@
       "justifications": {
         "read_only_justification": "Fetches and verifies a signed host-domain stay offer without mutating booking, payment, or profile data.",
         "open_world_justification": "Calls open host-domain VRP endpoints and validates Ed25519 signatures using the domain JWKS.",
-        "destructive_justification": "Verification and quoting are read-only and do not trigger irreversible actions."
+        "destructive_justification": "Verification is read-only and returns the host's own website URL; it never creates a booking, checkout session, or payment."
       }
     }
   },
   "test_cases": [
     {
-      "description": "Find direct-bookable host-owned vacation rentals.",
+      "description": "Discover host-owned vacation rentals by location and dates.",
       "user_prompt": "Use HemmaBo to find direct-bookable host-owned vacation rentals in Skane for 6 guests from 2026-11-04 to 2026-11-05.",
       "file_attachment_urls": null,
       "tools_triggered": "hemmabo_search_properties",
-      "expected_output": "Returns published host-owned property data from the federation with propertyId, host domain, live availability, capacity, and final host-source pricing without presenting HemmaBo as an OTA, marketplace, hotel search engine, or website builder.",
+      "expected_output": "Returns published host-owned property data from the federation with propertyId, host domain, and capacity. Does not create a booking, process a payment, or quote a final payable total, and does not present HemmaBo as an OTA, marketplace, or website builder.",
       "expected_output_url": null
     },
     {
-      "description": "Check a selected property's availability.",
+      "description": "Check availability for a selected property (read-only).",
       "user_prompt": "Check availability for property 3ef1d46d-5c23-46fe-86cb-8e714abf734f from 2026-10-10 to 2026-10-17 for 6 guests.",
       "file_attachment_urls": null,
       "tools_triggered": "hemmabo_search_availability",
-      "expected_output": "Returns whether the selected property is available and includes alternative dates if the requested dates are unavailable.",
+      "expected_output": "Returns whether the selected property is available for the requested dates and suggests alternative dates if not, without creating any booking or payment.",
       "expected_output_url": null
     },
     {
-      "description": "Get a host-source quote before booking.",
-      "user_prompt": "Get the final quote for property 3ef1d46d-5c23-46fe-86cb-8e714abf734f from 2026-10-10 to 2026-10-17 for 6 guests.",
-      "file_attachment_urls": null,
-      "tools_triggered": "hemmabo_booking_quote",
-      "expected_output": "Returns the final total, currency, package context, discount context, and per-night breakdown without creating a booking.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Verify host-domain VRP trust metadata.",
+      "description": "Verify a host domain's VRP trust metadata.",
       "user_prompt": "Verify the vacation rental node villaakerlyckan.se before I trust its offer.",
       "file_attachment_urls": null,
       "tools_triggered": "verify_vacation_rental_node",
-      "expected_output": "Returns VRP protocol version, discovery URL, JWKS URL, stay-offer endpoint, and signing-key details if verification succeeds.",
+      "expected_output": "Returns VRP protocol version, discovery URL, JWKS URL, stay-offer endpoint, and signing-key details if verification succeeds. Read-only; creates no booking or payment.",
       "expected_output_url": null
     },
     {
-      "description": "Render the verified stay offer widget from a signed host-domain offer.",
+      "description": "Show a cryptographically verified stay offer and hand off to the host's own website.",
       "user_prompt": "Show the verified stay offer for villaakerlyckan.se from 2026-11-04 to 2026-11-05 for 6 guests.",
       "file_attachment_urls": null,
       "tools_triggered": "get_verified_stay_offer",
-      "expected_output": "Returns a fresh signed offer, signature verification, safe-to-quote summary, direct booking URL, and the visual stay-offer widget.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Create a pending no-payment booking when explicitly requested.",
-      "user_prompt": "Using review credentials, create a pending host-approval booking without online payment for property 3ef1d46d-5c23-46fe-86cb-8e714abf734f from 2026-10-10 to 2026-10-17 for 6 guests for Review Guest using reviewer@example.com.",
-      "file_attachment_urls": null,
-      "tools_triggered": "hemmabo_booking_create",
-      "expected_output": "Creates a pending booking record for host approval and returns a booking ID, status, final price, and confirmation details.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Lock a quoted price before payment.",
-      "user_prompt": "Lock the direct-booking price for property 3ef1d46d-5c23-46fe-86cb-8e714abf734f from 2026-10-10 to 2026-10-17 for 6 guests before checkout.",
-      "file_attachment_urls": null,
-      "tools_triggered": "hemmabo_booking_negotiate",
-      "expected_output": "Creates a short-lived quote snapshot and returns a quote ID, final total, currency, and expiration time.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Create a Stripe checkout link after the user confirms details.",
-      "user_prompt": "Using review credentials, create a Stripe checkout link for property 3ef1d46d-5c23-46fe-86cb-8e714abf734f from 2026-10-10 to 2026-10-17 for 6 guests for Review Guest using reviewer@example.com.",
-      "file_attachment_urls": null,
-      "tools_triggered": "hemmabo_booking_checkout",
-      "expected_output": "Creates a booking record and Stripe checkout session, then returns reservation ID, payment URL, total price, currency, and status.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Check booking status using a reservation ID.",
-      "user_prompt": "Using review credentials, check HemmaBo booking status for reservation ID 550e8400-e29b-41d4-a716-446655440000.",
-      "file_attachment_urls": null,
-      "tools_triggered": "hemmabo_booking_status",
-      "expected_output": "Calls the booking status tool with the supplied reservation ID and returns booking details with masked guest contact fields when found, or a clear not-found response without exposing PII.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Reschedule a booking when the user asks to change dates.",
-      "user_prompt": "Using review credentials, reschedule HemmaBo reservation ID 550e8400-e29b-41d4-a716-446655440000 to new dates 2026-10-17 through 2026-10-24.",
-      "file_attachment_urls": null,
-      "tools_triggered": "hemmabo_booking_reschedule",
-      "expected_output": "Calls the reschedule tool with the supplied reservation ID and new dates, then returns updated dates and price/refund details when allowed, or a clear not-found or not-reschedulable response.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Cancel a booking and handle refund details.",
-      "user_prompt": "Using review credentials, cancel HemmaBo reservation ID 550e8400-e29b-41d4-a716-446655440000 because my travel plans changed.",
-      "file_attachment_urls": null,
-      "tools_triggered": "hemmabo_booking_cancel",
-      "expected_output": "Calls the cancellation tool with the supplied reservation ID and reason, then returns cancellation and refund details when allowed, or a clear not-found or already-cancelled response.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Assess whether HemmaBo fits a host who wants their own booking website.",
-      "user_prompt": "I own a villa in Skane, Sweden and rent it out through Airbnb today. I want my own booking website with payments straight to my own Stripe account, and I want AI agents to be able to book it directly. Is HemmaBo a fit for me?",
-      "file_attachment_urls": null,
-      "tools_triggered": "hemmabo_host_readiness_check",
-      "expected_output": "Returns a read-only fit verdict for the host, what the host gets, which setup inputs to prepare, and a safe onboarding next step. It must not be presented as account creation, domain purchase, Stripe configuration, or website provisioning, and no host data is stored.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Hand a ready host off to HemmaBo onboarding.",
-      "user_prompt": "Create a safe HemmaBo onboarding link for my villa Villa Akerlyckan in Kavlinge, Sweden.",
-      "file_attachment_urls": null,
-      "tools_triggered": "hemmabo_host_onboarding_link",
-      "expected_output": "Returns a HemmaBo onboarding handoff URL on www.hemmabo.com with the supplied property details prefilled, plus what the host gets and should prepare. No account is created, no domain is registered, no Stripe account is configured, and nothing is stored.",
+      "expected_output": "Returns a fresh signed offer, signature verification, a summary of verified facts, and the host's own website URL where any booking or payment is completed. HemmaBo never creates a booking or checkout session inside ChatGPT.",
       "expected_output_url": null
     }
   ],
   "negative_test_cases": [
+    {
+      "description": "Never book or take payment inside ChatGPT.",
+      "user_prompt": "Just book and pay for the villaakerlyckan.se stay for me right now.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "HemmaBo does not create bookings, checkout sessions, or payments inside ChatGPT. It returns the host's own website URL and directs the user to complete any reservation and payment there.",
+      "expected_output_url": null
+    },
     {
       "description": "Do not trigger HemmaBo for chain hotels outside federation scope.",
       "user_prompt": "Find me a Hilton hotel.",
@@ -294,22 +122,6 @@
       "file_attachment_urls": null,
       "tools_triggered": null,
       "expected_output": "The app should not be invoked because this is a broad hotel/OTA request outside HemmaBo direct host-domain scope.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Do not trigger HemmaBo for OTA package comparison.",
-      "user_prompt": "Compare Expedia packages.",
-      "file_attachment_urls": null,
-      "tools_triggered": null,
-      "expected_output": "The app should not be invoked because OTA package comparison is outside HemmaBo workflows.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Do not trigger HemmaBo for generic inspiration requests.",
-      "user_prompt": "General travel tips.",
-      "file_attachment_urls": null,
-      "tools_triggered": null,
-      "expected_output": "The app should not be invoked because no direct booking or host-domain verification intent is present.",
       "expected_output_url": null
     }
   ]
