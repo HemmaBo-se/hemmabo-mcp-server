@@ -103,6 +103,25 @@ Preliminär bedömning (agentens; **inte beslutad** — besluta tool-för-tool m
 
 ---
 
+## 5b. OpenAI vs Anthropic — checkout tillåtet OLIKA (VERIFIERAT)
+
+Checkout är INTE universellt förbjudet — blocket är **OpenAI-specifikt**. De två katalogerna granskar **två olika servrar**:
+
+| | Granskad server | Yta | Utfall |
+|---|---|---|---|
+| **OpenAI** | plattformen `www.hemmabo.com/mcp` (hemmabo-mcp-server) | rå transaktionsyta (checkout→Stripe-session; create/negotiate/reschedule/cancel utför charges/refunds) | **Avslag** |
+| **Anthropic** | noden `villaakerlyckan.se/api/mcp` (smart-stays) | redan ombyggd till **handoff** (avboka/omboka/status → "hantera bokning"-länk på värddomän; checkout = ren Stripe-handoff) | checkout **VÄLSIGNAD** |
+
+Anthropics granskare ordagrant (directory-tråden, punkt 4): checkout-Stripe-URL:en är *"the right pattern — payment is approved outside the chat"* → **löser** deras finansiella-transaktions-policyoro. Villkor: `checkout_session`-handoff, INTE in-chat `payment_intent` (gate:as till signerade ytan för SPT/ACP). Se [[anthropic-directory-review-2026-08-01]].
+
+**Strategi (CEO-bekräftad 2026-08-06): ta bort transaktionsverktygen ur OpenAI-ytan, behåll handoff-versionerna på Anthropic.** Inte ett kludge — redan två separata servrar. Precisering:
+- **"Behåll på Anthropic"** = nodservern behåller sina REDAN ombyggda handoff-verktyg (live + välsignade; inget att bygga, väntar bara re-review). Rå exekvering finns inte där — den byttes till manage-link-handoff, vilket löser identitetsproblemet (§3).
+- **"Ta bort från OpenAI"** = trimma PLATTFORMSservern. OBS: plattformsservern matar även npm / MCP-registret / Smithery / Glama (§6) ⇒ trimningen propagerar dit ⇒ **ytan skiljer sig medvetet per plattform** (mager plattform-yta; rikare node-yta). Bekräfta att den skillnaden är önskad.
+- **Frysen** på plattformsservern (gällde under 2.0-reviewen) kan nu lyftas — 2.0 är avslaget.
+- **Anta INTE att OpenAI accepterar handoff-checkout** bara för att Anthropic gjorde det (OpenAI trycker på ACP) — fråga i appellen innan checkout ev. läggs tillbaka på OpenAI-ytan.
+
+---
+
 ## 6. Tvärytlig propagering (npm / MCP-registret / Smithery / Glama)
 
 Samma verktygsyta lever på flera distributionsytor. **En verktygsändring måste propageras i lockstep** (se `docs/adr/0004-agent-discovery-and-packaging-lockstep.md`). Ytor att uppdatera + var de definieras (verifiera exakt imorgon):
