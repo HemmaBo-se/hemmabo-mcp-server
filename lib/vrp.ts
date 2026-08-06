@@ -1,6 +1,11 @@
 import { createPublicKey, verify as cryptoVerify } from "node:crypto";
 import { formatAmenityLabel } from "./tools-base.js";
 import { guestWelcomeByLocale } from "./vrp-trust-copy.js";
+import {
+  buildApproxGuestPrice,
+  fetchDisplayRate,
+  guestCurrencyForLanguage,
+} from "./fx-display.js";
 import type { ToolResult } from "./tools-base.js";
 
 export const VRP_PROTOCOL = "vacation-rental-protocol";
@@ -915,6 +920,28 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
   const quoteView = buildAgentQuoteView(offer, response, validUntil, node.discovery, language ?? undefined);
   const hostAlternatives = asRecord(response.host_alternatives);
   const agentNextStep = buildAgentNextStep(hostAlternatives);
+
+  // Display-only ≈ translation of the offer total into the guest's currency
+  // (ADR 2026-08-06 currency-display-translation-approx, same model as the
+  // node's own landing page). An ANNOTATION beside the signed offer — never
+  // inside the signed payload, never presented as exact: the charge is
+  // always the node-currency total. Requires the explicit language arg (the
+  // only reliable guest signal — same rule as the widget chrome), an exact
+  // price, and a live/cached ECB display rate; any miss simply omits the
+  // block and never blocks the verified offer.
+  let approxGuestPrice: JsonRecord | null = null;
+  const summaryPrice = asRecord(asRecord(quoteView.official_offer_summary)?.price);
+  const nodeCurrency = (stringValue(summaryPrice?.currency) ?? "").toUpperCase();
+  const offerTotal = numberValue(summaryPrice?.total);
+  if (language && summaryPrice?.exact === true && nodeCurrency && offerTotal != null) {
+    const guestCurrency = guestCurrencyForLanguage(language);
+    if (guestCurrency !== nodeCurrency) {
+      const snapshot = await fetchDisplayRate(nodeCurrency, guestCurrency);
+      if (snapshot) {
+        approxGuestPrice = buildApproxGuestPrice(offerTotal, nodeCurrency, language, snapshot);
+      }
+    }
+  }
   return toolOk({
     domain: node.domain,
     checkIn,
@@ -935,6 +962,7 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
     payload_matches_offer: true,
     fresh: true,
     ...quoteView,
+    ...(approxGuestPrice ? { approx_guest_price: approxGuestPrice } : {}),
     ...(hostAlternatives ? { host_alternatives: hostAlternatives } : {}),
     ...(agentNextStep ? { agent_next_step: agentNextStep } : {}),
   }, {
