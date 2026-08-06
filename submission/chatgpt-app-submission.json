@@ -4,7 +4,7 @@
   "app_info": {
     "display_name": "HemmaBo",
     "subtitle": "Verified stay offers",
-    "description": "HemmaBo helps users discover and cryptographically verify host-owned vacation rental websites. It finds host-owned properties by location and dates, checks availability, and verifies that a domain publishes a valid Vacation Rental Protocol (VRP) signature, then returns the host's own website for any booking or payment. Vacation Rental Protocol is an open protocol for host-domain signed vacation rental offers. No bookings, payments, checkout, or subscriptions happen inside ChatGPT: the host's own domain is always the source of truth and the only place a stay is reserved or paid. HemmaBo is a verification layer, not a marketplace or booking intermediary, and takes no booking commission.",
+    "description": "HemmaBo helps you discover host-owned vacation rental websites and cryptographically verify that a stay offer is genuinely signed by the host. Find host-owned homes by place and dates, check availability, and confirm the host's Vacation Rental Protocol (VRP) signature, then get a verified offer summary with a link to book directly with the host, on the host's own website. Vacation Rental Protocol is an open standard for host-signed stay offers. Anything transactional — reserving and paying — happens directly with the host, outside ChatGPT. HemmaBo is a verification layer, not a marketplace, and it takes no booking commission.",
     "category": "TRAVEL"
   },
   "tools": {
