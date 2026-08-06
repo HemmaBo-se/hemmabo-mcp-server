@@ -1,9 +1,9 @@
 /**
  * ChatGPT (OpenAI Apps) MCP surface — dedicated endpoint /mcp/chatgpt.
  *
- * Serves the SAME server as /mcp but restricted to the four read-only
- * discovery + cryptographic-verification tools (CHATGPT_TOOL_NAMES in
- * api/mcp.ts). No in-chat booking, checkout, or host onboarding — required
+ * Serves the SAME server as /mcp but restricted to the read-only discovery +
+ * cryptographic-verification tools in CHATGPT_TOOL_NAMES (api/mcp.ts).
+ * No in-chat booking, checkout, or host onboarding — required
  * for OpenAI App Review (physical-goods-only / no digital services).
  *
  * The OpenAI app's MCP connector URL points HERE, not at /mcp. The default

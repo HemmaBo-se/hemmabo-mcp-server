@@ -2,7 +2,7 @@
  * ChatGPT (OpenAI Apps) surface gate.
  *
  * The dedicated /mcp/chatgpt endpoint (api/mcp-chatgpt.ts → serve(...,"chatgpt"))
- * must expose ONLY the four read-only discovery + verification tools, reject any
+ * must expose ONLY the read-only discovery + verification allowlist, reject any
  * booking/checkout/host-onboarding tool, and hide the host_start prompt — the
  * surface OpenAI App Review requires (no in-chat commerce, no digital services).
  *
@@ -27,7 +27,7 @@ async function toolNames(ctx: typeof CTX_CHATGPT | typeof CTX_FULL): Promise<str
 }
 
 describe("ChatGPT MCP surface", () => {
-  it("tools/list exposes exactly the four discovery/verification tools", async () => {
+  it("tools/list exposes exactly the discovery/verification allowlist", async () => {
     assert.deepEqual(await toolNames(CTX_CHATGPT), [...CHATGPT_TOOL_NAMES].sort());
   });
 

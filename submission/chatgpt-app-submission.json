@@ -4,7 +4,7 @@
   "app_info": {
     "display_name": "HemmaBo",
     "subtitle": "Verified stay offers",
-    "description": "HemmaBo helps you discover host-owned vacation rental websites and cryptographically verify that a stay offer is genuinely signed by the host. Find host-owned homes by place and dates, check availability, and confirm the host's Vacation Rental Protocol (VRP) signature, then get a verified offer summary with a link to book directly with the host, on the host's own website. Vacation Rental Protocol is an open standard for host-signed stay offers. Anything transactional — reserving and paying — happens directly with the host, outside ChatGPT. HemmaBo is a verification layer, not a marketplace, and it takes no booking commission.",
+    "description": "HemmaBo helps you discover host-owned vacation rental websites and cryptographically verify that a stay offer is genuinely signed by the host. Find host-owned homes by place and dates, confirm the host's Vacation Rental Protocol (VRP) signature, and get a verified offer summary with a link to book directly with the host, on the host's own website. Vacation Rental Protocol is an open standard for host-signed stay offers. Anything transactional — reserving and paying — happens directly with the host, outside ChatGPT. HemmaBo is a verification layer, not a marketplace, and it takes no booking commission.",
     "category": "TRAVEL"
   },
   "tools": {
@@ -18,18 +18,6 @@
         "read_only_justification": "Only queries the published-property catalog in Supabase and returns matching listings without modifying any data.",
         "open_world_justification": "Reads only from the federation's private Supabase catalog and does not write to public internet state or third-party systems.",
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform any irreversible action."
-      }
-    },
-    "hemmabo_search_availability": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "Computes free dates and minimum nightly price for a property by reading bookings and pricing rules without changing them.",
-        "open_world_justification": "Reads only from the federation's private database and does not affect any external public system.",
-        "destructive_justification": "Does not delete or overwrite data and cannot perform irreversible actions."
       }
     },
     "verify_vacation_rental_node": {
@@ -64,14 +52,6 @@
       "file_attachment_urls": null,
       "tools_triggered": "hemmabo_search_properties",
       "expected_output": "Returns published host-owned property data from the federation with propertyId, host domain, and capacity. Does not create a booking, process a payment, or quote a final payable total, and does not present HemmaBo as an OTA, marketplace, or website builder.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Check availability for a selected property (read-only).",
-      "user_prompt": "Check availability for property 3ef1d46d-5c23-46fe-86cb-8e714abf734f from 2026-10-10 to 2026-10-17 for 6 guests.",
-      "file_attachment_urls": null,
-      "tools_triggered": "hemmabo_search_availability",
-      "expected_output": "Returns whether the selected property is available for the requested dates and suggests alternative dates if not, without creating any booking or payment.",
       "expected_output_url": null
     },
     {

@@ -97,7 +97,7 @@ export const TOOLS = TOOL_SPECS.map((t) => {
 // OpenAI App Review requires the app surface to contain NO in-chat commerce
 // and NO digital-service/subscription onboarding (physical-goods-only rule).
 // The dedicated /mcp/chatgpt endpoint (api/mcp-chatgpt.ts) therefore exposes
-// ONLY these four read-only discovery + cryptographic-verification tools.
+// ONLY the read-only discovery + cryptographic-verification tools listed below.
 // Any booking/checkout/host-onboarding tool is invisible in tools/list and
 // rejected in tools/call on this surface; all booking/payment happens on the
 // host's own website (via get_verified_stay_offer's returned URL).
@@ -109,7 +109,6 @@ export type McpSurface = "full" | "chatgpt";
 
 export const CHATGPT_TOOL_NAMES: ReadonlySet<string> = new Set([
   "hemmabo_search_properties",
-  "hemmabo_search_availability",
   "verify_vacation_rental_node",
   "get_verified_stay_offer",
 ]);
