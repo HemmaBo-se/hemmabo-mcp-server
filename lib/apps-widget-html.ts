@@ -133,6 +133,12 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     color: var(--gold-deep);
     white-space: nowrap;
   }
+  .lapprox {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 10.5px;
+    color: var(--paper-warm);
+    margin-top: 2px;
+  }
   .cta {
     display: inline-block;
     background: linear-gradient(180deg, #E3C46A 0%, #C9A84C 55%, #B8932F 100%);
@@ -631,7 +637,12 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       checkOutTime: (summary.stay_details && typeof summary.stay_details.check_out_time === "string") ? summary.stay_details.check_out_time : "",
       verified: data.verified === true || data.fresh === true || (data.signature && data.signature.verified === true),
       bookable: summary.bookable !== false && available !== false,
-      requestedUnavailable: data.available === false || (asArray(data.unavailableMatches).length && !asArray(data.properties).length)
+      requestedUnavailable: data.available === false || (asArray(data.unavailableMatches).length && !asArray(data.properties).length),
+      // Display-only ≈ translation of the total into the guest's currency
+      // (ADR 2026-08-06): an annotation beside the node-currency price —
+      // never a replacement for it, never presented as exact. Absent field
+      // renders exactly as before.
+      approx: (data.approx_guest_price && typeof data.approx_guest_price === "object") ? data.approx_guest_price : null
     };
   }
 
@@ -984,6 +995,22 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     // also a quiet always-visible line, same treatment as cancelHtml.
     var minAgeHtml = "";
     if (offer.minAge) minAgeHtml = '<div class="lcancel">' + esc(T.minAge + ": " + offer.minAge + "+") + '</div>';
+    // ≈ translation line (ADR 2026-08-06): guest-currency figure marked
+    // approximate, node-currency total stays the price above it. Renders
+    // only when the server attached the display block and the currencies
+    // actually differ — otherwise nothing changes.
+    var approxHtml = "";
+    if (
+      offer.approx && typeof offer.approx.total === "number" && offer.approx.total > 0 &&
+      typeof offer.approx.currency === "string" && offer.approx.currency &&
+      offer.approx.currency !== offer.currency
+    ) {
+      approxHtml =
+        '<div class="lapprox" title="' + esc(offer.approx.tooltip || "") + '">' +
+          "≈ " + esc(money(offer.approx.total, offer.approx.currency, offer.language)) +
+          " · " + esc(offer.approx.note || "Approximate rate via ECB") +
+        '</div>';
+    }
     var dateBits = [];
     if (offer.checkIn || offer.checkOut) dateBits.push(formatRange(offer.checkIn, offer.checkOut, offer.language));
     else dateBits.push(T.datesTbc);
@@ -1043,6 +1070,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
           '<span class="price">' + esc(money(offer.finalAmount, offer.currency, offer.language)) + '</span>' +
           '<a id="bookLink" class="cta" aria-label="Open direct booking URL" href="' + esc(bookUrl) + '" target="_blank" rel="noopener">' + esc(T.cta) + '</a>' +
         '</div>' +
+        approxHtml +
       '</div>';
 
     var unfoldHtml =
@@ -1077,6 +1105,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
                 '<span class="price">' + esc(money(offer.finalAmount, offer.currency, offer.language)) + '</span>' +
                 '<a id="bookLink" class="cta" aria-label="Open direct booking URL" href="' + esc(bookUrl) + '" target="_blank" rel="noopener">' + esc(T.cta) + '</a>' +
               '</div>' +
+              approxHtml +
             '</div>' +
           '</div>' +
           '<div class="unfold open" id="unfoldBox" style="max-height:none;">' +
