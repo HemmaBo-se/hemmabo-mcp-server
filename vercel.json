@@ -9,6 +9,7 @@
     }
   },
   "rewrites": [
+    { "source": "/mcp/chatgpt", "destination": "/api/mcp-chatgpt" },
     { "source": "/mcp", "destination": "/api/mcp" },
     { "source": "/health", "destination": "/api/health" },
     { "source": "/.well-known/glama.json", "destination": "/glama-connector.json" },

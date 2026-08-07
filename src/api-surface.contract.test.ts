@@ -10,6 +10,7 @@ const API_ROOT = resolve(REPO_ROOT, "api");
 const INTENTIONAL_API_FUNCTIONS = [
   "api/acp.ts",
   "api/health.ts",
+  "api/mcp-chatgpt.ts",
   "api/mcp-manifest.ts",
   "api/mcp.ts",
   "api/oauth-authorization-server.ts",
