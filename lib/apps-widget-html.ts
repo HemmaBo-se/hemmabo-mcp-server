@@ -1278,7 +1278,16 @@ const NATIVE_STYLE_OVERRIDES = `<style>
   .unfold.open { max-height: none !important; overflow: visible !important; }
   /* CEO 2026-08-09 + reviewer convergence: calmer, ChatGPT-native first view */
   body, body * { font-style: normal !important; }
+  /* VRP verification seal (CEO 2026-08-09, option A): a flat, static gold
+     badge revealed ONLY when the guest expands "more about the stay" -- the
+     compact card (where ChatGPT prepends its own logo + app name) stays clean.
+     This is a protocol verification mark, NOT the HemmaBo logo, and OpenAI's
+     design guidelines allow badges. Solid fill + no spin satisfies "avoid
+     custom gradients" and keeps it a calm accent rather than decoration. */
   .hbcoin { display: none !important; }
+  .unfold.open ~ .hbcoin { display: block !important; }
+  .hbcoin-in { animation: none !important; }
+  .hbf, .hbb { background: #c9a84c !important; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18) !important; }
   .lmatch { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .lapprox, [class*=approx] { font-size: 10.5px; opacity: 0.75; }
 </style>`;

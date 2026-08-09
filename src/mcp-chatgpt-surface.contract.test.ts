@@ -124,6 +124,22 @@ describe("ChatGPT MCP surface", () => {
     assert.ok(!(readV9.result?.contents?.[0]?.text ?? "").includes("hb-native-v1"), "v9 must NOT carry the native layer — premium template byte-untouched");
   });
 
+  it("reveals the VRP verification seal only in the expanded view on ChatGPT — flat + static, v9 coin untouched", async () => {
+    const read = (await handleJsonRpc({ jsonrpc: "2.0", method: "resources/read", id: 12, params: { uri: NATIVE_URI } }, CTX_CHATGPT)) as unknown as ResourcesReadResult;
+    const nativeText = read.result?.contents?.[0]?.text ?? "";
+    // Hidden on the compact card, revealed only when the guest expands "more about the stay".
+    assert.ok(nativeText.includes(".hbcoin { display: none !important; }"), "native seal must be hidden by default (compact card stays clean)");
+    assert.ok(nativeText.includes(".unfold.open ~ .hbcoin { display: block !important; }"), "native seal must be revealed only when the unfold section is open");
+    // OpenAI design guidelines: no custom gradients, calm accent — the badge is solid + static.
+    assert.ok(nativeText.includes(".hbcoin-in { animation: none !important; }"), "native seal must not spin (calm badge, not decoration)");
+    assert.ok(/\.hbf, \.hbb \{ background: #c9a84c !important;/.test(nativeText), "native seal faces must be a solid gold fill (no gradient)");
+
+    // The premium Claude/v9 surface keeps the animated coin, always visible.
+    const readV9 = (await handleJsonRpc({ jsonrpc: "2.0", method: "resources/read", id: 13, params: { uri: V9_URI } }, CTX_FULL)) as unknown as ResourcesReadResult;
+    const v9Text = readV9.result?.contents?.[0]?.text ?? "";
+    assert.ok(!v9Text.includes(".unfold.open ~ .hbcoin"), "v9 must NOT gate the seal to the expanded view — premium coin stays as-is");
+  });
+
   it("points get_verified_stay_offer's render envelope at the native template on ChatGPT, v9 elsewhere", async () => {
     const res = (await handleJsonRpc({ jsonrpc: "2.0", method: "tools/list", id: 10 }, CTX_CHATGPT)) as unknown as ToolsListMetaResult;
     const offer = (res.result?.tools ?? []).find((t) => t.name === "get_verified_stay_offer");
