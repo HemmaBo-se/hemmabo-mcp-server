@@ -21,6 +21,12 @@ type ToolsListResult = { result?: { tools?: Array<{ name: string }> } };
 type PromptsListResult = { result?: { prompts?: Array<{ name: string }> } };
 type CallResult = { result?: { isError?: boolean; content?: Array<{ text?: string }> } };
 type InitializeResult = { result?: { serverInfo?: { description?: string }; instructions?: string } };
+type ResourcesListResult = { result?: { resources?: Array<{ uri: string }> } };
+type ResourcesReadResult = { result?: { contents?: Array<{ uri: string; text?: string }> } };
+type ToolsListMetaResult = { result?: { tools?: Array<{ name: string; _meta?: Record<string, unknown> }> } };
+
+const NATIVE_URI = "ui://hemmabo/verified-stay-offer-native-v1.html";
+const V9_URI = "ui://hemmabo/verified-stay-offer-v9.html";
 
 async function toolNames(ctx: typeof CTX_CHATGPT | typeof CTX_FULL): Promise<string[]> {
   const res = (await handleJsonRpc({ jsonrpc: "2.0", method: "tools/list", id: 1 }, ctx)) as unknown as ToolsListResult;
@@ -100,5 +106,32 @@ describe("ChatGPT MCP surface", () => {
     )) as unknown as InitializeResult;
     assert.equal(res.result?.serverInfo?.description, SERVER_DESCRIPTION, "full-surface description must be the untouched canonical constant");
     assert.equal(res.result?.instructions, SERVER_INSTRUCTIONS, "full-surface instructions must be the untouched canonical constant");
+  });
+
+  it("serves the design-guidelines-native template on the ChatGPT surface only", async () => {
+    const list = (await handleJsonRpc({ jsonrpc: "2.0", method: "resources/list", id: 6 }, CTX_CHATGPT)) as unknown as ResourcesListResult;
+    assert.deepEqual((list.result?.resources ?? []).map((r) => r.uri), [NATIVE_URI], "ChatGPT resources/list must advertise exactly the native template");
+
+    const full = (await handleJsonRpc({ jsonrpc: "2.0", method: "resources/list", id: 7 }, CTX_FULL)) as unknown as ResourcesListResult;
+    assert.deepEqual((full.result?.resources ?? []).map((r) => r.uri), [V9_URI], "full surface must keep advertising the premium v9 template — /mcp is unchanged");
+
+    const read = (await handleJsonRpc({ jsonrpc: "2.0", method: "resources/read", id: 8, params: { uri: NATIVE_URI } }, CTX_CHATGPT)) as unknown as ResourcesReadResult;
+    const nativeText = read.result?.contents?.[0]?.text ?? "";
+    assert.ok(nativeText.includes("hb-native-v1"), "native template must carry the design-guidelines style layer");
+    assert.ok(nativeText.includes("<!DOCTYPE html>"), "native template must be complete HTML");
+
+    const readV9 = (await handleJsonRpc({ jsonrpc: "2.0", method: "resources/read", id: 9, params: { uri: V9_URI } }, CTX_FULL)) as unknown as ResourcesReadResult;
+    assert.ok(!(readV9.result?.contents?.[0]?.text ?? "").includes("hb-native-v1"), "v9 must NOT carry the native layer — premium template byte-untouched");
+  });
+
+  it("points get_verified_stay_offer's render envelope at the native template on ChatGPT, v9 elsewhere", async () => {
+    const res = (await handleJsonRpc({ jsonrpc: "2.0", method: "tools/list", id: 10 }, CTX_CHATGPT)) as unknown as ToolsListMetaResult;
+    const offer = (res.result?.tools ?? []).find((t) => t.name === "get_verified_stay_offer");
+    assert.equal(offer?._meta?.["openai/outputTemplate"], NATIVE_URI, "ChatGPT tools/list must render via the native template");
+    assert.equal(offer?._meta?.["ui/resourceUri"], NATIVE_URI);
+
+    const resFull = (await handleJsonRpc({ jsonrpc: "2.0", method: "tools/list", id: 11 }, CTX_FULL)) as unknown as ToolsListMetaResult;
+    const offerFull = (resFull.result?.tools ?? []).find((t) => t.name === "get_verified_stay_offer");
+    assert.equal(offerFull?._meta?.["openai/outputTemplate"], V9_URI, "full-surface tools/list _meta must stay on v9 — /mcp is unchanged");
   });
 });

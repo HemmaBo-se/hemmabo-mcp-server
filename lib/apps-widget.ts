@@ -38,6 +38,10 @@ export const HEMMABO_CHATGPT_WIDGET_DOMAIN = chatgptWidgetOriginFromMcpEndpoint(
 // unfolded view (no duplicated amenity chips). URI bump = cache bust, same
 // pattern as every prior widget revision.
 export const HEMMABO_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v9.html";
+// ChatGPT-native styling variant (Apps design guidelines: system fonts/colors,
+// brand gold only on the CTA). Served ONLY on the /mcp/chatgpt surface; the
+// Claude/MCP-Apps surface keeps v9 byte-identical.
+export const HEMMABO_NATIVE_WIDGET_URI = "ui://hemmabo/verified-stay-offer-native-v1.html";
 export const HEMMABO_PREVIOUS_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v8.html";
 export const HEMMABO_V7_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v7.html";
 export const HEMMABO_V6_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v6.html";
@@ -58,6 +62,7 @@ export const HEMMABO_WIDGET_MIME_TYPE = "text/html;profile=mcp-app";
 // honors them all with the current HTML.
 export const HEMMABO_ALL_WIDGET_URIS: readonly string[] = [
   HEMMABO_WIDGET_URI,
+  HEMMABO_NATIVE_WIDGET_URI,
   HEMMABO_PREVIOUS_WIDGET_URI,
   HEMMABO_V7_WIDGET_URI,
   HEMMABO_V6_WIDGET_URI,
@@ -148,4 +153,24 @@ export const HEMMABO_WIDGET_TOOL_META = {
   "openai/outputTemplate": HEMMABO_WIDGET_URI,
   "openai/toolInvocation/invoking": "Verifying the host-domain stay offer...",
   "openai/toolInvocation/invoked": "Verified stay offer ready.",
+} as const;
+
+export function buildNativeWidgetResource(mcpEndpointUrl: string) {
+  return {
+    uri: HEMMABO_NATIVE_WIDGET_URI,
+    name: "HemmaBo verified stay offer widget (ChatGPT native)",
+    description:
+      "ChatGPT Apps SDK widget that renders a host-domain verified stay offer with live availability, final price, and the signed direct host-domain booking URL, styled to ChatGPT's system look per the Apps design guidelines.",
+    mimeType: HEMMABO_WIDGET_MIME_TYPE,
+    _meta: buildWidgetResourceMeta(mcpEndpointUrl),
+  };
+}
+
+export const HEMMABO_NATIVE_WIDGET_TOOL_META = {
+  ...HEMMABO_WIDGET_TOOL_META,
+  ui: {
+    resourceUri: HEMMABO_NATIVE_WIDGET_URI,
+  },
+  "ui/resourceUri": HEMMABO_NATIVE_WIDGET_URI,
+  "openai/outputTemplate": HEMMABO_NATIVE_WIDGET_URI,
 } as const;

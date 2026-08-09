@@ -1215,3 +1215,76 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
 </script>
 </body>
 </html>`;
+
+
+// ── ChatGPT-native variant (Apps design guidelines) ──────────────
+//
+// OpenAI's Apps design guidelines require the system font stack and
+// system colors, with brand color only as an accent on primary
+// buttons. The premium navy/gold/serif template above stays
+// byte-identical for the Claude/MCP-Apps surface; the ChatGPT
+// surface serves THIS variant: the same DOM + logic with one final
+// style layer -- system fonts, neutral light/dark palette, gold kept
+// only on the .cta button. Marker: hb-native-v1.
+const NATIVE_STYLE_OVERRIDES = `<style>
+  /* hb-native-v1: ChatGPT Apps design-guidelines layer */
+  :root {
+    color-scheme: light dark;
+    --stage: transparent;
+    --navy: #ffffff;
+    --navy-2: #ffffff;
+    --navy-3: #f4f4f5;
+    --hairline: #d9d9de;
+    --gold-soft: #6e6e73;
+    --gold-deep: #55555a;
+    --paper: #ffffff;
+    --paper-ink: #1a1a1e;
+    --paper-warm: #48484d;
+    --paper-mute: #66666c;
+    --ivory: #1a1a1e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --navy: #26262b;
+      --navy-2: #2e2e33;
+      --navy-3: #38383e;
+      --hairline: #44444a;
+      --gold-soft: #a3a3ab;
+      --gold-deep: #c9c9d1;
+      --paper: #2b2b30;
+      --paper-ink: #ececf1;
+      --paper-warm: #c9c9d1;
+      --paper-mute: #9d9da6;
+      --ivory: #ececf1;
+    }
+  }
+  body, body * { font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif !important; }
+  .streak { display: none; }
+  .stage { padding: 8px 0 4px; }
+  #root.loading { background: transparent; color: var(--paper-mute); }
+  .letter, .full-hero, .notice { border-color: var(--hairline) !important; }
+  .cta { border-color: var(--gold) !important; }
+  /* Expanded section: neutralize every hardcoded dark/navy value */
+  .unfold { background: var(--navy-2); border-left-color: var(--hairline) !important; border-right-color: var(--hairline) !important; }
+  .lip { background: var(--navy-2); }
+  .fold-l, .fold-r { border-color: var(--hairline) !important; }
+  .grp { border-top-color: var(--hairline); }
+  .fact2, .lcancel, .grph { color: var(--paper-mute); }
+  .chips2, .grpb, .lpitch { color: var(--paper-warm); }
+  .lipbtn { color: var(--paper-mute); }
+  /* Apps guidelines: no custom gradients -- solid brand gold on the CTA */
+  .cta { background: var(--gold) !important; }
+  /* Apps guidelines: no nested scrolling -- the card grows to fit */
+  .unfold.open { max-height: none !important; overflow: visible !important; }
+  /* CEO 2026-08-09 + reviewer convergence: calmer, ChatGPT-native first view */
+  body, body * { font-style: normal !important; }
+  .hbcoin { display: none !important; }
+  .lmatch { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lapprox, [class*=approx] { font-size: 10.5px; opacity: 0.75; }
+</style>`;
+
+export const VERIFIED_STAY_OFFER_NATIVE_HTML = VERIFIED_STAY_OFFER_HTML.replace(
+  "</head>",
+  `${NATIVE_STYLE_OVERRIDES}
+</head>`
+);
