@@ -31,12 +31,15 @@ import {
 import {
   HEMMABO_ALL_WIDGET_URIS,
   HEMMABO_CANONICAL_MCP_ENDPOINT,
+  HEMMABO_NATIVE_WIDGET_TOOL_META,
+  HEMMABO_NATIVE_WIDGET_URI,
   HEMMABO_WIDGET_MIME_TYPE,
+  buildNativeWidgetResource,
   buildWidgetResource,
   buildWidgetResourceMeta,
   mcpEndpointFromBaseUrl,
 } from "../lib/apps-widget.js";
-import { VERIFIED_STAY_OFFER_HTML } from "../lib/apps-widget-html.js";
+import { VERIFIED_STAY_OFFER_HTML, VERIFIED_STAY_OFFER_NATIVE_HTML } from "../lib/apps-widget-html.js";
 
 export { SERVER_DESCRIPTION, SERVER_INSTRUCTIONS } from "../lib/server-metadata.js";
 
@@ -194,7 +197,9 @@ export function readResource(
           // can fail strict clients even when the bytes are right.
           uri,
           mimeType: HEMMABO_WIDGET_MIME_TYPE,
-          text: VERIFIED_STAY_OFFER_HTML,
+          text: uri === HEMMABO_NATIVE_WIDGET_URI
+            ? VERIFIED_STAY_OFFER_NATIVE_HTML
+            : VERIFIED_STAY_OFFER_HTML,
           _meta: meta as unknown as Record<string, unknown>,
         },
       ],
@@ -298,7 +303,13 @@ export async function handleJsonRpc(
         jsonrpc: "2.0", id,
         result: {
           tools: surface === "chatgpt"
-            ? TOOLS.filter((t) => CHATGPT_TOOL_NAMES.has(t.name))
+            ? TOOLS.filter((t) => CHATGPT_TOOL_NAMES.has(t.name)).map((t) =>
+                // ChatGPT renders the design-guidelines-native template
+                // variant; every other surface keeps the premium v9 template.
+                t.name === "get_verified_stay_offer"
+                  ? { ...t, _meta: { ...t._meta, ...HEMMABO_NATIVE_WIDGET_TOOL_META } }
+                  : t
+              )
             : TOOLS,
         },
       };
@@ -366,6 +377,29 @@ export async function handleJsonRpc(
               supabase: getSupabase(),
               reader: getSupabaseReader(),
             });
+        if (
+          surface === "chatgpt" &&
+          toolName === "get_verified_stay_offer" &&
+          result && typeof result === "object" && (result as { _meta?: unknown })._meta
+        ) {
+          // Point the render envelope at the native template on the ChatGPT
+          // surface; every other _meta key (signed offer JWT, invocation
+          // strings) passes through untouched.
+          const r = result as { _meta: Record<string, unknown> };
+          const ui = (r._meta.ui && typeof r._meta.ui === "object" ? r._meta.ui : {}) as Record<string, unknown>;
+          return {
+            jsonrpc: "2.0", id,
+            result: {
+              ...r,
+              _meta: {
+                ...r._meta,
+                ui: { ...ui, resourceUri: HEMMABO_NATIVE_WIDGET_URI },
+                "ui/resourceUri": HEMMABO_NATIVE_WIDGET_URI,
+                "openai/outputTemplate": HEMMABO_NATIVE_WIDGET_URI,
+              },
+            },
+          };
+        }
         return { jsonrpc: "2.0", id, result };
       } catch (err: unknown) {
         ok = false;
@@ -398,7 +432,13 @@ export async function handleJsonRpc(
       return {
         jsonrpc: "2.0",
         id,
-        result: { resources: [buildWidgetResource(ctx.mcpEndpointUrl)] },
+        result: {
+          resources: [
+            surface === "chatgpt"
+              ? buildNativeWidgetResource(ctx.mcpEndpointUrl)
+              : buildWidgetResource(ctx.mcpEndpointUrl),
+          ],
+        },
       };
 
     case "resources/read": {
