@@ -20,7 +20,14 @@ import { registerToolSchemas, validateToolArgs } from "../lib/validate-args.js";
 import { TOOL_SPECS } from "../lib/tool-definitions.js";
 import { baseUrl } from "../lib/base-url.js";
 import { isVrpToolName } from "../lib/vrp.js";
-import { SERVER_DESCRIPTION, SERVER_INSTRUCTIONS, SERVER_NAME, SERVER_VERSION } from "../lib/server-metadata.js";
+import {
+  CHATGPT_SERVER_DESCRIPTION,
+  CHATGPT_SERVER_INSTRUCTIONS,
+  SERVER_DESCRIPTION,
+  SERVER_INSTRUCTIONS,
+  SERVER_NAME,
+  SERVER_VERSION,
+} from "../lib/server-metadata.js";
 import {
   HEMMABO_ALL_WIDGET_URIS,
   HEMMABO_CANONICAL_MCP_ENDPOINT,
@@ -276,10 +283,10 @@ export async function handleJsonRpc(
           serverInfo: {
             name: SERVER_NAME,
             version: SERVER_VERSION,
-            description: SERVER_DESCRIPTION,
+            description: surface === "chatgpt" ? CHATGPT_SERVER_DESCRIPTION : SERVER_DESCRIPTION,
           },
           configSchema: CONFIG_SCHEMA,
-          instructions: SERVER_INSTRUCTIONS,
+          instructions: surface === "chatgpt" ? CHATGPT_SERVER_INSTRUCTIONS : SERVER_INSTRUCTIONS,
         },
       };
 

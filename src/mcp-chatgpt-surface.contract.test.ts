@@ -12,7 +12,7 @@
  */
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { handleJsonRpc, CHATGPT_TOOL_NAMES } from "../api/mcp.js";
+import { handleJsonRpc, CHATGPT_TOOL_NAMES, SERVER_DESCRIPTION, SERVER_INSTRUCTIONS } from "../api/mcp.js";
 
 const CTX_CHATGPT = { agent: "test", mcpEndpointUrl: "https://example.test/mcp", surface: "chatgpt" as const };
 const CTX_FULL = { agent: "test", mcpEndpointUrl: "https://example.test/mcp", surface: "full" as const };
@@ -20,6 +20,7 @@ const CTX_FULL = { agent: "test", mcpEndpointUrl: "https://example.test/mcp", su
 type ToolsListResult = { result?: { tools?: Array<{ name: string }> } };
 type PromptsListResult = { result?: { prompts?: Array<{ name: string }> } };
 type CallResult = { result?: { isError?: boolean; content?: Array<{ text?: string }> } };
+type InitializeResult = { result?: { serverInfo?: { description?: string }; instructions?: string } };
 
 async function toolNames(ctx: typeof CTX_CHATGPT | typeof CTX_FULL): Promise<string[]> {
   const res = (await handleJsonRpc({ jsonrpc: "2.0", method: "tools/list", id: 1 }, ctx)) as unknown as ToolsListResult;
@@ -64,5 +65,40 @@ describe("ChatGPT MCP surface", () => {
     const names = await toolNames(CTX_FULL);
     assert.ok(names.includes("hemmabo_booking_checkout"), "full surface must still expose booking_checkout — /mcp is unchanged");
     assert.ok(names.length > CHATGPT_TOOL_NAMES.size, "full surface must expose more tools than the ChatGPT surface");
+  });
+
+  it("initialize tells the 3-tool story — no commerce/onboarding/13-tool language", async () => {
+    const res = (await handleJsonRpc(
+      { jsonrpc: "2.0", method: "initialize", id: 4 },
+      CTX_CHATGPT,
+    )) as unknown as InitializeResult;
+    const text = `${res.result?.serverInfo?.description ?? ""}\n${res.result?.instructions ?? ""}`;
+    assert.ok(text.length > 0, "initialize must return description + instructions");
+    for (const forbidden of [
+      /13 runtime tools/i,
+      /onboarding/i,
+      /checkout/i,
+      /stripe/i,
+      /quote-lock/i,
+      /booking lifecycles/i,
+      /\bACP\b/,
+      /\bAP2\b/,
+      /\bUCP\b/,
+      /booking_create|booking_cancel|booking_quote|booking_negotiate|booking_reschedule|booking_status|search_availability|host_readiness|host_onboarding/,
+    ]) {
+      assert.ok(!forbidden.test(text), `ChatGPT-surface initialize must not mention ${forbidden}`);
+    }
+    for (const name of CHATGPT_TOOL_NAMES) {
+      assert.ok(text.includes(name), `ChatGPT-surface instructions must name ${name}`);
+    }
+  });
+
+  it("initialize on the full surface is byte-identical to the canonical constants", async () => {
+    const res = (await handleJsonRpc(
+      { jsonrpc: "2.0", method: "initialize", id: 5 },
+      CTX_FULL,
+    )) as unknown as InitializeResult;
+    assert.equal(res.result?.serverInfo?.description, SERVER_DESCRIPTION, "full-surface description must be the untouched canonical constant");
+    assert.equal(res.result?.instructions, SERVER_INSTRUCTIONS, "full-surface instructions must be the untouched canonical constant");
   });
 });
