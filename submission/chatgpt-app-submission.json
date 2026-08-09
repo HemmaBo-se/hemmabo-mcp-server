@@ -69,6 +69,22 @@
       "tools_triggered": "get_verified_stay_offer",
       "expected_output": "Returns a fresh signed offer, signature verification, a summary of verified facts, and the host's OWN domain booking URL (never a hemmabo.com checkout) where any booking or payment is completed. HemmaBo never creates a booking or checkout session inside ChatGPT.",
       "expected_output_url": null
+    },
+    {
+      "description": "Verify a host domain the user typed themselves (outside search).",
+      "user_prompt": "Is villaakerlyckan.se a genuine Vacation Rental Protocol host site? Verify it with HemmaBo.",
+      "file_attachment_urls": null,
+      "tools_triggered": "verify_vacation_rental_node",
+      "expected_output": "Reads the domain's own /.well-known/vacation-rental.json and JWKS and returns protocol version, discovery URL, and signing-key details. Read-only trust check; no availability, pricing, booking, or payment.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Verified stay offer rendered in the guest's conversation language.",
+      "user_prompt": "Zeig mir das verifizierte Angebot für villaakerlyckan.se vom 2026-11-04 bis 2026-11-05 für 6 Gäste.",
+      "file_attachment_urls": null,
+      "tools_triggered": "get_verified_stay_offer",
+      "expected_output": "Returns the same signed offer and signature verification as in English; the language parameter only changes widget labels and date/currency formatting to German. The signed price and availability are unchanged, and any reservation still happens on the host's own website, never inside ChatGPT.",
+      "expected_output_url": null
     }
   ],
   "negative_test_cases": [
@@ -81,11 +97,11 @@
       "expected_output_url": null
     },
     {
-      "description": "Do not trigger HemmaBo for chain hotels outside federation scope.",
-      "user_prompt": "Find me a Hilton hotel.",
+      "description": "Do not trigger HemmaBo for chain hotels or broad OTA-style hotel search.",
+      "user_prompt": "Find all hotels in Paris.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "The app should not be invoked because HemmaBo covers host-owned vacation rentals, not chain hotels.",
+      "expected_output": "The app should not be invoked: HemmaBo covers host-owned vacation rentals, not chain hotels or broad hotel/OTA-style search.",
       "expected_output_url": null
     },
     {
@@ -94,14 +110,6 @@
       "file_attachment_urls": null,
       "tools_triggered": null,
       "expected_output": "The app should not be invoked because flights are outside HemmaBo scope.",
-      "expected_output_url": null
-    },
-    {
-      "description": "Do not trigger HemmaBo for broad OTA-style hotel search.",
-      "user_prompt": "Find all hotels in Paris.",
-      "file_attachment_urls": null,
-      "tools_triggered": null,
-      "expected_output": "The app should not be invoked because this is a broad hotel/OTA request outside HemmaBo direct host-domain scope.",
       "expected_output_url": null
     }
   ]

@@ -1,12 +1,19 @@
-# ChatGPT Apps submission — HemmaBo
+# ChatGPT Apps submission — HemmaBo (v2.0.1 lean resubmit)
 
-This folder contains everything the CEO needs to fill the OpenAI Apps submission form. All values are derived from production endpoints in this repo (`hemmabo-mcp-server`). Nothing in `hemmabo-smart-stays` is required for submission.
+This folder contains everything the CEO needs to fill the OpenAI Apps submission form. All values are derived from production endpoints in this repo (`hemmabo-mcp-server`). The only external precondition is the branded proxy line in `hemmabo-smart-stays` (PR #2568) so that `https://www.hemmabo.com/mcp/chatgpt` is live.
 
-## What to upload to the form
+**This submission exposes exactly 3 read-only tools** (`hemmabo_search_properties`, `verify_vacation_rental_node`, `get_verified_stay_offer`) on the dedicated `/mcp/chatgpt` surface. No in-chat booking, checkout, payment, or host onboarding — anything transactional happens on the host's own website, outside ChatGPT. Do NOT point the form at `/mcp` (the full 13-tool federation surface): that is the surface the v2.0.0 rejection was about.
 
-The OpenAI submission form (App Info → MCP Server → Testing → Screenshots → Global → Submit) accepts a `chatgpt-app-submission.json` file that pre-fills most fields. **Drag [chatgpt-app-submission.json](./chatgpt-app-submission.json) into the upload area at the top of the form.**
+## Submission order (do these in sequence)
 
-## Form-field mapping (manual fallback if the upload field is unavailable)
+1. **Precondition:** `POST https://www.hemmabo.com/mcp/chatgpt` `tools/list` returns exactly 3 tools (requires smart-stays PR #2568 deployed).
+2. **Portal save test:** in the draft's MCP details, enter the MCP Server URL below and save. If the form rejects it, STOP — screenshot the exact error verbatim, do not fall back to `/mcp`.
+3. **Scan Tools:** expect exactly 3 tools and the `ui://hemmabo/verified-stay-offer-v9.html` UI output template (the template is what makes screenshots allowed).
+4. Upload [chatgpt-app-submission.json](./chatgpt-app-submission.json) (drag into the upload area) or fill fields manually per the table below.
+5. Screenshots + demo recording per the rules below.
+6. Submit.
+
+## Form-field mapping
 
 | Form field | Value | Source |
 |---|---|---|
@@ -14,75 +21,39 @@ The OpenAI submission form (App Info → MCP Server → Testing → Screenshots 
 | **Logo (Dark)** | Optional. Same file works on dark backgrounds. | — |
 | **App Name** | `HemmaBo` | submission JSON `app_info.display_name` |
 | **Subtitle (<=30 chars)** | `Verified stay offers` (20 chars) | submission JSON `app_info.subtitle` |
-| **Description** | See `app_info.description` in submission JSON | canonical HemmaBo + VRP positioning from repo SoT |
+| **Description** | See `app_info.description` in submission JSON | 3-tool verification-layer positioning |
 | **Categories** | Travel | submission JSON `app_info.category` |
-| **Privacy policy URL** | https://www.hemmabo.com/privacy | verified 200 |
-| **Terms of Service URL** | https://www.hemmabo.com/terms | verified 200 |
+| **Privacy policy URL** | https://www.hemmabo.com/privacy | verified 200, server-rendered for bots |
+| **Terms of Service URL** | https://www.hemmabo.com/terms | verified 200, server-rendered for bots |
 | **Developer name** | HemmaBo | manifest — enskild näringsverksamhet, NOT an AB (see /terms §12) |
 | **Developer email** | info@hemmabo.se | manifest, matches /terms §12 |
-| **MCP Server URL** | `https://www.hemmabo.com/mcp` | live 200, transport: streamable-http — the canonical platform domain (`did:web:www.hemmabo.com`), same value as `mcp_endpoint` in `/.well-known/mcp.json`. The `hemmabo-mcp-server.vercel.app` origin also answers, but it is infrastructure, not the address to submit. |
-| **Auth** | OAuth 2.0, `client_credentials`, token endpoint `https://www.hemmabo.com/oauth/token` | matches `/.well-known/oauth-authorization-server`; DCR at `/oauth/register` returns 201 |
-| **Test cases** | 13 positive test cases and 5 negative test cases in submission JSON | generated from the live tool surface |
+| **MCP Server URL** | `https://www.hemmabo.com/mcp/chatgpt` | dedicated ChatGPT surface — 3 read-only tools, commerce tools denied. Same host as the published v1 app (host must not change between versions); only the path is new. |
+| **Auth** | **No Auth** | the surface is read-only and open; no sign-in means no demo-credentials obligation. Do NOT select OAuth for this surface. |
+| **Test cases** | Exactly **5 positive + 3 negative** in submission JSON | OpenAI requires exactly 5/3; all 5 positive cases run through the 3 exposed tools only |
 
-⚠ **Subtitle note**: the manifest description is the long version. The form's 30-char subtitle is a shortened variant — keep both in sync if the long form changes.
+## Demo recording + screenshots (zero-tolerance rules)
+
+- Record ONLY the 3 exposed tools: search → verify → verified stay offer → widget → handoff to the host's own website (villaakerlyckan.se).
+- Never show booking/checkout/quote/onboarding tools, Stripe, or any payment step — they are not on this surface and demonstrating them re-files the v2 rejection.
+- The booking link lands on the host's own property/offer page — never a checkout deeplink.
+- Screenshots must come from the live widget rendering in ChatGPT Developer Mode — never from a static mock (the old `screenshot-property-cards.png` is retired for this reason).
+- Do not deep-scroll the host site's photo gallery in the recording.
+
+## Reviewer transparency note (include if the form has a notes field)
+
+The same host also serves HemmaBo's full federation MCP server at `https://www.hemmabo.com/mcp` (the canonical registry surface for authenticated, non-ChatGPT deployments). The ChatGPT app points only at `/mcp/chatgpt`, which exposes 3 read-only discovery/verification tools, denies every other tool at `tools/call`, and describes exactly this 3-tool surface in its `initialize` response. Booking and payment always happen on the host's own website.
 
 ## Public endpoints (verified live)
 
 | Endpoint | Status | Purpose |
 |---|---|---|
+| https://www.hemmabo.com/mcp/chatgpt | streamable-http, 3 tools | ChatGPT app MCP surface (the URL to submit) |
+| https://www.hemmabo.com/privacy · /terms | 200 | Legal pages, server-rendered |
 | https://hemmabo-mcp-server.vercel.app/health | 200 | Server liveness |
-| https://hemmabo-mcp-server.vercel.app/mcp | streamable-http | MCP JSON-RPC |
-| https://hemmabo-mcp-server.vercel.app/.well-known/mcp.json | 200 | Discovery manifest |
 | https://hemmabo-mcp-server.vercel.app/icon.png | 200, image/png, 27.9 KB | App logo |
-| https://hemmabo-mcp-server.vercel.app/oauth/token | 200 | OAuth client_credentials |
-| https://hemmabo-mcp-server.vercel.app/oauth/register | **201 — confirmed 2026-07-22** with an RFC 7591-shaped payload (`client_name`, `redirect_uris`, `grant_types: [authorization_code, refresh_token]`, `token_endpoint_auth_method: none`) | Dynamic client registration works for the authorization_code flow (Claude.ai-shaped requests) |
-
-## Demo credentials
-
-Not strictly required — `tools/list`, `resources/read`, `prompts/list` are all open and reviewers can inspect the full app surface without auth.
-
-If reviewers want to exercise `tools/call` end-to-end (search → quote → checkout): request a temporary OAuth client via info@hemmabo.se. The live test property `villaakerlyckan.se` is real; checkout uses Stripe test mode on the review tier.
-
-## Test case set
-
-The submission JSON now includes one positive test case for each exposed MCP tool:
-
-1. `hemmabo_search_properties`
-2. `hemmabo_search_availability`
-3. `hemmabo_booking_quote`
-4. `verify_vacation_rental_node`
-5. `get_verified_stay_offer`
-6. `hemmabo_booking_create`
-7. `hemmabo_booking_negotiate`
-8. `hemmabo_booking_checkout`
-9. `hemmabo_booking_status`
-10. `hemmabo_booking_reschedule`
-11. `hemmabo_booking_cancel`
-12. `hemmabo_host_readiness_check`
-13. `hemmabo_host_onboarding_link`
-
-## Open issue disclosed in submission — RESOLVED 2026-07-22
-
-An earlier smoke test recorded `/oauth/register` returning HTTP 400 and this
-note advised against relying on it. Re-tested 2026-07-22 with a correctly
-RFC 7591-shaped payload (the exact shape Claude.ai sends): the endpoint
-returned **HTTP 201** with a valid `client_id`/`client_secret` pair. The
-earlier 400 was not reproduced against a spec-conformant request — code
-review of `api/oauth-register.ts` confirms every 400 branch is a documented
-RFC 7591 validation (missing `client_name`, unsupported `grant_type`, missing
-`redirect_uris` for `authorization_code`, etc.), so the most likely explanation
-is that the earlier smoke test sent an incomplete or malformed payload, not a
-server defect. Dynamic client registration is confirmed safe to rely on for
-Claude.ai / Anthropic connector onboarding.
-
-**Still worth doing, not a submission blocker:** the handler assumes the
-request body is already-parsed JSON; a non-JSON `Content-Type` on an
-incoming request would currently surface as a generic `invalid_client_metadata`
-400 rather than a clear "send `Content-Type: application/json`" error. Minor
-hardening, tracked separately — does not affect ChatGPT Apps or Claude.ai
-submissions, both of which send correct headers.
 
 ## Repo discipline
 
 - All submission artifacts live in this folder (`submission/`).
-- `hemmabo-smart-stays` is **not** touched. Screenshots for OpenAI review must come from the live ChatGPT App response after the widget renders, not from a static mock.
+- `src/submission-parity.contract.test.ts` machine-gates JSON ↔ live-surface parity (tool set, annotations, justifications, test-case coverage, no commerce language). Keep it green.
+- Screenshots for OpenAI review must come from the live ChatGPT App response after the widget renders, not from a static mock.
