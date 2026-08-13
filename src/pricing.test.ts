@@ -889,7 +889,7 @@ describe("pickChannelDiscountPct", () => {
 
 describe("resolveQuote — host direct price folded into one total", () => {
   // Builds a stub property with a given agent acquisition discount.
-  const makeStub = (opts: { channelRows: any[]; legacyDiscount: number | null; stayRules?: any[] }) => ({
+  const makeStub = (opts: { channelRows: any[]; legacyDiscount: number | null; stayRules?: any[]; gapEnabled?: boolean; gapPct?: number | null; hasNeighbors?: boolean }) => ({
     from: (table: string) => {
       const season = {
         name: "low",
@@ -912,6 +912,9 @@ describe("resolveQuote — host direct price folded into one total", () => {
         select: () => chain,
         eq: () => chain,
         order: () => chain,
+        gte: () => chain,
+        lte: () => chain,
+        limit: () => chain,
         single: () => {
           if (table === "properties") {
             return Promise.resolve({
@@ -930,7 +933,11 @@ describe("resolveQuote — host direct price folded into one total", () => {
           }
           if (table === "property_smart_pricing") {
             return Promise.resolve({
-              data: { gap_fill_enabled: false, gap_fill_min_nights: 2, gap_night_discount_pct: null },
+              data: {
+                gap_fill_enabled: opts.gapEnabled ?? false,
+                gap_fill_min_nights: 2,
+                gap_night_discount_pct: opts.gapPct ?? null,
+              },
               error: null,
             });
           }
@@ -948,6 +955,12 @@ describe("resolveQuote — host direct price folded into one total", () => {
           }
           if (table === "property_stay_discounts") {
             return Promise.resolve({ data: opts.stayRules ?? [], error: null }).then(resolve);
+          }
+          if (table === "bookings") {
+            return Promise.resolve({
+              data: opts.hasNeighbors ? [{ id: "neighbor" }] : [],
+              error: null,
+            }).then(resolve);
           }
           return Promise.resolve({ data: [], error: null }).then(resolve);
         },
@@ -1016,5 +1029,45 @@ describe("resolveQuote — host direct price folded into one total", () => {
     assert.equal(quote.federationTotal, 2880);
     assert.equal(quote.packageApplied, null); // packages retired in slider mode
     assert.equal(quote.gapNight, false); // never stacked with gap
+  });
+
+  it("control: with gap ACTIVE and no stay rules, the gap discount fires (proves the stub bites)", async () => {
+    const { resolveQuote } = await import("../lib/pricing.js");
+    const stub: any = makeStub({
+      channelRows: [],
+      legacyDiscount: 0,
+      gapEnabled: true,
+      gapPct: 10,
+      hasNeighbors: true,
+    });
+
+    const quote = await resolveQuote(stub, "00000000-0000-0000-0000-000000000099", "2026-09-02", "2026-09-05", 4);
+    assert.ok(!("error" in quote));
+    if ("error" in quote) return;
+
+    assert.equal(quote.gapNight, true); // 3 nights <= minNights+1, neighbors both sides
+    assert.equal(quote.gapTotal, 2880); // round(3200 × 0.90)
+  });
+
+  it("D1 hard pin: an ACTIVE gap is suppressed by a kernel-applied stay rule — never stacked", async () => {
+    const { resolveQuote } = await import("../lib/pricing.js");
+    // Identical gap-active stub as the control — plus one stay rule. The stay
+    // rule wins, the gap decision is suppressed outright (no 10% on 10%).
+    const stub: any = makeStub({
+      channelRows: [],
+      legacyDiscount: 0,
+      gapEnabled: true,
+      gapPct: 10,
+      hasNeighbors: true,
+      stayRules: [{ kind: "stay_length", threshold_units: 2, pct: 10 }],
+    });
+
+    const quote = await resolveQuote(stub, "00000000-0000-0000-0000-000000000099", "2026-09-02", "2026-09-05", 4);
+    assert.ok(!("error" in quote));
+    if ("error" in quote) return;
+
+    assert.equal(quote.publicTotal, 2880); // the stay rule priced the stay…
+    assert.equal(quote.gapNight, false); // …and the active gap yielded (D1)
+    assert.equal(quote.gapTotal, null); // no second discount exists at all
   });
 });
