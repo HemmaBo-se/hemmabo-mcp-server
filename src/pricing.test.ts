@@ -889,7 +889,7 @@ describe("pickChannelDiscountPct", () => {
 
 describe("resolveQuote — host direct price folded into one total", () => {
   // Builds a stub property with a given agent acquisition discount.
-  const makeStub = (opts: { channelRows: any[]; legacyDiscount: number | null }) => ({
+  const makeStub = (opts: { channelRows: any[]; legacyDiscount: number | null; stayRules?: any[] }) => ({
     from: (table: string) => {
       const season = {
         name: "low",
@@ -946,6 +946,9 @@ describe("resolveQuote — host direct price folded into one total", () => {
           if (table === "property_channel_discounts") {
             return Promise.resolve({ data: opts.channelRows, error: null }).then(resolve);
           }
+          if (table === "property_stay_discounts") {
+            return Promise.resolve({ data: opts.stayRules ?? [], error: null }).then(resolve);
+          }
           return Promise.resolve({ data: [], error: null }).then(resolve);
         },
       };
@@ -990,5 +993,28 @@ describe("resolveQuote — host direct price folded into one total", () => {
     assert.equal(quote.federationDiscountPercent, 0);
     const nightlySum = quote.breakdown.nightlyRates.reduce((s, n) => s + n.rate, 0);
     assert.equal(nightlySum, 3200);
+  });
+
+  it("slider model (ADR 2026-08-13 D3): stay rules reprice the stay and suppress gap", async () => {
+    const { resolveQuote } = await import("../lib/pricing.js");
+    // 3 nights Wed–Sat: 1000 + 1000 + 1200 = 3200 rack sum. One stay_length
+    // rule at 2+ nights, 10 % → round(3200 × 0.90) = 2880. The same rule
+    // must SUPPRESS the gap discount (D1: discounts never stack) — the stub
+    // has gap disabled, so the suppression is pinned via gapNight === false
+    // and the total standing at the stay-priced 2880.
+    const stub: any = makeStub({
+      channelRows: [],
+      legacyDiscount: 0,
+      stayRules: [{ kind: "stay_length", threshold_units: 2, pct: 10 }],
+    });
+
+    const quote = await resolveQuote(stub, "00000000-0000-0000-0000-000000000099", "2026-09-02", "2026-09-05", 4);
+    assert.ok(!("error" in quote));
+    if ("error" in quote) return;
+
+    assert.equal(quote.publicTotal, 2880); // ONE winning rule on the nightly sum
+    assert.equal(quote.federationTotal, 2880);
+    assert.equal(quote.packageApplied, null); // packages retired in slider mode
+    assert.equal(quote.gapNight, false); // never stacked with gap
   });
 });

@@ -14,7 +14,10 @@
  * Pricing flow (canonical node-side order: rack → channel fold → gap):
  *   rack          = core `computeRackQuote` (season × guest staircase × day
  *                   type, or a week/two-week package when all nights share a
- *                   season type). Season-gap-fill now applies here too —
+ *                   season type — or, on slider-model properties (stay-
+ *                   discount rules configured, ADR 2026-08-13 D3), the ONE
+ *                   winning stay rule repricing the nightly sum while
+ *                   packages are ignored entirely). Season-gap-fill now applies here too —
  *                   dates outside configured seasons quote via the nearest
  *                   season when the host has it enabled (parity with the
  *                   website; previously the MCP path errored).
@@ -40,8 +43,11 @@ import {
   applyGapDiscount,
   isWeekendDay,
   findPriceBlock,
+  leadDaysUntil,
+  stayDiscountRulesFromRows,
   type PriceBlock,
   type Season,
+  type StayDiscountRow,
 } from "./pricing-core.js";
 
 // ── Re-exports (compat: tests + tools import these from this module) ──
@@ -205,6 +211,15 @@ export async function resolveQuote(
     .select("channel, discount_pct")
     .eq("property_id", propertyId);
 
+  // 4c. Stay-discount rules (the slider model, smart-stays ADR 2026-08-13
+  //     D3 "ersätt") — ANY row moves the property off the package model;
+  //     the vendored core picks the ONE winning rule (never stacked, D1).
+  //     Public-read table, so every client key works.
+  const { data: stayRuleRows } = await supabase
+    .from("property_stay_discounts")
+    .select("kind, threshold_units, pct")
+    .eq("property_id", propertyId);
+
   // 5. Rack quote from the shared core (staircase, seasons incl. gap-fill,
   //    weekend rule, 7/14-night packages — one engine, every door).
   //    Default ON when the column is absent: refusing to quote is never a
@@ -221,6 +236,9 @@ export async function resolveQuote(
     checkIn,
     checkOut,
     seasonGapFillEnabled,
+    {},
+    stayDiscountRulesFromRows((stayRuleRows ?? []) as StayDiscountRow[]),
+    leadDaysUntil(checkIn),
   );
 
   if (rack.success === false) {
@@ -255,7 +273,11 @@ export async function resolveQuote(
   const federationTotal = directTotal;
 
   // 7. Gap-night: DB neighbor lookups here, decision in the core.
-  const gapEnabled = smartPricing?.gap_fill_enabled ?? false;
+  //    D1 (ADR 2026-08-13): discounts never stack — a kernel-applied stay
+  //    discount suppresses the opportunistic gap discount, exactly like the
+  //    smart-stays doors (resolveGapNight's stayDiscountApplied guard).
+  const stayApplied = rack.stay_discount_applied !== null;
+  const gapEnabled = (smartPricing?.gap_fill_enabled ?? false) && !stayApplied;
   const neighbors = gapEnabled
     ? await findGapNeighbors(supabase, propertyId, checkIn, checkOut)
     : { hasNeighborBefore: false, hasNeighborAfter: false };
