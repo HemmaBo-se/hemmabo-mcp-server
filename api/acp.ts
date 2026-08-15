@@ -39,6 +39,7 @@ import {
   type PaymentIntentOutcome,
 } from "../src/stripe.js";
 import { verifyAp2PaymentMandate, resolveAp2IssuerJwks } from "../lib/ap2.js";
+import { bookingTokenMatches } from "../lib/booking-binding.js";
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -350,13 +351,18 @@ async function createCheckout(body: Record<string, unknown>, res: VercelResponse
       status: "pending",
       property_name_at_booking: prop.name,
     })
-    .select("id, status, created_at")
+    .select("id, status, created_at, guest_token")
     .single();
 
   if (bookErr) return res.status(500).json({ error: bookErr.message });
 
   const state = await buildACPState(booking.id, base);
-  return res.status(201).json(state);
+  // Return the per-booking secret ONCE, at creation. The ACP agent must send it
+  // back as the `X-Guest-Token` header on every subsequent checkout-scoped
+  // request (GET/PUT/:id, complete, cancel); a Bearer token alone confers no
+  // authority over this booking (BOLA binding). It is deliberately NOT part of
+  // buildACPState, so it never leaks on later reads of the checkout.
+  return res.status(201).json({ ...(state ?? {}), guest_token: booking.guest_token });
 }
 
 async function getCheckout(checkoutId: string, res: VercelResponse, base: string) {
@@ -1010,6 +1016,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(401).json({
         error: `${authErr}. ACP agents must pass: Authorization: Bearer <key>`,
       });
+    }
+  }
+
+  // ── Per-booking ownership binding (BOLA) ──────────────────────────
+  // The Bearer gate above authenticates the caller, but MCP_API_KEY / OAuth
+  // tokens are client-scoped, not booking-scoped: without an object-level
+  // check, any authenticated caller who knows a checkoutId could read the PII
+  // of — or mutate/refund — an arbitrary booking. Every checkout-scoped
+  // request (GET/PUT on :id, :id/complete, :id/cancel) must present the
+  // booking's own guest_token via the `X-Guest-Token` header; createCheckout
+  // returns it once. A header (never a URL/query param) keeps the secret out
+  // of logs, referrers, and history. Fail-closed: a missing token, unknown
+  // checkout, DB error, or mismatch all return the same 403 — never an
+  // existence oracle. Create (no checkoutId) and the public discovery doc are
+  // exempt.
+  if (checkoutId) {
+    const presentedTokenRaw = req.headers["x-guest-token"];
+    const presentedToken = Array.isArray(presentedTokenRaw)
+      ? presentedTokenRaw[0]
+      : presentedTokenRaw;
+    const denyBinding = () =>
+      res.status(403).json({
+        error: "forbidden",
+        message:
+          "A matching X-Guest-Token header (the booking's guest_token, returned when the checkout was created) is required for this checkout. A Bearer token alone is not sufficient.",
+      });
+    // No token → refuse before any I/O.
+    if (typeof presentedToken !== "string" || presentedToken.trim() === "") {
+      return denyBinding();
+    }
+    let storedToken: unknown = null;
+    try {
+      const { data: ownerRow, error: ownerErr } = await getSupabase()
+        .from("bookings")
+        .select("guest_token")
+        .eq("id", checkoutId)
+        .maybeSingle();
+      if (ownerErr || !ownerRow) return denyBinding();
+      storedToken = (ownerRow as { guest_token?: unknown }).guest_token;
+    } catch {
+      return denyBinding(); // fail-closed: ownership unverifiable → deny
+    }
+    if (!bookingTokenMatches(presentedToken, storedToken)) {
+      return denyBinding();
     }
   }
 
