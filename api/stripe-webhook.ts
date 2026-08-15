@@ -217,10 +217,54 @@ export async function handleEvent(
 
     case "payment_intent.payment_failed": {
       if (!bookingId) return { status: "ignored", detail: "no booking_id in metadata" };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const paymentIntentId = (obj as any).id as string;
+
+      // Transition guard (mirrors the payment_intent.succeeded guard, ADR 0006):
+      // Stripe delivers events at-least-once and can deliver them late. A failed
+      // payment must only cancel a booking that is still AWAITING payment — it
+      // must never overwrite a booking that already reached confirmed (money
+      // settled) or another terminal state. Read the current status first.
+      const { data: existing, error: readErr } = await supabase
+        .from("bookings")
+        .select("status")
+        .eq("id", bookingId)
+        .maybeSingle();
+      if (readErr) throw new Error(`Supabase read failed: ${readErr.message}`);
+      if (!existing) return { status: "ignored", detail: `no booking row for ${bookingId}` };
+      const currentStatus = (existing as { status?: string }).status ?? "unknown";
+
+      // Already cancelled → idempotent redelivery, nothing to do.
+      if (currentStatus === "cancelled") {
+        return { status: "ok", detail: "already cancelled (idempotent redelivery)" };
+      }
+
+      // Only a still-pending booking may be cancelled by a failed payment. A
+      // confirmed / completed / other terminal booking is NOT overwritten.
+      // Fail-closed & LOUD: record the anomaly with the PaymentIntent id so ops
+      // can reconcile, but do NOT write and do NOT touch the terminal row.
+      if (currentStatus !== "pending") {
+        console.warn(
+          JSON.stringify({
+            event: "webhook_payment_failed_on_non_cancellable_booking",
+            stripeEventId: event.id,
+            bookingId,
+            currentStatus,
+            paymentIntentId,
+            ts: new Date().toISOString(),
+          })
+        );
+        return { status: "ignored", detail: `booking status '${currentStatus}' is not cancellable from a payment_failed event` };
+      }
+
+      // pending → cancelled. The `.eq("status","pending")` compare-and-set closes
+      // the window where a confirm lands between the read above and this write:
+      // it can only ever move a still-pending row, never a freshly-confirmed one.
       const { error } = await supabase
         .from("bookings")
         .update({ status: "cancelled" })
-        .eq("id", bookingId);
+        .eq("id", bookingId)
+        .eq("status", "pending");
       if (error) throw new Error(`Supabase update failed: ${error.message}`);
       return { status: "ok" };
     }

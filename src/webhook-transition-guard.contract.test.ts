@@ -120,3 +120,72 @@ describe("payment_intent.succeeded transition guard (D)", () => {
     assert.equal(updates.length, 0);
   });
 });
+
+function failedEvent(bookingId: string | undefined = "b-1", piId = "pi_x") {
+  return {
+    id: "evt_2",
+    type: "payment_intent.payment_failed",
+    data: { object: { id: piId, metadata: bookingId ? { booking_id: bookingId } : undefined } },
+  };
+}
+
+describe("payment_intent.payment_failed transition guard", () => {
+  it("pending → cancelled (the happy path)", async () => {
+    const { supabase, updates } = makeSupabase("pending");
+    const res = await handleEvent(failedEvent(), { supabase });
+    assert.deepEqual(res, { status: "ok" });
+    assert.equal(updates.length, 1, "exactly one cancel write");
+    assert.equal(updates[0].status, "cancelled");
+  });
+
+  it("confirmed → stays confirmed: no write, structured log", async () => {
+    await withWarnCapture(async (warns) => {
+      const { supabase, updates } = makeSupabase("confirmed");
+      const res = await handleEvent(failedEvent(), { supabase });
+      assert.equal(res.status, "ignored");
+      assert.match(res.detail ?? "", /not cancellable/i);
+      assert.equal(updates.length, 0, "a confirmed booking must NOT be cancelled by a failed-payment event");
+      assert.ok(
+        warns.some((w) => w.includes("webhook_payment_failed_on_non_cancellable_booking") && w.includes("confirmed") && w.includes("pi_x")),
+        `expected a structured anomaly log, got: ${warns.join(" | ")}`,
+      );
+    });
+  });
+
+  it("completed (terminal) → refused + logged, not cancelled", async () => {
+    await withWarnCapture(async (warns) => {
+      const { supabase, updates } = makeSupabase("completed");
+      const res = await handleEvent(failedEvent(), { supabase });
+      assert.equal(res.status, "ignored");
+      assert.equal(updates.length, 0);
+      assert.ok(warns.some((w) => w.includes("completed")), "must log the non-cancellable anomaly");
+    });
+  });
+
+  it("already cancelled → idempotent no-op (redelivery), no second write", async () => {
+    const { supabase, updates } = makeSupabase("cancelled");
+    const res = await handleEvent(failedEvent(), { supabase });
+    assert.equal(res.status, "ok");
+    assert.match(res.detail ?? "", /already cancelled/);
+    assert.equal(updates.length, 0);
+  });
+
+  it("no booking row for the id → ignored, no write", async () => {
+    const { supabase, updates } = makeSupabase(null);
+    const res = await handleEvent(failedEvent(), { supabase });
+    assert.equal(res.status, "ignored");
+    assert.match(res.detail ?? "", /no booking row/);
+    assert.equal(updates.length, 0);
+  });
+
+  it("missing booking_id metadata → ignored before any DB read", async () => {
+    const { supabase, updates } = makeSupabase("pending");
+    const res = await handleEvent(
+      { id: "evt_2", type: "payment_intent.payment_failed", data: { object: { id: "pi_x" } } },
+      { supabase },
+    );
+    assert.equal(res.status, "ignored");
+    assert.match(res.detail ?? "", /no booking_id/);
+    assert.equal(updates.length, 0);
+  });
+});
