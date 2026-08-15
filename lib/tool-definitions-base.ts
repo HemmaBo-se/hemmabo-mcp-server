@@ -176,6 +176,11 @@ const F = {
     description:
       "Booking or reservation UUID from hemmabo_booking_checkout or hemmabo_booking_create (e.g. '7c9e6679-7425-40de-944b-e07fc1f90ae7'). Required to look up, cancel, or reschedule the same booking record.",
   },
+  guestToken: {
+    type: "string" as const,
+    description:
+      "Per-booking secret returned by hemmabo_booking_create / hemmabo_booking_checkout (the booking's guest_token, a UUID). Required to view or modify this specific booking — a valid Bearer token alone is NOT sufficient, because it authenticates the caller but grants no authority over any particular booking. Present the exact guestToken you received when the booking was created; without the matching value the call is refused. Never a propertyId or reservationId.",
+  },
   guestName: {
     type: "string" as const,
     description:
@@ -448,6 +453,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
             "Outbound channel-manager mirror heartbeat for the host's mapped external channel (status: current|stale|partial|error|not_connected). Informational only — it never affects availability or this booking; the host node is the source of truth.",
           additionalProperties: true,
         },
+        guestToken: { type: "string", description: "Per-booking secret (guest_token) for this booking. Present it back as guestToken on hemmabo_booking_status / hemmabo_booking_cancel / hemmabo_booking_reschedule to view or modify this booking; a Bearer token alone is not sufficient. Store it securely and do not show it to the guest." },
         error: { type: "string", description: "Present only when isError=true." },
       },
       required: ["bookingId", "status"],
@@ -559,6 +565,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         createdAt: { type: "string", format: "date-time" },
         mpp: { type: "object", additionalProperties: true, description: "Present when paymentMode='payment_intent'." },
         status: { type: "string", description: "Booking status (typically 'pending' until payment succeeds)." },
+        guestToken: { type: "string", description: "Per-booking secret (guest_token) for this booking. Present it back as guestToken on hemmabo_booking_status / hemmabo_booking_cancel / hemmabo_booking_reschedule to view or modify this booking; a Bearer token alone is not sufficient. Store it securely and do not show it to the guest." },
         error: { type: "string", description: "Present only when isError=true." },
       },
       required: ["reservationId", "totalPrice", "currency"],
@@ -580,13 +587,14 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       type: "object",
       properties: {
         reservationId: F.reservationId,
+        guestToken: F.guestToken,
         reason: {
           type: "string",
           description:
             "Human-readable cancellation reason for the host (e.g. 'Travel plans changed', 'Flight cancelled'). Optional; omit when the guest did not give a reason.",
         },
       },
-      required: ["reservationId"],
+      required: ["reservationId", "guestToken"],
       additionalProperties: false,
     },
     outputSchema: {
@@ -616,8 +624,9 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       type: "object",
       properties: {
         reservationId: F.reservationId,
+        guestToken: F.guestToken,
       },
-      required: ["reservationId"],
+      required: ["reservationId", "guestToken"],
       additionalProperties: false,
     },
     outputSchema: {
@@ -659,6 +668,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       type: "object",
       properties: {
         reservationId: F.reservationId,
+        guestToken: F.guestToken,
         newCheckIn: {
           ...F.checkIn,
           description:
@@ -675,7 +685,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
             "Human-readable reschedule reason for host records (e.g. 'Flight delayed', 'Extended conference'). Optional; omit when not provided by the guest.",
         },
       },
-      required: ["reservationId", "newCheckIn", "newCheckOut"],
+      required: ["reservationId", "guestToken", "newCheckIn", "newCheckOut"],
       additionalProperties: false,
     },
     outputSchema: {

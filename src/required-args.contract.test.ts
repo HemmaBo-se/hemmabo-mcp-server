@@ -21,9 +21,9 @@ const REQUIRED_BY_TOOL: ReadonlyArray<{ tool: string; required: readonly string[
   { tool: "hemmabo_booking_create",      required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"] },
   { tool: "hemmabo_booking_negotiate",   required: ["propertyId", "checkIn", "checkOut", "guests"] },
   { tool: "hemmabo_booking_checkout",    required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"] },
-  { tool: "hemmabo_booking_cancel",      required: ["reservationId"] },
-  { tool: "hemmabo_booking_status",      required: ["reservationId"] },
-  { tool: "hemmabo_booking_reschedule",  required: ["reservationId", "newCheckIn", "newCheckOut"] },
+  { tool: "hemmabo_booking_cancel",      required: ["reservationId", "guestToken"] },
+  { tool: "hemmabo_booking_status",      required: ["reservationId", "guestToken"] },
+  { tool: "hemmabo_booking_reschedule",  required: ["reservationId", "guestToken", "newCheckIn", "newCheckOut"] },
   { tool: "verify_vacation_rental_node", required: ["domain"] },
   { tool: "get_verified_stay_offer",     required: ["domain", "checkIn", "checkOut", "guests"] },
 ];

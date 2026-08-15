@@ -793,6 +793,7 @@ describe("hemmabo_booking_status — guest_name masking", () => {
     const bookingRow = {
       id: "b-uuid",
       status: "confirmed",
+      guest_token: "status-test-guest-token",
       check_in_date: "2025-08-01",
       check_out_date: "2025-08-08",
       guests_count: 2,
@@ -823,7 +824,7 @@ describe("hemmabo_booking_status — guest_name masking", () => {
   it("masks full name to 'First L.' format", async () => {
     const { executeTool } = await import("../lib/tools.js");
     const stub: any = makeStatusStub("Anna Svensson", "anna.svensson@example.com");
-    const result = await executeTool("hemmabo_booking_status", { reservationId: "b-uuid" }, { supabase: stub, reader: stub });
+    const result = await executeTool("hemmabo_booking_status", { reservationId: "b-uuid", guestToken: "status-test-guest-token" }, { supabase: stub, reader: stub });
     const parsed = JSON.parse(result.content[0].text);
     assert.equal(parsed.guestName, "Anna S.");
   });
@@ -831,7 +832,7 @@ describe("hemmabo_booking_status — guest_name masking", () => {
   it("returns single-word name unchanged", async () => {
     const { executeTool } = await import("../lib/tools.js");
     const stub: any = makeStatusStub("Madonna", "m@example.com");
-    const result = await executeTool("hemmabo_booking_status", { reservationId: "b-uuid" }, { supabase: stub, reader: stub });
+    const result = await executeTool("hemmabo_booking_status", { reservationId: "b-uuid", guestToken: "status-test-guest-token" }, { supabase: stub, reader: stub });
     const parsed = JSON.parse(result.content[0].text);
     assert.equal(parsed.guestName, "Madonna");
   });
@@ -839,7 +840,7 @@ describe("hemmabo_booking_status — guest_name masking", () => {
   it("masks email correctly (first char + *** + domain)", async () => {
     const { executeTool } = await import("../lib/tools.js");
     const stub: any = makeStatusStub("Test User", "test.user@hemmabo.se");
-    const result = await executeTool("hemmabo_booking_status", { reservationId: "b-uuid" }, { supabase: stub, reader: stub });
+    const result = await executeTool("hemmabo_booking_status", { reservationId: "b-uuid", guestToken: "status-test-guest-token" }, { supabase: stub, reader: stub });
     const parsed = JSON.parse(result.content[0].text);
     assert.equal(parsed.guestEmail, "t***@hemmabo.se");
   });
@@ -847,7 +848,7 @@ describe("hemmabo_booking_status — guest_name masking", () => {
   it("does not expose raw guest_email", async () => {
     const { executeTool } = await import("../lib/tools.js");
     const stub: any = makeStatusStub("Test User", "test.user@hemmabo.se");
-    const result = await executeTool("hemmabo_booking_status", { reservationId: "b-uuid" }, { supabase: stub, reader: stub });
+    const result = await executeTool("hemmabo_booking_status", { reservationId: "b-uuid", guestToken: "status-test-guest-token" }, { supabase: stub, reader: stub });
     const raw = result.content[0].text;
     assert.ok(!raw.includes("test.user@hemmabo.se"), "Raw email must not appear in response");
   });
@@ -855,7 +856,7 @@ describe("hemmabo_booking_status — guest_name masking", () => {
   it("does not expose raw guest_name (full surname)", async () => {
     const { executeTool } = await import("../lib/tools.js");
     const stub: any = makeStatusStub("Anna Svensson", "a@example.com");
-    const result = await executeTool("hemmabo_booking_status", { reservationId: "b-uuid" }, { supabase: stub, reader: stub });
+    const result = await executeTool("hemmabo_booking_status", { reservationId: "b-uuid", guestToken: "status-test-guest-token" }, { supabase: stub, reader: stub });
     const raw = result.content[0].text;
     assert.ok(!raw.includes("Svensson"), "Full surname must not appear in response");
   });

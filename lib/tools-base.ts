@@ -31,6 +31,7 @@ import {
   createPaymentIntent,
 } from "../src/stripe.js";
 import { SERVER_VERSION } from "./server-metadata.js";
+import { bookingTokenMatches, BOOKING_TOKEN_MISMATCH_MESSAGE } from "./booking-binding.js";
 
 export interface ToolClients {
   /** Service-role client — bypasses RLS. Required for bookings reads + all writes. */
@@ -864,6 +865,10 @@ async function _runCheckout(
     currency,
     payment_modes: ["checkout_session", "payment_intent"],
     createdAt: booking.created_at,
+    // Per-booking secret (BOLA binding). The caller must present this back as
+    // `guestToken` on status/cancel/reschedule — a Bearer token alone confers
+    // no authority over a specific booking. Returned only here, at creation.
+    guestToken: booking.guest_token,
   };
 
   // MPP enrichment: if payment_intent mode, retrieve client_secret.
@@ -1168,7 +1173,7 @@ export async function executeTool(
                 status: "pending", property_name_at_booking: prop?.name ?? null,
                 host_approval_required: true,
               })
-              .select("id, status, created_at")
+              .select("id, status, created_at, guest_token")
               .single();
 
             if (bookErr) {
@@ -1191,6 +1196,10 @@ export async function executeTool(
                     gapDiscountPercent: quote.gapDiscountPercent, createdAt: booking.created_at,
                     calendar_freshness: bookingCalendarFreshness,
                     channel_mirror: channelMirror,
+                    // Per-booking secret (BOLA binding) — present back as
+                    // `guestToken` on status/cancel/reschedule. Returned only
+                    // here, at creation; a Bearer token alone is not authority.
+                    guestToken: booking.guest_token,
                   }, null, 2),
                 }],
               };
@@ -1346,9 +1355,9 @@ export async function executeTool(
     }
 
     case "hemmabo_booking_cancel": {
-      const reqErr = validateRequiredArgs(args, ["reservationId"]);
+      const reqErr = validateRequiredArgs(args, ["reservationId", "guestToken"]);
       if (reqErr) return toolError(reqErr);
-      const { reservationId, reason } = args as { reservationId: string; reason?: string };
+      const { reservationId, guestToken, reason } = args as { reservationId: string; guestToken: string; reason?: string };
 
       // Fetch booking
       const { data: booking, error: bookErr } = await supabase
@@ -1358,6 +1367,12 @@ export async function executeTool(
         .single();
 
       if (bookErr || !booking) return { content: [{ type: "text", text: JSON.stringify({ error: "Booking not found" }) }], isError: true };
+      // Per-booking ownership binding (BOLA). Checked before ANY side effect or
+      // status leak: a caller without the matching guest_token cannot cancel,
+      // trigger a refund, or even learn whether this booking exists/its state.
+      if (!bookingTokenMatches(guestToken, booking.guest_token)) {
+        return toolError(BOOKING_TOKEN_MISMATCH_MESSAGE);
+      }
       if (booking.status === "cancelled") return { content: [{ type: "text", text: JSON.stringify({ error: "Booking is already cancelled", reservationId }) }], isError: true };
 
       // Delegate to Supabase Edge Function
@@ -1397,20 +1412,27 @@ export async function executeTool(
     }
 
     case "hemmabo_booking_status": {
-      const reqErr = validateRequiredArgs(args, ["reservationId"]);
+      const reqErr = validateRequiredArgs(args, ["reservationId", "guestToken"]);
       if (reqErr) return toolError(reqErr);
-      const { reservationId } = args as { reservationId: string };
+      const { reservationId, guestToken } = args as { reservationId: string; guestToken: string };
 
-      // Uses service role — booking lookup by UUID is a privileged operation
-      // (only authenticated MCP agents with a valid API key reach this point).
-      // The anon client cannot look up bookings without a guest_token JWT claim.
+      // Uses service role — booking lookup by UUID is a privileged operation.
+      // A valid Bearer token authenticates the caller but is client-scoped, not
+      // booking-scoped; per-booking authority comes from the guest_token
+      // presented as `guestToken` and matched below (BOLA binding).
       const { data: booking, error: bookErr } = await supabase
         .from("bookings")
-        .select("id, status, check_in_date, check_out_date, guests_count, total_price, currency, property_id, guest_name, guest_email, created_at, updated_at")
+        .select("id, status, guest_token, check_in_date, check_out_date, guests_count, total_price, currency, property_id, guest_name, guest_email, created_at, updated_at")
         .eq("id", reservationId)
         .single();
 
       if (bookErr || !booking) return { content: [{ type: "text", text: JSON.stringify({ error: "Booking not found" }) }], isError: true };
+      // Per-booking ownership binding (BOLA) — enforced before any PII leaves
+      // the server. Without the matching guest_token the caller learns nothing
+      // about this booking, not even that it exists.
+      if (!bookingTokenMatches(guestToken, booking.guest_token)) {
+        return toolError(BOOKING_TOKEN_MISMATCH_MESSAGE);
+      }
 
       // Fetch property
       const { data: prop } = await supabase
@@ -1465,10 +1487,10 @@ export async function executeTool(
     }
 
     case "hemmabo_booking_reschedule": {
-      const reqErr = validateRequiredArgs(args, ["reservationId", "newCheckIn", "newCheckOut"]);
+      const reqErr = validateRequiredArgs(args, ["reservationId", "guestToken", "newCheckIn", "newCheckOut"]);
       if (reqErr) return toolError(reqErr);
-      const { reservationId, newCheckIn, newCheckOut, reason } = args as {
-        reservationId: string; newCheckIn: string; newCheckOut: string; reason?: string;
+      const { reservationId, guestToken, newCheckIn, newCheckOut, reason } = args as {
+        reservationId: string; guestToken: string; newCheckIn: string; newCheckOut: string; reason?: string;
       };
       const dateErr = validateDates(newCheckIn, newCheckOut);
       if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }], isError: true };
@@ -1480,11 +1502,17 @@ export async function executeTool(
       // Fetch booking
       const { data: booking, error: bookErr } = await supabase
         .from("bookings")
-        .select("id, status, check_in_date, check_out_date, guests_count, total_price, currency, property_id, stripe_payment_intent_id")
+        .select("id, status, guest_token, check_in_date, check_out_date, guests_count, total_price, currency, property_id, stripe_payment_intent_id")
         .eq("id", reservationId)
         .single();
 
       if (bookErr || !booking) return { content: [{ type: "text", text: JSON.stringify({ error: "Booking not found" }) }], isError: true };
+      // Per-booking ownership binding (BOLA) — before the status is revealed and
+      // before any Stripe charge/refund or date mutation. A caller without the
+      // matching guest_token cannot move dates or move money on this booking.
+      if (!bookingTokenMatches(guestToken, booking.guest_token)) {
+        return toolError(BOOKING_TOKEN_MISMATCH_MESSAGE);
+      }
       if (!RESCHEDULABLE_STATES.includes(booking.status)) {
         return { content: [{ type: "text", text: JSON.stringify({ error: `Booking status '${booking.status}' is not reschedulable. Must be: ${RESCHEDULABLE_STATES.join(", ")}` }) }], isError: true };
       }
