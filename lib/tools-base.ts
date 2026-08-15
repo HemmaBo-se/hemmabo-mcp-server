@@ -32,6 +32,7 @@ import {
 } from "../src/stripe.js";
 import { SERVER_VERSION } from "./server-metadata.js";
 import { bookingTokenMatches, BOOKING_TOKEN_MISMATCH_MESSAGE } from "./booking-binding.js";
+import { acquireBookingLock, releaseBookingLock } from "./booking-locks.js";
 
 export interface ToolClients {
   /** Service-role client — bypasses RLS. Required for bookings reads + all writes. */
@@ -646,73 +647,8 @@ function directBookingPriceFields(quote: {
   };
 }
 
-const LOCK_TTL_MS = 10 * 60 * 1000; // 10 minutes
-
-/**
- * Postgres error codes that mean the slot is genuinely held by a live lock:
- *   23P01 exclusion_violation — booking_locks_no_overlap (gist, property+daterange)
- *   23505 unique_violation    — defensive, in case a unique slot index is added
- * Any other code (23502 not-null, 23514 check, RLS denial, …) is an internal
- * defect, NOT a date conflict, and must never be reported as "already locked".
- */
-const LOCK_CONFLICT_CODES = new Set(["23P01", "23505"]);
-
-type LockAcquireResult = { lockId: string } | { lockError: "conflict" | "db_error" };
-
-/**
- * Attempts to acquire a booking lock for property+date-range.
- * First cleans up any expired locks for that property, then inserts a new one.
- * Returns { lockId } on success, { lockError: "conflict" } when another live
- * lock holds the slot, and { lockError: "db_error" } on any other DB failure.
- *
- * Uses service-role client (writes to booking_locks are denied for anon).
- */
-async function acquireBookingLock(
-  supabase: SupabaseClient,
-  propertyId: string,
-  checkIn: string,
-  checkOut: string
-): Promise<LockAcquireResult> {
-  // 1. Clean up expired locks for this property (best-effort; failure is non-fatal)
-  await supabase
-    .from("booking_locks")
-    .delete()
-    .eq("property_id", propertyId)
-    .lt("locked_until", new Date().toISOString());
-
-  // 2. Attempt to insert a new lock. booking_locks.source is NOT NULL with a
-  //    CHECK constraint ('hemmabo','ai_agent','guest','system'); this path is
-  //    always an agent flow, matching mcp-booking's acquireBookingLock call.
-  const lockedUntil = new Date(Date.now() + LOCK_TTL_MS).toISOString();
-  const { data, error } = await supabase
-    .from("booking_locks")
-    .insert({
-      property_id: propertyId,
-      check_in: checkIn,
-      check_out: checkOut,
-      locked_until: lockedUntil,
-      source: "ai_agent",
-    })
-    .select("id")
-    .single();
-
-  if (error || !data) {
-    const errorCode = error?.code ?? "unknown";
-    // Log without PII for spike / attack detection.
-    console.warn(
-      JSON.stringify({
-        event: "booking_lock_acquire_failed",
-        propertyId,
-        checkIn,
-        checkOut,
-        errorCode,
-        ts: new Date().toISOString(),
-      })
-    );
-    return { lockError: LOCK_CONFLICT_CODES.has(errorCode) ? "conflict" : "db_error" };
-  }
-  return { lockId: data.id as string };
-}
+// acquireBookingLock / releaseBookingLock live in lib/booking-locks.ts (shared
+// with api/acp.ts). The MCP-transport-shaped conflict result stays here.
 
 const LOCK_CONFLICT_MESSAGE =
   "Dates temporarily locked — another booking is in progress. Please try again shortly.";
@@ -722,32 +658,6 @@ const LOCK_DB_ERROR_MESSAGE =
 function lockErrorResult(lockError: "conflict" | "db_error"): ToolResult {
   const message = lockError === "conflict" ? LOCK_CONFLICT_MESSAGE : LOCK_DB_ERROR_MESSAGE;
   return { content: [{ type: "text", text: JSON.stringify({ error: message }) }], isError: true };
-}
-
-/**
- * Releases a booking lock by setting locked_until to now (immediate expiry).
- * This makes the row invisible to the active-lock filter in checkAvailability
- * without requiring a DELETE (which could race with another reader).
- * Best-effort: errors are ignored so the call site's finally block never throws.
- */
-async function releaseBookingLock(supabase: SupabaseClient, lockId: string): Promise<void> {
-  try {
-    await supabase
-      .from("booking_locks")
-      .update({ locked_until: new Date().toISOString() })
-      .eq("id", lockId);
-  } catch (err) {
-    // Non-fatal: lock will expire naturally after LOCK_TTL_MS.
-    // Log so on-call can detect if DB is unreachable during cleanup.
-    console.warn(
-      JSON.stringify({
-        event: "booking_lock_release_failed",
-        lockId,
-        ts: new Date().toISOString(),
-        error: err instanceof Error ? err.message : String(err),
-      })
-    );
-  }
 }
 
 // ── _runCheckout ──────────────────────────────────────────────────────────────
@@ -1546,36 +1456,14 @@ export async function executeTool(
       const oldPrice = booking.total_price;
       const delta = newPrice - oldPrice;
 
-      let stripeAction: Record<string, unknown> | null = null;
-
-      if (delta > 0 && booking.stripe_payment_intent_id) {
-        // Price increased: create new PaymentIntent with manual capture, routed
-        // to the host's connected Stripe (host = merchant of record).
-        const { data: reschedProp } = await reader
-          .from("properties")
-          .select("stripe_account_id, stripe_onboarding_complete")
-          .eq("id", booking.property_id)
-          .single();
-        const pi = await createPaymentIntent({
-          amount: delta,
-          currency: booking.currency,
-          captureMethod: "manual",
-          hostStripeAccountId: reschedProp?.stripe_account_id ?? null,
-          hostOnboardingComplete: reschedProp?.stripe_onboarding_complete ?? null,
-          metadata: {
-            booking_id: booking.id,
-            type: "reschedule_delta",
-            original_payment_intent: booking.stripe_payment_intent_id,
-          },
-        });
-        stripeAction = { type: "additional_charge", amount: delta, paymentIntentId: pi.id, status: pi.status };
-      } else if (delta < 0 && booking.stripe_payment_intent_id) {
-        // Price decreased: partial refund
-        const refund = await createRefund(booking.stripe_payment_intent_id, Math.abs(delta));
-        stripeAction = { type: "partial_refund", amount: Math.abs(delta), refundId: refund.id, status: refund.status };
-      }
-
-      // Update booking
+      // C (money ordering): write the new dates + price to the booking BEFORE any
+      // Stripe call. Two reasons:
+      //  1. If the DB write fails, NO money moves at all (we return here).
+      //  2. The booking row is the idempotency anchor — after this write it holds
+      //     newPrice, so a retried reschedule recomputes delta = 0 (and the
+      //     same-dates no-op fires above) and never charges/refunds twice.
+      // This replaces the old Stripe-first order, where a DB failure after a
+      // successful refund let a retry refund a SECOND time.
       const { error: updateErr } = await supabase
         .from("bookings")
         .update({
@@ -1584,8 +1472,81 @@ export async function executeTool(
           total_price: newPrice,
         })
         .eq("id", booking.id);
+      if (updateErr) {
+        // DB write failed → nothing was charged or refunded. Safe to retry.
+        return { content: [{ type: "text", text: JSON.stringify({ error: updateErr.message }) }], isError: true };
+      }
 
-      if (updateErr) return { content: [{ type: "text", text: JSON.stringify({ error: updateErr.message }) }], isError: true };
+      // Now move the price delta. A deterministic Stripe Idempotency-Key (per
+      // booking + direction + delta + target dates) collapses concurrent
+      // duplicates to a single movement on Stripe's side — belt-and-suspenders
+      // with the DB anchor above.
+      let stripeAction: Record<string, unknown> | null = null;
+      if (delta !== 0 && booking.stripe_payment_intent_id) {
+        const direction = delta > 0 ? "charge" : "refund";
+        const idempotencyKey =
+          `reschedule_${booking.id}_${direction}_${Math.abs(delta)}_${newCheckIn}_${newCheckOut}`;
+        try {
+          if (delta > 0) {
+            // Price increased: additional charge, manual capture, routed to the
+            // host's connected Stripe (host = merchant of record).
+            const { data: reschedProp } = await reader
+              .from("properties")
+              .select("stripe_account_id, stripe_onboarding_complete")
+              .eq("id", booking.property_id)
+              .single();
+            const pi = await createPaymentIntent({
+              amount: delta,
+              currency: booking.currency,
+              captureMethod: "manual",
+              hostStripeAccountId: reschedProp?.stripe_account_id ?? null,
+              hostOnboardingComplete: reschedProp?.stripe_onboarding_complete ?? null,
+              metadata: {
+                booking_id: booking.id,
+                type: "reschedule_delta",
+                original_payment_intent: booking.stripe_payment_intent_id,
+              },
+              idempotencyKey,
+            });
+            stripeAction = { type: "additional_charge", amount: delta, paymentIntentId: pi.id, status: pi.status };
+          } else {
+            // Price decreased: partial refund.
+            const refund = await createRefund(booking.stripe_payment_intent_id, Math.abs(delta), idempotencyKey);
+            stripeAction = { type: "partial_refund", amount: Math.abs(delta), refundId: refund.id, status: refund.status };
+          }
+        } catch (stripeErr) {
+          // Fail-closed & LOUD: the dates are already moved but the payment
+          // adjustment did not complete. We do NOT report success and we do NOT
+          // roll back the dates (a rollback write could itself fail, and the
+          // calendar has already moved). Ops reconciles from this error + the
+          // structured log. Documented as a residual in the PR description.
+          const detail = stripeErr instanceof Error ? stripeErr.message : String(stripeErr);
+          console.error(
+            JSON.stringify({
+              event: "reschedule_payment_adjustment_failed",
+              bookingId: booking.id,
+              direction,
+              delta,
+              ts: new Date().toISOString(),
+              error: detail,
+            })
+          );
+          return {
+            content: [{
+              type: "text",
+              text: JSON.stringify({
+                error:
+                  "Booking dates were updated, but the payment adjustment failed. The stay now shows the new dates and price; the delta payment/refund did not complete and needs manual reconciliation. Nothing was charged or refunded twice.",
+                reservationId: booking.id,
+                newDates: { checkIn: newCheckIn, checkOut: newCheckOut },
+                pricing: { previousPrice: oldPrice, newPrice, delta, currency: booking.currency, direction, paymentAdjustment: "failed" },
+                detail,
+              }, null, 2),
+            }],
+            isError: true,
+          };
+        }
+      }
 
       return {
         content: [{

@@ -14,7 +14,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from "./_types.js";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { resolveQuote } from "../lib/pricing.js";
 import { checkAvailability } from "../lib/availability.js";
 import { validateAuth } from "../src/auth.js";
@@ -40,6 +40,7 @@ import {
 } from "../src/stripe.js";
 import { verifyAp2PaymentMandate, resolveAp2IssuerJwks } from "../lib/ap2.js";
 import { bookingTokenMatches } from "../lib/booking-binding.js";
+import { acquireBookingLock, releaseBookingLock } from "../lib/booking-locks.js";
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -278,9 +279,16 @@ async function readPaymentIntentOutcome(paymentIntentId: string): Promise<{
 
 // ── ACP Endpoints ────────────────────────────────────────────────
 
-async function createCheckout(body: Record<string, unknown>, res: VercelResponse, base: string) {
-  const supabase = getSupabase();
-  const reader = getSupabaseReader();
+export async function createCheckout(
+  body: Record<string, unknown>,
+  res: VercelResponse,
+  base: string,
+  deps: { supabase: SupabaseClient; reader: SupabaseClient } = {
+    supabase: getSupabase(),
+    reader: getSupabaseReader(),
+  },
+) {
+  const { supabase, reader } = deps;
 
   // ACP uses items[].id as property_id, plus buyer and custom fields
   const items = body.items as { id: string; quantity: number }[] | undefined;
@@ -303,6 +311,15 @@ async function createCheckout(body: Record<string, unknown>, res: VercelResponse
     return res.status(400).json({ error: "Dates must be YYYY-MM-DD format" });
   }
 
+  // buyer.email is required — reject rather than silently use an internal fallback
+  // that would receive all confirmation emails for anonymous agent bookings.
+  // Validated up front so a malformed request never acquires a lock.
+  if (!buyer?.email) {
+    return res.status(400).json({
+      error: "Missing buyer.email — a valid guest email is required to create a booking",
+    });
+  }
+
   // Fetch property
   const { data: prop, error: propErr } = await reader
     .from("properties")
@@ -311,58 +328,77 @@ async function createCheckout(body: Record<string, unknown>, res: VercelResponse
     .single();
   if (propErr || !prop) return res.status(404).json({ error: "Property not found" });
 
-  // Check availability
-  // MCP-06: use service-role client so bookings table is visible to availability checks
-  const avail = await checkAvailability(supabase, propertyId, checkIn, checkOut);
-  if (!avail.available) return res.status(409).json({ error: "Not available", ...avail });
+  // Fast pre-check (cheap 409 before we bother acquiring a lock).
+  // MCP-06: service-role client so the bookings table is visible.
+  const preAvail = await checkAvailability(supabase, propertyId, checkIn, checkOut);
+  if (!preAvail.available) return res.status(409).json({ error: "Not available", ...preAvail });
 
-  // Calculate price (federation rate for agents)
-  const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
-  if ("error" in quote) return res.status(400).json(quote);
-
-  const totalPrice = quote.gapTotal ?? quote.federationTotal;
-  const currency = quote.currency;
-
-  // buyer.email is required — reject rather than silently use an internal fallback
-  // that would receive all confirmation emails for anonymous agent bookings.
-  if (!buyer?.email) {
-    return res.status(400).json({
-      error: "Missing buyer.email — a valid guest email is required to create a booking",
-    });
+  // E: close the TOCTOU window between the availability check and the insert
+  // with the SAME booking_locks primitive the MCP booking path uses. Two
+  // concurrent ACP creates for the same dates cannot both pass — the second
+  // lock insert hits booking_locks' gist no-overlap constraint and returns a
+  // conflict (409), so only one booking row is ever created.
+  const lock = await acquireBookingLock(supabase, propertyId, checkIn, checkOut);
+  if ("lockError" in lock) {
+    return lock.lockError === "conflict"
+      ? res.status(409).json({
+          error: "Dates temporarily locked — another booking is in progress. Please try again shortly.",
+        })
+      : res.status(500).json({
+          error: "Booking lock could not be acquired due to an internal error (not a date conflict). Please try again.",
+        });
   }
 
-  const guestName = `${buyer.first_name || ""} ${buyer.last_name || ""}`.trim() || "ACP Guest";
-  const guestEmail = buyer.email;
+  try {
+    // Re-check availability UNDER the lock, excluding our own lock row, to catch
+    // a booking that landed between the pre-check and lock acquisition.
+    const avail = await checkAvailability(supabase, propertyId, checkIn, checkOut, undefined, lock.lockId);
+    if (!avail.available) return res.status(409).json({ error: "Not available", ...avail });
 
-  // Create booking record
-  const { data: booking, error: bookErr } = await supabase
-    .from("bookings")
-    .insert({
-      property_id: propertyId,
-      host_id: prop.host_id,
-      check_in_date: checkIn,
-      check_out_date: checkOut,
-      guests_count: guests,
-      guest_name: guestName,
-      guest_email: guestEmail,
-      guest_phone: buyer?.phone_number ?? null,
-      total_price: totalPrice,
-      currency,
-      status: "pending",
-      property_name_at_booking: prop.name,
-    })
-    .select("id, status, created_at, guest_token")
-    .single();
+    // Calculate price (federation rate for agents)
+    const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
+    if ("error" in quote) return res.status(400).json(quote);
 
-  if (bookErr) return res.status(500).json({ error: bookErr.message });
+    const totalPrice = quote.gapTotal ?? quote.federationTotal;
+    const currency = quote.currency;
 
-  const state = await buildACPState(booking.id, base);
-  // Return the per-booking secret ONCE, at creation. The ACP agent must send it
-  // back as the `X-Guest-Token` header on every subsequent checkout-scoped
-  // request (GET/PUT/:id, complete, cancel); a Bearer token alone confers no
-  // authority over this booking (BOLA binding). It is deliberately NOT part of
-  // buildACPState, so it never leaks on later reads of the checkout.
-  return res.status(201).json({ ...(state ?? {}), guest_token: booking.guest_token });
+    const guestName = `${buyer.first_name || ""} ${buyer.last_name || ""}`.trim() || "ACP Guest";
+    const guestEmail = buyer.email;
+
+    // Create booking record (under the lock)
+    const { data: booking, error: bookErr } = await supabase
+      .from("bookings")
+      .insert({
+        property_id: propertyId,
+        host_id: prop.host_id,
+        check_in_date: checkIn,
+        check_out_date: checkOut,
+        guests_count: guests,
+        guest_name: guestName,
+        guest_email: guestEmail,
+        guest_phone: buyer?.phone_number ?? null,
+        total_price: totalPrice,
+        currency,
+        status: "pending",
+        property_name_at_booking: prop.name,
+      })
+      .select("id, status, created_at, guest_token")
+      .single();
+
+    if (bookErr) return res.status(500).json({ error: bookErr.message });
+
+    const state = await buildACPState(booking.id, base);
+    // Return the per-booking secret ONCE, at creation. The ACP agent must send it
+    // back as the `X-Guest-Token` header on every subsequent checkout-scoped
+    // request (GET/PUT/:id, complete, cancel); a Bearer token alone confers no
+    // authority over this booking (BOLA binding). It is deliberately NOT part of
+    // buildACPState, so it never leaks on later reads of the checkout.
+    return res.status(201).json({ ...(state ?? {}), guest_token: booking.guest_token });
+  } finally {
+    // Release the lock regardless of outcome so a failure never blocks the
+    // calendar for the full TTL.
+    await releaseBookingLock(supabase, lock.lockId);
+  }
 }
 
 async function getCheckout(checkoutId: string, res: VercelResponse, base: string) {
