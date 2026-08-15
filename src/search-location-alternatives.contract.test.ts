@@ -134,3 +134,56 @@ describe("findFreeWindowsInMonth — shorter free gaps surface", () => {
     assert.deepEqual(windows, []);
   });
 });
+
+// F: alternative-date suggestions must use the SAME block rule as
+// checkAvailability — including the stripe_payment_intent_id exemption — so a
+// window we offer can always actually be booked. A pending booking with a live
+// PaymentIntent (in-flight ACP payment) blocks at any age; a stale pending
+// booking WITHOUT a payment does not.
+describe("findFreeWindowsInMonth — booking rows honor the PI exemption (F)", () => {
+  const STALE_ISO = "2020-01-01T00:00:00Z"; // far older than the 24h pending cutoff
+
+  function calendarStubWithBookings(bookings: Array<Record<string, unknown>>) {
+    return {
+      from(table: string) {
+        const rows = table === "bookings" ? bookings : [];
+        const query: Record<string, unknown> = {};
+        const chain = () => query as never;
+        Object.assign(query, {
+          select: chain, eq: chain, lt: chain, gt: chain, gte: chain, or: chain, neq: chain,
+          then: (resolve: (value: unknown) => unknown) =>
+            Promise.resolve({ data: rows, error: null }).then(resolve),
+        });
+        return query;
+      },
+    } as never;
+  }
+
+  const covers = (windows: Array<{ checkIn: string; checkOut: string }>, night: string) =>
+    windows.some((w) => w.checkIn <= night && night < w.checkOut);
+
+  it("does NOT suggest nights held by a stale pending booking that carries a live PaymentIntent", async () => {
+    const supabase = calendarStubWithBookings([
+      { check_in_date: "2026-06-20", check_out_date: "2026-06-22", status: "pending", created_at: STALE_ISO, stripe_payment_intent_id: "pi_live" },
+    ]);
+    const windows = await findFreeWindowsInMonth(supabase, PROP, "2026-06-10", "2026-06-13");
+    assert.equal(covers(windows, "2026-06-20"), false, "an in-flight ACP payment must block the suggestion");
+    assert.equal(covers(windows, "2026-06-21"), false);
+  });
+
+  it("DOES suggest nights held only by a stale pending booking with NO payment (released, matches checkAvailability)", async () => {
+    const supabase = calendarStubWithBookings([
+      { check_in_date: "2026-06-20", check_out_date: "2026-06-22", status: "pending", created_at: STALE_ISO, stripe_payment_intent_id: null },
+    ]);
+    const windows = await findFreeWindowsInMonth(supabase, PROP, "2026-06-10", "2026-06-13");
+    assert.equal(covers(windows, "2026-06-20"), true, "a stale abandoned pending booking no longer blocks");
+  });
+
+  it("does NOT suggest nights held by a confirmed booking", async () => {
+    const supabase = calendarStubWithBookings([
+      { check_in_date: "2026-06-20", check_out_date: "2026-06-22", status: "confirmed", created_at: STALE_ISO, stripe_payment_intent_id: null },
+    ]);
+    const windows = await findFreeWindowsInMonth(supabase, PROP, "2026-06-10", "2026-06-13");
+    assert.equal(covers(windows, "2026-06-20"), false);
+  });
+});
