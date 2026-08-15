@@ -27,6 +27,13 @@
  * fallback so the limiter works without manual env-var aliasing.
  */
 
+import { upstashBackend, warnIfUpstashMissingInProduction } from "./upstash-config.js";
+
+// Boot-check (policy A): keep fail-open, but if this is a production deployment
+// with no Upstash backend, log loudly once so the regression is visible in
+// logs/metrics instead of being discovered under abuse. Never blocks traffic.
+warnIfUpstashMissingInProduction(process.env, "rate-limit");
+
 export type RateKind = "anon" | "bearer" | "strict";
 
 export interface RateLimitResult {
@@ -89,14 +96,14 @@ export async function checkRateLimit(
   deps: RateLimitDeps = {}
 ): Promise<RateLimitResult> {
   const env = deps.env ?? process.env;
-  // Accept both the classic Upstash REST env names and Vercel's "Upstash for
-  // Redis" KV-integration names (which inject `_KV_REST_API_` in the middle
-  // when a custom prefix is set). Either pair fully configures the limiter.
-  const url = env.UPSTASH_REDIS_REST_URL ?? env.UPSTASH_REDIS_KV_REST_API_URL;
-  const token = env.UPSTASH_REDIS_REST_TOKEN ?? env.UPSTASH_REDIS_KV_REST_API_TOKEN;
+  // Resolve the Upstash backend (classic REST names or Vercel's KV-integration
+  // names) via the shared single source, lib/upstash-config.ts.
+  const backend = upstashBackend(env);
 
-  // Fail-open when the limiter isn't configured. See module header.
-  if (!url || !token) return { ok: true };
+  // Fail-open when the limiter isn't configured. See module header; a missing
+  // backend in production is also logged loudly at module load (policy A).
+  if (!backend) return { ok: true };
+  const { url, token } = backend;
 
   const limit = readLimit(env, kind);
   const now = (deps.now ?? Date.now)();
