@@ -127,6 +127,11 @@ async function authenticateClient(
 
 /**
  * Issue an opaque access token, persist it, and return the bearer payload.
+ *
+ * OA-3: `scope` is stored for RFC completeness and echoed back to the client,
+ * but it is NOT an authorization boundary — validateAuth (src/auth.ts) does not
+ * restrict capability by scope, and neither does the MCP/ACP tool dispatch.
+ * Per-booking authorization is the guest_token binding (lib/booking-binding.ts).
  */
 async function issueAccessToken(clientUuid: string, scope: string | null): Promise<{ token: string; expiresIn: number } | null> {
   const token = randomBytes(32).toString("hex");
