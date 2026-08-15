@@ -269,7 +269,8 @@ export async function retrievePaymentIntent(paymentIntentId: string): Promise<{
 
 export async function createRefund(
   paymentIntentId: string,
-  amount: number
+  amount: number,
+  idempotencyKey?: string
 ): Promise<{ id: string; amount: number; status: string }> {
   const stripeKey = getStripeKey();
   const body = new URLSearchParams();
@@ -286,12 +287,18 @@ export async function createRefund(
   // refund_application_fee has nothing to return and stays unset.
   body.append("reverse_transfer", "true");
 
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${stripeKey}`,
+    "Content-Type": "application/x-www-form-urlencoded",
+  };
+  // Stripe replays the original refund for 24h when the same Idempotency-Key
+  // is sent — so a retried or concurrent-duplicate reschedule refund collapses
+  // to one movement instead of refunding twice.
+  if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
+
   const resp = await fetch("https://api.stripe.com/v1/refunds", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${stripeKey}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
+    headers,
     body: body.toString(),
   });
 
@@ -309,6 +316,7 @@ export async function createPaymentIntent(params: {
   metadata: Record<string, string>;
   hostStripeAccountId?: string | null;
   hostOnboardingComplete?: boolean | null;
+  idempotencyKey?: string;
 }): Promise<{ id: string; client_secret: string; status: string }> {
   const stripeKey = getStripeKey();
   // Direct-to-host (host = merchant of record, 0% platform fee). FAIL CLOSED in
@@ -330,12 +338,18 @@ export async function createPaymentIntent(params: {
     body.append("on_behalf_of", params.hostStripeAccountId);
   }
 
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${stripeKey}`,
+    "Content-Type": "application/x-www-form-urlencoded",
+  };
+  // Stripe replays the original PaymentIntent for 24h on the same
+  // Idempotency-Key, so a retried or concurrent-duplicate reschedule charge
+  // collapses to one movement instead of charging twice.
+  if (params.idempotencyKey) headers["Idempotency-Key"] = params.idempotencyKey;
+
   const resp = await fetch("https://api.stripe.com/v1/payment_intents", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${stripeKey}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
+    headers,
     body: body.toString(),
   });
 
