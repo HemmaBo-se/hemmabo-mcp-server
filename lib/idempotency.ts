@@ -32,6 +32,11 @@
  */
 
 import { createHash } from "node:crypto";
+import { upstashBackend, warnIfUpstashMissingInProduction } from "./upstash-config.js";
+
+// Boot-check (policy A): keep fail-open, but if this is a production deployment
+// with no Upstash backend, log loudly once so a config regression is visible.
+warnIfUpstashMissingInProduction(process.env, "acp-idempotency");
 
 const TTL_SECONDS = 60 * 60 * 24; // 24h
 const MAX_BODY_BYTES = 64 * 1024; // 64KB cap on cached response body
@@ -48,10 +53,8 @@ export interface IdempotencyDeps {
 }
 
 function resolveBackend(env: NodeJS.ProcessEnv): { url: string; token: string } | null {
-  const url = env.UPSTASH_REDIS_REST_URL ?? env.UPSTASH_REDIS_KV_REST_API_URL;
-  const token = env.UPSTASH_REDIS_REST_TOKEN ?? env.UPSTASH_REDIS_KV_REST_API_TOKEN;
-  if (!url || !token) return null;
-  return { url, token };
+  // Shared single source with the rate limiter — see lib/upstash-config.ts.
+  return upstashBackend(env);
 }
 
 /**
