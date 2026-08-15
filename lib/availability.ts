@@ -249,13 +249,19 @@ export async function findFreeWindowsInMonth(
     .gte("end_date", monthStart);
   if (blockedErr) return [];
 
-  // 2. Confirmed / fresh-pending bookings (same stale-pending filter as checkAvailability).
+  // 2. Confirmed / pending bookings. Widen to every confirmed-or-pending row and
+  //    apply the stale-pending rule IN CODE via blocksAvailability — identical to
+  //    checkAvailability. This (a) drops the interpolated `and(...created_at...)`
+  //    or-string that the test suite cannot verify and that could silently
+  //    misparse, and (b) honors the stripe_payment_intent_id exemption: a pending
+  //    booking with a live PaymentIntent blocks at any age, so a window held by an
+  //    in-flight ACP payment is never suggested as a free alternative.
   const pendingCutoff = new Date(Date.now() - PENDING_BOOKING_TTL_MS).toISOString();
   const { data: bookings, error: bookingsErr } = await supabase
     .from("bookings")
-    .select("check_in_date, check_out_date, status")
+    .select("check_in_date, check_out_date, status, created_at, stripe_payment_intent_id")
     .eq("property_id", propertyId)
-    .or(`status.eq.confirmed,and(status.eq.pending,created_at.gte.${pendingCutoff})`)
+    .or(`status.eq.confirmed,status.eq.pending`)
     .lt("check_in_date", scanEnd)
     .gt("check_out_date", monthStart);
   if (bookingsErr) return [];
@@ -284,7 +290,12 @@ export async function findFreeWindowsInMonth(
     markBlocked(row.start_date, blockedEndExclusive(row.start_date, row.end_date));
   }
   for (const row of bookings ?? []) {
-    markBlocked(row.check_in_date, row.check_out_date);
+    // Only rows that actually still hold their dates (confirmed, fresh-pending,
+    // or pending-with-a-live-payment) block a suggestable window — same rule as
+    // checkAvailability, so an alternative we offer can always be booked.
+    if (blocksAvailability(row as PendingBookingRow, pendingCutoff)) {
+      markBlocked(row.check_in_date, row.check_out_date);
+    }
   }
   for (const row of locks ?? []) {
     markBlocked(row.check_in, row.check_out);
