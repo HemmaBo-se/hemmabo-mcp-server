@@ -32,7 +32,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from "./_types.js";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createHmac, timingSafeEqual } from "crypto";
 
 const FIVE_MINUTES_S = 5 * 60;
@@ -143,8 +143,11 @@ interface StripeEvent {
   data: { object: Record<string, unknown> };
 }
 
-async function handleEvent(event: StripeEvent): Promise<{ status: "ok" | "ignored"; detail?: string }> {
-  const supabase = getSupabase();
+export async function handleEvent(
+  event: StripeEvent,
+  deps: { supabase?: SupabaseClient } = {},
+): Promise<{ status: "ok" | "ignored"; detail?: string }> {
+  const supabase = deps.supabase ?? getSupabase();
   const obj = event.data.object;
 
   // PaymentIntent metadata.booking_id is the canonical link from Stripe to
@@ -159,10 +162,55 @@ async function handleEvent(event: StripeEvent): Promise<{ status: "ok" | "ignore
       if (!bookingId) return { status: "ignored", detail: "no booking_id in metadata" };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const paymentIntentId = (obj as any).id as string;
+
+      // Transition guard (ADR 0006): this event is authoritative, but Stripe can
+      // deliver it LATE or REDELIVER it. Without a guard a succeeded event could
+      // flip an already-CANCELLED booking back to confirmed — resurrecting a stay
+      // the guest/host already ended (the exact race api/acp.ts cancel warns
+      // about). Read the current status first; only a booking still awaiting
+      // payment may be confirmed by this event.
+      const { data: existing, error: readErr } = await supabase
+        .from("bookings")
+        .select("status")
+        .eq("id", bookingId)
+        .maybeSingle();
+      if (readErr) throw new Error(`Supabase read failed: ${readErr.message}`);
+      if (!existing) return { status: "ignored", detail: `no booking row for ${bookingId}` };
+      const currentStatus = (existing as { status?: string }).status ?? "unknown";
+
+      // Already confirmed → idempotent redelivery, nothing to do.
+      if (currentStatus === "confirmed") {
+        return { status: "ok", detail: "already confirmed (idempotent redelivery)" };
+      }
+
+      // Only "pending" is confirmable. A cancelled (or any other non-pending /
+      // terminal) booking is NOT resurrected. Fail-closed & LOUD: record the
+      // anomaly with the PaymentIntent id so ops can reconcile — a charge that
+      // actually settled against a cancelled stay may need a manual refund — but
+      // do NOT write status=confirmed and do NOT touch the terminal row.
+      if (currentStatus !== "pending") {
+        console.warn(
+          JSON.stringify({
+            event: "webhook_succeeded_on_non_confirmable_booking",
+            stripeEventId: event.id,
+            bookingId,
+            currentStatus,
+            paymentIntentId,
+            ts: new Date().toISOString(),
+          })
+        );
+        return { status: "ignored", detail: `booking status '${currentStatus}' is not confirmable from a succeeded event` };
+      }
+
+      // pending → confirmed, persisting the PaymentIntent id as the refund/cancel
+      // link (relevant + safe here). The `.eq("status","pending")` compare-and-set
+      // closes the tiny window where a cancel lands between the read above and
+      // this write: it can only ever move a still-pending row.
       const { error } = await supabase
         .from("bookings")
         .update({ status: "confirmed", stripe_payment_intent_id: paymentIntentId })
-        .eq("id", bookingId);
+        .eq("id", bookingId)
+        .eq("status", "pending");
       if (error) throw new Error(`Supabase update failed: ${error.message}`);
       return { status: "ok" };
     }
