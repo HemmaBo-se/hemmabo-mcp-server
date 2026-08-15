@@ -1443,130 +1443,150 @@ export async function executeTool(
         };
       }
 
-      // Check availability (excluding this booking)
-      // MCP-06: use service-role client so bookings table is visible to availability/gap checks
-      const avail = await checkAvailability(supabase, booking.property_id, newCheckIn, newCheckOut, booking.id);
-      if (!avail.available) return { content: [{ type: "text", text: JSON.stringify({ error: "New dates not available", ...avail }) }], isError: true };
-
-      // Calculate new price
-      const quote = await resolveQuote(supabase, booking.property_id, newCheckIn, newCheckOut, booking.guests_count);
-      if ("error" in quote) return { content: [{ type: "text", text: JSON.stringify(quote) }], isError: true };
-
-      const newPrice = quote.gapTotal ?? quote.federationTotal;
-      const oldPrice = booking.total_price;
-      const delta = newPrice - oldPrice;
-
-      // C (money ordering): write the new dates + price to the booking BEFORE any
-      // Stripe call. Two reasons:
-      //  1. If the DB write fails, NO money moves at all (we return here).
-      //  2. The booking row is the idempotency anchor — after this write it holds
-      //     newPrice, so a retried reschedule recomputes delta = 0 (and the
-      //     same-dates no-op fires above) and never charges/refunds twice.
-      // This replaces the old Stripe-first order, where a DB failure after a
-      // successful refund let a retry refund a SECOND time.
-      const { error: updateErr } = await supabase
-        .from("bookings")
-        .update({
-          check_in_date: newCheckIn,
-          check_out_date: newCheckOut,
-          total_price: newPrice,
-        })
-        .eq("id", booking.id);
-      if (updateErr) {
-        // DB write failed → nothing was charged or refunded. Safe to retry.
-        return { content: [{ type: "text", text: JSON.stringify({ error: updateErr.message }) }], isError: true };
+      // Close the TOCTOU window between the availability re-check and the DB
+      // update with the shared booking_locks primitive (same as MCP
+      // create/checkout and ACP create). Acquire AFTER the guest_token binding
+      // and the same-dates no-op (cheapest rejects first), BEFORE any
+      // availability re-check / DB write / Stripe — so a concurrent
+      // create/checkout or reschedule on the same new dates cannot slip in
+      // between the check and the write.
+      const lock = await acquireBookingLock(supabase, booking.property_id, newCheckIn, newCheckOut);
+      if ("lockError" in lock) {
+        // Conflict or db_error — nothing has been written or charged yet.
+        return lockErrorResult(lock.lockError);
       }
 
-      // Now move the price delta. A deterministic Stripe Idempotency-Key (per
-      // booking + direction + delta + target dates) collapses concurrent
-      // duplicates to a single movement on Stripe's side — belt-and-suspenders
-      // with the DB anchor above.
-      let stripeAction: Record<string, unknown> | null = null;
-      if (delta !== 0 && booking.stripe_payment_intent_id) {
-        const direction = delta > 0 ? "charge" : "refund";
-        const idempotencyKey =
-          `reschedule_${booking.id}_${direction}_${Math.abs(delta)}_${newCheckIn}_${newCheckOut}`;
-        try {
-          if (delta > 0) {
-            // Price increased: additional charge, manual capture, routed to the
-            // host's connected Stripe (host = merchant of record).
-            const { data: reschedProp } = await reader
-              .from("properties")
-              .select("stripe_account_id, stripe_onboarding_complete")
-              .eq("id", booking.property_id)
-              .single();
-            const pi = await createPaymentIntent({
-              amount: delta,
-              currency: booking.currency,
-              captureMethod: "manual",
-              hostStripeAccountId: reschedProp?.stripe_account_id ?? null,
-              hostOnboardingComplete: reschedProp?.stripe_onboarding_complete ?? null,
-              metadata: {
-                booking_id: booking.id,
-                type: "reschedule_delta",
-                original_payment_intent: booking.stripe_payment_intent_id,
-              },
-              idempotencyKey,
-            });
-            stripeAction = { type: "additional_charge", amount: delta, paymentIntentId: pi.id, status: pi.status };
-          } else {
-            // Price decreased: partial refund.
-            const refund = await createRefund(booking.stripe_payment_intent_id, Math.abs(delta), idempotencyKey);
-            stripeAction = { type: "partial_refund", amount: Math.abs(delta), refundId: refund.id, status: refund.status };
-          }
-        } catch (stripeErr) {
-          // Fail-closed & LOUD: the dates are already moved but the payment
-          // adjustment did not complete. We do NOT report success and we do NOT
-          // roll back the dates (a rollback write could itself fail, and the
-          // calendar has already moved). Ops reconciles from this error + the
-          // structured log. Documented as a residual in the PR description.
-          const detail = stripeErr instanceof Error ? stripeErr.message : String(stripeErr);
-          console.error(
-            JSON.stringify({
-              event: "reschedule_payment_adjustment_failed",
-              bookingId: booking.id,
-              direction,
-              delta,
-              ts: new Date().toISOString(),
-              error: detail,
-            })
-          );
-          return {
-            content: [{
-              type: "text",
-              text: JSON.stringify({
-                error:
-                  "Booking dates were updated, but the payment adjustment failed. The stay now shows the new dates and price; the delta payment/refund did not complete and needs manual reconciliation. Nothing was charged or refunded twice.",
-                reservationId: booking.id,
-                newDates: { checkIn: newCheckIn, checkOut: newCheckOut },
-                pricing: { previousPrice: oldPrice, newPrice, delta, currency: booking.currency, direction, paymentAdjustment: "failed" },
-                detail,
-              }, null, 2),
-            }],
-            isError: true,
-          };
+      try {
+        // Re-check availability UNDER the lock. Exclude this booking (its own
+        // dates are moving) AND our own lock row (excludeLockId), or the
+        // re-check would see itself and always fail.
+        const avail = await checkAvailability(supabase, booking.property_id, newCheckIn, newCheckOut, booking.id, lock.lockId);
+        if (!avail.available) return { content: [{ type: "text", text: JSON.stringify({ error: "New dates not available", ...avail }) }], isError: true };
+
+        // Calculate new price
+        const quote = await resolveQuote(supabase, booking.property_id, newCheckIn, newCheckOut, booking.guests_count);
+        if ("error" in quote) return { content: [{ type: "text", text: JSON.stringify(quote) }], isError: true };
+
+        const newPrice = quote.gapTotal ?? quote.federationTotal;
+        const oldPrice = booking.total_price;
+        const delta = newPrice - oldPrice;
+
+        // C (money ordering): write the new dates + price to the booking BEFORE
+        // any Stripe call. Two reasons:
+        //  1. If the DB write fails, NO money moves at all (we return here).
+        //  2. The booking row is the idempotency anchor — after this write it
+        //     holds newPrice, so a retried reschedule recomputes delta = 0 (and
+        //     the same-dates no-op fires above) and never charges/refunds twice.
+        // This replaces the old Stripe-first order, where a DB failure after a
+        // successful refund let a retry refund a SECOND time.
+        const { error: updateErr } = await supabase
+          .from("bookings")
+          .update({
+            check_in_date: newCheckIn,
+            check_out_date: newCheckOut,
+            total_price: newPrice,
+          })
+          .eq("id", booking.id);
+        if (updateErr) {
+          // DB write failed → nothing was charged or refunded. Safe to retry.
+          return { content: [{ type: "text", text: JSON.stringify({ error: updateErr.message }) }], isError: true };
         }
-      }
 
-      return {
-        content: [{
-          type: "text",
-          text: JSON.stringify({
-            reservationId: booking.id,
-            status: booking.status,
-            previousDates: { checkIn: booking.check_in_date, checkOut: booking.check_out_date },
-            newDates: { checkIn: newCheckIn, checkOut: newCheckOut },
-            pricing: {
-              previousPrice: oldPrice,
-              newPrice,
-              delta,
-              currency: booking.currency,
-              stripeAction,
-            },
-            reason: reason ?? null,
-          }, null, 2),
-        }],
-      };
+        // Now move the price delta. A deterministic Stripe Idempotency-Key (per
+        // booking + direction + delta + target dates) collapses concurrent
+        // duplicates to a single movement on Stripe's side — belt-and-suspenders
+        // with the DB anchor above.
+        let stripeAction: Record<string, unknown> | null = null;
+        if (delta !== 0 && booking.stripe_payment_intent_id) {
+          const direction = delta > 0 ? "charge" : "refund";
+          const idempotencyKey =
+            `reschedule_${booking.id}_${direction}_${Math.abs(delta)}_${newCheckIn}_${newCheckOut}`;
+          try {
+            if (delta > 0) {
+              // Price increased: additional charge, manual capture, routed to the
+              // host's connected Stripe (host = merchant of record).
+              const { data: reschedProp } = await reader
+                .from("properties")
+                .select("stripe_account_id, stripe_onboarding_complete")
+                .eq("id", booking.property_id)
+                .single();
+              const pi = await createPaymentIntent({
+                amount: delta,
+                currency: booking.currency,
+                captureMethod: "manual",
+                hostStripeAccountId: reschedProp?.stripe_account_id ?? null,
+                hostOnboardingComplete: reschedProp?.stripe_onboarding_complete ?? null,
+                metadata: {
+                  booking_id: booking.id,
+                  type: "reschedule_delta",
+                  original_payment_intent: booking.stripe_payment_intent_id,
+                },
+                idempotencyKey,
+              });
+              stripeAction = { type: "additional_charge", amount: delta, paymentIntentId: pi.id, status: pi.status };
+            } else {
+              // Price decreased: partial refund.
+              const refund = await createRefund(booking.stripe_payment_intent_id, Math.abs(delta), idempotencyKey);
+              stripeAction = { type: "partial_refund", amount: Math.abs(delta), refundId: refund.id, status: refund.status };
+            }
+          } catch (stripeErr) {
+            // Fail-closed & LOUD: the dates are already moved but the payment
+            // adjustment did not complete. We do NOT report success and we do NOT
+            // roll back the dates (a rollback write could itself fail, and the
+            // calendar has already moved). Ops reconciles from this error + the
+            // structured log. Documented as a residual in the PR description.
+            const detail = stripeErr instanceof Error ? stripeErr.message : String(stripeErr);
+            console.error(
+              JSON.stringify({
+                event: "reschedule_payment_adjustment_failed",
+                bookingId: booking.id,
+                direction,
+                delta,
+                ts: new Date().toISOString(),
+                error: detail,
+              })
+            );
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify({
+                  error:
+                    "Booking dates were updated, but the payment adjustment failed. The stay now shows the new dates and price; the delta payment/refund did not complete and needs manual reconciliation. Nothing was charged or refunded twice.",
+                  reservationId: booking.id,
+                  newDates: { checkIn: newCheckIn, checkOut: newCheckOut },
+                  pricing: { previousPrice: oldPrice, newPrice, delta, currency: booking.currency, direction, paymentAdjustment: "failed" },
+                  detail,
+                }, null, 2),
+              }],
+              isError: true,
+            };
+          }
+        }
+
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              reservationId: booking.id,
+              status: booking.status,
+              previousDates: { checkIn: booking.check_in_date, checkOut: booking.check_out_date },
+              newDates: { checkIn: newCheckIn, checkOut: newCheckOut },
+              pricing: {
+                previousPrice: oldPrice,
+                newPrice,
+                delta,
+                currency: booking.currency,
+                stripeAction,
+              },
+              reason: reason ?? null,
+            }, null, 2),
+          }],
+        };
+      } finally {
+        // Release the lock regardless of outcome so a failure never blocks the
+        // calendar for the full TTL.
+        await releaseBookingLock(supabase, lock.lockId);
+      }
     }
 
     default:

@@ -40,6 +40,10 @@ function makeClients(opts: {
         : { data: null, error: { message: "not found" } };
     }
     if (table === "property_blocked_dates") return { data: opts.blockedRows ?? [], error: null };
+    // reschedule now acquires a booking_lock first; let the insert read back an id
+    // so the flow proceeds to the availability re-check (an object return is
+    // harmless for the availability lock scan — `locks?.length` is falsy on it).
+    if (table === "booking_locks") return { data: { id: "lock-1" }, error: null };
     return { data: null, error: null };
   };
   const build = (table: string) => {

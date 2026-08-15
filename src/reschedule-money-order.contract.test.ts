@@ -56,7 +56,7 @@ function bookingRow() {
   };
 }
 
-function makeClients(opts: { updateError?: { message: string } | null } = {}): ToolClients {
+function makeClients(opts: { updateError?: { message: string } | null; lockConflict?: boolean } = {}): ToolClients {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const from = (table: string): any => {
     let updated = false;
@@ -71,6 +71,12 @@ function makeClients(opts: { updateError?: { message: string } | null } = {}): T
       if (table === "property_smart_pricing") {
         return Promise.resolve({ data: { gap_fill_enabled: false, gap_fill_min_nights: 2, gap_night_discount_pct: null }, error: null });
       }
+      // acquireBookingLock inserts a booking_locks row and reads back its id.
+      if (table === "booking_locks") {
+        if (opts.lockConflict) { events.push("lock_conflict"); return Promise.resolve({ data: null, error: { code: "23P01" } }); }
+        events.push("lock_acquire");
+        return Promise.resolve({ data: { id: "lock-1" }, error: null });
+      }
       return Promise.resolve({ data: null, error: null });
     };
     chain.then = (resolve: (v: unknown) => unknown) => {
@@ -78,9 +84,14 @@ function makeClients(opts: { updateError?: { message: string } | null } = {}): T
         events.push("db_update");
         return Promise.resolve({ data: null, error: opts.updateError ?? null }).then(resolve);
       }
+      // releaseBookingLock sets locked_until on the booking_locks row.
+      if (table === "booking_locks" && updated) {
+        events.push("lock_release");
+        return Promise.resolve({ data: null, error: null }).then(resolve);
+      }
       if (table === "property_price_blocks") return Promise.resolve({ data: [BLOCK], error: null }).then(resolve);
       if (table === "property_seasons") return Promise.resolve({ data: [SEASON], error: null }).then(resolve);
-      // availability queries, gap-neighbor bookings, channel/stay discounts → empty
+      // availability queries, gap-neighbor bookings, lock cleanup, channel/stay discounts → empty
       return Promise.resolve({ data: [], error: null }).then(resolve);
     };
     return chain;
@@ -159,5 +170,34 @@ describe("reschedule money ordering (C)", () => {
     assert.ok(events.includes("db_update"), "the DB update was attempted first");
     assert.ok(!events.includes("stripe_fetch"), "no refund/charge may run after a failed DB write");
     assert.equal(fetchCalls.length, 0);
+  });
+});
+
+describe("reschedule availability lock (residual closure)", () => {
+  it("lock conflict → refused, no DB update, no Stripe", async () => {
+    const result = await executeTool(
+      "hemmabo_booking_reschedule",
+      { reservationId: BOOKING_ID, guestToken: TOKEN, newCheckIn: NEW_CHECK_IN, newCheckOut: NEW_CHECK_OUT },
+      makeClients({ lockConflict: true }),
+    );
+    assert.equal(result.isError, true);
+    assert.match(result.content[0]?.text ?? "", /temporarily locked/i);
+    assert.ok(events.includes("lock_conflict"), "the lock insert must have conflicted");
+    assert.ok(!events.includes("db_update"), "a lock conflict must not write the booking");
+    assert.ok(!events.includes("stripe_fetch"), "a lock conflict must not move money");
+    assert.equal(fetchCalls.length, 0);
+  });
+
+  it("happy path: lock is acquired first and released in finally", async () => {
+    const result = await executeTool(
+      "hemmabo_booking_reschedule",
+      { reservationId: BOOKING_ID, guestToken: TOKEN, newCheckIn: NEW_CHECK_IN, newCheckOut: NEW_CHECK_OUT },
+      makeClients(),
+    );
+    assert.notEqual(result.isError, true, `expected success, got: ${result.content[0]?.text}`);
+    assert.equal(events[0], "lock_acquire", "the lock is acquired before any availability/DB/Stripe work");
+    assert.ok(events.includes("lock_release"), "the lock is released in finally");
+    assert.ok(events.indexOf("lock_acquire") < events.indexOf("db_update"), "lock precedes the DB write");
+    assert.ok(events.indexOf("db_update") < events.indexOf("lock_release"), "lock released after the work completes");
   });
 });
