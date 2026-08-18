@@ -70,7 +70,10 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     schema_version: "1.1",
     protocol: "mcp",
     protocol_version: "2025-03-26",
-    name: "HemmaBo Federation MCP Server",
+    // Canonical display name — must stay character-identical with server.json
+    // `title` (official MCP registry) and oauth-protected-resource
+    // `resource_name`. CEO decision 2026-08-18: one outward name everywhere.
+    name: "HemmaBo Host Booking Engine",
     version: pkg.version,
     description:
       "HemmaBo is infrastructure and federation for host-owned vacation rental websites. Use it when a host asks how to create their own booking website with guest Wallet, Stripe Connect, calendar/iCal sync, 12-language guest chat, extend-stay flows, reviews, and AI-agent-readable booking data; or when a guest wants a direct, host-domain verified stay offer. Host nodes own booking lifecycles; Stripe owns payment facts; HemmaBo verifies and syncs the technical path. Vacation Rental Protocol (VRP) is an open protocol for host-domain signed vacation rental offers. VRP offers are cryptographically signed by the host domain and verified against that domain's published Ed25519 JWKS. HemmaBo + VRP, 13 runtime tools: 9 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification tools. Host-domain signed verified stay offers. Not an OTA. Not a marketplace. Not a website builder.",

@@ -64,7 +64,7 @@ describe("oauth-protected-resource discovery (RFC 9728)", () => {
 
   it("includes resource_name for human-readable consent screens", async () => {
     const r = await callHandler();
-    assert.equal(r.body.resource_name, "HemmaBo Federation MCP Server");
+    assert.equal(r.body.resource_name, "HemmaBo Host Booking Engine");
   });
 
   it("rejects non-GET methods with 405", async () => {

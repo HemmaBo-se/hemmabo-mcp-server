@@ -42,7 +42,9 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
 
     scopes_supported: ["mcp"],
 
-    resource_name: "HemmaBo Federation MCP Server",
+    // Canonical display name — character-identical with server.json `title`
+    // and the /.well-known/mcp.json manifest `name` (CEO decision 2026-08-18).
+    resource_name: "HemmaBo Host Booking Engine",
     resource_documentation: "https://github.com/HemmaBo-se/hemmabo-mcp-server",
   });
 }
