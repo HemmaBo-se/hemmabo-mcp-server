@@ -1,5 +1,5 @@
 /**
- * Federation MCP Server — Vercel Serverless (Streamable HTTP, stateless)
+ * HemmaBo Host Booking Engine — Vercel Serverless (Streamable HTTP, stateless)
  *
  * All pricing/availability logic lives in lib/ — single source of truth.
  * This file only handles JSON-RPC transport + tool dispatch.
