@@ -26,6 +26,11 @@ import {
   effectiveBlockedRangeForAvailability,
   overlapsHalfOpen,
 } from "./availability-core.js";
+import {
+  getEffectiveMinNights,
+  MinNightsModifiers,
+  BookingWindow,
+} from "./effective-min-nights.js";
 
 // MCP-04b: Pending bookings older than this are ignored by the availability
 // check. Stripe Checkout Sessions expire after 24 h by default, after which
@@ -309,6 +314,92 @@ function nightsBetweenKeys(startKey: string, endKey: string): number {
   const ms =
     new Date(`${endKey}T12:00:00Z`).getTime() - new Date(`${startKey}T12:00:00Z`).getTime();
   return Math.round(ms / 86_400_000);
+}
+
+/**
+ * Effective minimum nights for a stay arriving on `checkIn` — the mcp-server
+ * consumer of the shared effective-min truth (PR-A3 of ADR
+ * 2026-08-19-effective-min-nights-live-everywhere, CEO decision A). Byte-
+ * identical rule to the Node truth (api/_lib/availability-truth.ts) and the Deno
+ * mirror: the base `properties.min_nights` folded with the host's
+ * `property_smart_pricing` gap-fill / last-minute modifiers via the vendored
+ * effective-min-nights core, so search and quote refuse on exactly the floor the
+ * node's /api/availability, the guest-UI and the Deno agent path enforce.
+ *
+ * FAIL-SAFE: absent smart-pricing row, `!setup_completed`, or any query error ⇒
+ * the raw base (the stricter, published floor — fail-closed). The reference node
+ * has `setup_completed = false`, so this is a behavioural no-op until a host
+ * completes the Pricera setup. `todayUtc` (YYYY-MM-DD) is injected by the caller.
+ */
+export async function resolveEffectiveMinNights(
+  supabase: SupabaseClient,
+  propertyId: string,
+  baseMinNights: number,
+  checkIn: string,
+  todayUtc: string,
+): Promise<number> {
+  // Fail-safe to the base on ANY failure — a query error, a null row, or a
+  // thrown client. The base is the stricter, published floor, so an incomplete
+  // read refuses a short stay rather than inventing one (fail-closed). A
+  // resolver hiccup must never crash a search / quote / booking.
+  try {
+    const { data: sp, error: spError } = await supabase
+      .from("property_smart_pricing")
+      .select(
+        "setup_completed, gap_fill_enabled, gap_fill_min_nights, last_minute_enabled, last_minute_days_before, last_minute_min_nights",
+      )
+      .eq("property_id", propertyId)
+      .maybeSingle();
+    if (spError || !sp || !sp.setup_completed) return baseMinNights;
+
+    const modifiers: MinNightsModifiers = {
+      setup_completed: sp.setup_completed,
+      gap_fill_enabled: !!sp.gap_fill_enabled,
+      gap_fill_min_nights: Number(sp.gap_fill_min_nights) || baseMinNights,
+      last_minute_enabled: !!sp.last_minute_enabled,
+      last_minute_days_before: Number(sp.last_minute_days_before) || 0,
+      last_minute_min_nights: Number(sp.last_minute_min_nights) || baseMinNights,
+    };
+
+    // Broadened fetch: the two stays bracketing the arrival (nearest checkout
+    // on/before checkIn, nearest checkin after it) so gap detection sees the
+    // same gap the node and guest-UI see. Confirmed + pending, same
+    // expired-pending guard the node truth uses.
+    const nowIso = new Date().toISOString();
+    const [prevResult, nextResult] = await Promise.all([
+      supabase
+        .from("bookings")
+        .select("check_in_date, check_out_date")
+        .eq("property_id", propertyId)
+        .in("status", ["confirmed", "pending"])
+        .or("expires_at.is.null,expires_at.gt." + nowIso)
+        .lte("check_out_date", checkIn)
+        .order("check_out_date", { ascending: false })
+        .limit(1),
+      supabase
+        .from("bookings")
+        .select("check_in_date, check_out_date")
+        .eq("property_id", propertyId)
+        .in("status", ["confirmed", "pending"])
+        .or("expires_at.is.null,expires_at.gt." + nowIso)
+        .gt("check_in_date", checkIn)
+        .order("check_in_date", { ascending: true })
+        .limit(1),
+    ]);
+    if (prevResult.error || nextResult.error) return baseMinNights;
+
+    const surroundingBookings: BookingWindow[] = [
+      ...(prevResult.data ?? []),
+      ...(nextResult.data ?? []),
+    ].map((row: { check_in_date: string; check_out_date: string }) => ({
+      checkIn: row.check_in_date,
+      checkOut: row.check_out_date,
+    }));
+
+    return getEffectiveMinNights(baseMinNights, modifiers, checkIn, surroundingBookings, todayUtc);
+  } catch {
+    return baseMinNights;
+  }
 }
 
 /**

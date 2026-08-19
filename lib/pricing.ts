@@ -38,6 +38,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { pickChannelDiscountPct, type ChannelDiscountRow } from "./channel-discount.js";
 import { DEFAULT_MIN_NIGHTS } from "./availability-core.js";
+import { resolveEffectiveMinNights } from "./availability.js";
 import {
   computeRackQuote,
   decideGapNight,
@@ -181,7 +182,17 @@ export async function resolveQuote(
   if (guests > property.max_guests) return { error: `Max guests is ${property.max_guests}, requested ${guests}` };
 
   const nights = daysBetween(checkIn, checkOut);
-  if (nights < (property.min_nights ?? DEFAULT_MIN_NIGHTS)) return { error: `Minimum ${property.min_nights ?? DEFAULT_MIN_NIGHTS} nights required` };
+  // Effective minimum (base folded with the host's smart-pricing modifiers,
+  // PR-A3) so the quote refuses on exactly the floor search and the node enforce.
+  // Fail-safe to the base.
+  const effectiveMinNights = await resolveEffectiveMinNights(
+    supabase,
+    propertyId,
+    property.min_nights ?? DEFAULT_MIN_NIGHTS,
+    checkIn,
+    new Date().toISOString().slice(0, 10),
+  );
+  if (nights < effectiveMinNights) return { error: `Minimum ${effectiveMinNights} nights required` };
   if (property.max_nights && nights > property.max_nights) return { error: `Maximum ${property.max_nights} nights` };
 
   // 2. Fetch price blocks (including two_weeks columns)
