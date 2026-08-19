@@ -21,7 +21,16 @@ import { findFreeWindowsInMonth } from "../lib/availability.js";
 function calendarStub(blockedRows: Array<{ start_date: string; end_date: string }>) {
   return {
     from(table: string) {
-      const rows = table === "property_blocked_dates" ? blockedRows : [];
+      // The stubbed node allows 1-night stays explicitly: since PR-2 the
+      // defensive DEFAULT_MIN_NIGHTS is 2 (the DB default), and windows
+      // below the node's min are correctly never suggested — these tests
+      // exercise gap SORTING, so the node's own min is pinned to 1 here.
+      const rows =
+        table === "property_blocked_dates"
+          ? blockedRows
+          : table === "properties"
+            ? [{ id: PROP, min_nights: 1, buffer_nights_before: 0, buffer_nights_after: 0 }]
+            : [];
       const query: Record<string, unknown> = {};
       const chain = () => query as never;
       Object.assign(query, {

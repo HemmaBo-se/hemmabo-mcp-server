@@ -34,13 +34,13 @@
 // permitted bookings (e.g. 365-night, 99-guest) that hosts never approved.
 //
 // Source-of-truth (DB defaults verified on HEAD):
-//   min_nights:           1   (migration 20260319120000)
+//   min_nights:           2   (NOT NULL DEFAULT 2, migration 20260819120000)
 //   max_nights:           30  (migration 20260319120000)
 //   max_guests:           2   (migration 20260308000001)
 //   buffer_nights_before: 0   (migration 20260319120000)
 //   buffer_nights_after:  0   (migration 20260319120000)
 
-export const DEFAULT_MIN_NIGHTS = 1;
+export const DEFAULT_MIN_NIGHTS = 2;
 export const DEFAULT_MAX_NIGHTS = 30;
 export const DEFAULT_MAX_GUESTS = 2;
 export const DEFAULT_BUFFER_BEFORE = 0;
