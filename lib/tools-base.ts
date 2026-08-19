@@ -17,7 +17,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveQuote } from "./pricing.js";
-import { checkAvailability, findFreeWindowsInMonth } from "./availability.js";
+import { checkAvailability, findFreeWindowsInMonth, type BufferNights } from "./availability.js";
 import {
   checkIcalImportFreshness,
   checkChannelMirrorState,
@@ -488,6 +488,9 @@ type SearchPropertyRow = {
   currency: string | null;
   property_type: string | null;
   direct_booking_discount: number | null;
+  min_nights: number | null;
+  buffer_nights_before: number | null;
+  buffer_nights_after: number | null;
 };
 
 const LOCATION_ALIASES: Record<string, readonly string[]> = {
@@ -595,7 +598,8 @@ async function findAlternativeDates(
   checkOut: string,
   guests?: number,
   maxGuests?: number | null,
-  max = 3
+  max = 3,
+  availabilityConfig?: { minNights?: number | null; buffers?: BufferNights | null }
 ): Promise<Array<Record<string, unknown>>> {
   const alternatives: Array<Record<string, unknown>> = [];
   if (
@@ -607,10 +611,17 @@ async function findAlternativeDates(
   }
 
   // Scan the requested month's free nights and offer each maximal contiguous
-  // gap — including gaps shorter than the requested stay — flagged with its
-  // night count so the agent never meets an empty wall. Windows are already
-  // sorted nearest-to-requested-length first and free by construction.
-  const freeWindows = await findFreeWindowsInMonth(supabase, propertyId, checkIn, checkOut);
+  // gap — including gaps shorter than the requested stay (but never shorter
+  // than the host's min_nights) — flagged with its night count so the agent
+  // never meets an empty wall. Windows are already sorted
+  // nearest-to-requested-length first and free by construction.
+  const freeWindows = await findFreeWindowsInMonth(
+    supabase,
+    propertyId,
+    checkIn,
+    checkOut,
+    availabilityConfig,
+  );
   for (const window of freeWindows) {
     const alternative: Record<string, unknown> = {
       checkIn: window.checkIn,
@@ -828,7 +839,7 @@ export async function executeTool(
 
       let query = reader
         .from("properties")
-        .select("id, name, domain, region, city, country, max_guests, currency, property_type, direct_booking_discount")
+        .select("id, name, domain, region, city, country, max_guests, currency, property_type, direct_booking_discount, min_nights, buffer_nights_before, buffer_nights_after")
         .eq("published", true)
         .gte("max_guests", guests);
 
@@ -844,8 +855,22 @@ export async function executeTool(
       const results = [];
       const unavailableMatches = [];
       for (const prop of matchedProperties) {
+        // The property row is already in hand — pass its turnaround buffer and
+        // min-nights through instead of one extra properties read per property.
+        const propBuffers: BufferNights = {
+          before: prop.buffer_nights_before ?? 0,
+          after: prop.buffer_nights_after ?? 0,
+        };
         // MCP-06: use service-role client so bookings table is visible to availability/gap checks
-        const avail = await checkAvailability(supabase, prop.id, checkIn, checkOut);
+        const avail = await checkAvailability(
+          supabase,
+          prop.id,
+          checkIn,
+          checkOut,
+          undefined,
+          undefined,
+          propBuffers,
+        );
         if (!avail.available) {
           unavailableMatches.push({
             propertyId: prop.id,
@@ -865,6 +890,8 @@ export async function executeTool(
               checkOut,
               guests,
               prop.max_guests,
+              3,
+              { minNights: prop.min_nights, buffers: propBuffers },
             ),
           });
           continue;
