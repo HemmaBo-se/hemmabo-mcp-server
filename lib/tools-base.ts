@@ -1034,6 +1034,25 @@ export async function executeTool(
       if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }], isError: true };
       const orderErr = validateDateOrder(checkIn, checkOut);
       if (orderErr) return { content: [{ type: "text", text: JSON.stringify({ error: orderErr }) }], isError: true };
+      // ADR 0016: never quote a window the node's booking engine refuses —
+      // a price for unbookable dates is a dead end. Answer with bookable
+      // alternative windows instead (no-wall). MCP-06: service-role client
+      // so the bookings layer is visible.
+      const quoteAvail = await checkAvailability(supabase, propertyId, checkIn, checkOut);
+      if (!quoteAvail.available) {
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              error: "Not available",
+              ...quoteAvail,
+              alternativeDates: await findAlternativeDates(supabase, propertyId, checkIn, checkOut, guests),
+              agentGuidance: "The requested dates are not bookable, so no price was quoted. If alternativeDates is non-empty, offer those windows instead of ending the conversation.",
+            }, null, 2),
+          }],
+          isError: true,
+        };
+      }
       // MCP-06: use service-role client so gap-night detection (reads bookings) works
       const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
       // MCP-05: resolveQuote may return { error: ... } — surface as MCP tool error, not success.
@@ -1159,6 +1178,28 @@ export async function executeTool(
       if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }], isError: true };
       const orderErr = validateDateOrder(checkIn, checkOut);
       if (orderErr) return { content: [{ type: "text", text: JSON.stringify({ error: orderErr }) }], isError: true };
+
+      // ADR 0016 (CEO decision A, 2026-08-19): NEVER lock a price for a
+      // window the node's booking engine refuses. A locked quote is a
+      // bookability promise — checkAvailability is buffer-aware since PR
+      // #349, so the promise holds by construction. Unavailable ⇒ no quote
+      // snapshot is written; answer with bookable alternatives (no-wall).
+      // MCP-06: service-role client so the bookings layer is visible.
+      const negotiateAvail = await checkAvailability(supabase, propertyId, checkIn, checkOut);
+      if (!negotiateAvail.available) {
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              error: "Not available",
+              ...negotiateAvail,
+              alternativeDates: await findAlternativeDates(supabase, propertyId, checkIn, checkOut, guests),
+              agentGuidance: "The requested dates are not bookable, so no price was locked. If alternativeDates is non-empty, offer those windows and lock a price for one of them instead.",
+            }, null, 2),
+          }],
+          isError: true,
+        };
+      }
 
       // MCP-06: use service-role client so gap-night detection (reads bookings) works
       const quote = await resolveQuote(supabase, propertyId, checkIn, checkOut, guests);
