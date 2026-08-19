@@ -17,7 +17,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveQuote } from "./pricing.js";
-import { checkAvailability, findFreeWindowsInMonth, type BufferNights } from "./availability.js";
+import { checkAvailability, resolveEffectiveMinNights, findFreeWindowsInMonth, type BufferNights } from "./availability.js";
 import { DEFAULT_MIN_NIGHTS, nightsBetween } from "./availability-core.js";
 import {
   checkIcalImportFreshness,
@@ -989,8 +989,18 @@ export async function executeTool(
         }
       }
 
-      const minNights: number = property.min_nights ?? DEFAULT_MIN_NIGHTS;
       const requestedNights = nightsBetween(checkIn, checkOut);
+      // Effective minimum: the base folded with the host's smart-pricing
+      // modifiers (gap-fill / last-minute) via the vendored shared truth (PR-A3),
+      // so MCP search refuses on exactly the floor the node's /api/availability,
+      // the guest-UI and the Deno agent path enforce. Fail-safe to the base.
+      const minNights: number = await resolveEffectiveMinNights(
+        reader,
+        propertyId,
+        property.min_nights ?? DEFAULT_MIN_NIGHTS,
+        checkIn,
+        new Date().toISOString().slice(0, 10),
+      );
       if (requestedNights < minNights) {
         // Byte-identical reason with the node's /api/availability
         // min_nights_violation branch — MCP and node must answer the same.
