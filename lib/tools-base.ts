@@ -18,6 +18,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveQuote } from "./pricing.js";
 import { checkAvailability, findFreeWindowsInMonth, type BufferNights } from "./availability.js";
+import { DEFAULT_MIN_NIGHTS, nightsBetween } from "./availability-core.js";
 import {
   checkIcalImportFreshness,
   checkChannelMirrorState,
@@ -948,20 +949,25 @@ export async function executeTool(
       const orderErr = validateDateOrder(checkIn, checkOut);
       if (orderErr) return { content: [{ type: "text", text: JSON.stringify({ error: orderErr }) }], isError: true };
 
-      let maxGuests: number | null = null;
+      // Node parity (CEO order 2026-08-19): search enforces the same per-node
+      // rules as the node's /api/availability — capacity first, then
+      // min-nights — so search can never say available where the node
+      // answers min_nights_violation. One unconditional properties read;
+      // min_nights is per node (NOT NULL since migration 20260819120000),
+      // DEFAULT_MIN_NIGHTS is the platform-level defensive fallback only.
+      const { data: property, error: propErr } = await reader
+        .from("properties")
+        .select("max_guests, min_nights")
+        .eq("id", propertyId)
+        .single();
+      if (propErr || !property) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: "Property not found" }) }],
+          isError: true,
+        };
+      }
+      const maxGuests: number | null = property.max_guests ?? null;
       if (typeof guests === "number") {
-        const { data: property, error: propErr } = await reader
-          .from("properties")
-          .select("max_guests")
-          .eq("id", propertyId)
-          .single();
-        if (propErr || !property) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({ error: "Property not found" }) }],
-            isError: true,
-          };
-        }
-        maxGuests = property.max_guests ?? null;
         if (typeof maxGuests === "number" && guests > maxGuests) {
           return {
             content: [{
@@ -981,6 +987,30 @@ export async function executeTool(
             }],
           };
         }
+      }
+
+      const minNights: number = property.min_nights ?? DEFAULT_MIN_NIGHTS;
+      const requestedNights = nightsBetween(checkIn, checkOut);
+      if (requestedNights < minNights) {
+        // Byte-identical reason with the node's /api/availability
+        // min_nights_violation branch — MCP and node must answer the same.
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              propertyId,
+              checkIn,
+              checkOut,
+              ...(typeof guests === "number" ? { guests } : {}),
+              available: false,
+              reasonCode: "min_nights_violation",
+              reason: `Minimum stay is ${minNights} nights. Requested ${requestedNights}.`,
+              minimumNights: minNights,
+              alternativeDates: [],
+              agentGuidance: `This property requires at least ${minNights} nights. Extend the stay to ${minNights} or more nights instead of offering other dates.`,
+            }, null, 2),
+          }],
+        };
       }
 
       // MCP-06: use service-role client so bookings table is visible to availability checks

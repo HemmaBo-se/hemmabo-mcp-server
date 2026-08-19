@@ -37,6 +37,7 @@
 
 import { SupabaseClient } from "@supabase/supabase-js";
 import { pickChannelDiscountPct, type ChannelDiscountRow } from "./channel-discount.js";
+import { DEFAULT_MIN_NIGHTS } from "./availability-core.js";
 import {
   computeRackQuote,
   decideGapNight,
@@ -180,7 +181,7 @@ export async function resolveQuote(
   if (guests > property.max_guests) return { error: `Max guests is ${property.max_guests}, requested ${guests}` };
 
   const nights = daysBetween(checkIn, checkOut);
-  if (nights < (property.min_nights ?? 1)) return { error: `Minimum ${property.min_nights} nights required` };
+  if (nights < (property.min_nights ?? DEFAULT_MIN_NIGHTS)) return { error: `Minimum ${property.min_nights ?? DEFAULT_MIN_NIGHTS} nights required` };
   if (property.max_nights && nights > property.max_nights) return { error: `Maximum ${property.max_nights} nights` };
 
   // 2. Fetch price blocks (including two_weeks columns)
