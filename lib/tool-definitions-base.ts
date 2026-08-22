@@ -619,7 +619,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_status",
     description:
-      "Retrieve current status and full details of an existing booking by reservationId. Use to confirm checkout/create succeeded or before cancel/reschedule. Do NOT use for property discovery, availability, or pricing — use hemmabo_search_properties, hemmabo_search_availability, or hemmabo_booking_quote for those. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Read-only against the database — never writes, so it is safe to poll after a checkout timeout — but returns guest PII (name, email). Rate-limited per token. The only input is the reservationId returned by hemmabo_booking_checkout or hemmabo_booking_create — never the propertyId; without a reservationId there is no booking to look up yet.",
+      "Retrieve current status and full details of an existing booking by reservationId. Use to confirm checkout/create succeeded or before cancel/reschedule. Do NOT use for property discovery, availability, or pricing — use hemmabo_search_properties, hemmabo_search_availability, or hemmabo_booking_quote for those. Requires Authorization: Bearer token (MCP_API_KEY or OAuth); rate-limited per token. Read-only against the database — never writes, so it is safe to poll after a checkout timeout — but returns guest PII (name, email). reservationId is the booking UUID returned by hemmabo_booking_checkout or hemmabo_booking_create — never a propertyId — and guestToken is the secret issued with that same booking: a mismatched pair reveals nothing, not even that the booking exists. Without a reservationId there is no booking to look up yet.",
     inputSchema: {
       type: "object",
       properties: {
