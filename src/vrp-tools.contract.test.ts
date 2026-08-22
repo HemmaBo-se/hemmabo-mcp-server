@@ -761,7 +761,11 @@ describe("VRP MCP tools", () => {
     assert.equal(parsed.verified, true);
     assert.equal(parsed.agent_citation.safe_to_quote_as_official_direct_offer, false);
     assert.equal(parsed.agent_citation.agent_message, null);
-    assert.equal(parsed.agent_citation.blocked_reason, "agent_permission_denied");
+    // An unavailable stay reports the honest reason "not_available" (matching
+    // the offer's own availability.reason), NOT "agent_permission_denied":
+    // may_quote is false here only because the stay is unavailable, so the
+    // block must name availability, not agent permission.
+    assert.equal(parsed.agent_citation.blocked_reason, "not_available");
     assert.equal(parsed.official_offer_summary.bookable, false);
     assert.equal(parsed.official_offer_summary.available, false);
     assert.equal(parsed.agent_guardrails.safe_to_quote, false);
