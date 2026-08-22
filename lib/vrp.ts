@@ -713,8 +713,17 @@ function directBookingUrlFrom(offer: JsonRecord, response: JsonRecord): string |
 }
 
 function quoteBlockedReason(mayQuote: boolean, available: boolean, priceExact: boolean, directBookingUrl: string | null): string | null {
-  if (!mayQuote) return "agent_permission_denied";
+  // Availability is checked BEFORE permission on purpose. The host node sets
+  // may_quote_as_official_direct_offer = bookable, so an unavailable stay
+  // (occupied dates or guests over capacity) already carries mayQuote = false.
+  // If !mayQuote were tested first, every unavailable stay would report
+  // "agent_permission_denied" — reading as "agents are denied" when the real
+  // reason is simply that the stay is not bookable. Testing !available first
+  // makes the code match the offer's own availability_reason, and reserves
+  // "agent_permission_denied" for a stay that IS available yet still may not
+  // be quoted.
   if (!available) return "not_available";
+  if (!mayQuote) return "agent_permission_denied";
   if (!priceExact) return "price_not_exact";
   if (!directBookingUrl) return "direct_booking_url_missing";
   return null;
