@@ -21,6 +21,15 @@ const DOMAIN_FIELD = {
     "Host-owned domain without protocol or path (e.g. 'villaakerlyckan.se', 'myvilla.it'). Optional; omit when the host has not chosen a domain yet. Invalid: 'https://...', paths, ports, or booking URLs.",
 } satisfies JsonSchemaField;
 
+// The "Optional; omit..." sentence above is written for the host-onboarding
+// tools, where domain is not in `required`. The VRP tools require domain, so
+// they use this variant — same pattern, no optionality claim.
+const REQUIRED_DOMAIN_FIELD = {
+  ...DOMAIN_FIELD,
+  description:
+    "Host-owned domain without protocol or path (e.g. 'villaakerlyckan.se', 'myvilla.it'). Invalid: 'https://...', paths, ports, or booking URLs.",
+} satisfies JsonSchemaField;
+
 const HOST_PROPERTY_TYPE = {
   type: "string" as const,
   enum: ["villa", "apartment", "cabin", "cottage", "holiday_home", "bnb", "hotel", "other"],
@@ -230,7 +239,7 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
     inputSchema: {
       type: "object",
       properties: {
-        domain: DOMAIN_FIELD,
+        domain: REQUIRED_DOMAIN_FIELD,
       },
       required: ["domain"],
       additionalProperties: false,
@@ -266,7 +275,7 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
     inputSchema: {
       type: "object",
       properties: {
-        domain: DOMAIN_FIELD,
+        domain: REQUIRED_DOMAIN_FIELD,
         checkIn: {
           type: "string",
           pattern: DATE_PATTERN,
