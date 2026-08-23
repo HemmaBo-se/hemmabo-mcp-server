@@ -1,0 +1,104 @@
+name: MCP Registry — delete legacy versions
+
+# One-shot, manually dispatched cleanup of four LEGACY version entries in the
+# official MCP Registry (registry.modelcontextprotocol.io) for
+# com.hemmabo/hemmabo-mcp-server. They are still status "active" and leak a
+# wrong picture of the server into every aggregator that ingests ALL version
+# rows (mcptoplist et al., verified 2026-08-23):
+#
+#   1.0.0, 1.0.1  — repository points at hemmabo-smart-stays (wrong repo) and
+#                   obsolete remote URLs (mcp.hemmabo.se / vercel.app)
+#   3.2.4, 3.2.14 — stdio-era "packages" blocks with SUPABASE_URL /
+#                   SUPABASE_SERVICE_ROLE_KEY environment-variable
+#                   placeholders; the server has been remote-only since 4.0.0
+#
+# `mcp-publisher status --status deleted` is REVERSIBLE: it hides the version
+# from default listings, the metadata is preserved, and the status can be set
+# back to "active" at any time (registry FAQ). Current versions (3.2.15+,
+# 4.x) are NOT touched.
+#
+# AUTH: same DNS-key flow as mcp-registry-publish.yml (repo secret
+# MCP_REGISTRY_DNS_KEY, public half in the hemmabo.com TXT record).
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DELETE to confirm hiding the four legacy versions'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  delete-legacy-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation and auth secret
+        id: gate
+        env:
+          KEY: ${{ secrets.MCP_REGISTRY_DNS_KEY }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          if [ "$CONFIRM" != "DELETE" ]; then
+            echo "::error::Confirmation input was not DELETE — refusing to run."
+            exit 1
+          fi
+          if [ -z "$KEY" ]; then
+            echo "::error::MCP_REGISTRY_DNS_KEY not set — see mcp-registry-publish.yml header for the one-time DNS setup."
+            exit 1
+          fi
+
+      - name: Install mcp-publisher
+        run: |
+          set -euo pipefail
+          url=$(curl -fsSL https://api.github.com/repos/modelcontextprotocol/registry/releases/latest \
+            | grep -oE '"browser_download_url": *"[^"]*mcp-publisher[^"]*(linux|Linux)[^"]*(amd64|x86_64)[^"]*\.tar\.gz"' \
+            | grep -oE 'https://[^"]+' | head -n1)
+          test -n "$url" || { echo "No linux mcp-publisher asset on latest release — see https://github.com/modelcontextprotocol/registry/releases" >&2; exit 1; }
+          echo "Downloading $url"
+          curl -fsSL "$url" -o mcp-publisher.tgz
+          tar -xzf mcp-publisher.tgz
+          bin=$(find . -maxdepth 3 -type f -name mcp-publisher | head -n1)
+          test -n "$bin" || { echo "mcp-publisher binary not found in archive" >&2; exit 1; }
+          chmod +x "$bin"
+          echo "MCP_PUBLISHER=$bin" >> "$GITHUB_ENV"
+
+      - name: Authenticate (DNS, com.hemmabo)
+        env:
+          MCP_REGISTRY_DNS_KEY: ${{ secrets.MCP_REGISTRY_DNS_KEY }}
+        run: |
+          "$MCP_PUBLISHER" login dns --domain hemmabo.com --private-key "$MCP_REGISTRY_DNS_KEY"
+
+      - name: Mark the four legacy versions as deleted
+        run: |
+          # All four are attempted even if one fails (e.g. already deleted on a
+          # re-run), so a partial earlier run never blocks the rest; the job
+          # fails at the end if any version could not be updated.
+          set +e
+          failures=0
+          for version in 1.0.0 1.0.1 3.2.4 3.2.14; do
+            echo "--- com.hemmabo/hemmabo-mcp-server $version -> deleted"
+            "$MCP_PUBLISHER" status --status deleted \
+              --message "Superseded by remote-only 4.x releases; legacy metadata (wrong repository / stdio env placeholders) hidden from discovery." \
+              com.hemmabo/hemmabo-mcp-server "$version"
+            status=$?
+            if [ "$status" -ne 0 ]; then
+              echo "::error::Failed to update $version (exit $status)"
+              failures=$((failures + 1))
+            fi
+          done
+          exit "$failures"
+
+      - name: Verify via the public registry API
+        run: |
+          set -euo pipefail
+          out=$(curl -fsSL "https://registry.modelcontextprotocol.io/v0/servers?search=hemmabo")
+          echo "$out" | grep -q '"version": *"4.0' || { echo "::error::Current 4.x entry missing from default listing" >&2; exit 1; }
+          for version in 1.0.0 1.0.1 3.2.4 3.2.14; do
+            if echo "$out" | grep -q "\"version\": *\"$version\""; then
+              echo "::error::Legacy version $version still visible in the default listing" >&2
+              exit 1
+            fi
+          done
+          echo "Default listing is clean: 4.x present, all four legacy versions hidden."
