@@ -120,12 +120,13 @@ AI agents, agent-verifiable, booking engine, short-term rental, own domain
 > domain, verifies it against the domain's JWKS, and books directly. No
 > central marketplace, registry, or gatekeeper. Created by Rouiada Abbas;
 > anyone may implement it; HemmaBo is the reference implementation. Spec and
-> conformance vectors: vacationrentalprotocol.com · github.com/HemmaBo-se/vrp-spec
+> conformance vectors: vacationrentalprotocol.com · github.com/vacationrentalprotocol/vrp-spec
 
 ## Status tracker
 
 Verified from this session on 2026-07-13 unless noted; version/tool-count refs
-swept to canonical (4.0.1 / 13 tools) 2026-07-29. The sandbox network policy
+swept to canonical (4.0.1 / 13 tools) 2026-07-29; vrp-spec repo URL swept to
+the canonical org (`vacationrentalprotocol/vrp-spec`) 2026-08-24. The sandbox network policy
 blocks fetching pulsemcp.com / mcp.so / hemmabo.com directly (proxy 403) —
 those rows must be eyeball-verified from a normal browser.
 
