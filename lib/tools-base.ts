@@ -855,6 +855,8 @@ export async function executeTool(
       const signalsById = await fetchPropertySignals(supabase, matchedProperties.map((p) => p.id));
       const results = [];
       const unavailableMatches = [];
+      let anyMinNightsViolation = false;
+      const requestedNights = nightsBetween(checkIn, checkOut);
       for (const prop of matchedProperties) {
         // The property row is already in hand — pass its turnaround buffer and
         // min-nights through instead of one extra properties read per property.
@@ -862,6 +864,39 @@ export async function executeTool(
           before: prop.buffer_nights_before ?? 0,
           after: prop.buffer_nights_after ?? 0,
         };
+        // Node parity (CEO order 2026-08-19): enforce the effective min-nights
+        // BEFORE the calendar check, exactly like hemmabo_search_availability, and
+        // surface a too-short stay as an unavailable entry carrying the NUMBER +
+        // extend guidance. Never a silent drop — that left the agent to invent a
+        // wrong reason ("dates are taken") for dates that were actually free.
+        const effectiveMinNights = await resolveEffectiveMinNights(
+          reader,
+          prop.id,
+          prop.min_nights ?? DEFAULT_MIN_NIGHTS,
+          checkIn,
+          new Date().toISOString().slice(0, 10),
+        );
+        if (requestedNights < effectiveMinNights) {
+          anyMinNightsViolation = true;
+          unavailableMatches.push({
+            propertyId: prop.id,
+            name: prop.name,
+            domain: prop.domain,
+            region: prop.region,
+            city: prop.city,
+            country: prop.country,
+            maxGuests: prop.max_guests,
+            propertyType: prop.property_type,
+            available: false,
+            reasonCode: "min_nights_violation",
+            // Byte-identical reason with the node's /api/availability and
+            // hemmabo_search_availability min_nights_violation branch.
+            reason: `Minimum stay is ${effectiveMinNights} nights. Requested ${requestedNights}.`,
+            minimumNights: effectiveMinNights,
+            alternativeDates: [],
+          });
+          continue;
+        }
         // MCP-06: use service-role client so bookings table is visible to availability/gap checks
         const avail = await checkAvailability(
           supabase,
@@ -903,6 +938,7 @@ export async function executeTool(
           propertyId: prop.id, name: prop.name, domain: prop.domain,
           region: prop.region, city: prop.city, country: prop.country,
           maxGuests: prop.max_guests, propertyType: prop.property_type,
+          minNights: prop.min_nights ?? DEFAULT_MIN_NIGHTS,
           currency: quote.currency, nights: quote.nights,
           publicTotal: quote.publicTotal,
           ...directBookingPriceFields(quote),
@@ -929,11 +965,13 @@ export async function executeTool(
             },
             agentGuidance: results.length > 0
               ? "Call get_verified_stay_offer for the best matching property's domain with the same check-in, check-out, and guest count before the final answer so ChatGPT can render the verified stay offer widget. Then offer the available properties first. For pricing, use directBookingTotal as the direct host-source total and hostSourcePublicTotal only as source context. Do not present discounts, savings, percentage comparisons, HemmaBo platform prices, OTA comparisons, or marketplace discounts. If the guest wants to book, route only to the signed direct host-domain booking URL from the verified offer; do not collect contact details or start checkout in chat."
-              : unavailableMatches.some((p) => Array.isArray(p.alternativeDates) && p.alternativeDates.length > 0)
-                ? "Requested dates are unavailable. Offer the alternativeDates for the matched property instead of ending the conversation."
-                : matchedProperties.length > 0
-                  ? "Matching properties were found, but the requested dates and nearby same-month alternatives are unavailable. Ask whether the guest can change month or guest count."
-                  : "No published property matched the location and capacity. Ask for a broader destination or fewer guests.",
+              : anyMinNightsViolation
+                ? "The requested stay is shorter than the property's minimum. Read minimumNights on each unavailable match and tell the guest that exact figure, then suggest extending the stay to meet it. Do NOT say the dates are unavailable and do NOT ask the guest to change month or guest count — the dates may well be free."
+                : unavailableMatches.some((p) => Array.isArray(p.alternativeDates) && p.alternativeDates.length > 0)
+                  ? "Requested dates are unavailable. Offer the alternativeDates for the matched property instead of ending the conversation."
+                  : matchedProperties.length > 0
+                    ? "Matching properties were found, but the requested dates and nearby same-month alternatives are unavailable. Ask whether the guest can change month or guest count."
+                    : "No published property matched the location and capacity. Ask for a broader destination or fewer guests.",
             signalsGuidance: "Each property's `signals` are host-declared, language-independent discovery flags (amenities / policies / suitability / setting, plus bestForOccasions / targetAudience) for matching requests like dog-friendly, hot tub, crib, or hen party. They are canonical keys — ALWAYS render them as translated human labels in the user's language and NEVER show the raw keys, parenthesized identifiers, or internal field names to the user. `policies_negated` lists the host's EXPLICIT NOs (e.g. pets_cats there means cats are not allowed) — relay those as a clear, friendly no. For anything absent from both lists the answer is UNKNOWN, not 'no': say something like 'There is no verified information about that — if it matters to you, ask the host before booking', never machine-speak like 'not flagged in the data'. Treat flags as match signals, not verified guarantees: the signed verified-stay-offer and the property's own page are authoritative. Never describe internal data-layer differences (e.g. signals vs the signed offer's amenity list) to the guest. Tone: warm and plain — say the stay 'matches your wishes', never call it a 'perfect match', and never mention commissions, fee percentages, or 'no hidden fees'; simply say booking and payment are made directly with the host.",
           }, null, 2),
         }],
