@@ -50,7 +50,14 @@ import {
   type PriceBlock,
   type Season,
   type StayDiscountRow,
+  type StayDiscountDecision,
 } from "./pricing-core.js";
+import {
+  applyHostDirectPrice as applyHostDirectPriceCore,
+  buildReconciledPrice,
+  type PriceAdjustment,
+  type PriceReconciliation,
+} from "./price-reconciliation.js";
 
 // ── Re-exports (compat: tests + tools import these from this module) ──
 
@@ -73,9 +80,24 @@ export interface QuoteResult {
   federationTotal: number;
   federationDiscountPercent: number;
   packageApplied: string | null; // "week" | "two_weeks" | null
+  /**
+   * The ONE winning stay-discount rule (slider model, smart-stays ADR
+   * 2026-08-13 D3) — mirrors packageApplied so an agent sees WHY the total
+   * departs from Σ nightlyRates. null when no rule matched.
+   */
+  stayDiscountApplied: StayDiscountDecision | null;
   gapNight: boolean;
   gapTotal: number | null;
   gapDiscountPercent: number | null;
+  /**
+   * Neutral rate lines (stay_rate / package_rate / gap_night_rate) that turn
+   * Σ nightlyRates into the quoted total — identical machinery and labels as
+   * the node's /api/pricing and the signed verified-stay-offer (uniformity
+   * law, smart-stays ADR 2026-08-25). Never a "discount"/"savings" word.
+   */
+  adjustments: PriceAdjustment[];
+  /** Machine-checkable: Σ nightlyRates.rate + Σ adjustments.amount === total. */
+  reconciliation: PriceReconciliation | null;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -110,19 +132,20 @@ function applyHostDirectPrice(
   rackTotal: number,
   discountPct: number | null | undefined,
 ): number {
-  const pct = Number(discountPct);
-  if (!Number.isFinite(pct) || pct <= 0) return rackTotal;
-  const factor = 1 - pct / 100;
-  const total = Math.round(rackTotal * factor);
-  for (const n of nightlyRates) {
-    n.rate = Math.round((Number(n.rate) || 0) * factor);
+  // Delegate to the vendored shared core (lib/price-reconciliation.ts) via a
+  // {rate} ↔ {nightly_rate} adapter. This wrapper previously carried its own
+  // divergent copy that dumped ANY residual into the last night — the core
+  // refuses to absorb a package/stay STRUCTURAL gap there (it once produced a
+  // negative nightly rate); only a true ±1-per-night rounding residual moves.
+  // Redeclare-nothing law, same as availability-core/pricing-core vendoring.
+  const rows = nightlyRates.map((n) => ({ nightly_rate: n.rate }));
+  const { total, breakdown } = applyHostDirectPriceCore(rows, rackTotal, discountPct);
+  if (breakdown) {
+    for (let i = 0; i < nightlyRates.length; i += 1) {
+      nightlyRates[i].rate = Number(breakdown[i]?.nightly_rate) || 0;
+    }
   }
-  const scaledSum = nightlyRates.reduce((sum, n) => sum + (Number(n.rate) || 0), 0);
-  const residual = total - scaledSum;
-  if (residual !== 0 && nightlyRates.length > 0) {
-    nightlyRates[nightlyRates.length - 1].rate += residual;
-  }
-  return total;
+  return total ?? rackTotal;
 }
 
 // ── Gap Night Detection (DB neighbor lookups — decision is core logic) ──
@@ -305,6 +328,22 @@ export async function resolveQuote(
 
   const gapTotal = applyGapDiscount(federationTotal, gapDecision);
 
+  // Self-reconciliation (uniformity law, smart-stays ADR 2026-08-25 Fynd 1):
+  // the same neutral rate lines + machine-checkable block as /api/pricing and
+  // the signed verified-stay-offer, so Σ nightlyRates + Σ adjustments always
+  // equals the quoted total — also when the ONE winning stay rule, a package,
+  // or a gap night moved the total off the nightly sum.
+  const reconciled = buildReconciledPrice({
+    priced: true,
+    breakdown: nightlyRates.map((n) => ({ nightly_rate: n.rate })),
+    publicTotal: directTotal,
+    agentTotal: directTotal,
+    packageApplied: rack.package_applied,
+    stayDiscountApplied: rack.stay_discount_applied,
+    language: "en",
+    gapAdjustedTotal: gapTotal,
+  });
+
   return {
     propertyId,
     checkIn,
@@ -318,8 +357,11 @@ export async function resolveQuote(
     // No public/agent spread — the direct lever is folded into the single total.
     federationDiscountPercent: 0,
     packageApplied: rack.package_applied,
+    stayDiscountApplied: rack.stay_discount_applied,
     gapNight: gapDecision.isGap,
     gapTotal,
     gapDiscountPercent: gapDecision.isGap ? gapDecision.discountPct : null,
+    adjustments: reconciled.adjustments,
+    reconciliation: reconciled.reconciliation,
   };
 }
