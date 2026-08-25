@@ -322,7 +322,7 @@ export async function handleJsonRpc(
       // checkIn/checkOut migration. validateToolArgs (#85) still rejects any
       // other unknown key so agents self-correct.
       const toolArgs = normalizeDateAliases((params as { arguments?: Record<string, unknown> })?.arguments ?? {});
-      // ChatGPT surface: only the four discovery/verification tools are callable.
+      // ChatGPT surface: only the three CHATGPT_TOOL_NAMES discovery/verification tools are callable.
       // Everything else (booking, checkout, host onboarding) is off-surface and
       // routed to the host's own website — no in-chat commerce.
       if (surface === "chatgpt" && (typeof toolName !== "string" || !CHATGPT_TOOL_NAMES.has(toolName))) {
@@ -554,7 +554,7 @@ export async function serve(req: VercelRequest, res: VercelResponse, surface: Mc
   // This keeps read-only public discovery separate from protected stateful actions
   // and PII reads, which remain behind authentication.
   const requestMessages = Array.isArray(req.body) ? req.body : [req.body];
-  // ChatGPT surface: the only callable tools are the four anonymous read-only
+  // ChatGPT surface: the only callable tools are the three anonymous read-only
   // ones; every other tool is rejected in handleJsonRpc before any execution,
   // so the Bearer gate is unnecessary here (the allowlist replaces it).
   const requiresAuth = surface === "chatgpt" ? false : requestMessages.some(isAuthRequiredMessage);

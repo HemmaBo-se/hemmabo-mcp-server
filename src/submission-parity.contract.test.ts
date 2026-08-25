@@ -20,6 +20,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { TOOLS, CHATGPT_TOOL_NAMES } from "../api/mcp.js";
+import { CHATGPT_SERVER_DESCRIPTION } from "../lib/server-metadata.js";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SUBMISSION_PATH = resolve(REPO_ROOT, "submission", "chatgpt-app-submission.json");
@@ -123,5 +124,13 @@ describe("chatgpt app submission parity (ChatGPT surface)", () => {
         `app_info.description must not contain '${phrase}' — it re-triggers the OpenAI commerce/digital-service rejection`
       );
     }
+  });
+
+  it("app_info.description is byte-identical to the served CHATGPT_SERVER_DESCRIPTION", () => {
+    // The description we submit to OpenAI must be exactly the one the ChatGPT
+    // MCP surface serves in `initialize` (lib/server-metadata.ts single source);
+    // the forbidden-phrase gate above cannot catch a wording drift like a
+    // dropped "(VRP)" or a missing "Not an OTA. Not a website builder." line.
+    assert.equal(submission.app_info.description, CHATGPT_SERVER_DESCRIPTION);
   });
 });
