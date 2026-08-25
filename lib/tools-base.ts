@@ -18,7 +18,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveQuote } from "./pricing.js";
 import { checkAvailability, resolveEffectiveMinNights, findFreeWindowsInMonth, type BufferNights } from "./availability.js";
-import { DEFAULT_MIN_NIGHTS, nightsBetween } from "./availability-core.js";
+import { DEFAULT_MIN_NIGHTS, nightsBetween, minNightsRefusalReason } from "./availability-core.js";
 import {
   checkIcalImportFreshness,
   checkChannelMirrorState,
@@ -890,8 +890,9 @@ export async function executeTool(
             available: false,
             reasonCode: "min_nights_violation",
             // Byte-identical reason with the node's /api/availability and
-            // hemmabo_search_availability min_nights_violation branch.
-            reason: `Minimum stay is ${effectiveMinNights} nights. Requested ${requestedNights}.`,
+            // hemmabo_search_availability min_nights_violation branch — via the
+            // vendored single source, never an inline template.
+            reason: minNightsRefusalReason(effectiveMinNights, requestedNights),
             minimumNights: effectiveMinNights,
             alternativeDates: [],
           });
@@ -1052,7 +1053,7 @@ export async function executeTool(
               ...(typeof guests === "number" ? { guests } : {}),
               available: false,
               reasonCode: "min_nights_violation",
-              reason: `Minimum stay is ${minNights} nights. Requested ${requestedNights}.`,
+              reason: minNightsRefusalReason(minNights, requestedNights),
               minimumNights: minNights,
               alternativeDates: [],
               agentGuidance: `This property requires at least ${minNights} nights. Extend the stay to ${minNights} or more nights instead of offering other dates.`,

@@ -350,6 +350,32 @@ export function largestAvailablePrefix(
 
 // ── Pure validation ─────────────────────────────────────────────────────────
 
+// ── Refusal-reason single source (zero-tolerance uniformity) ────────────────
+//
+// THE one place the human refusal sentences live. Every surface that refuses
+// a stay — /api/availability, the signed verified-stay-offer, the Deno
+// mcp-booking mirror, and any future door — imports these instead of inlining
+// a template literal. Before this, three byte-variants of the min-nights
+// refusal were live at once ("Minimum stay is 2 nights. Requested 1." vs
+// "Minimum stay is 2 nights" vs the bare enum "stay_length_not_allowed") —
+// exactly the class of drift the zero-tolerance order forbids. A contract
+// gate pins that no emitter re-inlines these sentences.
+
+/** Canonical min-nights refusal sentence — byte-identical on every surface. */
+export function minNightsRefusalReason(minNights: number, nights: number): string {
+  return `Minimum stay is ${minNights} nights. Requested ${nights}.`;
+}
+
+/** Canonical max-nights refusal sentence — byte-identical on every surface. */
+export function maxNightsRefusalReason(maxNights: number, nights: number): string {
+  return `Maximum stay is ${maxNights} nights. Requested ${nights}.`;
+}
+
+/** Canonical guest-capacity refusal sentence — byte-identical on every surface. */
+export function maxGuestsRefusalReason(maxGuests: number): string {
+  return `Maximum ${maxGuests} guests allowed.`;
+}
+
 /**
  * Validate requested night count against per-property rules.
  */
@@ -360,13 +386,13 @@ export function validateNightCount(
   if (nights < rules.minNights) {
     return {
       valid: false,
-      reason: `Minimum stay is ${rules.minNights} nights. Requested ${nights}.`,
+      reason: minNightsRefusalReason(rules.minNights, nights),
     };
   }
   if (nights > rules.maxNights) {
     return {
       valid: false,
-      reason: `Maximum stay is ${rules.maxNights} nights. Requested ${nights}.`,
+      reason: maxNightsRefusalReason(rules.maxNights, nights),
     };
   }
   return { valid: true };
@@ -382,7 +408,7 @@ export function validateGuestCount(
   if (guests > rules.maxGuests) {
     return {
       valid: false,
-      reason: `Maximum ${rules.maxGuests} guests allowed.`,
+      reason: maxGuestsRefusalReason(rules.maxGuests),
     };
   }
   return { valid: true };
