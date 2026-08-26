@@ -34,6 +34,8 @@ import {
 import { SERVER_VERSION } from "./server-metadata.js";
 import { bookingTokenMatches, BOOKING_TOKEN_MISMATCH_MESSAGE } from "./booking-binding.js";
 import { acquireBookingLock, releaseBookingLock } from "./booking-locks.js";
+import { normalizeCountryToIso } from "./geo-directional-core.js";
+import { resolveDirectionalTarget, propertyResolvesToRegion } from "./geo-directional-query.js";
 
 export interface ToolClients {
   /** Service-role client — bypasses RLS. Required for bookings reads + all writes. */
@@ -485,6 +487,8 @@ type SearchPropertyRow = {
   region: string | null;
   city: string | null;
   country: string | null;
+  latitude: number | null;
+  longitude: number | null;
   max_guests: number | null;
   currency: string | null;
   property_type: string | null;
@@ -567,7 +571,8 @@ function fieldMatchesAnyTerm(value: string | null | undefined, terms: readonly s
 }
 
 export function propertyMatchesLocation(
-  property: Pick<SearchPropertyRow, "region" | "city" | "country">,
+  property: Pick<SearchPropertyRow, "region" | "city" | "country"> &
+    Partial<Pick<SearchPropertyRow, "latitude" | "longitude">>,
   region?: string,
   country?: string
 ): boolean {
@@ -582,12 +587,35 @@ export function propertyMatchesLocation(
   const regionTerms = expandLocationTerms(region);
   const countryTerms = expandLocationTerms(country);
 
+  // A2 (ADR 0017): a directional destination phrase ("southern Spain",
+  // "södra Spanien", "Sydsverige") resolves to ONE band from the vendored
+  // canon and matches when the property's OWN country + coordinates sit in
+  // that band. Additive — it never removes a name/alias match; a property
+  // without a known country or finite coordinates never directional-matches
+  // (omitted, not guessed). The region slot may borrow the country parameter
+  // for its ISO ("södra" + country "Spanien"); a directional phrase in the
+  // country slot pins its own country, so it may satisfy countryOk itself.
+  const regionTarget = resolveDirectionalTarget(region, country);
+  const countryTarget = resolveDirectionalTarget(country, undefined);
+  const inRegionBand =
+    regionTarget != null &&
+    propertyResolvesToRegion(property.country, property.latitude, property.longitude, regionTarget.id);
+  const inCountryBand =
+    countryTarget != null &&
+    propertyResolvesToRegion(property.country, property.latitude, property.longitude, countryTarget.id);
+
   const regionOk =
     regionTerms.length === 0 ||
-    searchable.some((field) => fieldMatchesAnyTerm(field, regionTerms));
+    searchable.some((field) => fieldMatchesAnyTerm(field, regionTerms)) ||
+    inRegionBand;
+  // Free-text query country and free-text host country also compare as ISO
+  // ("Spanien" matches a node storing "Sweden"-style free text "Spain").
+  const isoQueryCountry = normalizeCountryToIso(country);
   const countryOk =
     countryTerms.length === 0 ||
-    fieldMatchesAnyTerm(property.country, countryTerms);
+    fieldMatchesAnyTerm(property.country, countryTerms) ||
+    (isoQueryCountry != null && isoQueryCountry === normalizeCountryToIso(property.country)) ||
+    inCountryBand;
 
   return regionOk && countryOk;
 }
@@ -840,7 +868,7 @@ export async function executeTool(
 
       let query = reader
         .from("properties")
-        .select("id, name, domain, region, city, country, max_guests, currency, property_type, direct_booking_discount, min_nights, buffer_nights_before, buffer_nights_after")
+        .select("id, name, domain, region, city, country, latitude, longitude, max_guests, currency, property_type, direct_booking_discount, min_nights, buffer_nights_before, buffer_nights_after")
         .eq("published", true)
         .gte("max_guests", guests);
 
@@ -948,6 +976,25 @@ export async function executeTool(
           ...(signalsById.get(prop.id) ? { signals: signalsById.get(prop.id) } : {}),
         });
       }
+
+      // A2 (ADR 0017): deterministic, alphabetical output — match/no-match
+      // plus name order, never a ranking. Codepoint compare on lowercased
+      // name (tiebreaks: domain, then propertyId) is stable across runs,
+      // databases, and locales.
+      const alphabetical = (
+        a: { name: string | null; domain: string | null; propertyId: string },
+        b: { name: string | null; domain: string | null; propertyId: string },
+      ): number => {
+        const an = (a.name ?? "").toLowerCase();
+        const bn = (b.name ?? "").toLowerCase();
+        if (an !== bn) return an < bn ? -1 : 1;
+        const ad = (a.domain ?? "").toLowerCase();
+        const bd = (b.domain ?? "").toLowerCase();
+        if (ad !== bd) return ad < bd ? -1 : 1;
+        return a.propertyId < b.propertyId ? -1 : a.propertyId > b.propertyId ? 1 : 0;
+      };
+      results.sort(alphabetical);
+      unavailableMatches.sort(alphabetical);
 
       return {
         content: [{
