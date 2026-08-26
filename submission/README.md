@@ -8,7 +8,7 @@ This folder contains everything the CEO needs to fill the OpenAI Apps submission
 
 1. **Precondition:** `POST https://www.hemmabo.com/mcp/chatgpt` `tools/list` returns exactly 3 tools (requires smart-stays PR #2568 deployed).
 2. **Portal save test:** in the draft's MCP details, enter the MCP Server URL below and save. If the form rejects it, STOP — screenshot the exact error verbatim, do not fall back to `/mcp`.
-3. **Scan Tools:** expect exactly 3 tools and the `ui://hemmabo/verified-stay-offer-v9.html` UI output template (the template is what makes screenshots allowed).
+3. **Scan Tools:** expect exactly 3 tools and the `ui://hemmabo/verified-stay-offer-native-v1.html` UI output template (the template is what makes screenshots allowed).
 4. Upload [chatgpt-app-submission.json](./chatgpt-app-submission.json) (drag into the upload area) or fill fields manually per the table below.
 5. Screenshots + demo recording per the rules below.
 6. Submit.
