@@ -319,17 +319,26 @@ function nightsBetweenKeys(startKey: string, endKey: string): number {
 /**
  * Effective minimum nights for a stay arriving on `checkIn` — the mcp-server
  * consumer of the shared effective-min truth (PR-A3 of ADR
- * 2026-08-19-effective-min-nights-live-everywhere, CEO decision A). Byte-
+ * 2026-08-19-effective-min-nights-live-everywhere, CEO decision A, extended by
+ * ADR 2026-08-20-custom-min-nights-effective, CEO decision 3A). Byte-
  * identical rule to the Node truth (api/_lib/availability-truth.ts) and the Deno
- * mirror: the base `properties.min_nights` folded with the host's
- * `property_smart_pricing` gap-fill / last-minute modifiers via the vendored
- * effective-min-nights core, so search and quote refuse on exactly the floor the
- * node's /api/availability, the guest-UI and the Deno agent path enforce.
+ * mirror: the per-date `property_date_settings.custom_min_nights` override (TOP
+ * precedence — may raise OR lower) on the base `properties.min_nights` folded
+ * with the host's `property_smart_pricing` gap-fill / last-minute modifiers via
+ * the vendored effective-min-nights core, so search and quote refuse on exactly
+ * the floor the node's /api/availability, the guest-UI and the Deno agent path
+ * enforce.
+ *
+ * The override is read via the anon-safe SECURITY DEFINER RPC
+ * `get_property_custom_min_nights` (smart-stays migration 20260820140000) —
+ * the same single path every runtime uses; the table itself is owner-only RLS.
  *
  * FAIL-SAFE: absent smart-pricing row, `!setup_completed`, or any query error ⇒
- * the raw base (the stricter, published floor — fail-closed). The reference node
- * has `setup_completed = false`, so this is a behavioural no-op until a host
- * completes the Pricera setup. `todayUtc` (YYYY-MM-DD) is injected by the caller.
+ * the base/override floor (the stricter, published floor — fail-closed; the
+ * override is the host's explicit per-date choice and survives smart-pricing
+ * failures, exactly like the Node truth). An RPC error or an rpc-less client
+ * yields NO override — the published base/modifier floor holds, never a
+ * fabricated lower minimum. `todayUtc` (YYYY-MM-DD) is injected by the caller.
  */
 export async function resolveEffectiveMinNights(
   supabase: SupabaseClient,
@@ -338,10 +347,26 @@ export async function resolveEffectiveMinNights(
   checkIn: string,
   todayUtc: string,
 ): Promise<number> {
-  // Fail-safe to the base on ANY failure — a query error, a null row, or a
-  // thrown client. The base is the stricter, published floor, so an incomplete
-  // read refuses a short stay rather than inventing one (fail-closed). A
-  // resolver hiccup must never crash a search / quote / booking.
+  // 0. Per-date host override (property_date_settings.custom_min_nights) for the
+  //    arrival day — TOP precedence, independent of smart-pricing setup (3A).
+  //    Nested guard: a client without .rpc (or an RPC error) must degrade to
+  //    "no override", never crash the resolver or skip the modifier fold.
+  let customMinNights: number | null = null;
+  try {
+    const { data: customMinRaw, error: customErr } = await supabase.rpc(
+      "get_property_custom_min_nights",
+      { p_property_id: propertyId, p_date: checkIn },
+    );
+    if (!customErr && typeof customMinRaw === "number") customMinNights = customMinRaw;
+  } catch {
+    // No override readable — fail-closed to the published base/modifier floor.
+  }
+
+  // Fail-safe on ANY failure below — a query error, a null row, or a thrown
+  // client. The base (plus the already-read override) is the stricter,
+  // published floor, so an incomplete read refuses a short stay rather than
+  // inventing one (fail-closed). A resolver hiccup must never crash a
+  // search / quote / booking.
   try {
     const { data: sp, error: spError } = await supabase
       .from("property_smart_pricing")
@@ -350,7 +375,9 @@ export async function resolveEffectiveMinNights(
       )
       .eq("property_id", propertyId)
       .maybeSingle();
-    if (spError || !sp || !sp.setup_completed) return baseMinNights;
+    if (spError || !sp || !sp.setup_completed) {
+      return getEffectiveMinNights(baseMinNights, null, checkIn, [], todayUtc, customMinNights);
+    }
 
     const modifiers: MinNightsModifiers = {
       setup_completed: sp.setup_completed,
@@ -386,7 +413,11 @@ export async function resolveEffectiveMinNights(
         .order("check_in_date", { ascending: true })
         .limit(1),
     ]);
-    if (prevResult.error || nextResult.error) return baseMinNights;
+    // Fail-closed: an errored neighbour query must never fabricate a lowered
+    // floor from an incomplete booking set (the per-date override still applies).
+    if (prevResult.error || nextResult.error) {
+      return getEffectiveMinNights(baseMinNights, null, checkIn, [], todayUtc, customMinNights);
+    }
 
     const surroundingBookings: BookingWindow[] = [
       ...(prevResult.data ?? []),
@@ -396,9 +427,16 @@ export async function resolveEffectiveMinNights(
       checkOut: row.check_out_date,
     }));
 
-    return getEffectiveMinNights(baseMinNights, modifiers, checkIn, surroundingBookings, todayUtc);
+    return getEffectiveMinNights(
+      baseMinNights,
+      modifiers,
+      checkIn,
+      surroundingBookings,
+      todayUtc,
+      customMinNights,
+    );
   } catch {
-    return baseMinNights;
+    return getEffectiveMinNights(baseMinNights, null, checkIn, [], todayUtc, customMinNights);
   }
 }
 
