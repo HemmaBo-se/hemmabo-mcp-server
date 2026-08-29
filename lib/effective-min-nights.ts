@@ -28,7 +28,9 @@
  * compute the identical effective minimum regardless of host timezone.
  *
  * The modifiers only ever LOWER the base: gap-fill is `<= base` by
- * construction, and last-minute is the host's own shorter near-term floor.
+ * construction, and last-minute is the host's own shorter near-term floor. The
+ * one exception is the per-date `custom_min_nights` override (3A, 2026-08-20):
+ * top precedence, it may raise OR lower the floor for its arrival day.
  */
 
 import { nightsBetween } from "./availability-core.js";
@@ -66,8 +68,14 @@ export interface BookingWindow {
  *                             the arrival and the nearest checkin after it).
  *                             Empty when there are none.
  * @param todayUtc             injected clock: today's UTC day key, YYYY-MM-DD.
- * @returns the effective minimum — `<= base` when a modifier applies, else the
- *          base unchanged.
+ * @param customMinNightsForCheckIn
+ *                             `property_date_settings.custom_min_nights` for the
+ *                             arrival day, or `null` when the host set none.
+ *                             TOP precedence when a valid integer `>= 1`: it wins
+ *                             over every modifier and the base, and may raise or
+ *                             lower the floor. `null` / invalid ⇒ ignored.
+ * @returns the effective minimum — the per-date override when set, else `<= base`
+ *          when a modifier applies, else the base unchanged.
  */
 export function getEffectiveMinNights(
   baseMinNights: number,
@@ -75,7 +83,24 @@ export function getEffectiveMinNights(
   checkIn: string,
   surroundingBookings: BookingWindow[],
   todayUtc: string,
+  customMinNightsForCheckIn: number | null = null,
 ): number {
+  // Per-date host override (`property_date_settings.custom_min_nights`) for the
+  // ARRIVAL day is TOP precedence: it wins over every gap-fill / last-minute
+  // modifier AND over the base, and may raise OR lower the floor — it is the
+  // host's explicit per-date choice (3A, CEO decision 2026-08-20). A
+  // non-positive / non-integer value is treated as absent (fail-closed: fall
+  // through to the base/modifier floor rather than assert a bookable-but-invalid
+  // minimum). Independent of smart-pricing setup — it applies even when the host
+  // has no `property_smart_pricing` row.
+  if (
+    customMinNightsForCheckIn != null &&
+    Number.isInteger(customMinNightsForCheckIn) &&
+    customMinNightsForCheckIn >= 1
+  ) {
+    return customMinNightsForCheckIn;
+  }
+
   // Setup not completed (or no row at all) ⇒ modifiers are inert; the raw
   // base rules. This mirrors the engine's `!setup_completed ⇒ base` guard.
   if (!modifiers || !modifiers.setup_completed) return baseMinNights;
