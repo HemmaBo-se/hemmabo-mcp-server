@@ -85,8 +85,8 @@ const PRODUCT_OUTPUT: JsonSchemaField = {
       type: "object",
       description: "Subscription pricing for the host.",
       properties: {
-        amount: { type: "integer", description: "Monthly subscription price in major currency units (e.g. 399)." },
-        currency: { type: "string", description: "ISO 4217 currency code (e.g. 'SEK')." },
+        amount: { type: "integer", description: "Monthly subscription price in major currency units (e.g. 39)." },
+        currency: { type: "string", description: "ISO 4217 currency code (e.g. 'USD')." },
         interval: { type: "string", description: "Billing interval (e.g. 'month')." },
         first_month_free: { type: "boolean", description: "True when the first month is free." },
         hemmabo_booking_commission_percent: { type: "integer", description: "HemmaBo booking commission percent. 0 — HemmaBo takes no booking commission." },

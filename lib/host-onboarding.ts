@@ -100,8 +100,8 @@ function baseResponse(args: JsonRecord): JsonRecord {
       live_proof_url: LIVE_PROOF_URL,
       live_reference_domain: VILLA_PROOF_URL,
       price: {
-        amount: 399,
-        currency: "SEK",
+        amount: 39,
+        currency: "USD",
         interval: "month",
         first_month_free: true,
         hemmabo_booking_commission_percent: 0,
