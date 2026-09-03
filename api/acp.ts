@@ -40,6 +40,7 @@ import {
 } from "../src/stripe.js";
 import { verifyAp2PaymentMandate, resolveAp2IssuerJwks } from "../lib/ap2.js";
 import { bookingTokenMatches } from "../lib/booking-binding.js";
+import { readNodeNetworkProfile, classifySptRedemptionError } from "../lib/stripe-network-profile.js";
 import { acquireBookingLock, releaseBookingLock } from "../lib/booking-locks.js";
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -101,6 +102,13 @@ interface ACPCheckoutState {
   payment_provider?: {
     provider: string;
     supported_payment_methods: string[];
+    // The host's own Stripe profile id (profile_…) — the network id an agent
+    // passes as seller_details[network_business_profile] when minting a
+    // SharedPaymentToken for THIS checkout, so the token is bound to the host
+    // (merchant of record), never to HemmaBo. Absent when the host has not
+    // configured one; then no SPT path exists for the node (fail closed).
+    // ADR 2026-09-03 (smart-stays) / ADR 0018.
+    network_business_profile?: string;
   };
   // `code` follows the ACP MessageError enum (e.g. "requires_3ds") — present
   // only on messages that carry a machine-actionable business error.
@@ -125,6 +133,9 @@ async function buildACPState(
 
   const prop = booking.properties;
   const status = deriveACPStatus(booking);
+  // Host-owned grant target for SPT minting (ADR 0018). Read from the deny-all
+  // settings table via the service-role client; null = not configured.
+  const networkBusinessProfile = await readNodeNetworkProfile(supabase, booking.property_id);
   const totalAmountCents = toStripeMinorUnits(booking.total_price); // ACP uses smallest currency unit
   const nights = Math.round(
     (new Date(booking.check_out_date).getTime() - new Date(booking.check_in_date).getTime()) / 86400000
@@ -170,6 +181,7 @@ async function buildACPState(
     payment_provider: {
       provider: "stripe",
       supported_payment_methods: ["card"],
+      ...(networkBusinessProfile ? { network_business_profile: networkBusinessProfile } : {}),
     },
     messages: status === "ready_for_payment"
       ? [{ type: "info", text: `Booking ready for payment: ${prop?.name}, ${booking.check_in_date} to ${booking.check_out_date}, ${booking.guests_count} guests.` }]
@@ -571,6 +583,26 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
     });
   }
 
+  const isSpt = token.startsWith("spt_");
+
+  // ── SPT grant target (ADR 0018 / smart-stays ADR 2026-09-03) ────────
+  // The token must have been minted against the HOST's own Stripe profile —
+  // the network id this checkout advertised as
+  // payment_provider.network_business_profile. Read the stored value now so
+  // the failure answer below can name it. No stored profile means no network
+  // id was ever handed out, so in live mode an spt_ cannot be bound to this
+  // node: refuse BEFORE touching Stripe (fail closed, token unconsumed). Test
+  // mode may proceed — Stripe's test helper mints against its own profile and
+  // the SPT + Connect composition is exercised end-to-end that way.
+  const expectedNetworkProfile = await readNodeNetworkProfile(supabase, booking.property_id);
+  if (isSpt && !expectedNetworkProfile && !isTestMode) {
+    return res.status(409).json({
+      type: "spt_not_enabled_for_node",
+      error: "This node has no Stripe network profile configured, so a SharedPaymentToken cannot be redeemed for it",
+      hint: "The host pastes their own Stripe profile id (profile_…) in the node dashboard; until then, book through the signed direct_booking_url on the host domain. No charge was attempted.",
+    });
+  }
+
   const amountCents = toStripeMinorUnits(booking.total_price);
   const currency = (booking.currency || "SEK").toLowerCase();
 
@@ -625,7 +657,6 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
   piBody.append("metadata[acp_checkout]", "true");
 
   // Use SharedPaymentToken if it starts with spt_, otherwise treat as payment_method
-  const isSpt = token.startsWith("spt_");
   if (isSpt) {
     piBody.append("payment_method_data[shared_payment_granted_token]", token);
   } else {
@@ -676,10 +707,25 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
   const { body: piJson, raw: piRaw, parsed: piParsed } = await readStripeBody(piResp);
 
   if (!piResp.ok) {
+    // A token bound to the wrong profile is unrecoverable with the same token:
+    // name the grant target the agent must re-mint against (ADR 0018). Still
+    // 402 — Stripe took no money and the booking stays pending.
+    const sptFailure = isSpt ? classifySptRedemptionError(piJson) : null;
+    if (sptFailure === "binding_mismatch") {
+      return res.status(402).json({
+        type: "spt_binding_mismatch",
+        error: "SharedPaymentToken is bound to a different Stripe profile than this node's",
+        stripe_error: stripeErrorMessage(piJson, piRaw, piResp, piParsed),
+        expected_network_business_profile: expectedNetworkProfile,
+        hint: "Mint a new SharedPaymentToken with seller_details[network_business_profile] set to expected_network_business_profile (the host's own Stripe profile, as advertised on this checkout's payment_provider), then complete again. The booking is still pending; no charge was made.",
+        stripe_api_version: sptApiVersion(),
+      });
+    }
     return res.status(402).json({
       error: "Payment failed",
       stripe_error: stripeErrorMessage(piJson, piRaw, piResp, piParsed),
       hint: "Provide a valid SharedPaymentToken (spt_...) or payment_method (pm_...)",
+      ...(isSpt ? { expected_network_business_profile: expectedNetworkProfile } : {}),
       // Surfaced so a failed SPT redemption can be told apart from a wrong
       // preview version without re-reading the deploy's env.
       stripe_api_version: isSpt ? sptApiVersion() : null,
@@ -990,6 +1036,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
       payment_provider: { provider: "stripe", supported_payment_methods: ["card"] },
       supported_tokens: ["SharedPaymentToken (spt_...)", "PaymentMethod (pm_...)"],
+      // Where an agent gets the network id to mint an spt_ against: per
+      // checkout, never here — it is the HOST's own Stripe profile, so it
+      // differs per node and is absent when the host has not configured one.
+      spt_network_id: "payment_provider.network_business_profile on each checkout (the host's own Stripe profile id — the grant target). Absent when the host has not configured one; an spt_ is then refused for that node in live mode.",
       // The response-status set agents can observe (ADR 0005/0012). Advertised
       // so an integrator never has to reverse-engineer it from responses.
       statuses: [
