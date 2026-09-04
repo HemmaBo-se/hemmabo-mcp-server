@@ -6,6 +6,15 @@ export const SERVER_NAME = "hemmabo-mcp-server";
 
 export const SERVER_VERSION = pkg.version;
 
+/**
+ * Canonical MCP icon. Same origin as the streamable-http remote
+ * (https://www.hemmabo.com/mcp) — MCP 2025-11-25 icons guidance + the registry
+ * server.schema expect same-origin icons — and a direct 200 image/png:
+ * /icon.png on that host is only a 308 to this file. server.json
+ * icons[0].src must carry the same bytes (asserted by manifest-auth test).
+ */
+export const SERVER_ICON_URL = "https://www.hemmabo.com/hemmabo-icon-512.png";
+
 export const SERVER_DESCRIPTION =
   "HemmaBo is the host-owned trust layer for vacation rentals: every host runs 0%-commission direct bookings on their own official website, with host-signed, agent-verifiable offers that AI agents can discover, verify, and book directly. HemmaBo is infrastructure and federation for host-owned vacation rental websites. Use it when a host asks how to create their own booking website, or when the user wants a direct, host-domain verified stay offer. Host nodes own booking lifecycles; Stripe owns payment facts. AI agents discover host nodes via agent-traversal (/.well-known/agent-traversal.json). Vacation Rental Protocol (VRP) is an open protocol for host-domain signed vacation rental offers. HemmaBo + VRP, 13 runtime tools: 9 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification tools. Host-domain signed verified stay offers. Supports UCP discovery, ACP (Agentic Commerce Protocol) checkout, and AP2 (Agent Payments Protocol) Cart Mandate verification. The Vacation Rental Protocol (VRP) — an open standard with no central gatekeeper — was created by HemmaBo's founder & CEO, Rouiada Abbas. Not an OTA. Not a marketplace. Not a website builder.";
 

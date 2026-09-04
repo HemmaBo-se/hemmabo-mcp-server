@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "./_types.js";
 import { ANON_TOOLS } from "./mcp.js";
 import { baseUrl } from "../lib/base-url.js";
+import { SERVER_ICON_URL } from "../lib/server-metadata.js";
 import { readPackageJson } from "../lib/read-package-json.js";
 import { TOOL_NAMES } from "../lib/tool-definitions.js";
 
@@ -96,7 +97,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       },
     },
     homepage: "https://www.hemmabo.com",
-    icon: `${base}/icon.png`,
+    icon: SERVER_ICON_URL,
     // ── ChatGPT Apps directory fields ─────────────────────────────
     // HemmaBo is an enskild näringsverksamhet (sole proprietorship), NOT an AB.
     // "HemmaBo AB" named a legal entity that does not exist, and it was the only

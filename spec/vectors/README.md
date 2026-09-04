@@ -30,6 +30,8 @@ Each `NN-*.json` file is one vector:
 A conforming verifier, given `receipt` + `jwks` evaluated at `now`, MUST produce
 `expected` (statuses + error codes from the normative registry in ADR 0010 D4).
 
+Note on `source`: the `source` URLs and `kid` values in these vectors are illustrative. The inline `jwks` block in each vector file is the authoritative key material for verifying the vector; a verifier MUST NOT fetch the live JWKS at `source` when running these vectors.
+
 ## Cases
 
 | Vector | What it proves |

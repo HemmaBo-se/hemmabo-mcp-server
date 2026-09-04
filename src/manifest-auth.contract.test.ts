@@ -78,8 +78,13 @@ describe("manifest per-tool auth contract", () => {
     assert.equal(body.serverInfo.title, "HemmaBo Host Booking Engine");
     assert.equal(body.serverInfo.version, pkg.version);
     assert.equal(body.serverInfo.homepage, "https://www.hemmabo.com");
-    assert.equal(body.serverInfo.icon, "https://hemmabo-mcp-server.vercel.app/icon.png");
-    assert.equal(body.serverInfo.iconUrl, "https://hemmabo-mcp-server.vercel.app/icon.png");
+    // Canonical icon: same origin as remotes[0].url (https://www.hemmabo.com/mcp),
+    // direct 200 image/png (www.hemmabo.com/icon.png is a 308 to this file).
+    const ICON = "https://www.hemmabo.com/hemmabo-icon-512.png";
+    assert.equal(body.serverInfo.icon, ICON);
+    assert.equal(body.serverInfo.iconUrl, ICON);
+    const serverJson = createRequire(import.meta.url)("../server.json") as { icons: Array<{ src: string }> };
+    assert.equal(serverJson.icons[0]?.src, ICON, "server.json icons[0].src must match the runtime icon URL");
   });
 
   it("anon manifest entries match readOnlyHint annotation", async () => {

@@ -5,7 +5,7 @@
   "description": "Host-owned vacation-rental direct booking via VRP. Signed offers, 0% commission. Not an OTA.",
   "icons": [
     {
-      "src": "https://hemmabo-mcp-server.vercel.app/icon.png",
+      "src": "https://www.hemmabo.com/hemmabo-icon-512.png",
       "mimeType": "image/png",
       "sizes": [
         "512x512"
@@ -16,7 +16,7 @@
     "url": "https://github.com/HemmaBo-se/hemmabo-mcp-server",
     "source": "github"
   },
-  "version": "4.0.8",
+  "version": "4.0.9",
   "websiteUrl": "https://www.hemmabo.com",
   "remotes": [
     {

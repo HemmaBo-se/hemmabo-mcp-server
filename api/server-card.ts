@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "./_types.js";
 import { ANON_TOOLS, PROMPTS, RESOURCES, SERVER_DESCRIPTION, SERVER_INSTRUCTIONS, TOOLS } from "./mcp.js";
-import { baseUrl } from "../lib/base-url.js";
 import { readPackageJson } from "../lib/read-package-json.js";
+import { SERVER_ICON_URL } from "../lib/server-metadata.js";
 
 const pkg = readPackageJson();
 
@@ -14,7 +14,6 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     ...t,
     auth: ANON_TOOLS.has(t.name) ? "none" : "bearer",
   }));
-  const base = baseUrl(req);
 
   res.json({
     serverInfo: {
@@ -23,8 +22,8 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       version: pkg.version,
       description: SERVER_DESCRIPTION,
       homepage: "https://www.hemmabo.com",
-      icon: `${base}/icon.png`,
-      iconUrl: `${base}/icon.png`,
+      icon: SERVER_ICON_URL,
+      iconUrl: SERVER_ICON_URL,
     },
     instructions: SERVER_INSTRUCTIONS,
     configSchema: {
