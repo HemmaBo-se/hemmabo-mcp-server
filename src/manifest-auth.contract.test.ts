@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { ANON_TOOLS, TOOLS } from "../api/mcp.js";
 import manifestHandler from "../api/mcp-manifest.js";
 import serverCardHandler from "../api/server-card.js";
+import { SERVER_ICON_URL } from "../lib/server-metadata.js";
 
 const pkg = createRequire(import.meta.url)("../package.json") as { version: string };
 type Tool = { name: string; auth?: "none" | "bearer"; annotations?: { readOnlyHint?: boolean } };
@@ -78,8 +79,30 @@ describe("manifest per-tool auth contract", () => {
     assert.equal(body.serverInfo.title, "HemmaBo Host Booking Engine");
     assert.equal(body.serverInfo.version, pkg.version);
     assert.equal(body.serverInfo.homepage, "https://www.hemmabo.com");
-    assert.equal(body.serverInfo.icon, "https://hemmabo-mcp-server.vercel.app/icon.png");
-    assert.equal(body.serverInfo.iconUrl, "https://hemmabo-mcp-server.vercel.app/icon.png");
+    assert.equal(body.serverInfo.icon, SERVER_ICON_URL);
+    assert.equal(body.serverInfo.iconUrl, SERVER_ICON_URL);
+  });
+
+  // One icon URL on every published surface, and it must be a URL that serves
+  // the image directly. `<host>/icon.png` on www.hemmabo.com answers 308 to
+  // /hemmabo-icon-512.png, and registries cannot be relied on to follow it.
+  it("icon URL is one constant across manifest, server card and server.json, never <host>/icon.png", async () => {
+    assert.equal(SERVER_ICON_URL, "https://www.hemmabo.com/hemmabo-icon-512.png");
+    assert.doesNotMatch(SERVER_ICON_URL, /\/icon\.png$/);
+
+    const manifest = (await captureJson(manifestHandler as never)) as { icon: string };
+    assert.equal(manifest.icon, SERVER_ICON_URL);
+
+    const card = (await captureJson(serverCardHandler as never)) as ServerCard;
+    assert.equal(card.serverInfo.icon, SERVER_ICON_URL);
+    assert.equal(card.serverInfo.iconUrl, SERVER_ICON_URL);
+
+    const serverJson = createRequire(import.meta.url)("../server.json") as {
+      icons: { src: string; mimeType: string }[];
+    };
+    assert.equal(serverJson.icons.length, 1);
+    assert.equal(serverJson.icons[0].src, SERVER_ICON_URL);
+    assert.equal(serverJson.icons[0].mimeType, "image/png");
   });
 
   it("anon manifest entries match readOnlyHint annotation", async () => {
