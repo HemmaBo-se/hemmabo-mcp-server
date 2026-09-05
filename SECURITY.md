@@ -4,9 +4,13 @@
 
 If you believe you have found a security vulnerability in this repository or in
 the hosted MCP endpoint (`https://www.hemmabo.com/mcp`), please report it
-privately by email:
+privately — do **not** open a public GitHub issue.
 
-**info@hemmabo.se** — use a subject line starting with `SECURITY:`.
+- **Preferred:** GitHub **[Report a vulnerability](https://github.com/HemmaBo-se/hemmabo-mcp-server/security/advisories/new)**
+  (Security → Advisories → Report a vulnerability). This opens a private advisory
+  visible only to you and the maintainers.
+- **Alternative:** email **info@hemmabo.se** with a subject line starting with
+  `SECURITY:`.
 
 Please include:
 
@@ -14,8 +18,12 @@ Please include:
 - steps to reproduce (a proof of concept helps, but is not required),
 - the affected endpoint, tool, or file if known.
 
-Please do **not** open a public GitHub issue for security reports, and do not
-test against live host bookings or real guest data.
+Do not test against live host bookings or real guest data.
+
+Protocol-level issues in Vacation Rental Protocol (spec text, schemas,
+conformance vectors, signing rules) belong in
+[`vacationrentalprotocol/vrp-spec`](https://github.com/vacationrentalprotocol/vrp-spec/security/advisories/new),
+not here.
 
 ## What to Expect
 
