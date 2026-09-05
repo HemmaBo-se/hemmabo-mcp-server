@@ -1,6 +1,6 @@
 # HemmaBo MCP Server
 
-[![npm version](https://img.shields.io/npm/v/hemmabo-mcp-server)](https://www.npmjs.com/package/hemmabo-mcp-server) [![smithery badge](https://smithery.ai/badge/info-00wt/hemmabo-mcp-server)](https://smithery.ai/servers/info-00wt/hemmabo-mcp-server) [![license: Apache-2.0](https://img.shields.io/npm/l/hemmabo-mcp-server)](LICENSE)
+[![LightNow capabilities](https://lightnow.ai/badge/com.hemmabo/hemmabo-mcp-server)](https://lightnow.ai/servers/com.hemmabo/hemmabo-mcp-server)
 
 > **HemmaBo signs the stay offer with the host's *own* official website (VRP · Ed25519/JWKS) — no OTA, no marketplace, no central gatekeeper, no booking commission.** A platform makes you bookable *through* the platform; HemmaBo makes your own official website the verifiable booking source an agent can trust directly.
 
