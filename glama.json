@@ -1211,7 +1211,7 @@
           },
           "protocol": {
             "type": "string",
-            "description": "Protocol identifier discovered on the host domain, typically 'vrp'."
+            "description": "Protocol identifier discovered on the host domain. A valid node declares exactly 'vacation-rental-protocol' in its .well-known/vacation-rental.json protocol field, and that is the value returned here."
           },
           "protocol_version": {
             "type": "string",
