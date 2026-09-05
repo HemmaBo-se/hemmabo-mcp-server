@@ -1,6 +1,7 @@
 import { TOOL_SPECS as HEMMABO_TOOL_SPECS, toZodShape } from "./tool-definitions-base.js";
 import type { ToolSpec as ToolSpecType, JsonSchemaField } from "./tool-definitions-base.js";
 import { HEMMABO_WIDGET_TOOL_META } from "./apps-widget.js";
+import { VRP_PROTOCOL } from "./vrp.js";
 
 export { toZodShape };
 export type {
@@ -249,7 +250,7 @@ const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
       properties: {
         domain: { type: "string", description: "Echoed canonical host domain that was checked." },
         verified: { type: "boolean", description: "True only when discovery, JWKS, signing metadata, and verified-offer endpoint checks pass." },
-        protocol: { type: "string", description: "Protocol identifier discovered on the host domain, typically 'vrp'." },
+        protocol: { type: "string", description: `Protocol identifier discovered on the host domain. A valid node declares exactly '${VRP_PROTOCOL}' in its .well-known/vacation-rental.json protocol field, and that is the value returned here.` },
         protocol_version: { type: "string", description: "VRP version declared by the host discovery document." },
         discovery_url: { type: "string", format: "uri", description: "The .well-known vacation-rental discovery URL read from the host domain." },
         jwks_url: { type: "string", format: "uri", description: "Host-domain JWKS URL containing the Ed25519 public keys used to verify signed offers." },
