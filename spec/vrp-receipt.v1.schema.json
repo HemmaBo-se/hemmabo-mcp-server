@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://vacationrentalprotocol.com/spec/vrp-receipt.v1.schema.json",
+  "$id": "https://vacationrentalprotocol.com/schemas/vrp-receipt.v1.schema.json",
   "title": "VRP Receipt Envelope v1",
   "description": "Vacation Rental Protocol verifiable booking record. A versioned receipt with a FLAT array of attestations (ADR 0010 D1). Recursive sub-receipts and selective disclosure are reserved v2 extension points (present-but-empty in v1); a v1 verifier never recurses into them.",
   "type": "object",

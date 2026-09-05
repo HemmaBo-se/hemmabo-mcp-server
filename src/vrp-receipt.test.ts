@@ -11,6 +11,7 @@ import {
   type AttestationInput,
   type JwksResolver,
 } from "../lib/vrp-receipt.js";
+import { VRP_FETCH_TIMEOUT_MS } from "../lib/vrp.js";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -148,3 +149,36 @@ test("VRP receipt: published schema artifact matches the embedded source of trut
     "spec/vrp-receipt.v1.schema.json drifted from VRP_RECEIPT_V1_SCHEMA in lib/vrp-receipt.ts — keep them byte-equal",
   );
 });
+
+// The schema's $id must be the URL that actually serves it on the spec site.
+// Source of truth: vacationrentalprotocol/vrp-spec main schemas/vrp-receipt.v1.schema.json,
+// live at https://vacationrentalprotocol.com/schemas/vrp-receipt.v1.schema.json
+// (200, $id inside = that same URL, verified 2026-09-05). The old /spec/… $id
+// was a 404 on the site.
+const VRP_RECEIPT_SCHEMA_LIVE_URL = "https://vacationrentalprotocol.com/schemas/vrp-receipt.v1.schema.json";
+
+test("VRP receipt: schema $id is the live spec URL, in both the embedded and the published copy", () => {
+  assert.equal(VRP_RECEIPT_V1_SCHEMA.$id, VRP_RECEIPT_SCHEMA_LIVE_URL);
+  const onDisk = JSON.parse(readFileSync(resolve(REPO_ROOT, "spec/vrp-receipt.v1.schema.json"), "utf8"));
+  assert.equal(onDisk.$id, VRP_RECEIPT_SCHEMA_LIVE_URL);
+  // Structural: the $id names /schemas/<this file's name>, never /spec/<…>.
+  const id = new URL(VRP_RECEIPT_V1_SCHEMA.$id);
+  assert.equal(id.origin, "https://vacationrentalprotocol.com");
+  assert.equal(id.pathname, "/schemas/vrp-receipt.v1.schema.json");
+  assert.doesNotMatch(id.pathname, /^\/spec\//);
+});
+
+const liveSpecCheck = process.env.VRP_LIVE_SPEC_CHECK;
+test(
+  "VRP receipt: opt-in live check — the $id URL serves a schema identical to this copy",
+  { skip: liveSpecCheck ? false : "set VRP_LIVE_SPEC_CHECK=1 to compare against the live spec site" },
+  async () => {
+    const response = await fetch(VRP_RECEIPT_V1_SCHEMA.$id, {
+      signal: AbortSignal.timeout(VRP_FETCH_TIMEOUT_MS),
+    });
+    assert.equal(response.status, 200);
+    const live = (await response.json()) as { $id?: unknown };
+    assert.equal(live.$id, VRP_RECEIPT_V1_SCHEMA.$id);
+    assert.deepEqual(live, VRP_RECEIPT_V1_SCHEMA, "live spec schema differs from this repo's copy");
+  },
+);
