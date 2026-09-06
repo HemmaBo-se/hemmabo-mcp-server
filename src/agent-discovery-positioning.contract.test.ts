@@ -61,8 +61,10 @@ const TEXT_SURFACES: Record<string, string> = {
   "smithery.yaml": read("smithery.yaml"),
 };
 
-const REQUIRED_POSITIONING = [
-  "infrastructure and federation",
+const REQUIRED_POSITIONING: Array<string | string[]> = [
+  // Either the long-standing phrasing or the registry description's
+  // "HemmaBo is infrastructure for host-owned vacation rental websites" sentence.
+  ["infrastructure and federation", "infrastructure for host-owned"],
   "host-owned vacation rental",
   "host-domain verified stay offer",
   "host nodes own booking lifecycles",
@@ -80,9 +82,10 @@ describe("agent discovery positioning contract", () => {
     it(`${name} keeps HemmaBo's agent-facing role clear`, () => {
       const text = lower(content);
       for (const phrase of REQUIRED_POSITIONING) {
+        const alternatives = Array.isArray(phrase) ? phrase : [phrase];
         assert.ok(
-          text.includes(phrase),
-          `${name} must include positioning phrase: ${phrase}`,
+          alternatives.some((candidate) => text.includes(candidate)),
+          `${name} must include positioning phrase: ${alternatives.join(" | ")}`,
         );
       }
     });
@@ -127,9 +130,10 @@ describe("agent discovery positioning contract", () => {
 
     const description = lower(String(captured.description ?? ""));
     for (const phrase of REQUIRED_POSITIONING) {
+      const alternatives = Array.isArray(phrase) ? phrase : [phrase];
       assert.ok(
-        description.includes(phrase),
-        `runtime manifest description must include: ${phrase}`,
+        alternatives.some((candidate) => description.includes(candidate)),
+        `runtime manifest description must include: ${alternatives.join(" | ")}`,
       );
     }
 

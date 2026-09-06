@@ -14,7 +14,7 @@ Each host node runs on the host's own official website and is the source of trut
 Host nodes own booking lifecycles. Stripe owns payment facts.
 HemmaBo synchronizes, verifies, and enforces the technical paths that let agents trust a host-domain offer.
 AI agents discover host nodes via agent-traversal (`/.well-known/agent-traversal.json`).
-HemmaBo + VRP, 13 runtime tools: 9 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification tools.
+HemmaBo + VRP, 13 runtime tools: 9 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools.
 Host-domain signed verified stay offers.
 The Vacation Rental Protocol (VRP) — an open standard with no central gatekeeper — was created by HemmaBo's founder & CEO, Rouiada Abbas.
 

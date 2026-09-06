@@ -5,7 +5,7 @@
 #
 # Canonical facts (must agree on every live surface below):
 #   - 12 languages    (Konversa guest chat; NEVER "11 languages" again, PR #197)
-#   - 13 runtime tools (9 federation + 2 host onboarding + 2 VRP verification)
+#   - 13 runtime tools (9 HemmaBo tools + 2 host onboarding + 2 VRP verification)
 #   - Apache-2.0       (reference-impl license; ADR 0010 D7 — patent grant for
 #                       payment-network adoption. NEVER drift back to "MIT" on a
 #                       license-bearing surface; PR #221 relicensed but left
@@ -29,7 +29,7 @@
 #   * Only PLURAL "languages" / "språk" is a count claim. Singular "language" in
 #     "ISO 639-1 language hint" / "BCP-47 language tag" is left alone.
 #   * The tool TOTAL is matched only as "<N> runtime tools". The legitimate
-#     sub-counts ("9 HemmaBo federation tools", "2 host onboarding tools",
+#     sub-counts ("9 HemmaBo tools", "2 host onboarding tools",
 #     "2 VRP verification tools") never say "runtime tools", so they pass.
 #
 # Exits 0 on clean, 1 on drift.
@@ -94,7 +94,7 @@ check_rule "wrong language count in Swedish (canonical: 12 språk)" \
 # 3. Tool TOTAL must be 13 ("<N> runtime tools").
 check_rule "wrong tool total (canonical: 13 runtime tools)" \
   '\b[0-9]+[ -]runtime tools\b' 13 \
-  "use '13 runtime tools: 9 federation + 2 host onboarding + 2 VRP verification'"
+  "use '13 runtime tools: 9 HemmaBo tools + 2 host onboarding + 2 VRP verification'"
 
 # 4. Known stale tool totals as a bare "<N> tools" literal. 11/14/15 are never a
 #    legitimate sub-count (those are 9 / 2 / 2), so flagging them is safe.
