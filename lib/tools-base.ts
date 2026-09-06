@@ -1,5 +1,5 @@
 /**
- * Shared tool execution — single source of truth for all 9 HemmaBo federation tools.
+ * Shared tool execution — single source of truth for all 9 HemmaBo tools.
  *
  * The MCP transport (api/mcp.ts) is a thin wrapper that:
  *  1. Constructs its own Supabase clients (service-role + anon reader).
