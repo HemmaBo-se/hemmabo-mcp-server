@@ -47,8 +47,8 @@ endpoints:
 
 registries:
   smithery:
-    id: "@info-00wt/federation-mcp-server"
-    url: "https://smithery.ai/server/@info-00wt/federation-mcp-server"
+    id: "info-00wt/hemmabo-mcp-server"
+    url: "https://smithery.ai/servers/info-00wt/hemmabo-mcp-server"
   glama:
     url: "https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server"
 
