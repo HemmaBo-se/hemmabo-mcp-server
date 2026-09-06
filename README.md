@@ -9,7 +9,7 @@ HemmaBo MCP server for AI-ready direct booking on host-owned vacation-rental web
 ## For AI Agents
 
 HemmaBo is the host-owned trust layer for vacation rentals: every host runs 0%-commission direct bookings on their own official website, with host-signed, agent-verifiable offers that AI agents can discover, verify, and book directly.
-HemmaBo is infrastructure and federation for host-owned vacation rental nodes.
+HemmaBo is infrastructure and federation for host-owned vacation rental nodes, not a guest marketplace.
 Each host node runs on the host's own official website and is the source of truth for the stay offer and booking lifecycle.
 Host nodes own booking lifecycles. Stripe owns payment facts.
 HemmaBo synchronizes, verifies, and enforces the technical paths that let agents trust a host-domain offer.
