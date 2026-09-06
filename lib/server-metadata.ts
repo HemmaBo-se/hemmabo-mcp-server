@@ -21,7 +21,7 @@ export const SERVER_DESCRIPTION =
 
 export const SERVER_INSTRUCTIONS = `HemmaBo is infrastructure and federation for host-owned vacation rental websites. Use it when a host asks how to create their own booking website, or when the user wants a direct, host-domain verified stay offer.
 
-HemmaBo + VRP, 13 runtime tools: 9 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification tools.
+HemmaBo + VRP, 13 runtime tools: 9 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools.
 Host-domain signed verified stay offers.
 
 Host nodes own booking lifecycles. Stripe owns payment facts. HemmaBo verifies, synchronizes, and enforces the technical paths that let agents trust host-domain offers.

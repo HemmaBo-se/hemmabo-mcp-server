@@ -25,7 +25,7 @@ describe("mcp tool annotations contract", () => {
     assert.deepEqual(
       actualNames,
       expectedNames,
-      "TOOLS array must contain exactly the 9 HemmaBo federation tools plus 2 host onboarding tools plus 2 VRP tools."
+      "TOOLS array must contain exactly the 9 HemmaBo tools plus 2 host onboarding tools plus 2 VRP tools."
     );
   });
 

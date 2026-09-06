@@ -73,7 +73,7 @@ describe("tool count wording contract", () => {
     assert.equal(
       RUNTIME_TOOL_SPECS.length,
       HEMMABO_TOOL_SPECS.length + HOST_ONBOARDING_TOOL_NAMES.length + VRP_TOOL_NAMES.length,
-      "runtime tool count must equal 9 HemmaBo federation tools plus 2 host onboarding tools plus 2 VRP verification tools",
+      "runtime tool count must equal 9 HemmaBo tools plus 2 host onboarding tools plus 2 VRP verification tools",
     );
   });
 
@@ -96,8 +96,8 @@ describe("tool count wording contract", () => {
       [],
       [
         "Do not write 'all 9 tools/specs' for the runtime MCP surface.",
-        "Use '13 runtime tools: 9 HemmaBo federation tools, 2 host onboarding tools, and 2 VRP verification tools'.",
-        "It is still OK to say '9 HemmaBo federation tools' when referring only to the booking/federation subset.",
+        "Use '13 runtime tools: 9 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools'.",
+        "It is still OK to say '9 HemmaBo tools' when referring only to the booking/federation subset.",
       ].join(" "),
     );
   });

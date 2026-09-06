@@ -41,7 +41,7 @@ describe("TOOL_SPECS singleton (#63 + VRP v0.1)", () => {
     assert.deepEqual(
       TOOL_NAMES,
       EXPECTED_TOOL_NAMES,
-      "TOOL_SPECS must declare exactly the 9 HemmaBo federation tools plus 2 host onboarding tools plus 2 VRP tools, in canonical order."
+      "TOOL_SPECS must declare exactly the 9 HemmaBo tools plus 2 host onboarding tools plus 2 VRP tools, in canonical order."
     );
   });
 
