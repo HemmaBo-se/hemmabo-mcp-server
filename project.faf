@@ -4,7 +4,7 @@ project:
   name: "hemmabo-mcp-server"
   version: "4.0.9"
   tagline: "Infrastructure and federation for host-owned vacation rental nodes."
-  website: "https://hemmabo-mcp-server.vercel.app"
+  website: "https://www.hemmabo.com"
   repo: "https://github.com/HemmaBo-se/hemmabo-mcp-server"
 
 one_liner: >
@@ -40,10 +40,10 @@ stack:
   package_manager: "npm"
 
 endpoints:
-  mcp: "https://hemmabo-mcp-server.vercel.app/mcp"
+  mcp: "https://www.hemmabo.com/mcp"
   health: "https://hemmabo-mcp-server.vercel.app/health"
-  manifest: "https://hemmabo-mcp-server.vercel.app/.well-known/mcp.json"
-  server_card: "https://hemmabo-mcp-server.vercel.app/.well-known/mcp/server-card.json"
+  manifest: "https://www.hemmabo.com/.well-known/mcp.json"
+  server_card: "https://www.hemmabo.com/.well-known/mcp/server-card.json"
 
 registries:
   smithery:
