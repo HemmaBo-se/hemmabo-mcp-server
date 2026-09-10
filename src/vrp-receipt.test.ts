@@ -141,6 +141,44 @@ test("VRP receipt: D3 optional tlog does not fail; D1 reserved sub_receipt is ig
   assert.equal(r.attestations[0].status, "verified");
 });
 
+test("VRP receipt: unparseable validity instant → that attestation is invalid / missing_validity_window; envelope stays valid, other layers keep their status (D2/D4)", () => {
+  const offer = signedAttestation("offer", { valid_until: "tisdag" });
+  const r = verifyReceipt(receipt([offer, signedAttestation("transport")]), { resolveJwks: resolveOk });
+  assert.equal(r.receipt_valid, true, "a bad instant is a per-attestation fault, not malformed_receipt");
+  assert.deepEqual(r.errors, []);
+  assert.equal(r.fully_verified, false);
+  assert.deepEqual(r.attestations[0], {
+    index: 0,
+    layer: "offer",
+    kid: null,
+    status: "invalid",
+    error: "missing_validity_window",
+  });
+  assert.equal(r.attestations[1].status, "verified");
+  assert.equal(r.attestations[1].kid, KID);
+});
+
+test("VRP receipt: parity with vrp-spec lib/vrp-receipt.mjs — vector 01 with attestations[0].valid_until = 'tisdag'", () => {
+  // Same content (modulo line endings) as vacationrentalprotocol/vrp-spec
+  // examples/conformance/receipt/01-offer-transport-verified.json at e607cb3.
+  const v = JSON.parse(readFileSync(resolve(REPO_ROOT, "spec/vectors/01-offer-transport-verified.json"), "utf8")) as {
+    now: string;
+    jwks: Record<string, unknown>;
+    receipt: { attestations: AttestationInput[] };
+  };
+  v.receipt.attestations[0].valid_until = "tisdag";
+  const r = verifyReceipt(v.receipt, { resolveJwks: () => v.jwks, now: Date.parse(v.now) });
+  assert.deepEqual(r, {
+    receipt_valid: true,
+    fully_verified: false,
+    errors: [],
+    attestations: [
+      { index: 0, layer: "offer", status: "invalid", error: "missing_validity_window", kid: null },
+      { index: 1, layer: "transport", status: "verified", error: null, kid: "vrp-vectors-2026-01-01-01" },
+    ],
+  });
+});
+
 test("VRP receipt: published schema artifact matches the embedded source of truth", () => {
   const onDisk = JSON.parse(readFileSync(resolve(REPO_ROOT, "spec/vrp-receipt.v1.schema.json"), "utf8"));
   assert.deepEqual(
