@@ -12,7 +12,9 @@
  *   D1  Flat attestations[]. Reserved `sub_receipt` / `disclosure` extension
  *       points are NOT interpreted (no recursion in v1).
  *   D2  Every attestation MUST carry `valid_from` / `valid_until`; freshness is
- *       checked per attestation.
+ *       checked per attestation. An empty or unparseable instant is that
+ *       attestation's `missing_validity_window`, never an envelope error
+ *       (an absent key is still `malformed_receipt` via the schema's `required`).
  *   D3  `tlog` inclusion proof is OPTIONAL. A missing tlog is signature-only,
  *       never a failure; we never claim log-anchored properties for it.
  *   D4  A normative error registry + PARTIAL verification: the result reports a
@@ -23,7 +25,6 @@
  *       (`verifyCompactJws`); no JSON re-canonicalization re-derives the input.
  */
 import { Ajv, type ValidateFunction } from "ajv";
-import addFormatsModule from "ajv-formats";
 import { verifyCompactJws } from "./vrp.js";
 
 type JsonRecord = Record<string, unknown>;
@@ -217,8 +218,27 @@ export interface VerifyReceiptOptions {
   now?: number;
 }
 
-const ajv = new Ajv({ allErrors: true, strict: false, coerceTypes: false, useDefaults: false });
-(addFormatsModule as unknown as (a: Ajv) => Ajv)(ajv);
+// Envelope shape only (ADR 0010 D1): required keys, JSON types, version const,
+// non-empty attestations[]. The `format: "date-time"` annotation on
+// `valid_from` / `valid_until` is deliberately NOT enforced at this level: the
+// VALUE of the validity window is the per-attestation check's concern (D2/D4),
+// so an unparseable instant is reported as `missing_validity_window` on that
+// attestation while the envelope stays `receipt_valid` and the other layers
+// keep their own status. Enforcing the format here collapsed such receipts into
+// a single `malformed_receipt` with no per-layer result, diverging from the
+// open reference verifier (vrp-spec `lib/vrp-receipt.mjs`) that shares these
+// conformance vectors. Consequence, by design: any string `Date.parse` accepts
+// (including non-RFC 3339 forms) reaches the freshness check, exactly as in the
+// reference verifier — do not re-add ajv-formats here to "tighten" that.
+// `validateFormats: false` also keeps Ajv from logging an "unknown format"
+// warning for the annotation-only keyword.
+const ajv = new Ajv({
+  allErrors: true,
+  strict: false,
+  coerceTypes: false,
+  useDefaults: false,
+  validateFormats: false,
+});
 const validateReceiptShape: ValidateFunction = ajv.compile(VRP_RECEIPT_V1_SCHEMA);
 
 function asRecord(value: unknown): JsonRecord | null {
