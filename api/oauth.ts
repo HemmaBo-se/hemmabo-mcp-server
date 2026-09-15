@@ -41,6 +41,7 @@ import { requireEnv } from "../lib/env.js";
 import { parseTokenRequestParams } from "../lib/oauth-body.js";
 import { anonIdentifier, checkRateLimit } from "../lib/rate-limit.js";
 import { verifyS256 } from "../lib/pkce.js";
+import { isDisabledClientId } from "../lib/oauth-dcr-policy.js";
 
 const supabase = createClient(
   requireEnv("SUPABASE_URL"),
@@ -96,6 +97,12 @@ async function authenticateClient(
   clientId: string,
   clientSecret: string | undefined
 ): Promise<{ ok: true; client: ClientRow } | { ok: false; status: number; body: Record<string, string> }> {
+  // Deploy-time kill for the 2026-09-15 probe clients (lib/oauth-dcr-policy).
+  // Same response as an inactive row so nothing is enumerable.
+  if (isDisabledClientId(clientId)) {
+    return { ok: false, status: 401, body: { error: "invalid_client", error_description: "Unknown or inactive client" } };
+  }
+
   const { data: client, error } = await supabase
     .from("mcp_clients")
     .select("id, client_id, client_secret_hash, name, is_active, grant_types, token_endpoint_auth_method, scope")

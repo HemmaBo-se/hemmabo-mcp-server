@@ -16,21 +16,20 @@
  *          "contact_email": "..."          // non-standard, optional
  *        }
  *
- *   2. Legacy ChatGPT Apps SDK shape (kept for backward compat):
- *        { "client_name": "...", "contact_email": "..." }
- *      Defaults: grant_types=["client_credentials"],
- *                token_endpoint_auth_method="client_secret_post",
- *                redirect_uris=[].
+ *   2. Legacy ChatGPT Apps SDK shape is NO LONGER accepted on the
+ *      public endpoint. client_credentials clients are provisioned by
+ *      operators (SQL / existing rows), not by unauthenticated DCR.
+ *      2026-09-15 disclosure: open DCR + attacker redirect + public
+ *      client_credentials minting.
  *
  * Validation rules:
  *   - client_name: required, ≥ 2 chars.
- *   - grant_types: subset of {authorization_code, refresh_token,
- *       client_credentials}. If authorization_code is requested,
- *       redirect_uris MUST be non-empty.
- *   - redirect_uris: must be absolute https:// URLs OR the literal
- *       loopback / custom-scheme patterns allowed by RFC 8252 §7. We do
- *       a minimal "is parseable URL with a scheme" check here; the exact-
- *       string allowlist match at /authorize is the real defence.
+ *   - grant_types: subset of {authorization_code, refresh_token}.
+ *       client_credentials is rejected on this public endpoint.
+ *       grant_types is required (no silent default).
+ *   - redirect_uris: required for authorization_code. Each URI must
+ *       pass isAcceptableRedirectUri AND isDcrRedirectHostAllowed
+ *       (claude.ai / claude.com / ChatGPT / loopback only).
  *   - token_endpoint_auth_method: one of {client_secret_post,
  *       client_secret_basic, none}. `none` is only valid when PKCE is
  *       used (i.e. authorization_code grant present).
@@ -47,6 +46,7 @@ import { createHash, randomBytes, randomUUID } from "crypto";
 import { baseUrl } from "../lib/base-url.js";
 import { requireEnv } from "../lib/env.js";
 import { anonIdentifier, checkRateLimit } from "../lib/rate-limit.js";
+import { isDcrRedirectHostAllowed } from "../lib/oauth-dcr-policy.js";
 
 const supabase = createClient(
   requireEnv("SUPABASE_URL"),
@@ -56,7 +56,7 @@ const supabase = createClient(
 const TOKEN_ENDPOINT_PATH = "/oauth/token";
 const AUTHORIZE_ENDPOINT_PATH = "/oauth/authorize";
 
-const ALLOWED_GRANTS = new Set(["authorization_code", "refresh_token", "client_credentials"]);
+const ALLOWED_GRANTS = new Set(["authorization_code", "refresh_token"]);
 const ALLOWED_AUTH_METHODS = new Set(["client_secret_post", "client_secret_basic", "none"]);
 
 function hashSecret(secret: string): string {
@@ -79,7 +79,8 @@ function isAcceptableRedirectUri(uri: string): boolean {
     // Loopback only — RFC 8252 §7.3.
     return parsed.hostname === "127.0.0.1" || parsed.hostname === "[::1]" || parsed.hostname === "localhost";
   }
-  // https:// and any custom scheme (RFC 8252 §7.1) are allowed.
+  // https:// and any custom scheme (RFC 8252 §7.1) are allowed at this layer;
+  // DCR host allowlist is the second gate for authorization_code.
   return true;
 }
 
@@ -138,21 +139,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  // Grant types — default to client_credentials for legacy ChatGPT Apps SDK
-  // registrations that don't specify any.
-  let grantTypes: string[];
-  if (Array.isArray(body.grant_types) && body.grant_types.length > 0) {
-    grantTypes = body.grant_types.map((g) => String(g));
-    for (const g of grantTypes) {
-      if (!ALLOWED_GRANTS.has(g)) {
-        return res.status(400).json({
-          error: "invalid_client_metadata",
-          error_description: `Unsupported grant_type: ${g}`,
-        });
-      }
+  // Grant types — required. Public DCR does not mint client_credentials.
+  if (!Array.isArray(body.grant_types) || body.grant_types.length === 0) {
+    return res.status(400).json({
+      error: "invalid_client_metadata",
+      error_description:
+        "grant_types is required. Public registration accepts authorization_code and refresh_token only.",
+    });
+  }
+  const grantTypes = body.grant_types.map((g) => String(g));
+  for (const g of grantTypes) {
+    if (g === "client_credentials") {
+      return res.status(400).json({
+        error: "invalid_client_metadata",
+        error_description:
+          "client_credentials is not available via public registration",
+      });
     }
-  } else {
-    grantTypes = ["client_credentials"];
+    if (!ALLOWED_GRANTS.has(g)) {
+      return res.status(400).json({
+        error: "invalid_client_metadata",
+        error_description: `Unsupported grant_type: ${g}`,
+      });
+    }
   }
 
   // Redirect URIs — required if authorization_code grant is requested.
@@ -164,6 +173,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({
           error: "invalid_redirect_uri",
           error_description: `Rejected redirect_uri: ${u}`,
+        });
+      }
+      if (!isDcrRedirectHostAllowed(u)) {
+        return res.status(400).json({
+          error: "invalid_redirect_uri",
+          error_description: `redirect_uri host is not on the public DCR allowlist: ${u}`,
         });
       }
     }
@@ -238,8 +253,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     grant_types: grantTypes,
     token_endpoint_auth_method: authMethod,
     ...(scope ? { scope } : {}),
-    // HemmaBo-specific convenience fields (not part of RFC 7591 §3.2.1 but
-    // harmless additions per §3.2.2 — clients ignore unknown fields).
     token_endpoint: `${base}${TOKEN_ENDPOINT_PATH}`,
     authorization_endpoint: `${base}${AUTHORIZE_ENDPOINT_PATH}`,
     note: "Store client_secret securely — it is not recoverable. Public PKCE clients (token_endpoint_auth_method=none) MUST NOT send the secret to /oauth/token.",

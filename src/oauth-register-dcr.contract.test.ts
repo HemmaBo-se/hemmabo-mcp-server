@@ -2,12 +2,6 @@
  * Drift-guard contract test for the extended /oauth/register endpoint
  * (api/oauth-register.ts) — RFC 7591 Dynamic Client Registration.
  *
- * Anthropic Claude.ai sends RFC 7591-shaped requests with redirect_uris,
- * grant_types and token_endpoint_auth_method. Before this PR the handler
- * silently ignored those fields and persisted every client as
- * client_credentials-only with empty redirect_uris[] — which made
- * /oauth/authorize refuse them. This test locks the new behaviour.
- *
  * Run: npx tsx --test src/oauth-register-dcr.contract.test.ts
  */
 
@@ -81,19 +75,25 @@ describe("/oauth/register — accepts RFC 7591 fields", () => {
     assert.match(SRC, /client_secret_expires_at/);
   });
 
-  it("keeps legacy default (client_credentials only) for ChatGPT-style minimal registrations", () => {
+  it("rejects public DCR client_credentials and omitted grant_types", () => {
     assert.match(
       SRC,
-      /grantTypes\s*=\s*\[\s*"client_credentials"\s*\]/,
-      "When grant_types is omitted, default to client_credentials so the ChatGPT Apps SDK track keeps working."
+      /grant_types is required/,
+      "Public DCR must not default grant_types to client_credentials."
+    );
+    assert.match(
+      SRC,
+      /client_credentials is not available via public registration/,
+      "Public DCR must refuse to mint client_credentials clients."
+    );
+    assert.match(
+      SRC,
+      /isDcrRedirectHostAllowed/,
+      "authorization_code redirects must pass the public DCR host allowlist."
     );
   });
 
   it("rejects a non-JSON-object body with a clear invalid_request error, not a confusing invalid_client_metadata", () => {
-    // #272: Vercel leaves req.body as a raw string/Buffer when the caller
-    // omits or mis-sets Content-Type: application/json — every field then
-    // reads undefined, and the handler used to answer with the misleading
-    // "client_name is required" instead of pointing at the real cause.
     assert.match(
       SRC,
       /typeof\s+req\.body\s*!==\s*"object"/,
@@ -107,9 +107,6 @@ describe("/oauth/register — accepts RFC 7591 fields", () => {
   });
 
   it("never logs the plaintext client_secret", () => {
-    // Scan each console.* call's argument list (up to the closing paren on the
-    // same statement) for a reference to the local clientSecret binding.
-    // Non-greedy + bounded so we don't span the whole file.
     const consoleCallsWithSecret = SRC.match(/console\.(?:log|error|warn|info|debug)\([^)]{0,400}\bclientSecret\b[^)]{0,400}\)/g);
     assert.equal(
       consoleCallsWithSecret,

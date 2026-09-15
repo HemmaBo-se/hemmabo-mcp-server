@@ -40,6 +40,7 @@ import { requireEnv } from "../lib/env.js";
 import { anonIdentifier, checkRateLimit } from "../lib/rate-limit.js";
 import { isValidCodeChallenge } from "../lib/pkce.js";
 import { parseAuthorizeRequestParams } from "../lib/oauth-body.js";
+import { isDisabledClientId } from "../lib/oauth-dcr-policy.js";
 
 const supabase = createClient(
   requireEnv("SUPABASE_URL"),
@@ -110,6 +111,9 @@ function readParams(req: VercelRequest): AuthorizeParams {
  * and may use the authorization_code grant. Returns null if any check fails.
  */
 async function loadClient(clientId: string): Promise<ClientRow | null> {
+  // Deploy-time kill for the 2026-09-15 probe clients (lib/oauth-dcr-policy).
+  if (isDisabledClientId(clientId)) return null;
+
   const { data, error } = await supabase
     .from("mcp_clients")
     .select("id, client_id, name, is_active, redirect_uris, grant_types")
