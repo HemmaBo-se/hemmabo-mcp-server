@@ -27,7 +27,7 @@ const MANIFEST_SUMMARIES: Record<string, string> = {
   "hemmabo_search_properties":
     "Search available vacation rental properties by region, country, guest count and dates. Returns live availability and pricing.",
   "hemmabo_search_availability":
-    "Check whether a specific property is available for given dates. If blocked, returns same-month alternatives so agents can keep the guest moving.",
+    "Check whether a specific property is available for given dates. If blocked, returns the host node's own next available window so agents can keep the guest moving.",
   "hemmabo_booking_quote":
     "Get a detailed live pricing quote with final host-source total, nightly rates, seasonal pricing and package context.",
   "hemmabo_host_readiness_check":
