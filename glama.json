@@ -233,7 +233,7 @@
           },
           "alternativeDates": {
             "type": "array",
-            "description": "Nearby same-month date windows to offer when the requested dates are unavailable.",
+            "description": "The host node's own next available window (at most one) to offer when the requested dates are unavailable — identical to the node's /api/availability nextAvailable. Empty when the node offers none.",
             "items": {
               "type": "object",
               "properties": {

@@ -17,7 +17,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveQuote } from "./pricing.js";
-import { checkAvailability, resolveEffectiveMinNights, findFreeWindowsInMonth, type BufferNights } from "./availability.js";
+import { checkAvailability, resolveEffectiveMinNights, type BufferNights } from "./availability.js";
 import { DEFAULT_MIN_NIGHTS, nightsBetween, minNightsRefusalReason } from "./availability-core.js";
 import {
   checkIcalImportFreshness,
@@ -620,6 +620,95 @@ export function propertyMatchesLocation(
   return regionOk && countryOk;
 }
 
+/** Upper bound on the one node round-trip an alternative window may cost. */
+const NODE_NEXT_AVAILABLE_TIMEOUT_MS = 8_000;
+const NODE_DOMAIN_RE = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+
+/**
+ * The host node's own "next available" window for a closed stay
+ * (VAKTHUND B, 2026-09-16). The platform MCP must never invent a different
+ * "next free" than the node: live 2026-09-16 for 2026-10-18→19 / 6 guests the
+ * node (/api/availability and the node MCP) answered host_blocked with
+ * nextAvailable 2026-10-26→27 at 3 800 SEK, while www.hemmabo.com/mcp
+ * offered three month-scan gaps starting 2026-10-01→03 at 8 600 SEK — a
+ * second truth for the same property. So the alternative is now lifted
+ * VERBATIM from the node's /api/availability for the SAME check-in,
+ * check-out and guests: one window, the node's dates, the node's night
+ * count, the node's total. No nextAvailable from the node ⇒ an empty list,
+ * never a scanned window (findFreeWindowsInMonth no longer feeds this).
+ *
+ * Fail-closed on every edge: no domain, unreachable node, non-JSON, HTTP
+ * error, timeout, or a node answer without nextAvailable ⇒ [].
+ */
+async function nodeNextAvailableAlternatives(
+  supabase: SupabaseClient,
+  propertyId: string,
+  checkIn: string,
+  checkOut: string,
+  guests?: number,
+): Promise<Array<Record<string, unknown>>> {
+  const { data: prop, error } = await supabase
+    .from("properties")
+    .select("domain")
+    .eq("id", propertyId)
+    .maybeSingle();
+  const rawDomain = typeof prop?.domain === "string" ? prop.domain : "";
+  const domain = rawDomain.trim().toLowerCase().replace(/^www\./, "").replace(/\.$/, "");
+  if (error || !NODE_DOMAIN_RE.test(domain)) return [];
+
+  const params = new URLSearchParams({ checkIn, checkOut });
+  if (typeof guests === "number") params.set("guests", String(guests));
+  const url = `https://${domain}/api/availability?${params.toString()}`;
+
+  let body: Record<string, unknown> | null = null;
+  try {
+    const res = await fetch(url, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(NODE_NEXT_AVAILABLE_TIMEOUT_MS),
+    });
+    if (!res.ok) return [];
+    const parsed: unknown = await res.json();
+    body = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return [];
+  }
+  if (!body || body.available !== false) return [];
+
+  const next = body.nextAvailable;
+  if (!next || typeof next !== "object") return [];
+  const win = next as Record<string, unknown>;
+  if (typeof win.checkIn !== "string" || typeof win.checkOut !== "string") return [];
+  const nights =
+    typeof win.nights === "number" && Number.isInteger(win.nights) && win.nights > 0
+      ? win.nights
+      : nightsBetween(win.checkIn, win.checkOut);
+  if (!(nights > 0)) return [];
+
+  const alternative: Record<string, unknown> = {
+    checkIn: win.checkIn,
+    checkOut: win.checkOut,
+    nights,
+    shorterThanRequested: false,
+    available: true,
+    source: "host_node_next_available",
+    nodeDomain: domain,
+  };
+  const pricing = win.pricing;
+  if (pricing && typeof pricing === "object") {
+    const p = pricing as Record<string, unknown>;
+    if (typeof p.totalPrice === "number" && Number.isFinite(p.totalPrice)) {
+      const total = p.totalPrice;
+      if (typeof p.currency === "string") alternative.currency = p.currency;
+      alternative.publicTotal = total;
+      alternative.federationTotal = total;
+      Object.assign(alternative, directBookingPriceFields({ publicTotal: total, federationTotal: total }));
+      alternative.packageApplied = null;
+    }
+  }
+  return [alternative];
+}
+
 async function findAlternativeDates(
   supabase: SupabaseClient,
   propertyId: string,
@@ -627,52 +716,21 @@ async function findAlternativeDates(
   checkOut: string,
   guests?: number,
   maxGuests?: number | null,
-  max = 3,
-  availabilityConfig?: { minNights?: number | null; buffers?: BufferNights | null }
+  _max = 3,
+  _availabilityConfig?: { minNights?: number | null; buffers?: BufferNights | null }
 ): Promise<Array<Record<string, unknown>>> {
-  const alternatives: Array<Record<string, unknown>> = [];
   if (
     typeof guests === "number" &&
     typeof maxGuests === "number" &&
     guests > maxGuests
   ) {
-    return alternatives;
+    return [];
   }
-
-  // Scan the requested month's free nights and offer each maximal contiguous
-  // gap — including gaps shorter than the requested stay (but never shorter
-  // than the host's min_nights) — flagged with its night count so the agent
-  // never meets an empty wall. Windows are already sorted
-  // nearest-to-requested-length first and free by construction.
-  const freeWindows = await findFreeWindowsInMonth(
-    supabase,
-    propertyId,
-    checkIn,
-    checkOut,
-    availabilityConfig,
-  );
-  for (const window of freeWindows) {
-    const alternative: Record<string, unknown> = {
-      checkIn: window.checkIn,
-      checkOut: window.checkOut,
-      nights: window.nights,
-      shorterThanRequested: window.shorterThanRequested,
-      available: true,
-    };
-    if (typeof guests === "number") {
-      const quote = await resolveQuote(supabase, propertyId, window.checkIn, window.checkOut, guests);
-      if (!("error" in quote)) {
-        alternative.currency = quote.currency;
-        alternative.publicTotal = quote.publicTotal;
-        alternative.federationTotal = quote.federationTotal;
-        Object.assign(alternative, directBookingPriceFields(quote));
-        alternative.packageApplied = quote.packageApplied;
-      }
-    }
-    alternatives.push(alternative);
-    if (alternatives.length >= max) break;
-  }
-  return alternatives;
+  // One truth: the node's own nextAvailable for the same stay tuple. Every
+  // caller (search_properties, search_availability, booking_quote,
+  // booking_negotiate) follows this helper, so no surface can offer a window
+  // the node itself would not.
+  return nodeNextAvailableAlternatives(supabase, propertyId, checkIn, checkOut, guests);
 }
 
 // ── booking_locks helpers ─────────────────────────────────────────────────────
@@ -1018,7 +1076,7 @@ export async function executeTool(
                 : unavailableMatches.some((p) => Array.isArray(p.alternativeDates) && p.alternativeDates.length > 0)
                   ? "Requested dates are unavailable. Offer the alternativeDates for the matched property instead of ending the conversation."
                   : matchedProperties.length > 0
-                    ? "Matching properties were found, but the requested dates and nearby same-month alternatives are unavailable. Ask whether the guest can change month or guest count."
+                    ? "Matching properties were found, but the requested dates are unavailable and the host node offered no next available window. Ask whether the guest can change month or guest count."
                     : "No published property matched the location and capacity. Ask for a broader destination or fewer guests.",
             signalsGuidance: "Each property's `signals` are host-declared, language-independent discovery flags (amenities / policies / suitability / setting, plus bestForOccasions / targetAudience) for matching requests like dog-friendly, hot tub, crib, or hen party. They are canonical keys — ALWAYS render them as translated human labels in the user's language and NEVER show the raw keys, parenthesized identifiers, or internal field names to the user. `policies_negated` lists the host's EXPLICIT NOs (e.g. pets_cats there means cats are not allowed) — relay those as a clear, friendly no. For anything absent from both lists the answer is UNKNOWN, not 'no': say something like 'There is no verified information about that — if it matters to you, ask the host before booking', never machine-speak like 'not flagged in the data'. Treat flags as match signals, not verified guarantees: the signed verified-stay-offer and the property's own page are authoritative. Never describe internal data-layer differences (e.g. signals vs the signed offer's amenity list) to the guest. Tone: warm and plain — say the stay 'matches your wishes', never call it a 'perfect match', and never mention commissions, fee percentages, or 'no hidden fees'; simply say booking and payment are made directly with the host.",
           }, null, 2),

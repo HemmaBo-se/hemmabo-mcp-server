@@ -289,7 +289,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_search_availability",
     description:
-      "Check whether a specific property is available for the requested dates. Use this tool after the user has selected a property from hemmabo_search_properties and wants to confirm availability before getting a quote. Do NOT use for general browsing — use hemmabo_search_properties instead. Read-only, open to anonymous callers (no Bearer token), and rate-limited: checking availability never places a hold or reserves dates. Returns available=true/false with conflict details and same-month alternative date windows when unavailable; a stale inbound calendar sync blocks an available answer (fails closed with calendar_freshness) instead of guessing. Omit guests to check dates only; pass it to price the alternative windows and to gate capacity — counts above the property's maximum return available=false (guests_exceed_max) with no alternatives. Stays shorter than the host's effective minimum nights return available=false with reasonCode min_nights_violation — extend the stay rather than shifting dates. The verdict always matches the host node's own availability API.",
+      "Check whether a specific property is available for the requested dates. Use this tool after the user has selected a property from hemmabo_search_properties and wants to confirm availability before getting a quote. Do NOT use for general browsing — use hemmabo_search_properties instead. Read-only, open to anonymous callers (no Bearer token), and rate-limited: checking availability never places a hold or reserves dates. Returns available=true/false with conflict details and, when unavailable, the host node's own next available window (alternativeDates, at most one entry — the same window the node's /api/availability reports, never a platform-invented date); a stale inbound calendar sync blocks an available answer (fails closed with calendar_freshness) instead of guessing. Omit guests to check dates only; pass it to price the alternative windows and to gate capacity — counts above the property's maximum return available=false (guests_exceed_max) with no alternatives. Stays shorter than the host's effective minimum nights return available=false with reasonCode min_nights_violation — extend the stay rather than shifting dates. The verdict always matches the host node's own availability API.",
     inputSchema: {
       type: "object",
       properties: {
@@ -315,7 +315,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         reason: { type: "string", description: "Reason when available=false." },
         alternativeDates: {
           type: "array",
-          description: "Nearby same-month date windows to offer when the requested dates are unavailable.",
+          description: "The host node's own next available window (at most one) to offer when the requested dates are unavailable — identical to the node's /api/availability nextAvailable. Empty when the node offers none.",
           items: {
             type: "object",
             properties: {

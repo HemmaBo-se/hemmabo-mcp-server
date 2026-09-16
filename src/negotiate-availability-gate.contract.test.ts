@@ -14,10 +14,25 @@
  * records every insert so the no-snapshot invariant is provable.
  */
 
-import { describe, it } from "node:test";
+import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { executeTool } from "../lib/tools.js";
 import type { ToolClients } from "../lib/tools-base.js";
+
+// Alternatives are the host node's own nextAvailable (fetched from the
+// property's domain, see alt-dates-from-node-next.contract.test.ts). Stub the
+// node here so this gate test never leaves the process; the node offers no
+// window, so alternatives stay [] — the assertions below only need the array.
+let originalFetch: typeof globalThis.fetch;
+before(() => {
+  originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    ({ ok: true, status: 200, json: async () => ({ available: false }), text: async () => "{}" }) as Response
+  ) as typeof globalThis.fetch;
+});
+after(() => {
+  globalThis.fetch = originalFetch;
+});
 
 type Row = Record<string, unknown>;
 
