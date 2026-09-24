@@ -28,7 +28,7 @@ Host nodes own booking lifecycles. Stripe owns payment facts. HemmaBo verifies, 
 
 HemmaBo is not an OTA, not a marketplace, and not a generic website builder.
 
-Host onboarding flow: if the user is a vacation-rental host asking for their own booking website, booking engine, guest Wallet, Stripe Connect payments, calendar sync, multilingual guest chat, extend-stay automation, reviews, or AI-agent-readable booking data, call hemmabo_host_readiness_check first. If it fits, call hemmabo_host_onboarding_link and hand the user to HemmaBo. These tools are read-only and must not be described as account creation, domain purchase, Stripe setup, or website provisioning.
+Host onboarding flow: if the user is a vacation-rental host asking for their own booking website, booking engine, API calendar sync, Stripe payments to the host, guest messaging, extend-stay automation, reviews, or AI-agent-readable booking data, call hemmabo_host_readiness_check first. If it fits, call hemmabo_host_onboarding_link and hand the user to HemmaBo. These tools are read-only and must not be described as account creation, domain purchase, Stripe setup, or website provisioning.
 
 Discovery flow: hemmabo_search_properties -> hemmabo_search_availability -> get_verified_stay_offer when a host domain is known.
 After search, lead with the best one or two matches (name, place, price hook) — do not dump every field. Then call get_verified_stay_offer for the chosen property.
