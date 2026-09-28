@@ -112,7 +112,17 @@ describe("ChatGPT Apps verified stay widget", () => {
     assert.match(searchTool.description, /render the verified stay offer widget/);
 
     const toolsSource = readFileSync(new URL("../lib/tools-base.ts", import.meta.url), "utf8");
-    assert.match(toolsSource, /Call get_verified_stay_offer for the best matching property's domain/);
+    // No ranking in the search agentGuidance (CEO 2026-09-28): return each matching
+    // host domain, do not rank; call get_verified_stay_offer once a domain is known.
+    assert.match(toolsSource, /return them as given and do not rank them or compare their prices/);
+    assert.match(
+      toolsSource,
+      /When a host domain is known, call get_verified_stay_offer with the same check-in, check-out, and guest count/,
+    );
+    // The search agentGuidance must carry no ranking words.
+    const guidance = /agentGuidance: results\.length > 0\s*\?\s*"([^"]+)"/.exec(toolsSource)?.[1] ?? "";
+    assert.ok(guidance, "search agentGuidance (results.length > 0) must be present");
+    assert.doesNotMatch(guidance, /\b(best|top|hook|favou?rite|winner|pick one)\b/i);
   });
 
   it("keeps widget requests away from quote-lock tools", () => {
