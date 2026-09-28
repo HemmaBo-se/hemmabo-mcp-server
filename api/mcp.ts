@@ -26,6 +26,7 @@ import {
   SERVER_DESCRIPTION,
   SERVER_INSTRUCTIONS,
   SERVER_NAME,
+  SERVER_TITLE,
   SERVER_VERSION,
 } from "../lib/server-metadata.js";
 import {
@@ -287,6 +288,8 @@ export async function handleJsonRpc(
           },
           serverInfo: {
             name: SERVER_NAME,
+            // /mcp/chatgpt keeps the serverInfo OpenAI reviewed, byte for byte.
+            ...(surface === "chatgpt" ? {} : { title: SERVER_TITLE }),
             version: SERVER_VERSION,
             description: surface === "chatgpt" ? CHATGPT_SERVER_DESCRIPTION : SERVER_DESCRIPTION,
           },
