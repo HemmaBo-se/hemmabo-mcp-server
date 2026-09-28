@@ -3,7 +3,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SERVER_DESCRIPTION, SERVER_INSTRUCTIONS } from "../lib/server-metadata.js";
+import {
+  CATEGORY_LAW,
+  CATEGORY_USE_WHEN,
+  SERVER_DESCRIPTION,
+  SERVER_INSTRUCTIONS,
+} from "../lib/server-metadata.js";
 import manifestHandler from "../api/mcp-manifest.js";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -61,17 +66,15 @@ const TEXT_SURFACES: Record<string, string> = {
   "smithery.yaml": read("smithery.yaml"),
 };
 
+// The class sentence ("infrastructure ... for host-owned vacation rental
+// websites"), the old use-when ("host-domain verified stay offer") and the
+// website-builder negation are replaced by the category law (CEO lock
+// 2026-09-28); src/category-law.contract.test.ts holds those surfaces.
 const REQUIRED_POSITIONING: Array<string | string[]> = [
-  // Either the long-standing phrasing or the registry description's
-  // "HemmaBo is infrastructure for host-owned vacation rental websites" sentence.
-  ["infrastructure and federation", "infrastructure for host-owned"],
-  "host-owned vacation rental",
-  "host-domain verified stay offer",
   "host nodes own booking lifecycles",
   "stripe owns payment facts",
   "not an ota",
   "not a marketplace",
-  "website builder",
   "hemmabo + vrp, 13 runtime tools",
   "host onboarding",
   "host-domain signed verified stay offers",
@@ -176,9 +179,14 @@ describe("agent discovery positioning contract", () => {
       ...TEXT_SURFACES,
       "smithery.yaml description": smitheryDescription![1],
     };
+    // CEO lock 2026-09-28: the category law and its use-when say "the host's
+    // own domain" verbatim. Only those two locked strings are exempt; any
+    // other "own domain" positioning phrase still fails.
+    const withoutLockedLaw = (text: string): string =>
+      text.replaceAll(CATEGORY_LAW, "").replaceAll(CATEGORY_USE_WHEN, "");
     for (const [name, content] of Object.entries(marketingSurfaces)) {
       if (name === "smithery.yaml") continue; // superseded by the description-only check above (the file's keyword list still carries an "own-domain" tag, a separate discoverability concern)
-      assert.doesNotMatch(content, /own[- ]domain/i, `${name} must not use "own domain"/"own-domain X" positioning language`);
+      assert.doesNotMatch(withoutLockedLaw(content), /own[- ]domain/i, `${name} must not use "own domain"/"own-domain X" positioning language`);
     }
   });
 

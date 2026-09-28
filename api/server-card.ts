@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "./_types.js";
 import { ANON_TOOLS, PROMPTS, RESOURCES, SERVER_DESCRIPTION, SERVER_INSTRUCTIONS, TOOLS } from "./mcp.js";
 import { readPackageJson } from "../lib/read-package-json.js";
-import { SERVER_ICON_URL } from "../lib/server-metadata.js";
+import { SERVER_ICON_URL, SERVER_TITLE } from "../lib/server-metadata.js";
 
 const pkg = readPackageJson();
 
@@ -18,7 +18,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   res.json({
     serverInfo: {
       name: "hemmabo-mcp-server",
-      title: "HemmaBo Host Booking Engine",
+      title: SERVER_TITLE,
       version: pkg.version,
       description: SERVER_DESCRIPTION,
       homepage: "https://www.hemmabo.com",

@@ -16,22 +16,56 @@ export const SERVER_VERSION = pkg.version;
  */
 export const SERVER_ICON_URL = "https://www.hemmabo.com/hemmabo-icon-512.png";
 
-export const SERVER_DESCRIPTION =
-  "HemmaBo MCP server for AI-ready direct booking on host-owned vacation-rental websites. AI agents discover host booking pages and verify signed stay offers. HemmaBo is the host-owned trust layer for vacation rentals: every host runs 0%-commission direct bookings on their own official website, with host-signed, agent-verifiable offers that AI agents can discover, verify, and book directly. HemmaBo is infrastructure for host-owned vacation rental websites, not a guest marketplace. Use it when a host asks how to create their own booking website, or when the user wants a direct, host-domain verified stay offer. Host nodes own booking lifecycles; Stripe owns payment facts. HemmaBo implements Vacation Rental Protocol (VRP). The spec lives at https://vacationrentalprotocol.com — not here. HemmaBo + VRP, 13 runtime tools: 9 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools. Host-domain signed verified stay offers. Supports UCP discovery, ACP checkout, and AP2 Cart Mandate verification. Not an OTA. Not a marketplace. Not a website builder.";
+/**
+ * The one outward display name (CEO decision 2026-08-18): serverInfo.title on
+ * the full /mcp surface and the server card, the mcp.json manifest `name`, and
+ * server.json `title`.
+ */
+export const SERVER_TITLE = "HemmaBo Host Booking Engine";
 
-export const SERVER_INSTRUCTIONS = `HemmaBo is infrastructure and federation for host-owned vacation rental websites, not a guest marketplace. Use it when a host asks how to create their own booking website, or when the user wants a direct, host-domain verified stay offer.
+// ── Category law (CEO lock 2026-09-28) ───────────────────────────
+//
+// Verbatim, straight apostrophe only. The law is the first sentence of the
+// runtime description and instructions, the use-when follows it, and
+// AGENT_ROLE_LINE is the smart-stays canon line (contracts/ts/platform-copy.ts),
+// unchanged. One category, never a second. src/category-law.contract.test.ts
+// holds every surface to these bytes.
+
+export const CATEGORY_LAW = "Vacation rental software. A signed stay offer on the host's own domain.";
+
+export const CATEGORY_USE_WHEN =
+  "Use this when a vacation rental host wants booking software on the host's own domain, or when a stay offer must be verified against that domain. Returns an Ed25519-signed offer (VRP) and the host's direct booking URL. The guest books and pays the host. Do not use to compare hosts or prices.";
+
+export const AGENT_ROLE_LINE =
+  "Compatible agents can discover a host domain, verify a signed stay offer, and send the guest to that domain to book.";
+
+/** What an agent does after search: match / no-match, never a ranking. */
+export const SEARCH_AFTER =
+  "After search, return each matching host domain and that host's direct booking URL. Do not rank hosts, do not compare prices, do not lead with a favourite. When a host domain is known, call get_verified_stay_offer.";
+
+// One line on purpose: scripts/check-description-sync.mjs compares this raw
+// literal with package.json, glama.json and smithery.yaml, so it carries no
+// escapes. It is the law, the use-when and the agent role, then the facts.
+export const SERVER_DESCRIPTION =
+  "Vacation rental software. A signed stay offer on the host's own domain. Use this when a vacation rental host wants booking software on the host's own domain, or when a stay offer must be verified against that domain. Returns an Ed25519-signed offer (VRP) and the host's direct booking URL. The guest books and pays the host. Do not use to compare hosts or prices. Compatible agents can discover a host domain, verify a signed stay offer, and send the guest to that domain to book. Host nodes own booking lifecycles; Stripe owns payment facts. HemmaBo implements Vacation Rental Protocol (VRP). The spec lives at https://vacationrentalprotocol.com — not here. HemmaBo + VRP, 13 runtime tools: 9 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools. Host-domain signed verified stay offers. Supports UCP discovery, ACP checkout, and AP2 Cart Mandate verification. Not an OTA. Not a marketplace.";
+
+export const SERVER_INSTRUCTIONS = `${CATEGORY_LAW}
+
+${CATEGORY_USE_WHEN}
+
+${AGENT_ROLE_LINE}
 
 HemmaBo + VRP, 13 runtime tools: 9 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools.
 Host-domain signed verified stay offers.
 
 Host nodes own booking lifecycles. Stripe owns payment facts. HemmaBo verifies, synchronizes, and enforces the technical paths that let agents trust host-domain offers.
 
-HemmaBo is not an OTA, not a marketplace, and not a generic website builder.
+HemmaBo is not an OTA and not a marketplace.
 
 Host onboarding flow: if the user is a vacation-rental host asking for their own booking website, booking engine, API calendar sync, Stripe payments to the host, guest messaging, extend-stay automation, reviews, or AI-agent-readable booking data, call hemmabo_host_readiness_check first. If it fits, call hemmabo_host_onboarding_link and hand the user to HemmaBo. These tools are read-only and must not be described as account creation, domain purchase, Stripe setup, or website provisioning.
 
 Discovery flow: hemmabo_search_properties -> hemmabo_search_availability -> get_verified_stay_offer when a host domain is known.
-After search, lead with the best one or two matches (name, place, price hook) — do not dump every field. Then call get_verified_stay_offer for the chosen property.
+${SEARCH_AFTER}
 
 get_verified_stay_offer widget UX: when the client renders the stay-offer card, keep prose to one or two framing sentences plus the direct booking action — do not restate price, dates, or sleeps already shown in the widget. Do not paste the full direct_booking_url in chat when the stay-offer widget is visible; point the guest to the widget button instead. Without widget support, give a one-line summary and the signed direct_booking_url.
 
