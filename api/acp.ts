@@ -1025,7 +1025,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({
       protocol: "agentic-commerce-protocol",
       version: "1.0",
-      seller: "HemmaBo Federation",
+      // The seller is the host of each checkout's property — the merchant of
+      // record the charge settles to (on_behalf_of + transfer_data.destination
+      // = the host's own Connect account, above). This manifest serves every
+      // node, so it names no one; each checkout names its host.
+      seller: "The host of each checkout's property (merchant of record), named on each checkout: metadata.property_name, metadata.property_domain.",
       description: "ACP-compatible vacation rental checkout for host-owned vacation rental domains.",
       endpoints: {
         create: "POST /acp/checkouts",
