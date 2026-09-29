@@ -58,7 +58,7 @@ ${AGENT_ROLE_LINE}
 HemmaBo + VRP, 13 runtime tools: 9 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools.
 Host-domain signed verified stay offers.
 
-Host nodes own booking lifecycles. Stripe owns payment facts. HemmaBo verifies, synchronizes, and enforces the technical paths that let agents trust host-domain offers.
+Host nodes own booking lifecycles. Stripe owns payment facts. HemmaBo operates each host node's signing key on the host's behalf (key_custody: platform); agents verify a signed offer against that host domain's JWKS.
 
 HemmaBo is not an OTA and not a marketplace.
 
