@@ -4,11 +4,11 @@
 
 > **HemmaBo signs the stay offer with the host's *own* official website (VRP · Ed25519/JWKS) — no OTA, no marketplace, no booking commission.** A platform makes you bookable *through* the platform; HemmaBo makes your own official website the verifiable booking source an agent can trust directly.
 
-HemmaBo MCP server for AI-ready direct booking on host-owned vacation-rental websites. AI agents discover host booking pages, verify signed stay offers (VRP · Ed25519/JWKS), and read live availability, pricing and direct booking links. Not an OTA.
+Vacation rental software. A signed stay offer on the host's own domain. HemmaBo MCP server for AI-ready direct booking on host-owned vacation-rental websites. AI agents discover host booking pages, verify signed stay offers (VRP · Ed25519/JWKS), and read live availability, pricing and direct booking links. Not an OTA.
 
 ## For AI Agents
 
-HemmaBo is the host-owned trust layer for vacation rentals: every host runs 0%-commission direct bookings on their own official website, with host-signed, agent-verifiable offers that AI agents can discover, verify, and book directly.
+Vacation rental software. A signed stay offer on the host's own domain. Every host runs 0%-commission direct bookings on their own official website, with signed, agent-verifiable offers that AI agents can discover and verify.
 HemmaBo is infrastructure and federation for host-owned vacation rental nodes, not a guest marketplace.
 Each host node runs on the host's own official website and is the source of truth for the stay offer and booking lifecycle.
 Host nodes own booking lifecycles. Stripe owns payment facts.
