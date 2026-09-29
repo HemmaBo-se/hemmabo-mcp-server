@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/hemmabo-mcp-server)](https://www.npmjs.com/package/hemmabo-mcp-server) [![smithery badge](https://smithery.ai/badge/info-00wt/hemmabo-mcp-server)](https://smithery.ai/servers/info-00wt/hemmabo-mcp-server) [![license: Apache-2.0](https://img.shields.io/npm/l/hemmabo-mcp-server)](LICENSE)
 
-> **HemmaBo signs the stay offer with the host's *own* official website (VRP · Ed25519/JWKS) — no OTA, no marketplace, no central gatekeeper, no booking commission.** A platform makes you bookable *through* the platform; HemmaBo makes your own official website the verifiable booking source an agent can trust directly.
+> **HemmaBo signs the stay offer with the host's *own* official website (VRP · Ed25519/JWKS) — no OTA, no marketplace, no booking commission.** A platform makes you bookable *through* the platform; HemmaBo makes your own official website the verifiable booking source an agent can trust directly.
 
 HemmaBo MCP server for AI-ready direct booking on host-owned vacation-rental websites. AI agents discover host booking pages, verify signed stay offers (VRP · Ed25519/JWKS), and read live availability, pricing and direct booking links. Not an OTA.
 
@@ -12,7 +12,7 @@ HemmaBo is the host-owned trust layer for vacation rentals: every host runs 0%-c
 HemmaBo is infrastructure and federation for host-owned vacation rental nodes, not a guest marketplace.
 Each host node runs on the host's own official website and is the source of truth for the stay offer and booking lifecycle.
 Host nodes own booking lifecycles. Stripe owns payment facts.
-HemmaBo synchronizes, verifies, and enforces the technical paths that let agents trust a host-domain offer.
+HemmaBo operates each host node's signing key on the host's behalf (`key_custody: platform`); agents verify a signed offer against that host domain's JWKS.
 AI agents discover host nodes via agent-traversal (`/.well-known/agent-traversal.json`).
 HemmaBo + VRP, 13 runtime tools: 9 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools.
 Host-domain signed verified stay offers.
