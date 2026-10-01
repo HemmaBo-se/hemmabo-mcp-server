@@ -87,6 +87,7 @@ export const CONFIG_SCHEMA = {
 export const TOOLS = TOOL_SPECS.map((t) => {
   const wire: {
     name: string;
+    title: string;
     description: string;
     inputSchema: typeof t.inputSchema;
     outputSchema: typeof t.outputSchema;
@@ -94,6 +95,11 @@ export const TOOLS = TOOL_SPECS.map((t) => {
     _meta?: Record<string, unknown>;
   } = {
     name: t.name,
+    // MCP 2025-06-18 Tool.title — the human-readable display name at the
+    // top level. Same string as annotations.title (the pre-2025-06-18
+    // location) so every client and the Anthropic directory portal find it
+    // in either place. One source: lib/tool-definitions*.ts annotations.
+    title: t.annotations.title,
     description: t.description,
     inputSchema: t.inputSchema,
     outputSchema: t.outputSchema,

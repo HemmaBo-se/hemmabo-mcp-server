@@ -40,4 +40,17 @@ describe("mcp tool annotations contract", () => {
       assert.equal(a.destructiveHint, expected.destructiveHint, `${toolName}.destructiveHint drifted`);
     });
   }
+
+  // MCP 2025-06-18 moved the display name to a top-level Tool.title; the
+  // Anthropic directory portal flags tools without it ("missing titles").
+  // Both locations carry the same string, sourced from annotations.title.
+  for (const toolName of Object.keys(EXPECTED)) {
+    it(`${toolName} carries a top-level title equal to annotations.title`, () => {
+      const tool = TOOLS.find((t) => t.name === toolName) as { title?: unknown; annotations?: { title?: unknown } } | undefined;
+      assert.ok(tool, `tool '${toolName}' must exist in TOOLS`);
+      assert.equal(typeof tool.title, "string", `${toolName}: top-level title must be a string`);
+      assert.ok((tool.title as string).trim().length > 0, `${toolName}: top-level title must not be empty`);
+      assert.equal(tool.title, tool.annotations?.title, `${toolName}: title must equal annotations.title (same string, no new name)`);
+    });
+  }
 });
