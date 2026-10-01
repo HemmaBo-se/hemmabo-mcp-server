@@ -124,8 +124,11 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     },
     // No hemmabo_role: its value is on the category-law REMOVED list
     // (CEO lock 2026-09-28).
+    // No trust.payment: the connector moves no money (CEO decision
+    // 2026-10-01), and the www mirror /.well-known/mcp (smart-stays
+    // api/mcp-json.js) carries no payment field either, so both platform
+    // manifests say the same thing.
     trust: {
-      payment: "Stripe (direct to host)",
       commission: "0%",
       data_ownership: "host",
       booking_lifecycle_owner: "host node",

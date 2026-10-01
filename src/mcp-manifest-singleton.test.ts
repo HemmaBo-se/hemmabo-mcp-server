@@ -92,9 +92,10 @@ describe("mcp-manifest singleton", () => {
     const pkg = JSON.parse(readFileSync(resolve(REPO_ROOT, "package.json"), "utf8")) as { version: string };
     assert.equal(captured.version, pkg.version, "manifest.version must match package.json.version");
 
-    // trust must keep its three legacy fields
+    // trust keeps commission and data_ownership; payment is gone with the
+    // connector's money movement (CEO decision 2026-10-01).
     const trust = captured.trust as Record<string, unknown>;
-    assert.equal(trust.payment, "Stripe (direct to host)");
+    assert.equal("payment" in trust, false);
     assert.equal(trust.commission, "0%");
     assert.equal(trust.data_ownership, "host");
   });
