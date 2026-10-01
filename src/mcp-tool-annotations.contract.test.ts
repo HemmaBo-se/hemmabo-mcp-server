@@ -5,13 +5,6 @@ import { TOOLS } from "../api/mcp.js";
 const EXPECTED: Record<string, { readOnlyHint: boolean; openWorldHint: boolean; destructiveHint: boolean }> = {
   "hemmabo_search_properties":   { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
   "hemmabo_search_availability": { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
-  "hemmabo_booking_quote":       { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
-  "hemmabo_booking_create":      { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
-  "hemmabo_booking_negotiate":   { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
-  "hemmabo_booking_checkout":    { readOnlyHint: false, openWorldHint: true,  destructiveHint: false },
-  "hemmabo_booking_cancel":      { readOnlyHint: false, openWorldHint: true,  destructiveHint: true  },
-  "hemmabo_booking_status":      { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
-  "hemmabo_booking_reschedule":  { readOnlyHint: false, openWorldHint: true,  destructiveHint: true  },
   "hemmabo_host_readiness_check": { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
   "hemmabo_host_onboarding_link": { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
   "verify_vacation_rental_node": { readOnlyHint: true,  openWorldHint: true,  destructiveHint: false },
@@ -19,13 +12,13 @@ const EXPECTED: Record<string, { readOnlyHint: boolean; openWorldHint: boolean; 
 };
 
 describe("mcp tool annotations contract", () => {
-  it("exposes exactly the 13 expected tools", () => {
+  it("exposes exactly the 6 expected tools", () => {
     const actualNames = TOOLS.map((t) => t.name).sort();
     const expectedNames = Object.keys(EXPECTED).sort();
     assert.deepEqual(
       actualNames,
       expectedNames,
-      "TOOLS array must contain exactly the 9 HemmaBo tools plus 2 host onboarding tools plus 2 VRP tools."
+      "TOOLS array must contain exactly the 2 HemmaBo tools plus 2 host onboarding tools plus 2 VRP tools."
     );
   });
 

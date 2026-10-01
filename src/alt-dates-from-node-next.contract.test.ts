@@ -32,7 +32,7 @@ type Row = Record<string, unknown>;
 const PROP = "3ef1d46d-5c23-46fe-86cb-8e714abf734f";
 const NODE = "villaakerlyckan.se";
 
-// ── Supabase double (same convention as negotiate-availability-gate) ────────
+// ── Supabase double ──────────────────────────────────────────────────────────
 
 function makeClients() {
   const inserts: Array<{ table: string; row: Row }> = [];
@@ -172,7 +172,7 @@ function payloadOf(result: { content: Array<{ text?: string }> }): { text: strin
   return { text, json: JSON.parse(text) };
 }
 
-for (const tool of ["hemmabo_search_availability", "hemmabo_booking_quote"] as const) {
+for (const tool of ["hemmabo_search_availability"] as const) {
   describe(`${tool} — alternativeDates is the node's nextAvailable (18–19 Oct host block)`, () => {
     it("carries exactly the node's window: 2026-10-26→27, 1 night, 3 800 SEK — never 2026-10-01", async () => {
       const { inserts, clients } = makeClients();

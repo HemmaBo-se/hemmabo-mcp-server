@@ -14,7 +14,7 @@ Each host node runs on the host's own official website and is the source of trut
 Host nodes own booking lifecycles. Stripe owns payment facts.
 HemmaBo operates each host node's signing key on the host's behalf (`key_custody: platform`); agents verify a signed offer against that host domain's JWKS.
 AI agents discover host nodes via agent-traversal (`/.well-known/agent-traversal.json`).
-HemmaBo + VRP, 13 runtime tools: 9 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools.
+HemmaBo + VRP, 6 runtime tools: 2 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools.
 Host-domain signed verified stay offers.
 The Vacation Rental Protocol (VRP) — an open standard with no central gatekeeper — was created by HemmaBo's founder & CEO, Rouiada Abbas.
 
@@ -28,16 +28,14 @@ Use this package when an MCP client needs to:
 - hand a host to HemmaBo onboarding without claiming the agent created an account, bought a domain, configured Stripe, or provisioned a site,
 - search published host-owned vacation-rental properties,
 - check availability for requested dates,
-- get a live quote from published property data,
 - verify a signed host-domain offer and route the guest to the host's own booking URL, or
-- operate authenticated fallback booking-management helpers in configured non-VRP deployments, and
 - verify a Vacation Rental Protocol (VRP) host-domain signed stay offer before quoting it.
 
 HemmaBo is not an OTA. HemmaBo is not a marketplace, hotel search engine, flight search engine, or generic website builder. This package exposes the MCP server surface. Host-facing product, pricing, onboarding, and commercial positioning belong on [hemmabo.com](https://www.hemmabo.com), not in this repository.
 
 ## Protocol Layers
 
-- **HemmaBo MCP tools** expose search, availability, quote, booking-status, and VRP verification flows for property data published by HemmaBo hosts. Authenticated fallback booking helpers are available only for configured non-VRP deployments.
+- **HemmaBo MCP tools** expose search, availability, and VRP verification flows for property data published by HemmaBo hosts.
 - **Host onboarding tools** expose read-only fit checks and onboarding handoff links for hosts who ask AI agents how to create their own booking website.
 - **Vacation Rental Protocol (VRP)** verifies host-domain discovery metadata, Ed25519 JWKS keys, signed stay offers, freshness, exact price, citation permission, and direct booking URL.
 
@@ -84,13 +82,6 @@ Canonical tool names use `snake_case`. Legacy dotted aliases are accepted inboun
 |------|---------|-----------|
 | `hemmabo_search_properties` | Search published vacation rentals by location, dates, and guest count. | Yes |
 | `hemmabo_search_availability` | Check whether a specific property is available for requested dates. | Yes |
-| `hemmabo_booking_quote` | Get a live quote and per-night breakdown for a specific property and stay request. | Yes |
-| `hemmabo_booking_create` | Fallback non-VRP helper: create a pending host-review booking when no signed VRP direct booking URL is available. | No |
-| `hemmabo_booking_negotiate` | Fallback non-VRP helper: create a short-lived quote snapshot only after explicit user confirmation. | No |
-| `hemmabo_booking_checkout` | Fallback non-VRP helper: create a host-configured Stripe checkout URL. Do not use for signed VRP offers. | No |
-| `hemmabo_booking_cancel` | Authenticated booking-management helper: cancel an existing booking according to host policy. | No |
-| `hemmabo_booking_status` | Get booking details by reservation ID. Requires auth because booking data may include PII. | Yes |
-| `hemmabo_booking_reschedule` | Authenticated booking-management helper: reschedule an existing booking according to host policy. | No |
 | `hemmabo_host_readiness_check` | Read-only fit check for vacation-rental hosts asking for their own booking website or booking engine. | Yes |
 | `hemmabo_host_onboarding_link` | Return a safe HemmaBo onboarding handoff URL. Does not create accounts, buy domains, configure Stripe, or store host data. | Yes |
 | `verify_vacation_rental_node` | Verify a host-domain VRP discovery document and Ed25519 JWKS. | Yes |
@@ -98,10 +89,7 @@ Canonical tool names use `snake_case`. Legacy dotted aliases are accepted inboun
 
 ## Authentication
 
-The server uses a public-read, signed-write model.
-
-- Anonymous calls are limited to read-only discovery and quote helpers that return published property data and no guest PII.
-- Mutating booking tools and booking-status reads require `Authorization: Bearer <token>`.
+- Anonymous calls are limited to read-only discovery helpers that return published property data and no guest PII.
 - Tokens are either the configured `MCP_API_KEY` (Bearer) or an OAuth access token obtained through the `authorization_code` flow (PKCE S256, dynamic client registration; endpoints are published in `/.well-known/oauth-authorization-server`).
 - Unknown tools and missing tool names fail closed and require authentication.
 
@@ -132,9 +120,9 @@ Required environment variables:
 
 Optional environment variables:
 
-- `STRIPE_SECRET_KEY` - used only to create the fallback non-VRP Stripe Checkout Session URL on the host's own Stripe account (`hemmabo_booking_checkout`), which the guest opens in their own browser. `hemmabo_booking_cancel` and `hemmabo_booking_reschedule` move no money: they set status and dates on the host node, and anything owed is settled by the host outside the MCP tools. VRP offers should route to the signed host-domain booking URL instead.
+- `STRIPE_SECRET_KEY` - used only by the ACP HTTP endpoints (`/acp/checkouts`); no MCP tool reads it.
 - `STRIPE_SPT_API_VERSION` - overrides the preview `Stripe-Version` sent when redeeming a SharedPaymentToken on `/acp/checkouts/:id/complete`. Defaults to the version pinned in `src/stripe.ts`; set it only to follow a Stripe-side preview roll without a deploy.
-- `MCP_API_KEY` - enables Bearer-token auth for protected tools.
+- `MCP_API_KEY` - enables Bearer-token auth.
 - `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` - enable shared rate limiting.
 
 ## HTTP Endpoints
@@ -153,7 +141,7 @@ Optional environment variables:
 | `/oauth/authorize` | GET/POST | Authorization-code consent flow |
 | `/acp/checkouts` | POST/GET/PUT | Agentic Commerce Protocol checkout lifecycle. Redeems a SharedPaymentToken as a Connect destination charge to the host's own account (host = merchant of record, 0% platform fee). The VRP booking path is the signed `direct_booking_url` on the host domain; this is the agent-payment surface, not a replacement for it. |
 | `/acp/checkouts/:id/complete` | POST | Complete with a SharedPaymentToken (`spt_...`) or PaymentMethod (`pm_...`). An `spt_` must be minted against the host's own Stripe profile, advertised per checkout as `payment_provider.network_business_profile` (ADR 0018); a node without one refuses `spt_` in live mode, and a token bound to another profile answers `402 spt_binding_mismatch` with the expected profile. |
-| `/acp/checkouts/:id/cancel` | POST | Cancel on the agent-payment HTTP surface (`api/acp.ts`). The MCP tools never call this path: `hemmabo_booking_cancel` and `hemmabo_booking_reschedule` move no money. |
+| `/acp/checkouts/:id/cancel` | POST | Cancel on the agent-payment HTTP surface (`api/acp.ts`). The MCP tools never call this path. |
 
 ## Transports
 
