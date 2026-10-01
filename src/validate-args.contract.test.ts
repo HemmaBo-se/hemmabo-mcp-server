@@ -40,14 +40,6 @@ describe("validateToolArgs happy paths", () => {
     assert.equal(r.ok, true, JSON.stringify(r.errors));
   });
 
-  it("accepts a valid booking.quote payload", () => {
-    const r = validateToolArgs("hemmabo_booking_quote", {
-      propertyId: "3ef1d46d-5c23-46fe-86cb-8e714abf734f",
-      ...VALID_SEARCH,
-    });
-    assert.equal(r.ok, true, JSON.stringify(r.errors));
-  });
-
   it("accepts optional guests for search.availability so unavailable dates can return priced alternatives", () => {
     const r = validateToolArgs("hemmabo_search_availability", {
       propertyId: "3ef1d46d-5c23-46fe-86cb-8e714abf734f",
@@ -85,7 +77,7 @@ describe("validateToolArgs strict typing", () => {
   });
 
   it("rejects invalid propertyId uuid values", () => {
-    const r = validateToolArgs("hemmabo_booking_quote", {
+    const r = validateToolArgs("hemmabo_search_availability", {
       propertyId: "not-a-uuid",
       ...VALID_SEARCH,
     });
@@ -93,16 +85,6 @@ describe("validateToolArgs strict typing", () => {
     assert.ok(r.errors!.some((e) => e.path === "/propertyId" && /uuid/.test(e.message)));
   });
 
-  it("rejects invalid guestEmail values", () => {
-    const r = validateToolArgs("hemmabo_booking_create", {
-      propertyId: "3ef1d46d-5c23-46fe-86cb-8e714abf734f",
-      ...VALID_SEARCH,
-      guestName: "Anna Svensson",
-      guestEmail: "not-an-email",
-    });
-    assert.equal(r.ok, false);
-    assert.ok(r.errors!.some((e) => e.path === "/guestEmail" && /email/.test(e.message)));
-  });
 });
 
 describe("validateToolArgs missing required fields", () => {
@@ -114,16 +96,16 @@ describe("validateToolArgs missing required fields", () => {
   });
 
   it("collects ALL missing fields in one pass (allErrors:true)", () => {
-    const r = validateToolArgs("hemmabo_booking_create", {});
+    const r = validateToolArgs("get_verified_stay_offer", {});
     assert.equal(r.ok, false);
-    // booking.create requires propertyId, checkIn, checkOut, guests, guestName, guestEmail
-    assert.ok((r.errors?.length ?? 0) >= 6, `expected >=6 errors, got ${r.errors?.length}`);
+    // get_verified_stay_offer requires domain, checkIn, checkOut, guests
+    assert.ok((r.errors?.length ?? 0) >= 4, `expected >=4 errors, got ${r.errors?.length}`);
   });
 
-  it("reports a missing single field for booking.cancel", () => {
-    const r = validateToolArgs("hemmabo_booking_cancel", {});
+  it("reports a missing single field for verify_vacation_rental_node", () => {
+    const r = validateToolArgs("verify_vacation_rental_node", {});
     assert.equal(r.ok, false);
-    assert.ok(r.errors!.some((e) => e.path === "/reservationId"));
+    assert.ok(r.errors!.some((e) => e.path === "/domain"));
   });
 });
 

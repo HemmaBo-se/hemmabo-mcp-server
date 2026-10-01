@@ -28,24 +28,10 @@ const MANIFEST_SUMMARIES: Record<string, string> = {
     "Search available vacation rental properties by region, country, guest count and dates. Returns live availability and pricing.",
   "hemmabo_search_availability":
     "Check whether a specific property is available for given dates. If blocked, returns the host node's own next available window so agents can keep the guest moving.",
-  "hemmabo_booking_quote":
-    "Get a detailed live pricing quote with final host-source total, nightly rates, seasonal pricing and package context.",
   "hemmabo_host_readiness_check":
     "Read-only fit check for vacation-rental hosts asking how to create their own booking website or booking engine with HemmaBo.",
   "hemmabo_host_onboarding_link":
     "Return a safe HemmaBo onboarding handoff URL for a host. Does not create an account, buy a domain, configure Stripe, or store host data.",
-  "hemmabo_booking_create":
-    "Create a pending direct booking without online payment for configured non-VRP fallback deployments.",
-  "hemmabo_booking_negotiate":
-    "Fallback quote-lock tool for configured non-VRP checkout flows only. Do not use when a signed direct host-domain booking URL is available.",
-  "hemmabo_booking_checkout":
-    "Fallback Stripe checkout tool for configured non-VRP flows only. For signed VRP offers, route guests to the direct host-domain booking URL instead.",
-  "hemmabo_booking_cancel":
-    "Cancel a confirmed or pending booking on the host node and release the dates. Moves no money: anything owed back to the guest is settled by the host under the host's cancellation policy.",
-  "hemmabo_booking_status":
-    "Get current booking status, dates, price, cancellation policy and refund rules.",
-  "hemmabo_booking_reschedule":
-    "Move a confirmed booking to new dates with automatic repricing.",
   "verify_vacation_rental_node":
     "Verify that a host domain exposes VRP v0.1 discovery and an Ed25519 JWKS for signed stay offers.",
   "get_verified_stay_offer":

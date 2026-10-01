@@ -6,8 +6,8 @@
  * booking/checkout/host-onboarding tool, and hide the host_start prompt — the
  * surface OpenAI App Review requires (no in-chat commerce, no digital services).
  *
- * Just as importantly, it proves the default "full" surface (/mcp) is UNCHANGED:
- * this change must not touch any other distribution surface. Sibling of
+ * It also pins the default "full" surface (/mcp): the six catalog and verifier
+ * tools of ADR 0019, never a booking or checkout tool. Sibling of
  * submission-parity (submission JSON side) and mcp-tool-annotations (full surface).
  */
 import { describe, it } from "node:test";
@@ -65,7 +65,7 @@ describe("ChatGPT MCP surface", () => {
 
   it("tools/call rejects an off-surface tool without executing it", async () => {
     const res = (await handleJsonRpc(
-      { jsonrpc: "2.0", method: "tools/call", id: 2, params: { name: "hemmabo_booking_checkout", arguments: {} } },
+      { jsonrpc: "2.0", method: "tools/call", id: 2, params: { name: "hemmabo_search_availability", arguments: {} } },
       CTX_CHATGPT,
     )) as unknown as CallResult;
     assert.equal(res.result?.isError, true, "off-surface tool call must return an error result");
@@ -79,13 +79,14 @@ describe("ChatGPT MCP surface", () => {
     assert.ok(!names.includes("host_start"), "host_start prompt must not appear on the ChatGPT surface");
   });
 
-  it("does NOT change the full /mcp surface (booking tools still present)", async () => {
+  it("the full /mcp surface exposes no booking or checkout tool (ADR 0019)", async () => {
     const names = await toolNames(CTX_FULL);
-    assert.ok(names.includes("hemmabo_booking_checkout"), "full surface must still expose booking_checkout — /mcp is unchanged");
+    assert.ok(!names.includes("hemmabo_booking_checkout"), "full surface must not expose booking_checkout");
+    assert.ok(!names.some((n) => n.startsWith("hemmabo_booking_")), "full surface must not expose any hemmabo_booking_* tool");
     assert.ok(names.length > CHATGPT_TOOL_NAMES.size, "full surface must expose more tools than the ChatGPT surface");
   });
 
-  it("initialize tells the 3-tool story — no commerce/onboarding/13-tool language", async () => {
+  it("initialize tells the 3-tool story — no commerce/onboarding/full-surface tool-count language", async () => {
     const res = (await handleJsonRpc(
       { jsonrpc: "2.0", method: "initialize", id: 4 },
       CTX_CHATGPT,
@@ -93,7 +94,7 @@ describe("ChatGPT MCP surface", () => {
     const text = `${res.result?.serverInfo?.description ?? ""}\n${res.result?.instructions ?? ""}`;
     assert.ok(text.length > 0, "initialize must return description + instructions");
     for (const forbidden of [
-      /13 runtime tools/i,
+      /\d+ runtime tools/i,
       /onboarding/i,
       /checkout/i,
       /stripe/i,

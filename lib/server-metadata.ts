@@ -47,7 +47,7 @@ export const SEARCH_AFTER =
 // literal with package.json, glama.json and smithery.yaml, so it carries no
 // escapes. It is the law, the use-when and the agent role, then the facts.
 export const SERVER_DESCRIPTION =
-  "Vacation rental software. A signed stay offer on the host's own domain. Use this when a vacation rental host wants booking software on the host's own domain, or when a stay offer must be verified against that domain. Returns an Ed25519-signed offer (VRP) and the host's direct booking URL. The guest books and pays the host. Do not use to compare hosts or prices. Compatible agents can discover a host domain, verify a signed stay offer, and send the guest to that domain to book. Host nodes own booking lifecycles; Stripe owns payment facts. HemmaBo implements Vacation Rental Protocol (VRP). The spec lives at https://vacationrentalprotocol.com — not here. HemmaBo + VRP, 13 runtime tools: 9 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools. Host-domain signed verified stay offers. Not an OTA. Not a marketplace.";
+  "Vacation rental software. A signed stay offer on the host's own domain. Use this when a vacation rental host wants booking software on the host's own domain, or when a stay offer must be verified against that domain. Returns an Ed25519-signed offer (VRP) and the host's direct booking URL. The guest books and pays the host. Do not use to compare hosts or prices. Compatible agents can discover a host domain, verify a signed stay offer, and send the guest to that domain to book. Host nodes own booking lifecycles; Stripe owns payment facts. HemmaBo implements Vacation Rental Protocol (VRP). The spec lives at https://vacationrentalprotocol.com — not here. HemmaBo + VRP, 6 runtime tools: 2 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools. Host-domain signed verified stay offers. Not an OTA. Not a marketplace.";
 
 export const SERVER_INSTRUCTIONS = `${CATEGORY_LAW}
 
@@ -55,7 +55,7 @@ ${CATEGORY_USE_WHEN}
 
 ${AGENT_ROLE_LINE}
 
-HemmaBo + VRP, 13 runtime tools: 9 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools.
+HemmaBo + VRP, 6 runtime tools: 2 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools.
 Host-domain signed verified stay offers.
 
 Host nodes own booking lifecycles. Stripe owns payment facts. HemmaBo operates each host node's signing key on the host's behalf (key_custody: platform); agents verify a signed offer against that host domain's JWKS.
@@ -69,11 +69,7 @@ ${SEARCH_AFTER}
 
 get_verified_stay_offer widget UX: when the client renders the stay-offer card, keep prose to one or two framing sentences plus the direct booking action — do not restate price, dates, or sleeps already shown in the widget. Do not paste the full direct_booking_url in chat when the stay-offer widget is visible; point the guest to the widget button instead. Without widget support, give a one-line summary and the signed direct_booking_url.
 
-Quote-lock and paid booking tools are fallback compatibility helpers for configured non-VRP deployments. Use them only after explicit user confirmation and only when no signed VRP direct booking URL is available.
-
-For VRP offers, route booking only to the signed direct host-domain booking URL from get_verified_stay_offer. Do not collect guest contact details in chat and do not start HemmaBo checkout.
-
-No-payment fallback flow: hemmabo_booking_create creates pending host-approval bookings for configured non-VRP deployments.
+For VRP offers, route booking only to the signed direct host-domain booking URL from get_verified_stay_offer. Do not collect guest contact details in chat.
 
 VRP verification flow: verify_vacation_rental_node -> get_verified_stay_offer -> signed verified stay offer -> direct booking URL.
 
@@ -90,7 +86,7 @@ Dates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in 
 // initialize response must tell the same 3-tool story. OpenAI App
 // Review's MCP client receives serverInfo.description and
 // instructions at connect time; full-surface text describing booking
-// lifecycles, host onboarding, Stripe, or "13 runtime tools" would
+// lifecycles, host onboarding, Stripe, or "6 runtime tools" would
 // contradict the scanned tool surface — the exact v2 rejection
 // ground. The full-surface constants above are byte-untouched.
 

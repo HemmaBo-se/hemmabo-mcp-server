@@ -17,8 +17,6 @@ Your job is to explain, explore, and improve this MCP server. You understand bot
 The federation MCP server connects AI agents (like Claude, ChatGPT) to independent vacation rental properties. Each property is its own node — hosted on Supabase. The server exposes tools for:
 - Searching available properties by location, dates, and guest count
 - Checking live availability (blocked dates, confirmed bookings, temporary locks)
-- Getting real-time pricing quotes (public rate, federation/direct rate, gap-night rate)
-- Creating and managing bookings end-to-end
 - Stripe ACP (Agentic Commerce Protocol) — AI agents can pay without redirects
 
 ## Pricing Rules (Critical Business Logic)
@@ -33,7 +31,7 @@ The federation MCP server connects AI agents (like Claude, ChatGPT) to independe
 
 ## Core Source Files
 - `api/mcp.ts` — MCP server (Vercel serverless, Streamable HTTP) — the live `/mcp`
-- `lib/tool-definitions.ts` — Single source of truth for all 13 runtime tool specs: 9 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools (#63 + VRP)
+- `lib/tool-definitions.ts` — Single source of truth for the 6 runtime tool specs: 2 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools (#63 + VRP)
 - `lib/tools.ts` — Tool dispatcher (executeTool) shared by all transports
 - `lib/pricing.ts` — Pricing resolver (quote calculations, federation/gap discounts)
 - `lib/availability.ts` — Availability checker (three-layer: blocked dates, bookings, locks). Fail-closed on DB error.

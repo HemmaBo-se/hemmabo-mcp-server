@@ -19,13 +19,6 @@ const ACP_PROTOCOL_STATUSES = [
   "authentication_required",
 ] as const;
 
-const MCP_COMPAT_BOOKING_STATUS_ENUM = [
-  "pending",
-  "confirmed",
-  "cancelled",
-  "completed",
-] as const;
-
 const STRIPE_WEBHOOK_EVENTS = [
   "payment_intent.succeeded",
   "payment_intent.payment_failed",
@@ -186,9 +179,9 @@ describe("MCP booking/payment status vocabulary contract", () => {
     assert.match(migration, /ADD COLUMN IF NOT EXISTS refund_id text/);
     assert.match(migration, /ADD COLUMN IF NOT EXISTS refund_error text/);
 
-    assert.match(acp, /refund_status:\s*"pending"/);
-    assert.match(acp, /refund_status:\s*"failed"/);
-    assert.doesNotMatch(acp, /refund_status:\s*"succeeded"/);
+    // ACP cancel never refunds (2026-10-01), so acp.ts writes no refund_status;
+    // the webhook stays the only writer for refunds the host node issues.
+    assert.doesNotMatch(acp, /refund_status:/);
     assert.match(webhook, /refund_status:\s*"succeeded"/);
     assert.match(webhook, /refund_status:\s*"failed"/);
 
@@ -199,39 +192,23 @@ describe("MCP booking/payment status vocabulary contract", () => {
     }
   });
 
-  it("snapshots public MCP booking status output enums", () => {
+  it("the platform MCP tools publish no booking status output enum (ADR 0019)", () => {
     const source = readRepoFile("lib/tool-definitions-base.ts");
     const enums = [...source.matchAll(/status:\s*\{\s*type:\s*"string",\s*enum:\s*\[([^\]]+)\]/g)]
       .map((match) => quotedStrings(match[1]));
 
-    assert.deepEqual(enums, [
-      [...MCP_COMPAT_BOOKING_STATUS_ENUM],
-      ["cancelled"],
-      [...MCP_COMPAT_BOOKING_STATUS_ENUM],
-    ]);
-
-    const bookingCreateStatus = sectionFrom(source, 'name: "hemmabo_booking_create"', 4_000);
-    const bookingStatusStatus = sectionFrom(source, 'name: "hemmabo_booking_status"', 4_000);
-    const rescheduleTool = sectionFrom(source, 'name: "hemmabo_booking_reschedule"', 1_000);
-
-    for (const schemaSection of [bookingCreateStatus, bookingStatusStatus]) {
-      assert.match(schemaSection, /completed/);
-      assert.match(schemaSection, /protocol compatibility output only/);
-      assert.doesNotMatch(schemaSection, /completed[^.]+host-node booking lifecycle truth/i);
-    }
-
-    assert.match(rescheduleTool, /protocol compatibility client reports completed/);
+    // The booking tools that published the pending/confirmed/cancelled/completed
+    // compatibility enum (create, status, cancel) are removed from the platform connector.
+    assert.deepEqual(enums, []);
+    assert.doesNotMatch(source, /name: "hemmabo_booking_/);
   });
 
-  it("snapshots MCP runtime booking write and reschedule vocabulary", () => {
+  it("the platform MCP runtime writes no booking (ADR 0019)", () => {
     const source = readRepoFile("lib/tools-base.ts");
-    const insertPendingWrites = [...source.matchAll(/\.from\("bookings"\)\s*\.insert\(\{[\s\S]*?status:\s*"pending"/g)];
-    const reschedulableStates = source.match(/const RESCHEDULABLE_STATES = \[([^\]]+)\]/)?.[1];
 
-    assert.equal(insertPendingWrites.length, 2, "MCP runtime currently has two pending booking insert paths.");
-    assert.match(source, /status:\s*"cancelled"/, "MCP cancel response currently returns cancelled.");
-    assert.ok(reschedulableStates, "Reschedulable state list must stay reviewable.");
-    sameMembers(quotedStrings(reschedulableStates), ["confirmed", "pending"]);
+    assert.doesNotMatch(source, /\.from\("bookings"\)\s*\.(insert|update|upsert|delete)\(/, "no bookings write in the MCP runtime");
+    assert.doesNotMatch(source, /\.from\("property_quote_snapshots"\)/, "no quote-lock snapshot in the MCP runtime");
+    assert.doesNotMatch(source, /createCheckoutSession|RESCHEDULABLE_STATES|acquireBookingLock/);
   });
 
   it("prevents payment, stay, dispute, and compatibility words from direct bookings.status writes", () => {

@@ -44,8 +44,6 @@ function recordValue(value: unknown): Record<string, unknown> {
 const DATE_PARAM_ALIASES: Record<string, string> = {
   check_in: "checkIn",
   check_out: "checkOut",
-  new_check_in: "newCheckIn",
-  new_check_out: "newCheckOut",
 };
 
 /**

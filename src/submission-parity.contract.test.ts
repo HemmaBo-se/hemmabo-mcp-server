@@ -46,7 +46,7 @@ const submission = JSON.parse(readFileSync(SUBMISSION_PATH, "utf8")) as Submissi
 
 // The OpenAI app connects to the dedicated ChatGPT surface (/mcp/chatgpt),
 // which exposes ONLY CHATGPT_TOOL_NAMES. The submission must therefore mirror
-// that surface — NOT the full /mcp federation surface (TOOLS, 13). See the
+// that surface — NOT the full /mcp federation surface (TOOLS, 6). See the
 // McpSurface gate in api/mcp.ts and the OpenAI-rejection decode doc.
 const CHATGPT_TOOLS = TOOLS.filter((t) => CHATGPT_TOOL_NAMES.has(t.name));
 

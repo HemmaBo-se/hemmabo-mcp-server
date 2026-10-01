@@ -1,5 +1,5 @@
 /**
- * Single source of truth for the 9 HemmaBo federation MCP tools.
+ * Single source of truth for the 2 HemmaBo federation MCP tools.
  *
  * Background (#63 / ADR-0001 §3):
  *   Tool definitions used to live in three places — api/mcp.ts TOOLS array,
@@ -17,7 +17,8 @@
  *
  * Schema model:
  *   inputSchema and outputSchema are JSON-Schema (draft-07 subset). The
- *   subset uses: type (object/string/integer/number/boolean/array), format
+ *   subset uses: type (object/string/integer/number/boolean/array, or a
+ *   [type, "null"] list for a nullable output field), format
  *   (uuid/email/date-time/uri), pattern, enum, minimum/maximum, minItems/
  *   maxItems, properties, items, required, additionalProperties. This is
  *   intentionally narrow so toZodShape() can be a tiny pure function.
@@ -26,8 +27,11 @@
 import { z } from "zod";
 // ── JSON-Schema field type (the subset we use) ───────────────────
 
+export type JsonSchemaType = "object" | "string" | "integer" | "number" | "boolean" | "array" | "null";
+
 export interface JsonSchemaField {
-  type?: "object" | "string" | "integer" | "number" | "boolean" | "array";
+  /** One type, or a type list for a nullable output field (e.g. ["string", "null"]). */
+  type?: JsonSchemaType | readonly JsonSchemaType[];
   format?: string;
   pattern?: string;
   enum?: readonly string[];
@@ -170,33 +174,6 @@ const F = {
     description:
       "Stable property UUID from hemmabo_search_properties (e.g. '550e8400-e29b-41d4-a716-446655440000'). Pass the exact UUID string — never a property name, host domain, or booking URL.",
   },
-  reservationId: {
-    type: "string" as const,
-    format: "uuid",
-    description:
-      "Booking or reservation UUID from hemmabo_booking_checkout or hemmabo_booking_create (e.g. '7c9e6679-7425-40de-944b-e07fc1f90ae7'). Required to look up, cancel, or reschedule the same booking record.",
-  },
-  guestToken: {
-    type: "string" as const,
-    description:
-      "Per-booking secret returned by hemmabo_booking_create / hemmabo_booking_checkout (the booking's guest_token, a UUID). Required to view or modify this specific booking — a valid Bearer token alone is NOT sufficient, because it authenticates the caller but grants no authority over any particular booking. Present the exact guestToken you received when the booking was created; without the matching value the call is refused. Never a propertyId or reservationId.",
-  },
-  guestName: {
-    type: "string" as const,
-    description:
-      "Primary guest full name as plain text (e.g. 'Anna Svensson'). Stored on the booking for host confirmation; use the name the guest provided.",
-  },
-  guestEmail: {
-    type: "string" as const,
-    format: "email",
-    description:
-      "Primary guest email in RFC 5322 format (e.g. 'anna@example.com'). Used for booking confirmation and host contact; must be deliverable.",
-  },
-  guestPhone: {
-    type: "string" as const,
-    description:
-      "Primary guest phone in E.164 format with country code (e.g. '+46701234567'). Optional; omit when unknown. Recommended for check-in coordination.",
-  },
 } satisfies Record<string, JsonSchemaField>;
 
 const REGION = {
@@ -216,9 +193,10 @@ const COUNTRY = {
 const PROPERTY_LISTING_ITEM: JsonSchemaField = {
   type: "object",
   properties: {
-    propertyId: { type: "string", format: "uuid", description: "Stable UUID. Pass to subsequent tools (availability, quote, checkout)." },
+    propertyId: { type: "string", format: "uuid", description: "Stable UUID. Pass to subsequent tools (availability)." },
     name: { type: "string", description: "Property display name." },
     domain: { type: "string", description: "Host-owned domain for this property." },
+    booking_url: { type: ["string", "null"], format: "uri", description: "The host's own booking URL: https:// plus the host-owned domain. Null when the property has no domain." },
     region: { type: "string", description: "Region or area." },
     city: { type: "string", description: "City or locality." },
     country: { type: "string", description: "Country." },
@@ -355,366 +333,9 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       openWorldHint: false,
     },
   },
-  {
-    name: "hemmabo_booking_quote",
-    description:
-      "Get a detailed pricing quote for a specific property, dates, and guest count. Use this tool after confirming availability to show the user exact pricing before booking. Do NOT use before checking availability — the quote may be invalid if dates are unavailable. Returns the final host-source total for the booking flow, per-night breakdown, and package pricing context. All prices are integers in the property's local currency (e.g. SEK). The quote is the propertyId priced for the exact checkIn/checkOut range and guests; the night count and party size together select the price tier, so changing any of them re-quotes.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        propertyId: F.propertyId,
-        checkIn: F.checkIn,
-        checkOut: F.checkOut,
-        guests: F.guests,
-      },
-      required: ["propertyId", "checkIn", "checkOut", "guests"],
-      additionalProperties: false,
-    },
-    outputSchema: {
-      type: "object",
-      properties: {
-        propertyId: { type: "string", format: "uuid" },
-        checkIn: { type: "string" },
-        checkOut: { type: "string" },
-        guests: { type: "integer" },
-        nights: { type: "integer", description: "Number of nights in the range." },
-        currency: { type: "string", description: "ISO 4217 currency code." },
-        publicTotal: { type: "integer", description: "Website rate total in minor currency units." },
-        federationTotal: { type: "integer", description: "Legacy field: direct host-source total. Prefer directBookingTotal in user-facing copy." },
-        directBookingTotal: { type: "integer", description: "Preferred user-facing field: direct host-source total." },
-        hostSourcePublicTotal: { type: "integer", description: "Preferred user-facing field: public host-source total." },
-        federationDiscountPercent: { type: "integer", description: "Legacy internal field. Do not present this as a guest-facing discount, savings, or comparison." },
-        directBookingDiscountPercent: { type: "integer", description: "Legacy internal field. Do not present this as a guest-facing discount, savings, or comparison." },
-        packageApplied: { type: "string", description: "Applied package, if any." },
-        gapNight: { type: "boolean", description: "True when the stay qualifies as a gap fill." },
-    gapTotal: { type: "integer", description: "Gap-night adjusted total when applicable; otherwise null." },
-        gapDiscountPercent: { type: "integer", description: "Gap-night discount percentage when applied." },
-        breakdown: {
-          type: "object",
-          description: "Detailed pricing breakdown.",
-          additionalProperties: true,
-        },
-        error: { type: "string", description: "Present only when isError=true." },
-      },
-      additionalProperties: true,
-    },
-    annotations: {
-      title: "Get Pricing Quote",
-      readOnlyHint: true,
-      destructiveHint: false,
-      idempotentHint: true,
-      openWorldHint: false,
-    },
-  },
-  {
-    name: "hemmabo_booking_create",
-    description:
-      "Create a pending direct booking without online payment for configured non-VRP fallback deployments. Use only after explicit user confirmation, with a propertyId from search, and only when no signed VRP direct_booking_url is available. For signed VRP offers, route to the signed host-domain URL instead. Requires Authorization: Bearer token (MCP_API_KEY or OAuth); rate-limited per token. Writes exactly one pending booking awaiting the host's decision; availability is checked first — conflicts or a stale calendar fail the call before anything is written. Not idempotent — check hemmabo_booking_status before retrying on timeout. There is no price or quoteId parameter — the node prices the stay itself at creation (gap-night pricing applies automatically). The booking is identified by propertyId + the checkIn/checkOut range + guests; guestName and guestEmail are required for host confirmation, guestPhone is optional. Returns bookingId and a one-time guestToken for later status/cancel/reschedule.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        propertyId: F.propertyId,
-        checkIn: F.checkIn,
-        checkOut: F.checkOut,
-        guests: F.guests,
-        guestName: F.guestName,
-        guestEmail: F.guestEmail,
-        guestPhone: F.guestPhone,
-      },
-      required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"],
-      additionalProperties: false,
-    },
-    outputSchema: {
-      type: "object",
-      properties: {
-        bookingId: { type: "string", format: "uuid", description: "Persistent booking UUID. Use for status/cancel/reschedule." },
-        propertyId: { type: "string", format: "uuid" },
-        checkIn: { type: "string" },
-        checkOut: { type: "string" },
-        nights: { type: "integer" },
-        guests: { type: "integer" },
-        currency: { type: "string" },
-        totalPrice: { type: "integer", description: "Final price written to the booking." },
-        priceType: { type: "string", description: "Pricing mode used (federation/gap_night/package_*)." },
-        packageApplied: { type: "string" },
-        federationDiscountPercent: { type: "integer" },
-        gapDiscountPercent: { type: "integer" },
-        createdAt: { type: "string", format: "date-time" },
-        status: { type: "string", enum: ["pending", "confirmed", "cancelled", "completed"], description: "Host-node booking status. 'completed' is a protocol compatibility output only, not a status this tool writes." },
-        calendar_freshness: {
-          type: "object",
-          description:
-            "Incoming OTA calendar-sync freshness at booking time. The same object is embedded in the error payload when a stale calendar blocks the call — declared here so agents can treat it as a first-class field in both outcomes.",
-          additionalProperties: true,
-        },
-        channel_mirror: {
-          type: "object",
-          description:
-            "Outbound channel-manager mirror heartbeat for the host's mapped external channel (status: current|stale|partial|error|not_connected). Informational only — it never affects availability or this booking; the host node is the source of truth.",
-          additionalProperties: true,
-        },
-        guestToken: { type: "string", description: "Per-booking secret (guest_token) for this booking. Present it back as guestToken on hemmabo_booking_status / hemmabo_booking_cancel / hemmabo_booking_reschedule to view or modify this booking; a Bearer token alone is not sufficient. Store it securely and do not show it to the guest." },
-        error: { type: "string", description: "Present only when isError=true." },
-      },
-      required: ["bookingId", "status"],
-      additionalProperties: true,
-    },
-    annotations: {
-      title: "Create Booking",
-      readOnlyHint: false,
-      destructiveHint: false,
-      idempotentHint: false,
-      openWorldHint: false,
-    },
-  },
-  {
-    name: "hemmabo_booking_negotiate",
-    description:
-      "PRICE LOCK, not negotiation: the host's price is fixed — this tool never bargains, discounts, or alters it; it only freezes the current host-source price for 15 minutes so it cannot change during checkout. It refuses to lock dates the property's calendar cannot deliver and returns alternative bookable windows instead. Use it only in the non-VRP fallback checkout flow, when no signed direct_booking_url is available and the user explicitly asks to lock a price. Never use this for search, availability, VRP offers, rendering a stay-offer widget, or verified-offer display — use get_verified_stay_offer instead. Requires Authorization: Bearer token (MCP_API_KEY or OAuth); rate-limited per token. Not idempotent: each call writes a new snapshot; validUntil is fixed at creation and never extended — re-locking returns a new quoteId. The lock freezes both the public and the direct host-source total; hemmabo_booking_checkout's channel picks which one is redeemed. Redeem the quoteId only for the identical propertyId + checkIn/checkOut + guests, and only until validUntil — changing any of them requires a new quote. Night count and guest count together select the locked price tier.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        propertyId: F.propertyId,
-        checkIn: F.checkIn,
-        checkOut: F.checkOut,
-        guests: { ...F.guests, description: "Total number of guests as integer >= 1 (e.g. 4). Determines which price tier is applied." },
-      },
-      required: ["propertyId", "checkIn", "checkOut", "guests"],
-      additionalProperties: false,
-    },
-    outputSchema: {
-      type: "object",
-      properties: {
-        quoteId: { type: "string", description: "Snapshot ID. Pass to hemmabo_booking_checkout to lock this price." },
-        propertyId: { type: "string", format: "uuid" },
-        checkIn: { type: "string" },
-        checkOut: { type: "string" },
-        guests: { type: "integer" },
-        nights: { type: "integer" },
-        currency: { type: "string" },
-        publicTotal: { type: "integer" },
-        federationTotal: { type: "integer" },
-        federationDiscountPercent: { type: "integer" },
-        breakdown: { type: "object", additionalProperties: true },
-        packageApplied: { type: "string" },
-        gapNight: { type: "boolean" },
-        gapTotal: { type: "integer" },
-        gapDiscountPercent: { type: "integer" },
-        validUntil: { type: "string", format: "date-time", description: "Quote expiry (ISO 8601). Typically 15 minutes after creation." },
-        error: { type: "string", description: "Present only when isError=true." },
-      },
-      required: ["quoteId", "validUntil", "federationTotal"],
-      additionalProperties: true,
-    },
-    annotations: {
-      title: "Lock Price Quote",
-      readOnlyHint: false,
-      destructiveHint: false,
-      idempotentHint: false,
-      openWorldHint: false,
-    },
-  },
-  {
-    name: "hemmabo_booking_checkout",
-    description:
-      "Create a fallback non-VRP booking and return the host-configured Stripe Checkout URL for the guest to open in their own browser. Use only after explicit user confirmation when no signed VRP direct_booking_url is available; when get_verified_stay_offer returns one, route the guest there instead. Use hemmabo_booking_create to record a pending booking without a Stripe Checkout URL.\n\nBehavior: existing bookings are never modified — availability is checked and dates briefly locked first; conflicts fail before anything is created. Success creates exactly one pending booking and one Stripe Checkout Session on the host's connected account, returning paymentUrl, reservationId, and a one-time guestToken (required for status/cancel/reschedule). This tool moves no money: the guest completes the booking on the host's Stripe Checkout page, and only the Stripe webhook confirms the booking; pending bookings that are never completed expire automatically. Not idempotent — check hemmabo_booking_status before retrying.\n\nParams: pass quoteId only for the exact propertyId/dates/guests locked by hemmabo_booking_negotiate (valid 15 min); omit to price fresh. channel selects which locked total is used.\n\nRequires Authorization: Bearer token (MCP_API_KEY or OAuth); rate-limited per token.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        propertyId: F.propertyId,
-        checkIn: F.checkIn,
-        checkOut: F.checkOut,
-        guests: { ...F.guests, description: "Total number of guests as integer >= 1 (e.g. 4)." },
-        guestName: F.guestName,
-        guestEmail: F.guestEmail,
-        guestPhone: F.guestPhone,
-        quoteId: {
-          type: "string",
-          description:
-            "Quote ID string from hemmabo_booking_negotiate (e.g. 'q_abc123'). Optional — omit to calculate a fresh host-source price at checkout. Provide when the guest locked a price within the 15-minute quote window.",
-        },
-        channel: {
-          type: "string",
-          enum: ["public", "federation"],
-          description:
-            "Pricing channel selector. 'federation' (default for agent flows): direct host-source total. 'public': standard website rate without agent channel pricing. Omit to use federation.",
-        },
-      },
-      required: ["propertyId", "checkIn", "checkOut", "guests", "guestName", "guestEmail"],
-      additionalProperties: false,
-    },
-    outputSchema: {
-      type: "object",
-      properties: {
-        reservationId: { type: "string", format: "uuid", description: "Booking UUID. Use for subsequent status/cancel/reschedule calls." },
-        propertyId: { type: "string", format: "uuid" },
-        checkIn: { type: "string" },
-        checkOut: { type: "string" },
-        nights: { type: "integer" },
-        guests: { type: "integer" },
-        currency: { type: "string" },
-        totalPrice: { type: "integer", description: "Total for the stay in minor currency units, as shown on the host's Stripe Checkout page." },
-        paymentUrl: { type: "string", format: "uri", description: "Host-configured Stripe Checkout URL for the guest to open in their own browser." },
-        createdAt: { type: "string", format: "date-time" },
-        status: { type: "string", description: "Booking status (typically 'pending' until the Stripe webhook confirms the booking)." },
-        guestToken: { type: "string", description: "Per-booking secret (guest_token) for this booking. Present it back as guestToken on hemmabo_booking_status / hemmabo_booking_cancel / hemmabo_booking_reschedule to view or modify this booking; a Bearer token alone is not sufficient. Store it securely and do not show it to the guest." },
-        error: { type: "string", description: "Present only when isError=true." },
-      },
-      required: ["reservationId", "totalPrice", "currency"],
-      additionalProperties: true,
-    },
-    annotations: {
-      title: "Checkout",
-      readOnlyHint: false,
-      destructiveHint: false,
-      idempotentHint: false,
-      openWorldHint: true,
-    },
-  },
-  {
-    name: "hemmabo_booking_cancel",
-    description:
-      "Cancel a confirmed or pending booking on the host node: sets the booking status to cancelled and releases the dates back to the host calendar. Use when the guest explicitly requests cancellation — if the guest wants new dates instead of ending the stay, use hemmabo_booking_reschedule instead. This tool moves no money: anything owed back to the guest under the host's cancellation policy is settled by the host on the host's own terms, outside this tool; to read the applicable policy first, read cancellationPolicy from hemmabo_booking_status. Requires Authorization: Bearer token (MCP_API_KEY or OAuth); rate-limited per token. Destructive and idempotent in effect: a repeat cancel is refused as already cancelled. reservationId is the booking UUID from hemmabo_booking_checkout or hemmabo_booking_create — never a propertyId — and must be paired with the guestToken issued for that same booking. reason is optional free text shown to the host; when omitted the host sees 'Cancelled via MCP'.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        reservationId: F.reservationId,
-        guestToken: F.guestToken,
-        reason: {
-          type: "string",
-          description:
-            "Human-readable cancellation reason for the host (e.g. 'Travel plans changed', 'Flight cancelled'). Optional; omit when the guest did not give a reason.",
-        },
-      },
-      required: ["reservationId", "guestToken"],
-      additionalProperties: false,
-    },
-    outputSchema: {
-      type: "object",
-      properties: {
-        reservationId: { type: "string", format: "uuid" },
-        status: { type: "string", enum: ["cancelled"], description: "Final booking status after cancellation." },
-        checkIn: { type: "string", description: "Arrival date of the cancelled stay (YYYY-MM-DD)." },
-        checkOut: { type: "string", description: "Departure date of the cancelled stay (YYYY-MM-DD)." },
-        error: { type: "string", description: "Present only when isError=true." },
-      },
-      required: ["reservationId", "status"],
-      additionalProperties: true,
-    },
-    annotations: {
-      title: "Cancel Booking",
-      readOnlyHint: false,
-      destructiveHint: true,
-      idempotentHint: true,
-      openWorldHint: true,
-    },
-  },
-  {
-    name: "hemmabo_booking_status",
-    description:
-      "Retrieve current status and full details of an existing booking by reservationId. Use to confirm checkout/create succeeded or before cancel/reschedule. Do NOT use for property discovery, availability, or pricing — use hemmabo_search_properties, hemmabo_search_availability, or hemmabo_booking_quote for those. Requires Authorization: Bearer token (MCP_API_KEY or OAuth); rate-limited per token. Read-only against the database — never writes, so it is safe to poll after a checkout timeout — but returns guest PII (name, email). reservationId is the booking UUID returned by hemmabo_booking_checkout or hemmabo_booking_create — never a propertyId — and guestToken is the secret issued with that same booking: a mismatched pair reveals nothing, not even that the booking exists. Without a reservationId there is no booking to look up yet.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        reservationId: F.reservationId,
-        guestToken: F.guestToken,
-      },
-      required: ["reservationId", "guestToken"],
-      additionalProperties: false,
-    },
-    outputSchema: {
-      type: "object",
-      properties: {
-        reservationId: { type: "string", format: "uuid", description: "Echoed booking or reservation UUID." },
-        propertyId: { type: "string", format: "uuid", description: "Property UUID associated with the booking." },
-        propertyName: { type: "string", description: "Display name of the booked property." },
-        propertyDomain: { type: "string", description: "Host-owned domain associated with the property." },
-        checkIn: { type: "string", description: "Booked arrival date." },
-        checkOut: { type: "string", description: "Booked departure date." },
-        guests: { type: "integer", description: "Booked guest count." },
-        guestName: { type: "string", description: "Primary guest name stored on the booking." },
-        guestEmail: { type: "string", description: "Primary guest email stored on the booking." },
-        currency: { type: "string", description: "ISO 4217 currency code for the booking total." },
-        totalPrice: { type: "integer", description: "Total amount in minor currency units." },
-        status: { type: "string", enum: ["pending", "confirmed", "cancelled", "completed"], description: "Host-node booking status. 'completed' is a protocol compatibility output only, not the active lifecycle truth." },
-        cancellationPolicy: { type: "object", description: "Host cancellation-policy details applicable to this booking.", additionalProperties: true },
-        createdAt: { type: "string", format: "date-time", description: "Booking creation timestamp." },
-        updatedAt: { type: "string", format: "date-time", description: "Last update timestamp for the booking record." },
-        error: { type: "string", description: "Present only when isError=true." },
-      },
-      required: ["reservationId", "status"],
-      additionalProperties: true,
-    },
-    annotations: {
-      title: "Get Booking Status",
-      readOnlyHint: true,
-      destructiveHint: false,
-      idempotentHint: true,
-      openWorldHint: false,
-    },
-  },
-  {
-    name: "hemmabo_booking_reschedule",
-    description:
-      "Reschedule a confirmed or pending booking to new dates with automatic repricing. Use when the guest wants to change dates on an existing booking — if the guest wants to end the stay entirely rather than move it, use hemmabo_booking_cancel instead. Do not use if cancelled or if a protocol compatibility client reports completed — check hemmabo_booking_status first. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Destructive write: the original dates are released back to the host calendar and the original price no longer applies — the booking keeps the same reservationId (updated in place, never recreated). This tool moves no money: the response states the previous price, the new price and the difference as amounts, and any difference is settled between the guest and the host on the host's own terms, outside this tool. Rate-limited per token. Identify the existing booking by reservationId, then give the new stay as newCheckIn/newCheckOut (newCheckIn strictly before newCheckOut); the new night count re-prices the stay exactly like a fresh quote.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        reservationId: F.reservationId,
-        guestToken: F.guestToken,
-        newCheckIn: {
-          ...F.checkIn,
-          description:
-            "New arrival date in YYYY-MM-DD format (e.g. '2026-08-01'). Must be today or later. Must be strictly before newCheckOut.",
-        },
-        newCheckOut: {
-          ...F.checkOut,
-          description:
-            "New departure date in YYYY-MM-DD format (e.g. '2026-08-08'). Must be strictly after newCheckIn.",
-        },
-        reason: {
-          type: "string",
-          description:
-            "Human-readable reschedule reason for host records (e.g. 'Flight delayed', 'Extended conference'). Optional; omit when not provided by the guest.",
-        },
-      },
-      required: ["reservationId", "guestToken", "newCheckIn", "newCheckOut"],
-      additionalProperties: false,
-    },
-    outputSchema: {
-      type: "object",
-      properties: {
-        reservationId: { type: "string", format: "uuid" },
-        previousDates: { type: "object", properties: { checkIn: { type: "string" }, checkOut: { type: "string" } }, additionalProperties: true },
-        newDates: { type: "object", properties: { checkIn: { type: "string" }, checkOut: { type: "string" } }, additionalProperties: true },
-        pricing: {
-          type: "object",
-          properties: {
-            previousPrice: { type: "integer" },
-            newPrice: { type: "integer" },
-            delta: { type: "integer" },
-            currency: { type: "string" },
-          },
-          additionalProperties: true,
-        },
-        reason: { type: "string" },
-        status: { type: "string", description: "Booking status after reschedule." },
-        error: { type: "string", description: "Present only when isError=true." },
-      },
-      required: ["reservationId", "status"],
-      additionalProperties: true,
-    },
-    annotations: {
-      title: "Reschedule Booking",
-      readOnlyHint: false,
-      destructiveHint: true,
-      idempotentHint: false,
-      openWorldHint: true,
-    },
-  },
 ];
 
 // ── Convenience exports ──────────────────────────────────────────
 
-/** All 9 HemmaBo federation canonical tool names in declaration order. */
+/** The 2 HemmaBo federation canonical tool names in declaration order. */
 export const TOOL_NAMES: readonly string[] = TOOL_SPECS.map((t) => t.name);

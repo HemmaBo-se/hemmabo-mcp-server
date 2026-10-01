@@ -79,13 +79,6 @@ describe("ChatGPT Apps verified stay widget", () => {
     const dataTools = [
       "hemmabo_search_properties",
       "hemmabo_search_availability",
-      "hemmabo_booking_quote",
-      "hemmabo_booking_create",
-      "hemmabo_booking_negotiate",
-      "hemmabo_booking_checkout",
-      "hemmabo_booking_cancel",
-      "hemmabo_booking_status",
-      "hemmabo_booking_reschedule",
       "hemmabo_host_readiness_check",
       "hemmabo_host_onboarding_link",
       "verify_vacation_rental_node",
@@ -132,10 +125,9 @@ describe("ChatGPT Apps verified stay widget", () => {
     assert.match(renderTool.description, /must not lock a quote/i);
     assert.doesNotMatch(renderTool.description, /book a node\/stay offer/i);
 
-    const negotiateTool = TOOLS.find((t) => t.name === "hemmabo_booking_negotiate");
-    assert.ok(negotiateTool, "hemmabo_booking_negotiate must exist");
-    assert.equal(negotiateTool.annotations.title, "Lock Price Quote");
-    assert.match(negotiateTool.description, /Never use this .*rendering a stay-offer widget/);
+    // The quote-lock tool is gone from the platform connector (ADR 0019).
+    assert.equal(TOOLS.find((t) => t.name === "hemmabo_booking_negotiate"), undefined);
+    assert.doesNotMatch(renderTool.description, /hemmabo_booking_/);
 
     const widgetHtml = readFileSync(new URL("../lib/apps-widget-html.ts", import.meta.url), "utf8");
     assert.doesNotMatch(widgetHtml, /search, quote, or verified stay offer tool/);

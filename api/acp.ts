@@ -837,20 +837,76 @@ async function completeCheckout(checkoutId: string, body: Record<string, unknown
   return res.json(state);
 }
 
+/**
+ * The guest's manage link on the host node's own domain — the same URL the
+ * node hands out (smart-stays api/manage-link.ts): https://{domain}/guest/{guest_token}.
+ * Returns null when the property has no public domain or the lookup fails;
+ * the caller still refuses the cancel, it just cannot point at the link.
+ */
+async function nodeManageUrl(
+  supabase: ReturnType<typeof getSupabase>,
+  propertyId: string | null,
+  guestToken: string | null,
+): Promise<string | null> {
+  if (!propertyId || !guestToken) return null;
+  const { data: prop, error } = await supabase
+    .from("properties")
+    .select("domain")
+    .eq("id", propertyId)
+    .maybeSingle();
+  if (error) {
+    console.error(`ACP cancel: property domain lookup failed for ${propertyId}:`, error.message);
+    return null;
+  }
+  const domain = typeof prop?.domain === "string" && prop.domain.length > 0
+    ? prop.domain.replace(/^www\./, "")
+    : null;
+  return domain ? `https://${domain}/guest/${guestToken}` : null;
+}
+
+/**
+ * ACP cancel never moves money (CEO decision 2026-10-01; Anthropic Software
+ * Directory Policy 4.A). It cancels an UNPAID checkout and releases its
+ * unsettled PaymentIntent. A paid booking is refused with 405 and the node's
+ * manage link: any refund runs on the host node under the host's own
+ * cancellation policy (smart-stays cancel-booking), never here.
+ */
+function refusePaidCancel(res: VercelResponse, checkoutId: string, manageUrl: string | null) {
+  return res.status(405).json({
+    error: "checkout_paid",
+    message:
+      "This booking is paid. ACP does not cancel paid bookings or issue refunds. Cancellation and any refund under the host's cancellation policy are handled on the host's own website.",
+    checkout_id: checkoutId,
+    manage_url: manageUrl,
+  });
+}
+
 async function cancelCheckout(checkoutId: string, res: VercelResponse, base: string) {
   const supabase = getSupabase();
 
   // Fetch booking — service role required (bookings table blocks anon reads)
   const { data: booking, error: bookErr } = await supabase
     .from("bookings")
-    .select("id, status, stripe_payment_intent_id, total_price")
+    .select("id, status, stripe_payment_intent_id, property_id, guest_token")
     .eq("id", checkoutId)
     .single();
   if (bookErr || !booking) return res.status(404).json({ error: "Checkout not found" });
   if (booking.status === "cancelled") return res.status(409).json({ error: "Checkout already cancelled" });
 
-  // If paid, issue refund
-  let refund = null;
+  // Only an unpaid, still-pending checkout can be cancelled through ACP. A
+  // confirmed or rescheduled booking is paid: refuse and point at the node.
+  // Any other state (declined, expired, ...) is not a checkout ACP can cancel.
+  if (booking.status === "confirmed" || booking.status === "rescheduled") {
+    const manageUrl = await nodeManageUrl(supabase, booking.property_id as string | null, booking.guest_token as string | null);
+    return refusePaidCancel(res, checkoutId, manageUrl);
+  }
+  if (booking.status !== "pending") {
+    return res.status(409).json({
+      error: "checkout_not_cancellable",
+      message: `A checkout in status "${booking.status}" cannot be cancelled through ACP.`,
+    });
+  }
+
   const paymentIntentId = booking.stripe_payment_intent_id as string | null;
   let liveOutcome: PaymentIntentOutcome | null = null;
   let livePaymentStatus = "unknown";
@@ -923,70 +979,13 @@ async function cancelCheckout(checkoutId: string, res: VercelResponse, base: str
     }
   }
 
-  // ADR 0002 §2.2 clause 5: do not flip booking to 'cancelled' until refund
-  // is confirmed (or no refund was needed). Refund failures must surface to
-  // the caller and persist on the booking row so support can reconstruct.
+  // ACP cancel never moves money. A pending booking whose PaymentIntent has
+  // already settled is paid: refuse and point at the node's manage link,
+  // where the host's cancellation policy decides any refund. This file makes
+  // no Stripe refund call (ADR 0002 §2.2 clause 5, amended 2026-10-01).
   if (paymentIntentId && liveOutcome === "succeeded") {
-    const stripeKey = getStripeKey();
-    const refundBody = new URLSearchParams();
-    refundBody.append("payment_intent", paymentIntentId);
-    // Destination charge: without reverse_transfer the host keeps the guest's
-    // money and the refund is drawn from HemmaBo's platform balance — putting
-    // HemmaBo in the flow of funds for a stay, which the charter forbids.
-    // Stripe: "the destination account keeps the funds that were transferred
-    // to it, leaving the platform account to cover the negative balance"
-    // (docs.stripe.com/connect/destination-charges#issue-refunds).
-    refundBody.append("reverse_transfer", "true");
-
-    let refundResp: Response;
-    try {
-      refundResp = await fetch("https://api.stripe.com/v1/refunds", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${stripeKey}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: refundBody.toString(),
-      });
-    } catch (err) {
-      // Network error reaching Stripe. Persist the failure on the booking
-      // and return 502 so the caller knows the cancel was not completed.
-      const message = err instanceof Error ? err.message : "stripe_unreachable";
-      await supabase
-        .from("bookings")
-        .update({ refund_status: "failed", refund_error: message })
-        .eq("id", checkoutId);
-      console.error(`ACP refund network error for booking ${checkoutId}:`, message);
-      return res.status(502).json({
-        error: "Refund could not be issued — booking left in non-final state",
-        refund_status: "failed",
-        refund_error: message,
-      });
-    }
-
-    if (!refundResp.ok) {
-      const errJson = await refundResp.json().catch(() => ({}));
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const code = (errJson as any).error?.code ?? (errJson as any).error?.message ?? refundResp.statusText;
-      await supabase
-        .from("bookings")
-        .update({ refund_status: "failed", refund_error: String(code) })
-        .eq("id", checkoutId);
-      console.error(`ACP refund 4xx for booking ${checkoutId}:`, code);
-      return res.status(502).json({
-        error: "Refund rejected by Stripe — booking left in non-final state",
-        refund_status: "failed",
-        refund_error: String(code),
-      });
-    }
-
-    refund = await refundResp.json();
-    // Mark refund pending. The webhook (charge.refunded) is the authoritative
-    // writer of refund_status='succeeded' once Stripe confirms.
-    await supabase
-      .from("bookings")
-      .update({ refund_status: "pending", refund_id: refund.id })
-      .eq("id", checkoutId);
+    const manageUrl = await nodeManageUrl(supabase, booking.property_id as string | null, booking.guest_token as string | null);
+    return refusePaidCancel(res, checkoutId, manageUrl);
   }
 
   const { error: updateErr } = await supabase
@@ -997,9 +996,6 @@ async function cancelCheckout(checkoutId: string, res: VercelResponse, base: str
   if (updateErr) return res.status(500).json({ error: updateErr.message });
 
   const state = await buildACPState(checkoutId, base);
-  if (state && refund) {
-    state.messages.push({ type: "info", text: `Refund issued: ${refund.id}` });
-  }
   return res.json(state);
 }
 

@@ -9,7 +9,8 @@
  *
  * The test forces the auth path by setting MCP_API_KEY (which puts
  * validateAuth in non-open mode) and POST-ing a tools/call request for
- * a non-anon tool with no Authorization header.
+ * an unknown tool name (not in ANON_TOOLS, so it fails closed) with no
+ * Authorization header.
  *
  * Run: npx tsx --test src/mcp-www-authenticate.contract.test.ts
  */
@@ -50,12 +51,12 @@ async function postUnauthenticatedToolsCall() {
       "x-forwarded-host": "example.test",
       "content-type": "application/json",
     },
-    // tools/call for a non-anon tool → requires auth.
+    // tools/call for a name outside ANON_TOOLS → requires auth (fail closed).
     body: {
       jsonrpc: "2.0",
       id: 1,
       method: "tools/call",
-      params: { name: "hemmabo_booking_checkout", arguments: {} },
+      params: { name: "hemmabo_unknown_tool", arguments: {} },
     },
   };
   await mod.default(req as never, res as never);
@@ -65,7 +66,7 @@ async function postUnauthenticatedToolsCall() {
 describe("WWW-Authenticate header on /mcp 401 (RFC 9728 §5.1)", () => {
   it("returns 401 when an auth-required tool is called without Authorization", async () => {
     const r = await postUnauthenticatedToolsCall();
-    assert.equal(r.status, 401, "Unauthenticated booking call must 401.");
+    assert.equal(r.status, 401, "Unauthenticated call to a name outside ANON_TOOLS must 401.");
   });
 
   it("emits a Bearer WWW-Authenticate header that points at the protected-resource metadata", async () => {
