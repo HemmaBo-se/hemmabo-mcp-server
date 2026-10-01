@@ -141,7 +141,7 @@ describe("agent discovery positioning contract", () => {
     }
 
     const trust = captured.trust as Record<string, unknown>;
-    assert.equal(trust.payment, "Stripe (direct to host)");
+    assert.equal("payment" in trust, false, "the connector moves no money: no trust.payment (matches the www mirror)");
     assert.equal(trust.commission, "0%");
     assert.equal(trust.data_ownership, "host");
     assert.equal(trust.booking_lifecycle_owner, "host node");
