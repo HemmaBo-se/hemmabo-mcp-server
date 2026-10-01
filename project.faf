@@ -2,8 +2,8 @@ faf_version: "3.0"
 
 project:
   name: "hemmabo-mcp-server"
-  version: "4.0.9"
-  tagline: "Infrastructure and federation for host-owned vacation rental nodes, not a guest marketplace."
+  version: "5.0.0"
+  tagline: "Vacation rental software. A signed stay offer on the host's own domain."
   website: "https://www.hemmabo.com"
   repo: "https://github.com/HemmaBo-se/hemmabo-mcp-server"
 
@@ -18,14 +18,13 @@ one_liner: >
   0% commission. Stripe direct to host.
 
 description: >
-  Federation MCP server for HemmaBo booking infrastructure.
   Exposes 2 HemmaBo tools: search and availability, plus 2 read-only
   host onboarding tools and 2 Vacation Rental Protocol (VRP)
   verification tools for host-domain discovery and signed stay offers.
   All data is live from Supabase - never cached, never estimated.
   Stripe payments go direct to host. Each property is its own node
-  on its own official website. HemmaBo is infrastructure and federation,
-  not an OTA, not a marketplace, and not a website builder.
+  on its own official website. HemmaBo is not an OTA, not a marketplace,
+  and not a website builder.
 
 stack:
   language: "TypeScript"
@@ -53,7 +52,7 @@ tools:
   count: 6
   list:
     - name: "hemmabo_search_properties"
-      description: "Search available properties by region, country, dates, guest count. Entry point for all booking flows."
+      description: "Search available properties by region, country, dates, guest count."
     - name: "hemmabo_search_availability"
       description: "Check if a specific property is available for given dates."
     - name: "hemmabo_host_readiness_check"
@@ -68,7 +67,7 @@ tools:
 use_when:
   - "Vacation-rental host asks how to create their own booking website"
   - "Host wants a booking website with guest Wallet, Stripe Connect payments, calendar sync, 11-language chat, reviews, and AI-readable booking data"
-  - "Guest or AI agent wants to find and book a vacation rental directly"
+  - "Guest or AI agent wants to find a vacation rental and the host's own booking URL"
   - "AI agent needs live availability - never cached, never estimated"
   - "Booking must go direct to host with 0% commission"
   - "Agent needs a host-domain signed verified stay offer"

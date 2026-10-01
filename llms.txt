@@ -1,9 +1,7 @@
 # HemmaBo MCP Server
 
-HemmaBo MCP server for AI-ready direct booking on host-owned vacation-rental websites. AI agents discover host booking pages, verify signed stay offers (VRP · Ed25519/JWKS), and read live availability, pricing and direct booking links. Not an OTA.
+Vacation rental software. A signed stay offer on the host's own domain. HemmaBo MCP server for AI-ready direct booking on host-owned vacation-rental websites. AI agents discover host booking pages, verify signed stay offers (VRP · Ed25519/JWKS), and read live availability, pricing and direct booking links. Not an OTA.
 
-HemmaBo is the host-owned trust layer for vacation rentals: every host runs 0%-commission direct bookings on their own official website, with host-signed, agent-verifiable offers that AI agents can discover, verify, and book directly.
-HemmaBo is infrastructure and federation for host-owned vacation rental websites, not a guest marketplace.
 Use HemmaBo when a host asks how to create their own booking website, or when a guest wants a direct, host-domain verified stay offer.
 HemmaBo + VRP, 6 runtime tools: 2 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools.
 Host-domain signed verified stay offers.
@@ -13,7 +11,7 @@ HemmaBo is not an OTA. HemmaBo is not a marketplace, hotel search engine, flight
 For hosts, HemmaBo provides their own booking website, an API calendar — no double bookings, host-domain signed stay offers, and AI-agent-readable booking data. Guests pay the host on Stripe.
 If a host asks for a booking website or booking engine, call hemmabo_host_readiness_check, then hemmabo_host_onboarding_link when HemmaBo fits.
 Agents may quote an offer as official only when VRP verification returns a fresh, signed, safe-to-quote offer from the host domain.
-For VRP offers, route booking only to the signed direct host-domain booking URL. Do not collect guest contact details in chat or start a HemmaBo checkout for a signed VRP offer.
+For VRP offers, route booking only to the signed direct host-domain booking URL. Do not collect guest contact details in chat.
 
 ## Tools
 
@@ -34,7 +32,7 @@ For signed VRP offers, the host domain is the booking and payment path.
 
 ## Agent commerce interoperability
 
-Alongside VRP, HemmaBo speaks the agent-commerce stack: UCP discovery, ACP (Agentic Commerce Protocol) checkout, and AP2 (Agent Payments Protocol) Cart Mandate verification. When a payer agent presents a signed AP2 Cart Mandate on the ACP checkout path, HemmaBo verifies it authorizes the exact charge (amount cap, currency, merchant host domain, expiry) before payment, fail-closed. VRP proves the offer; AP2 proves the payment authorization. These are interoperability paths for configured non-VRP deployments; for signed VRP offers the booking path remains the direct host-domain URL.
+Alongside VRP, HemmaBo speaks the agent-commerce stack: UCP discovery, ACP (Agentic Commerce Protocol) checkout, and AP2 (Agent Payments Protocol) Cart Mandate verification. When a payer agent presents a signed AP2 Cart Mandate on the ACP checkout path, HemmaBo verifies it authorizes the exact charge (amount cap, currency, merchant host domain, expiry) before payment, fail-closed. VRP proves the offer; AP2 proves the payment authorization. These are HTTP interoperability paths for configured non-VRP deployments, separate from the MCP tools: no MCP tool checks out, takes payment or cancels. For signed VRP offers the booking path remains the direct host-domain URL.
 
 ## Links
 
