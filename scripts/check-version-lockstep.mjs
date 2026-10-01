@@ -8,7 +8,9 @@
  * This guard exists so that class of drift fails CI instead of sitting unnoticed.
  *
  * Invariant: package.json .version == server.json .version == glama.json .version
- *            == .plugin/plugin.json .version (byte-identical strings).
+ *            == .plugin/plugin.json .version == project.faf project.version
+ *            (byte-identical strings). project.faf joined at 5.0.0: it carried
+ *            the version without a guard.
  *
  * Run: node scripts/check-version-lockstep.mjs   (no build required)
  */
@@ -21,11 +23,18 @@ function versionOf(path) {
   return v;
 }
 
+function fafVersionOf(path) {
+  const m = readFileSync(path, "utf8").match(/^project:\n(?:[ \t]+.*\n)*?[ \t]+version:[ \t]*"([^"]+)"/m);
+  if (!m) throw new Error(`${path}: missing quoted project.version`);
+  return m[1];
+}
+
 const surfaces = {
   "package.json": versionOf("package.json"),
   "server.json": versionOf("server.json"),
   "glama.json": versionOf("glama.json"),
   ".plugin/plugin.json": versionOf(".plugin/plugin.json"),
+  "project.faf": fafVersionOf("project.faf"),
 };
 
 const canonicalKey = "package.json";
