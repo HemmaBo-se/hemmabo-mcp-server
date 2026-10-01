@@ -40,7 +40,6 @@ HemmaBo is not an OTA. HemmaBo is not a marketplace, hotel search engine, flight
 - **HemmaBo MCP tools** expose search, availability, quote, booking-status, and VRP verification flows for property data published by HemmaBo hosts. Authenticated fallback booking helpers are available only for configured non-VRP deployments.
 - **Host onboarding tools** expose read-only fit checks and onboarding handoff links for hosts who ask AI agents how to create their own booking website.
 - **Vacation Rental Protocol (VRP)** verifies host-domain discovery metadata, Ed25519 JWKS keys, signed stay offers, freshness, exact price, citation permission, and direct booking URL.
-- **Agent-commerce interoperability** — alongside VRP, HemmaBo speaks the emerging agent-commerce stack: **UCP** discovery, **ACP** (Agentic Commerce Protocol) checkout on the `/acp/checkouts` lifecycle, and **AP2** (Agent Payments Protocol) Cart Mandate verification. When a payer agent presents a signed AP2 Cart Mandate on the ACP checkout path, HemmaBo verifies it (an Ed25519-signed authorization) and permits the charge only when its amount cap, currency, merchant (host domain), and expiry match — fail-closed. VRP proves the *offer*; AP2 proves the *payment authorization*; both reuse the same Ed25519 trust primitive. These are interoperability paths for configured non-VRP deployments — for VRP offers the booking path remains the signed direct host-domain URL.
 
 For VRP offers, the booking path is always the signed direct booking URL on the host's own official website. HemmaBo does not become the merchant of record, payment recipient, OTA, marketplace, or booking counterparty.
 
@@ -103,7 +102,7 @@ The server uses a public-read, signed-write model.
 
 - Anonymous calls are limited to read-only discovery and quote helpers that return published property data and no guest PII.
 - Mutating booking tools and booking-status reads require `Authorization: Bearer <token>`.
-- Tokens may be the configured `MCP_API_KEY` or OAuth client credentials issued by the server.
+- Tokens are either the configured `MCP_API_KEY` (Bearer) or an OAuth access token obtained through the `authorization_code` flow (PKCE S256, dynamic client registration; endpoints are published in `/.well-known/oauth-authorization-server`).
 - Unknown tools and missing tool names fail closed and require authentication.
 
 Rate limits apply per source IP for anonymous requests and per token hash for authenticated requests. Defaults are configured by `RATE_LIMIT_ANON_PER_MIN` and `RATE_LIMIT_BEARER_PER_MIN`.
@@ -133,7 +132,7 @@ Required environment variables:
 
 Optional environment variables:
 
-- `STRIPE_SECRET_KEY` - enables fallback non-VRP checkout, cancellation, refund, and reschedule helpers for the host/operator's own Stripe account. VRP offers should route to the signed host-domain booking URL instead.
+- `STRIPE_SECRET_KEY` - used only to create the fallback non-VRP Stripe Checkout Session URL on the host's own Stripe account (`hemmabo_booking_checkout`), which the guest opens in their own browser. `hemmabo_booking_cancel` and `hemmabo_booking_reschedule` move no money: they set status and dates on the host node, and anything owed is settled by the host outside the MCP tools. VRP offers should route to the signed host-domain booking URL instead.
 - `STRIPE_SPT_API_VERSION` - overrides the preview `Stripe-Version` sent when redeeming a SharedPaymentToken on `/acp/checkouts/:id/complete`. Defaults to the version pinned in `src/stripe.ts`; set it only to follow a Stripe-side preview roll without a deploy.
 - `MCP_API_KEY` - enables Bearer-token auth for protected tools.
 - `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` - enable shared rate limiting.
@@ -154,7 +153,7 @@ Optional environment variables:
 | `/oauth/authorize` | GET/POST | Authorization-code consent flow |
 | `/acp/checkouts` | POST/GET/PUT | Agentic Commerce Protocol checkout lifecycle. Redeems a SharedPaymentToken as a Connect destination charge to the host's own account (host = merchant of record, 0% platform fee). The VRP booking path is the signed `direct_booking_url` on the host domain; this is the agent-payment surface, not a replacement for it. |
 | `/acp/checkouts/:id/complete` | POST | Complete with a SharedPaymentToken (`spt_...`) or PaymentMethod (`pm_...`). An `spt_` must be minted against the host's own Stripe profile, advertised per checkout as `payment_provider.network_business_profile` (ADR 0018); a node without one refuses `spt_` in live mode, and a token bound to another profile answers `402 spt_binding_mismatch` with the expected profile. |
-| `/acp/checkouts/:id/cancel` | POST | Cancel; refunds a settled charge, cancels an unsettled intent |
+| `/acp/checkouts/:id/cancel` | POST | Cancel on the agent-payment HTTP surface (`api/acp.ts`). The MCP tools never call this path: `hemmabo_booking_cancel` and `hemmabo_booking_reschedule` move no money. |
 
 ## Transports
 
