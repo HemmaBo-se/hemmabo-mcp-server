@@ -120,7 +120,7 @@ Required environment variables:
 
 Optional environment variables:
 
-- `STRIPE_SECRET_KEY`
+- `STRIPE_SECRET_KEY` - used only by the ACP HTTP endpoints (`/acp/checkouts`); no MCP tool reads it.
 - `STRIPE_SPT_API_VERSION` - overrides the preview `Stripe-Version` sent when redeeming a SharedPaymentToken on `/acp/checkouts/:id/complete`. Defaults to the version pinned in `src/stripe.ts`; set it only to follow a Stripe-side preview roll without a deploy.
 - `MCP_API_KEY` - enables Bearer-token auth.
 - `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` - enable shared rate limiting.
