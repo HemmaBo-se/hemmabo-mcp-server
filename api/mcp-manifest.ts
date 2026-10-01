@@ -82,14 +82,13 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     transport: ["streamable-http"],
     authentication: {
       type: "oauth2",
-      flows: {
-        clientCredentials: {
-          tokenUrl: `${base}/oauth/token`,
-          scopes: {
-            mcp: "Full access to all MCP tools",
-          },
-        },
-      },
+      // No `flows` block. The client_credentials flow used to be advertised
+      // here (tokenUrl + scopes); Anthropic's connector client never uses that
+      // grant and its documentation lists it as unsupported on a connector
+      // authorization server. Discovery of the token and authorization
+      // endpoints is the RFC 8414 document's job
+      // (/.well-known/oauth-authorization-server). /oauth/token itself is
+      // unchanged and still serves operator-provisioned clients.
       registration: {
         endpoint: `${base}/oauth/register`,
         description:
