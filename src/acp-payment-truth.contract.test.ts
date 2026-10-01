@@ -389,7 +389,11 @@ describe("Cancel path asks Stripe what the money did", () => {
       /const live = await readPaymentIntentOutcome\(paymentIntentId\)/,
       "the cancel path must read the live PaymentIntent"
     );
-    assert.match(acpSource, /liveOutcome === "succeeded"/, "refunds are gated on a settled charge");
+    assert.match(
+      acpSource,
+      /liveOutcome === "succeeded"[\s\S]{0,300}?refusePaidCancel\(/,
+      "a settled charge refuses the cancel and returns the node's manage link — it never refunds"
+    );
   });
 
   it("refuses to finalise a cancellation while money is still in flight", () => {
@@ -413,7 +417,7 @@ describe("Cancel path asks Stripe what the money did", () => {
     );
     const cancelBlock = acpSource.slice(
       acpSource.indexOf('if (liveOutcome === "not_paid")'),
-      acpSource.indexOf("ADR 0002 §2.2 clause 5")
+      acpSource.indexOf("ACP cancel never moves money. A pending booking")
     );
     assert.ok(cancelBlock.length > 0, "expected the unpaid-intent block before the refund block");
     assert.doesNotMatch(
@@ -424,27 +428,36 @@ describe("Cancel path asks Stripe what the money did", () => {
   });
 });
 
-describe("Refunds pull the money back from the host, not from HemmaBo", () => {
+describe("ACP cancel moves no money (CEO decision 2026-10-01, Policy 4.A)", () => {
   const stripeHelpers = readFileSync(join(root, "src", "stripe.ts"), "utf8");
 
-  it("sets reverse_transfer on every refund of a destination charge", () => {
+  it("api/acp.ts issues no refunds at all", () => {
+    assert.doesNotMatch(acpSource, /v1\/refunds/, "ACP must never call Stripe refunds");
+    assert.doesNotMatch(acpSource, /reverse_transfer/, "no refund means no transfer reversal in acp.ts");
+    assert.doesNotMatch(acpSource, /Refund issued/, "no refund message may be emitted");
+  });
+
+  it("a paid booking (confirmed / rescheduled, or a settled PaymentIntent) gets 405 with the node's manage link", () => {
+    assert.match(acpSource, /booking\.status === "confirmed" \|\| booking\.status === "rescheduled"/);
+    assert.match(acpSource, /res\.status\(405\)[\s\S]{0,200}?error: "checkout_paid"/);
+    assert.match(acpSource, /manage_url: manageUrl/);
+    assert.match(acpSource, /`https:\/\/\$\{domain\}\/guest\/\$\{guestToken\}`/, "same manage-link shape as the node (api/manage-link.ts)");
+  });
+
+  it("only a pending checkout can be cancelled through ACP", () => {
+    assert.match(acpSource, /booking\.status !== "pending"[\s\S]{0,200}?checkout_not_cancellable/);
+  });
+
+  it("src/stripe.ts createRefund still reverses the transfer if anything ever calls it", () => {
     // Stripe: "the destination account keeps the funds that were transferred
     // to it, leaving the platform account to cover the negative balance from
-    // the refund". Without this, HemmaBo pays for host refunds out of its own
-    // balance — HemmaBo would be in the flow of funds for a stay, which the
-    // charter forbids outright.
-    for (const [name, source] of [
-      ["api/acp.ts", acpSource],
-      ["src/stripe.ts", stripeHelpers],
-    ] as const) {
-      const refundCalls = source.split("v1/refunds").length - 1;
-      assert.ok(refundCalls > 0, `${name} should still create refunds`);
-      assert.match(
-        source,
-        /reverse_transfer["']?,\s*["']true["']|reverse_transfer=true/,
-        `${name} must reverse the transfer so the host funds the refund`
-      );
-    }
+    // the refund". The helper has no caller in api/ or lib/ today; the guard
+    // stays so a future caller cannot refund from HemmaBo's balance.
+    assert.match(
+      stripeHelpers,
+      /reverse_transfer["']?,\s*["']true["']|reverse_transfer=true/,
+      "src/stripe.ts must reverse the transfer so the host funds any refund"
+    );
   });
 
   it("does not refund the application fee — there is none to return", () => {
