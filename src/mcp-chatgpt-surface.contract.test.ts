@@ -38,6 +38,18 @@ describe("ChatGPT MCP surface", () => {
     assert.deepEqual(await toolNames(CTX_CHATGPT), [...CHATGPT_TOOL_NAMES].sort());
   });
 
+  it("tools/list carries a top-level title equal to annotations.title on each of the 3 tools", async () => {
+    const res = (await handleJsonRpc({ jsonrpc: "2.0", method: "tools/list", id: 1 }, CTX_CHATGPT)) as unknown as {
+      result?: { tools?: Array<{ name: string; title?: unknown; annotations?: { title?: unknown } }> };
+    };
+    const tools = res.result?.tools ?? [];
+    assert.equal(tools.length, 3, "ChatGPT surface must stay exactly 3 tools");
+    for (const t of tools) {
+      assert.equal(typeof t.title, "string", `${t.name}: top-level title must be a string`);
+      assert.equal(t.title, t.annotations?.title, `${t.name}: title must equal annotations.title`);
+    }
+  });
+
   it("tools/list hides every booking / checkout / host-onboarding tool", async () => {
     const names = await toolNames(CTX_CHATGPT);
     for (const forbidden of [
