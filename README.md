@@ -174,4 +174,4 @@ To report a security vulnerability, email **info@hemmabo.se** (subject starting 
 
 Apache-2.0 - see [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
-The Apache-2.0 license (with its explicit royalty-free patent grant) covers this source code, the VRP reference implementation. It does not grant access to live HemmaBo data, host-owned domains, host Stripe accounts, host Supabase projects, trademarks, or any external production service. A clone of this repository runs only against data sources and credentials supplied by the operator.
+The Apache-2.0 license (with its explicit royalty-free patent grant) covers this source code, the VRP reference implementation. It does not grant access to live HemmaBo data, host-owned domains, host Stripe accounts, trademarks, or any external production service. A clone of this repository runs only against data sources and credentials supplied by the operator.

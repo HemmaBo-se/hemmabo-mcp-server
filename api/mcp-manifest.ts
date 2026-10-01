@@ -114,26 +114,36 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     // when the sibling field is already canonical is needless inconsistency.
     terms_of_service_url: "https://www.hemmabo.com/terms",
     categories: ["travel", "lodging"],
+    // CEO order 2026-10-01: the connector has no booking or payment tool. It
+    // finds a host domain, verifies a signed offer against that domain and
+    // hands back the host's booking URL; the guest books and pays the host
+    // there. So handles_payments is false, payment_provider is gone, and the
+    // checkout-time guest-contact item is gone from data_collected.
     safety_disclosures: {
-      handles_payments: true,
-      payment_provider: "Stripe (Agentic Commerce Protocol)",
+      handles_payments: false,
       data_collected: [
-        "Guest name, email and phone (only at checkout, sent directly to the host's own Stripe + Supabase)",
         "Search parameters such as region, dates, guest count, and host-domain VRP verification inputs",
       ],
+      // Bookings live in HemmaBo's Supabase project, not in a project per host.
+      // The wording is the privacy policy's own: hemmabo.com/privacy (section
+      // 2 heading and Art. 28 line, section 11 card-data line) and
+      // hemmabo.com/data-and-privacy ("Booking data is stored in Supabase").
+      // The host is controller of guest data, HemmaBo is processor, Supabase
+      // is a sub-processor (privacy policy section 6).
       data_sharing:
-        "HemmaBo never stores guest payment details. Each booking writes to the host's own Supabase project and Stripe account — not a HemmaBo-owned database.",
+        "HemmaBo never stores card data, ID documents, or biometric data. The host is data controller for guest data — HemmaBo is processor. HemmaBo processes guest data on behalf of the host under Art. 28 GDPR. Bookings, guest details and calendar data are stored in Supabase.",
       external_redirects:
-        "Checkout completes via Stripe-hosted pages, the host's own official website, or a host-domain VRP direct booking URL.",
+        "Checkout completes via the host's own official website, or a host-domain VRP direct booking URL.",
       content_safety: "No user-generated content. Property listings are curated by verified hosts.",
     },
+    // No hemmabo_role: its value is on the category-law REMOVED list
+    // (CEO lock 2026-09-28).
     trust: {
       payment: "Stripe (direct to host)",
       commission: "0%",
       data_ownership: "host",
       booking_lifecycle_owner: "host node",
       payment_facts_owner: "Stripe",
-      hemmabo_role: "infrastructure and federation",
       vrp: "host-domain signed verified stay offers",
     },
     sample_prompts: [
