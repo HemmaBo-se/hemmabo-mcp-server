@@ -98,7 +98,7 @@ Rate limits apply per source IP for anonymous requests and per token hash for au
 
 Quotes are computed from the host's published property data at request time. Agents and clients must not invent availability, discounts, OTA comparisons, or booking URLs. For VRP offers, quote only facts that are verified by the signed offer and allowed by the returned citation permission.
 
-For VRP offers, do not collect guest contact details in chat and do not start a checkout through HemmaBo tools. Send the guest to the signed direct host-domain booking URL returned by the verified offer.
+For VRP offers, do not collect guest contact details in chat. Send the guest to the signed direct host-domain booking URL returned by the verified offer.
 
 ## Setup
 

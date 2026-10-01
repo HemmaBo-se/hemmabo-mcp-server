@@ -4,10 +4,9 @@
  * npm, Glama, Smithery and the MCP Registry read these files, not the live
  * server. npm 4.0.9 shipped the 13-tool connector under the same version
  * number the live 6-tool server reported, and Glama mirrored a README that
- * still said "infrastructure and federation" and "no central gatekeeper".
- * This gate holds every catalog-read surface to the live contract: the exact
- * count sentence, the six tool names, the category law, and none of the
- * struck phrases.
+ * still carried the struck class wording below. This gate holds every
+ * catalog-read surface to the live contract: the exact count sentence, the
+ * six tool names, the category law, and none of the struck phrases.
  *
  * server.json carries the count sentence and "Not an OTA." (exactly 100
  * characters): the MCP Registry caps description at 100, and the count
@@ -41,23 +40,19 @@ const SIX_TOOLS = [
   "hemmabo_host_onboarding_link",
 ];
 
-const REMOVED_TOOLS = [
-  "hemmabo_booking_create",
-  "hemmabo_booking_negotiate",
-  "hemmabo_booking_checkout",
-  "hemmabo_booking_cancel",
-  "hemmabo_booking_reschedule",
-  "hemmabo_booking_status",
-  "hemmabo_booking_quote",
-];
+// The seven booking tools removed by ADR 0019 all carried this prefix.
+const REMOVED_TOOL_PREFIX = /hemmabo_booking_/;
 
 // Written as patterns so the struck wording itself never reappears in the repo.
 const STRUCK: RegExp[] = [
   /infrastructure\s+and\s+federation/i,
+  /federation\s+mcp\s+server/i,
+  /booking\s+infrastructure/i,
   /no\s+central\s+gatekeeper/i,
   /trust\s+layer/i,
   /\benforces\b/i,
   /no-gatekeeper\s+trust\s+path/i,
+  /\b1[1345][ -](runtime\s+)?tools\b/i,
 ];
 
 const SURFACES: Record<string, string> = {
@@ -101,18 +96,20 @@ describe("catalog surfaces contract", () => {
     }
   });
 
-  it("the tool lists name exactly the six tools and none of the removed booking tools", () => {
+  it("the tool lists name exactly the six tools and no removed booking tool", () => {
     for (const name of TOOL_LISTS) {
       const text = SURFACES[name];
       for (const tool of SIX_TOOLS) {
         assert.ok(text.includes(tool), `${name} must list ${tool}`);
       }
-      for (const tool of REMOVED_TOOLS) {
-        assert.ok(!text.includes(tool), `${name} must not list ${tool}`);
-      }
+    }
+    for (const [name, text] of Object.entries(SURFACES)) {
+      assert.doesNotMatch(text, REMOVED_TOOL_PREFIX, `${name} must not name a hemmabo_booking_* tool`);
     }
     const glamaTools = (JSON.parse(SURFACES["glama.json"]).tools as Array<{ name: string }>).map((t) => t.name);
     assert.deepEqual([...glamaTools].sort(), [...SIX_TOOLS].sort());
+    const fafTools = [...SURFACES["project.faf"].matchAll(/^\s+- name: "([^"]+)"$/gm)].map((m) => m[1]);
+    assert.deepEqual([...fafTools].sort(), [...SIX_TOOLS].sort());
   });
 
   it("the ACP paragraph in llms.txt is an HTTP surface, not an MCP tool", () => {

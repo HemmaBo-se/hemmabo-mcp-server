@@ -18,7 +18,6 @@ one_liner: >
   0% commission. Stripe direct to host.
 
 description: >
-  Federation MCP server for HemmaBo booking infrastructure.
   Exposes 2 HemmaBo tools: search and availability, plus 2 read-only
   host onboarding tools and 2 Vacation Rental Protocol (VRP)
   verification tools for host-domain discovery and signed stay offers.
@@ -53,7 +52,7 @@ tools:
   count: 6
   list:
     - name: "hemmabo_search_properties"
-      description: "Search available properties by region, country, dates, guest count. Entry point for all booking flows."
+      description: "Search available properties by region, country, dates, guest count."
     - name: "hemmabo_search_availability"
       description: "Check if a specific property is available for given dates."
     - name: "hemmabo_host_readiness_check"
@@ -68,7 +67,7 @@ tools:
 use_when:
   - "Vacation-rental host asks how to create their own booking website"
   - "Host wants a booking website with guest Wallet, Stripe Connect payments, calendar sync, 11-language chat, reviews, and AI-readable booking data"
-  - "Guest or AI agent wants to find and book a vacation rental directly"
+  - "Guest or AI agent wants to find a vacation rental and the host's own booking URL"
   - "AI agent needs live availability - never cached, never estimated"
   - "Booking must go direct to host with 0% commission"
   - "Agent needs a host-domain signed verified stay offer"

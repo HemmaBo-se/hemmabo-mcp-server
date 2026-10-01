@@ -98,10 +98,10 @@ describe("agent discovery positioning contract", () => {
     // The MCP Registry rejects server.json descriptions longer than 100 chars
     // (HTTP 422 expected length <= 100). The full positioning still lives on
     // every other surface above and in the runtime manifest below. Since 5.0.0
-    // the registry blurb is the count sentence plus "Not an OTA." (exactly 100
-    // chars, CEO order 2026-10-01), so it keeps the cues VRP and Not an OTA;
-    // "host-owned" does not fit beside the count sentence and lives on the
-    // other surfaces.
+    // the registry blurb is the count sentence (CEO order 2026-10-01) plus
+    // "Not an OTA." to fill the remaining 12 chars (exactly 100), so it keeps
+    // the cues VRP and Not an OTA; "host-owned" does not fit beside the count
+    // sentence and lives on the other surfaces.
     const description = JSON.parse(read("server.json")).description as string;
     assert.ok(
       description.length <= 100,
