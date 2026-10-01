@@ -12,6 +12,11 @@
  * characters): the MCP Registry caps description at 100, and the count
  * sentence (88) and the category law (71) do not fit together.
  *
+ * The struck patterns cover keyword tags too: the hyphenated booking and
+ * infrastructure tag is struck on package.json, glama.json, smithery.yaml and
+ * .plugin/plugin.json (CEO order 2026-10-01, before the 5.0.0 release freezes
+ * them); "federation" alone and the ACP/AP2 tags stay.
+ *
  * Historical records (docs/adr/**, docs/operations/**) are out of scope: they
  * may say 13 and checkout in the past tense.
  */
@@ -47,7 +52,7 @@ const REMOVED_TOOL_PREFIX = /hemmabo_booking_/;
 const STRUCK: RegExp[] = [
   /infrastructure\s+and\s+federation/i,
   /federation\s+mcp\s+server/i,
-  /booking\s+infrastructure/i,
+  /booking[\s-]+infrastructure/i,
   /no\s+central\s+gatekeeper/i,
   /trust\s+layer/i,
   /\benforces\b/i,
@@ -63,6 +68,7 @@ const SURFACES: Record<string, string> = {
   "smithery.yaml": read("smithery.yaml"),
   "project.faf": read("project.faf"),
   "server.json": read("server.json"),
+  ".plugin/plugin.json": read(".plugin/plugin.json"),
 };
 
 // Surfaces that list the tools by name.

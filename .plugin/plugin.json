@@ -3,7 +3,7 @@
   "name": "hemmabo",
   "displayName": "HemmaBo",
   "version": "5.0.0",
-  "description": "Direct booking infrastructure for vacation rentals. 0% commission, Stripe direct to host.",
+  "description": "Vacation rental software. A signed stay offer on the host's own domain. HemmaBo + VRP, 6 runtime tools: 2 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools.",
   "author": {
     "name": "HemmaBo",
     "email": "info@hemmabo.se",
@@ -15,7 +15,6 @@
   "keywords": [
     "vacation-rental",
     "direct-booking",
-    "booking-infrastructure",
     "mcp-server",
     "stripe",
     "stripe-acp",
