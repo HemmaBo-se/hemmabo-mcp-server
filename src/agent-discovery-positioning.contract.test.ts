@@ -146,7 +146,7 @@ describe("agent discovery positioning contract", () => {
     assert.equal(trust.data_ownership, "host");
     assert.equal(trust.booking_lifecycle_owner, "host node");
     assert.equal(trust.payment_facts_owner, "Stripe");
-    assert.equal(trust.hemmabo_role, "infrastructure and federation");
+    assert.equal("hemmabo_role" in trust, false, "trust.hemmabo_role is struck (category-law REMOVED list)");
     assert.equal(trust.vrp, "host-domain signed verified stay offers");
   });
 

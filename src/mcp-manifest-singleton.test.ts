@@ -119,4 +119,30 @@ describe("mcp-manifest singleton", () => {
     );
     assert.doesNotMatch(JSON.stringify(auth), /clientCredentials|client_credentials|tokenUrl/, "no client_credentials advertisement anywhere in authentication");
   });
+
+  it("(f) safety_disclosures and trust say what is true: no host-own Supabase, no payments, no hemmabo_role", async () => {
+    const mod = await import("../api/mcp-manifest.js");
+    const captured: Record<string, unknown> = {};
+    const fakeRes = {
+      setHeader: () => {},
+      json: (body: Record<string, unknown>) => Object.assign(captured, body),
+    };
+    await mod.default({} as never, fakeRes as never);
+
+    const disclosures = captured.safety_disclosures as Record<string, unknown>;
+    const trust = captured.trust as Record<string, unknown>;
+    // Bookings live in HemmaBo's Supabase project (host = controller, HemmaBo =
+    // processor), and the connector has no booking or payment tool.
+    assert.equal(disclosures.handles_payments, false, "the connector handles no payment");
+    assert.equal("hemmabo_role" in trust, false, "trust.hemmabo_role is struck");
+    const served = JSON.stringify({ safety_disclosures: disclosures, trust });
+    for (const phrase of [
+      "host's own Supabase",
+      "HemmaBo-owned database",
+      "host's own Stripe + Supabase",
+      "infrastructure and federation",
+    ]) {
+      assert.equal(served.includes(phrase), false, `safety_disclosures/trust must not carry: ${phrase}`);
+    }
+  });
 });
