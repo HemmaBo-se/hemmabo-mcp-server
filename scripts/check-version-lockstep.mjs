@@ -23,10 +23,18 @@ function versionOf(path) {
   return v;
 }
 
+// project.faf is YAML-shaped: read the indented `version:` line inside the
+// top-level `project:` block, line by line (no backtracking regex).
 function fafVersionOf(path) {
-  const m = readFileSync(path, "utf8").match(/^project:\n(?:[ \t]+.*\n)*?[ \t]+version:[ \t]*"([^"]+)"/m);
-  if (!m) throw new Error(`${path}: missing quoted project.version`);
-  return m[1];
+  const lines = readFileSync(path, "utf8").split(/\r?\n/);
+  const start = lines.indexOf("project:");
+  for (let i = start + 1; start !== -1 && i < lines.length; i++) {
+    const line = lines[i];
+    if (line !== "" && !line.startsWith(" ") && !line.startsWith("\t")) break;
+    const m = /^\s+version:\s*"([^"]+)"\s*$/.exec(line);
+    if (m) return m[1];
+  }
+  throw new Error(`${path}: missing quoted project.version`);
 }
 
 const surfaces = {
