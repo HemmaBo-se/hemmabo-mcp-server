@@ -98,4 +98,25 @@ describe("mcp-manifest singleton", () => {
     assert.equal(trust.commission, "0%");
     assert.equal(trust.data_ownership, "host");
   });
+
+  it("(e) authentication advertises oauth2 + registration, never a client_credentials flow", async () => {
+    const mod = await import("../api/mcp-manifest.js");
+    const captured: Record<string, unknown> = {};
+    const fakeRes = {
+      setHeader: () => {},
+      json: (body: Record<string, unknown>) => Object.assign(captured, body),
+    };
+    await mod.default({ headers: { "x-forwarded-proto": "https", "x-forwarded-host": "example.test" } } as never, fakeRes as never);
+
+    const auth = captured.authentication as Record<string, unknown>;
+    assert.equal(auth.type, "oauth2");
+    const registration = auth.registration as Record<string, unknown>;
+    assert.equal(registration.endpoint, "https://example.test/oauth/register", "registration.endpoint must stay");
+    assert.equal(
+      "flows" in auth,
+      false,
+      "authentication.flows (clientCredentials tokenUrl) must not come back: Anthropic's connector client never uses client_credentials and its docs list the grant as unsupported on a connector AS. Endpoint discovery is the RFC 8414 document's job. /oauth/token itself still serves operator-provisioned clients."
+    );
+    assert.doesNotMatch(JSON.stringify(auth), /clientCredentials|client_credentials|tokenUrl/, "no client_credentials advertisement anywhere in authentication");
+  });
 });
