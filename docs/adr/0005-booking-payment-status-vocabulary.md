@@ -36,7 +36,7 @@ states without an accepted decision.
 - `api/acp.ts` creates checkout rows as `pending`.
 - `api/acp.ts` currently writes `confirmed` synchronously after Stripe
   `confirm=true` succeeds.
-- `api/acp.ts` writes `cancelled` after cancel/refund handling.
+- `api/acp.ts` writes `cancelled` only for an unpaid `pending` checkout; it never refunds (2026-10-01).
 
 ### Stripe webhook writes
 
@@ -69,7 +69,7 @@ states without an accepted decision.
 | --- | --- | --- |
 | `pending` | Booking lifecycle | Used for created unpaid/pending rows. |
 | `confirmed` | Booking lifecycle, compatibility-bridged | Used by ACP sync completion and webhook payment success. ADR 0006 locks this current behavior without making HemmaBo the booking-status owner. |
-| `cancelled` | Booking lifecycle | Used by ACP cancel and webhook failure/refund paths. |
+| `cancelled` | Booking lifecycle | Used by ACP cancel (unpaid checkouts only) and webhook failure/refund paths. |
 | `completed` | Public MCP compatibility value | Present in MCP output schemas for older/protocol clients only. It is read-only compatibility wording here, not a host-node booking lifecycle status and not a write path in this repository. |
 | `declined` | Host decision vocabulary in smart-stays | Not currently an MCP-server write or public MCP enum. |
 | `paid` | Payment fact, not booking lifecycle | Must not be added as `bookings.status` without a decision. |

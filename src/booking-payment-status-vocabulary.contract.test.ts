@@ -186,9 +186,9 @@ describe("MCP booking/payment status vocabulary contract", () => {
     assert.match(migration, /ADD COLUMN IF NOT EXISTS refund_id text/);
     assert.match(migration, /ADD COLUMN IF NOT EXISTS refund_error text/);
 
-    assert.match(acp, /refund_status:\s*"pending"/);
-    assert.match(acp, /refund_status:\s*"failed"/);
-    assert.doesNotMatch(acp, /refund_status:\s*"succeeded"/);
+    // ACP cancel never refunds (2026-10-01), so acp.ts writes no refund_status;
+    // the webhook stays the only writer for refunds the host node issues.
+    assert.doesNotMatch(acp, /refund_status:/);
     assert.match(webhook, /refund_status:\s*"succeeded"/);
     assert.match(webhook, /refund_status:\s*"failed"/);
 
