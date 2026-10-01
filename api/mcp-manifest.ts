@@ -41,7 +41,7 @@ const MANIFEST_SUMMARIES: Record<string, string> = {
   "hemmabo_booking_checkout":
     "Fallback Stripe checkout tool for configured non-VRP flows only. For signed VRP offers, route guests to the direct host-domain booking URL instead.",
   "hemmabo_booking_cancel":
-    "Cancel a booking and trigger a Stripe refund according to the host's cancellation policy.",
+    "Cancel a confirmed or pending booking on the host node and release the dates. Moves no money: anything owed back to the guest is settled by the host under the host's cancellation policy.",
   "hemmabo_booking_status":
     "Get current booking status, dates, price, cancellation policy and refund rules.",
   "hemmabo_booking_reschedule":

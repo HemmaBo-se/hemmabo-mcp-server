@@ -617,7 +617,7 @@ describe("booking_locks — TOCTOU prevention", () => {
       guests: 2,
       guestName: "Stripe Fail",
       guestEmail: "stripefail@example.com",
-      // Force payment_intent mode to reach createCheckoutSession
+      // No paymentMode exists: checkout always creates a Stripe Checkout Session
     };
 
     // We can't mock the Stripe module here without dependency injection.
