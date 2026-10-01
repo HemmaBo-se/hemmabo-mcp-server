@@ -10,7 +10,15 @@
  *
  * No authentication required — this endpoint is public discovery.
  *
- * Locked by src/oauth-protected-resource.contract.test.ts.
+ * Served at both RFC 9728 well-known locations via vercel.json rewrites:
+ * the root /.well-known/oauth-protected-resource and the path-suffix
+ * /.well-known/oauth-protected-resource/mcp (resource path appended, which
+ * MCP clients probe first when no resource_metadata pointer is present).
+ * The handler never reads the request path, so the document is
+ * byte-identical at both and `resource` is always `${base}/mcp`.
+ *
+ * Locked by src/oauth-protected-resource.contract.test.ts and
+ * src/oauth-discovery-rewrites.contract.test.ts.
  */
 
 import type { VercelRequest, VercelResponse } from "./_types.js";
