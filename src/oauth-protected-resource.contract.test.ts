@@ -13,7 +13,9 @@ import assert from "node:assert/strict";
 
 const BASE = "https://example.test";
 
-async function callHandler(): Promise<{ status: number; headers: Record<string, string>; body: Record<string, unknown> }> {
+async function callHandler(
+  url = "/.well-known/oauth-protected-resource",
+): Promise<{ status: number; headers: Record<string, string>; body: Record<string, unknown> }> {
   const mod = await import("../api/oauth-protected-resource.js");
   const captured = { status: 200, body: {} as Record<string, unknown>, headers: {} as Record<string, string> };
   const res = {
@@ -24,6 +26,7 @@ async function callHandler(): Promise<{ status: number; headers: Record<string, 
   };
   const req = {
     method: "GET",
+    url,
     headers: { "x-forwarded-proto": "https", "x-forwarded-host": "example.test" },
   };
   await mod.default(req as never, res as never);
@@ -41,6 +44,13 @@ describe("oauth-protected-resource discovery (RFC 9728)", () => {
   it("declares the MCP JSON-RPC endpoint as the protected resource", async () => {
     const r = await callHandler();
     assert.equal(r.body.resource, `${BASE}/mcp`);
+  });
+
+  it("serves the same document at the RFC 9728 path-suffix URL: resource stays {base}/mcp, never {base}/mcp/mcp", async () => {
+    const root = await callHandler("/.well-known/oauth-protected-resource");
+    const suffix = await callHandler("/.well-known/oauth-protected-resource/mcp");
+    assert.equal(suffix.body.resource, `${BASE}/mcp`);
+    assert.deepEqual(suffix.body, root.body, "path-suffix and root documents must be byte-identical");
   });
 
   it("lists this deployment as the only authorization server", async () => {

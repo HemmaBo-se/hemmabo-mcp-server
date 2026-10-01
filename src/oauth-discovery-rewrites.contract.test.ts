@@ -1,7 +1,14 @@
 /**
- * Contract test: vercel.json must rewrite the two new RFC 8414/9728
- * discovery paths to their handler files, and no static .well-known
- * file may exist that would shadow the rewrite.
+ * Contract test: vercel.json must rewrite the RFC 8414/9728 discovery
+ * paths to their handler files, and no static .well-known file may exist
+ * that would shadow the rewrite.
+ *
+ * RFC 9728 §3 defines two well-known locations for a resource with a path
+ * component: the root document and the path-suffix document
+ * (/.well-known/oauth-protected-resource/mcp for resource …/mcp). MCP
+ * clients that get no resource_metadata pointer probe the suffix first
+ * (MCP spec 2025-11-25, "Protected Resource Metadata Discovery"). Both
+ * locations must serve the same handler so the document is byte-identical.
  *
  * Without these rewrites, Anthropic Claude.ai's discovery request returns
  * the Vercel 404 HTML page and the connector silently never completes —
@@ -47,6 +54,18 @@ describe("oauth discovery rewrites (RFC 8414 + 9728)", () => {
     assert.ok(found, "Missing rewrite for OAuth protected-resource metadata.");
   });
 
+  it("rewrites /.well-known/oauth-protected-resource/mcp → /api/oauth-protected-resource (RFC 9728 path-suffix)", () => {
+    const found = loadRewrites().find(
+      (r) =>
+        r.source === "/.well-known/oauth-protected-resource/mcp" &&
+        r.destination === "/api/oauth-protected-resource"
+    );
+    assert.ok(
+      found,
+      "Missing path-suffix rewrite for OAuth protected-resource metadata — clients probing the RFC 9728 suffix URL get the Vercel 404 instead of the same document."
+    );
+  });
+
   it("has no static .well-known/oauth-authorization-server file that would shadow the rewrite", () => {
     assert.equal(
       existsSync(resolve(REPO_ROOT, ".well-known/oauth-authorization-server")),
@@ -57,6 +76,13 @@ describe("oauth discovery rewrites (RFC 8414 + 9728)", () => {
   it("has no static .well-known/oauth-protected-resource file that would shadow the rewrite", () => {
     assert.equal(
       existsSync(resolve(REPO_ROOT, ".well-known/oauth-protected-resource")),
+      false
+    );
+  });
+
+  it("has no static .well-known/oauth-protected-resource/mcp file that would shadow the rewrite", () => {
+    assert.equal(
+      existsSync(resolve(REPO_ROOT, ".well-known/oauth-protected-resource/mcp")),
       false
     );
   });
