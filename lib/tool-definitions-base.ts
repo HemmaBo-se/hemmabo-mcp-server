@@ -517,7 +517,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_checkout",
     description:
-      "Create a fallback non-VRP booking and return a host-configured Stripe checkout URL. Use only after explicit user confirmation when no signed VRP direct_booking_url is available; when get_verified_stay_offer returns one, route the guest there instead. Use hemmabo_booking_create to record a pending booking without collecting payment yet.\n\nBehavior: existing bookings are never modified — availability is checked and dates briefly locked first; conflicts fail before anything is created or charged. Success creates exactly one pending booking and one Stripe Checkout Session on the host's connected account, returning paymentUrl, reservationId, and a one-time guestToken (required for status/cancel/reschedule). Only the Stripe webhook confirms the booking; unpaid pending bookings expire automatically. Not idempotent — check hemmabo_booking_status before retrying.\n\nParams: pass quoteId only for the exact propertyId/dates/guests locked by hemmabo_booking_negotiate (valid 15 min); omit to price fresh. channel selects which locked total is used; paymentMode changes only the handoff form, never the price.\n\nRequires Authorization: Bearer token (MCP_API_KEY or OAuth); rate-limited per token.",
+      "Create a fallback non-VRP booking and return the host-configured Stripe Checkout URL for the guest to open in their own browser. Use only after explicit user confirmation when no signed VRP direct_booking_url is available; when get_verified_stay_offer returns one, route the guest there instead. Use hemmabo_booking_create to record a pending booking without a Stripe Checkout URL.\n\nBehavior: existing bookings are never modified — availability is checked and dates briefly locked first; conflicts fail before anything is created. Success creates exactly one pending booking and one Stripe Checkout Session on the host's connected account, returning paymentUrl, reservationId, and a one-time guestToken (required for status/cancel/reschedule). This tool moves no money: the guest completes the booking on the host's Stripe Checkout page, and only the Stripe webhook confirms the booking; pending bookings that are never completed expire automatically. Not idempotent — check hemmabo_booking_status before retrying.\n\nParams: pass quoteId only for the exact propertyId/dates/guests locked by hemmabo_booking_negotiate (valid 15 min); omit to price fresh. channel selects which locked total is used.\n\nRequires Authorization: Bearer token (MCP_API_KEY or OAuth); rate-limited per token.",
     inputSchema: {
       type: "object",
       properties: {
@@ -532,12 +532,6 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
           type: "string",
           description:
             "Quote ID string from hemmabo_booking_negotiate (e.g. 'q_abc123'). Optional — omit to calculate a fresh host-source price at checkout. Provide when the guest locked a price within the 15-minute quote window.",
-        },
-        paymentMode: {
-          type: "string",
-          enum: ["checkout_session", "payment_intent"],
-          description:
-            "Stripe payment flow. 'checkout_session' (default): returns a browser redirect URL. 'payment_intent': returns client_secret for embedded/agentic payment integrations. Omit to use checkout_session.",
         },
         channel: {
           type: "string",
@@ -559,12 +553,10 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         nights: { type: "integer" },
         guests: { type: "integer" },
         currency: { type: "string" },
-        totalPrice: { type: "integer", description: "Final total charged (or to be charged), in minor currency units." },
-        paymentUrl: { type: "string", format: "uri", description: "Stripe Checkout redirect URL." },
-        payment_modes: { type: "array", items: { type: "string" }, description: "Supported payment modes." },
+        totalPrice: { type: "integer", description: "Total for the stay in minor currency units, as shown on the host's Stripe Checkout page." },
+        paymentUrl: { type: "string", format: "uri", description: "Host-configured Stripe Checkout URL for the guest to open in their own browser." },
         createdAt: { type: "string", format: "date-time" },
-        mpp: { type: "object", additionalProperties: true, description: "Present when paymentMode='payment_intent'." },
-        status: { type: "string", description: "Booking status (typically 'pending' until payment succeeds)." },
+        status: { type: "string", description: "Booking status (typically 'pending' until the Stripe webhook confirms the booking)." },
         guestToken: { type: "string", description: "Per-booking secret (guest_token) for this booking. Present it back as guestToken on hemmabo_booking_status / hemmabo_booking_cancel / hemmabo_booking_reschedule to view or modify this booking; a Bearer token alone is not sufficient. Store it securely and do not show it to the guest." },
         error: { type: "string", description: "Present only when isError=true." },
       },
@@ -582,7 +574,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_cancel",
     description:
-      "Cancel a confirmed booking and process the Stripe refund per host cancellation policy. Use when the guest explicitly requests cancellation — if the guest wants new dates instead of ending the stay, use hemmabo_booking_reschedule instead. Do not use for pending/unpaid bookings — those expire automatically. To preview the applicable policy first, read cancellationPolicy from hemmabo_booking_status. Requires Authorization: Bearer token (MCP_API_KEY or OAuth); rate-limited per token. Destructive and idempotent in effect: a repeat cancel is refused as already cancelled and never triggers a second refund. reservationId is the booking UUID from hemmabo_booking_checkout or hemmabo_booking_create — never a propertyId — and must be paired with the guestToken issued for that same booking. reason is optional free text shown to the host; when omitted the host sees 'Cancelled via MCP'.",
+      "Cancel a confirmed or pending booking on the host node: sets the booking status to cancelled and releases the dates back to the host calendar. Use when the guest explicitly requests cancellation — if the guest wants new dates instead of ending the stay, use hemmabo_booking_reschedule instead. This tool moves no money: anything owed back to the guest under the host's cancellation policy is settled by the host on the host's own terms, outside this tool; to read the applicable policy first, read cancellationPolicy from hemmabo_booking_status. Requires Authorization: Bearer token (MCP_API_KEY or OAuth); rate-limited per token. Destructive and idempotent in effect: a repeat cancel is refused as already cancelled. reservationId is the booking UUID from hemmabo_booking_checkout or hemmabo_booking_create — never a propertyId — and must be paired with the guestToken issued for that same booking. reason is optional free text shown to the host; when omitted the host sees 'Cancelled via MCP'.",
     inputSchema: {
       type: "object",
       properties: {
@@ -602,7 +594,8 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       properties: {
         reservationId: { type: "string", format: "uuid" },
         status: { type: "string", enum: ["cancelled"], description: "Final booking status after cancellation." },
-        refund: { type: "object", description: "Refund payload returned by cancel-booking edge function, when present.", additionalProperties: true },
+        checkIn: { type: "string", description: "Arrival date of the cancelled stay (YYYY-MM-DD)." },
+        checkOut: { type: "string", description: "Departure date of the cancelled stay (YYYY-MM-DD)." },
         error: { type: "string", description: "Present only when isError=true." },
       },
       required: ["reservationId", "status"],
@@ -663,7 +656,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_booking_reschedule",
     description:
-      "Reschedule a confirmed or pending booking to new dates with automatic repricing and Stripe charge/refund. Use when the guest wants to change dates on an existing booking — if the guest wants to end the stay entirely rather than move it, use hemmabo_booking_cancel instead. Do not use if cancelled or if a protocol compatibility client reports completed — check hemmabo_booking_status first. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Destructive write: the original dates are released back to the host calendar and the original price no longer applies — the booking keeps the same reservationId (updated in place, never recreated), and the price difference is charged or refunded via Stripe. Rate-limited per token. Identify the existing booking by reservationId, then give the new stay as newCheckIn/newCheckOut (newCheckIn strictly before newCheckOut); the new night count re-prices the stay exactly like a fresh quote.",
+      "Reschedule a confirmed or pending booking to new dates with automatic repricing. Use when the guest wants to change dates on an existing booking — if the guest wants to end the stay entirely rather than move it, use hemmabo_booking_cancel instead. Do not use if cancelled or if a protocol compatibility client reports completed — check hemmabo_booking_status first. Requires Authorization: Bearer token (MCP_API_KEY or OAuth). Destructive write: the original dates are released back to the host calendar and the original price no longer applies — the booking keeps the same reservationId (updated in place, never recreated). This tool moves no money: the response states the previous price, the new price and the difference as amounts, and any difference is settled between the guest and the host on the host's own terms, outside this tool. Rate-limited per token. Identify the existing booking by reservationId, then give the new stay as newCheckIn/newCheckOut (newCheckIn strictly before newCheckOut); the new night count re-prices the stay exactly like a fresh quote.",
     inputSchema: {
       type: "object",
       properties: {
@@ -701,7 +694,6 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
             newPrice: { type: "integer" },
             delta: { type: "integer" },
             currency: { type: "string" },
-            stripeAction: { type: "object", additionalProperties: true },
           },
           additionalProperties: true,
         },

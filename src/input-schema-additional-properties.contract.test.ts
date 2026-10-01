@@ -10,8 +10,8 @@
  * the agent needs to self-correct.
  *
  * outputSchemas intentionally keep additionalProperties: true because
- * Stripe/Supabase passthrough objects (mpp, refund, breakdown,
- * cancellationPolicy) carry vendor-extensible fields.
+ * Stripe/Supabase passthrough objects (breakdown, cancellationPolicy)
+ * carry vendor-extensible fields.
  *
  * Run: npx tsx --test src/input-schema-additional-properties.contract.test.ts
  */

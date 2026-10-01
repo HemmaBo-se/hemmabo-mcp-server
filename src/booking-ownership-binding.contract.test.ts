@@ -95,8 +95,9 @@ before(() => {
   };
   process.env.SUPABASE_URL = "https://stub.supabase.co";
   process.env.SUPABASE_SERVICE_ROLE_KEY = "stub-service-role-key";
-  // Any outbound call (cancel edge fn, Stripe) resolves ok — but the reject
-  // path must never reach here; tests assert fetchCalls stays empty there.
+  // Any outbound call would resolve ok — but no path may reach here any more:
+  // the reject paths never did, and since Policy 4.A neither cancel nor
+  // reschedule calls the edge function or Stripe. Tests assert fetchCalls = 0.
   globalThis.fetch = (async (url: string | URL | Request) => {
     fetchCalls.push(String(url));
     return {
@@ -194,16 +195,18 @@ describe("wrong guestToken is refused (BOLA)", () => {
 
 // ── Correct token → passes the binding, proceeds into the flow ───────────────
 describe("correct guestToken passes the binding", () => {
-  it("cancel proceeds to the cancel-booking edge function", async () => {
-    const { clients } = makeClients({ booking: confirmedBooking() });
+  it("cancel proceeds to the status write and never leaves the node (no edge function, no Stripe)", async () => {
+    const { clients, tablesQueried } = makeClients({ booking: confirmedBooking() });
     const result = await executeTool(
       "hemmabo_booking_cancel",
       { reservationId: BOOKING_ID, guestToken: RIGHT, reason: "guest asked" },
       clients,
     );
     assert.notEqual(result.isError, true, `expected success, got: ${result.content[0]?.text}`);
-    assert.match(result.content[0]?.text ?? "", /cancelled/i);
-    assert.equal(fetchCalls.length, 1, "the cancel path must reach the edge function exactly once");
+    assert.match(result.content[0]?.text ?? "", /"status": "cancelled"/);
+    assert.ok(tablesQueried.includes("bookings"), "the cancel path writes the booking row");
+    assert.ok(tablesQueried.includes("property_blocked_dates"), "the cancel path releases the booking's calendar rows");
+    assert.equal(fetchCalls.length, 0, "Policy 4.A: cancel never calls the cancel-booking edge function or Stripe");
   });
 
   it("status returns the (masked) booking details", async () => {

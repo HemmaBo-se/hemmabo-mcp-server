@@ -25,12 +25,7 @@ import {
   calendarFreshnessUnavailablePayload,
   type CalendarFreshnessResult,
 } from "./ical-freshness.js";
-import {
-  createCheckoutSession,
-  retrievePaymentIntent,
-  createRefund,
-  createPaymentIntent,
-} from "../src/stripe.js";
+import { createCheckoutSession } from "../src/stripe.js";
 import { SERVER_VERSION } from "./server-metadata.js";
 import { bookingTokenMatches, BOOKING_TOKEN_MISMATCH_MESSAGE } from "./booking-binding.js";
 import { acquireBookingLock, releaseBookingLock } from "./booking-locks.js";
@@ -775,7 +770,6 @@ async function _runCheckout(
   guestEmail: string,
   guestPhone: string | undefined,
   quoteId: string | undefined,
-  effectivePaymentMode: string,
   effectiveChannel: string
 ): Promise<ToolResult> {
   let totalPrice: number;
@@ -859,7 +853,10 @@ async function _runCheckout(
 
   if (updErr) return { content: [{ type: "text", text: JSON.stringify({ error: updErr.message }) }], isError: true };
 
-  // Build response
+  // Build response. Policy 4.A (Anthropic Software Directory): this tool
+  // moves no money. It hands back the host-configured Stripe Checkout URL
+  // that the guest opens in their own browser; no PaymentIntent and no
+  // secret for in-agent confirmation is ever returned here.
   const result: Record<string, unknown> = {
     reservationId: booking.id,
     status: booking.status,
@@ -871,35 +868,12 @@ async function _runCheckout(
     guests,
     totalPrice,
     currency,
-    payment_modes: ["checkout_session", "payment_intent"],
     createdAt: booking.created_at,
     // Per-booking secret (BOLA binding). The caller must present this back as
     // `guestToken` on status/cancel/reschedule — a Bearer token alone confers
     // no authority over a specific booking. Returned only here, at creation.
     guestToken: booking.guest_token,
   };
-
-  // MPP enrichment: if payment_intent mode, retrieve client_secret.
-  // SECURITY NOTE: client_secret and payment_intent_id are intentionally
-  // returned here — this is required by MPP (Machine Payments Protocol)
-  // so the agent/client SDK can confirm the payment directly without
-  // a redirect. Do not remove these fields without a separate policy decision.
-  if (effectivePaymentMode === "payment_intent" && session.payment_intent) {
-    const pi = await retrievePaymentIntent(session.payment_intent);
-    result.mpp = {
-      protocol: "stripe-mpp",
-      version: "2025-03-17",
-      payment_intent_id: pi.id,
-      client_secret: pi.client_secret,
-      amount: totalPrice,
-      currency,
-      // Agent-channel checkouts are card-only by policy (redirect methods
-      // require a human at a bank app) — see ADR 2026-07-05 (Swish retired).
-      // This declaration must state what the session actually accepts.
-      supported_payment_methods: ["card"],
-      confirmation_url: session.url,
-    };
-  }
 
   return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
 }
@@ -1458,14 +1432,13 @@ export async function executeTool(
       if (reqErr) return toolError(reqErr);
       const {
         propertyId, checkIn, checkOut, guests, guestName, guestEmail,
-        guestPhone, quoteId, paymentMode, channel,
+        guestPhone, quoteId, channel,
       } = args as {
         propertyId: string; checkIn: string; checkOut: string; guests: number;
         guestName: string; guestEmail: string; guestPhone?: string;
-        quoteId?: string; paymentMode?: string; channel?: string;
+        quoteId?: string; channel?: string;
       };
 
-      const effectivePaymentMode = paymentMode ?? "checkout_session";
       const effectiveChannel = channel ?? "federation";
 
       const dateErr = validateDates(checkIn, checkOut);
@@ -1505,7 +1478,7 @@ export async function executeTool(
         } else {
           checkoutResult = await _runCheckout(
             supabase, reader, prop, propertyId, checkIn, checkOut, guests,
-            guestName, guestEmail, guestPhone, quoteId, effectivePaymentMode, effectiveChannel
+            guestName, guestEmail, guestPhone, quoteId, effectiveChannel
           );
         }
       } finally {
@@ -1524,42 +1497,53 @@ export async function executeTool(
       // Fetch booking
       const { data: booking, error: bookErr } = await supabase
         .from("bookings")
-        .select("id, status, guest_token, check_in_date, check_out_date, total_price, currency, property_id, stripe_payment_intent_id")
+        .select("id, status, guest_token, check_in_date, check_out_date, property_id")
         .eq("id", reservationId)
         .single();
 
       if (bookErr || !booking) return { content: [{ type: "text", text: JSON.stringify({ error: "Booking not found" }) }], isError: true };
       // Per-booking ownership binding (BOLA). Checked before ANY side effect or
       // status leak: a caller without the matching guest_token cannot cancel,
-      // trigger a refund, or even learn whether this booking exists/its state.
+      // or even learn whether this booking exists/its state.
       if (!bookingTokenMatches(guestToken, booking.guest_token)) {
         return toolError(BOOKING_TOKEN_MISMATCH_MESSAGE);
       }
       if (booking.status === "cancelled") return { content: [{ type: "text", text: JSON.stringify({ error: "Booking is already cancelled", reservationId }) }], isError: true };
-
-      // Delegate to Supabase Edge Function
-      const supabaseUrl = process.env.SUPABASE_URL;
-      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-      const cancelResp = await fetch(`${supabaseUrl}/functions/v1/cancel-booking`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${supabaseKey}`,
-        },
-        body: JSON.stringify({
-          bookingId: booking.id,
-          guestToken: booking.guest_token,
-          reason: reason ?? "Cancelled via MCP",
-        }),
-      });
-
-      if (!cancelResp.ok) {
-        const errBody = await cancelResp.text();
-        return { content: [{ type: "text", text: JSON.stringify({ error: `Cancel failed: ${errBody}` }) }], isError: true };
+      if (booking.status !== "pending" && booking.status !== "confirmed") {
+        return { content: [{ type: "text", text: JSON.stringify({ error: `Cannot cancel booking in status "${booking.status}". Only pending or confirmed bookings can be cancelled.`, reservationId }) }], isError: true };
       }
 
-      const cancelResult = await cancelResp.json();
+      // Policy 4.A (Anthropic Software Directory): this tool moves no money.
+      // It sets the booking status on the host node and releases the dates.
+      // It never calls Stripe and never delegates to the cancel-booking edge
+      // function (which issues the host's refund): anything owed back to the
+      // guest under the host's cancellation policy is settled by the host on
+      // the host's own Stripe account, outside this tool.
+      const { error: cancelErr } = await supabase
+        .from("bookings")
+        .update({
+          status: "cancelled",
+          decline_reason: reason ?? "Cancelled via MCP",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", booking.id);
+      if (cancelErr) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: `Cancel failed: ${cancelErr.message}` }) }], isError: true };
+      }
+
+      // Release the calendar rows this booking created (source='booking'),
+      // the same release the host's own cancellation path performs. Best
+      // effort: a failure here leaves the status cancelled and is logged.
+      const { error: releaseErr } = await supabase
+        .from("property_blocked_dates")
+        .delete()
+        .eq("property_id", booking.property_id)
+        .eq("source", "booking")
+        .gte("start_date", booking.check_in_date)
+        .lte("end_date", booking.check_out_date);
+      if (releaseErr) {
+        console.error(JSON.stringify({ event: "mcp_cancel_release_blocked_dates_failed", bookingId: booking.id, error: releaseErr.message }));
+      }
 
       return {
         content: [{
@@ -1567,7 +1551,8 @@ export async function executeTool(
           text: JSON.stringify({
             reservationId: booking.id,
             status: "cancelled",
-            refund: cancelResult.refund ?? null,
+            checkIn: booking.check_in_date,
+            checkOut: booking.check_out_date,
           }, null, 2),
         }],
       };
@@ -1664,14 +1649,14 @@ export async function executeTool(
       // Fetch booking
       const { data: booking, error: bookErr } = await supabase
         .from("bookings")
-        .select("id, status, guest_token, check_in_date, check_out_date, guests_count, total_price, currency, property_id, stripe_payment_intent_id")
+        .select("id, status, guest_token, check_in_date, check_out_date, guests_count, total_price, currency, property_id")
         .eq("id", reservationId)
         .single();
 
       if (bookErr || !booking) return { content: [{ type: "text", text: JSON.stringify({ error: "Booking not found" }) }], isError: true };
       // Per-booking ownership binding (BOLA) — before the status is revealed and
-      // before any Stripe charge/refund or date mutation. A caller without the
-      // matching guest_token cannot move dates or move money on this booking.
+      // before any date mutation. A caller without the matching guest_token
+      // cannot move dates on this booking.
       if (!bookingTokenMatches(guestToken, booking.guest_token)) {
         return toolError(BOOKING_TOKEN_MISMATCH_MESSAGE);
       }
@@ -1699,12 +1684,12 @@ export async function executeTool(
       // update with the shared booking_locks primitive (same as MCP
       // create/checkout and ACP create). Acquire AFTER the guest_token binding
       // and the same-dates no-op (cheapest rejects first), BEFORE any
-      // availability re-check / DB write / Stripe — so a concurrent
+      // availability re-check / DB write — so a concurrent
       // create/checkout or reschedule on the same new dates cannot slip in
       // between the check and the write.
       const lock = await acquireBookingLock(supabase, booking.property_id, newCheckIn, newCheckOut);
       if ("lockError" in lock) {
-        // Conflict or db_error — nothing has been written or charged yet.
+        // Conflict or db_error — nothing has been written yet.
         return lockErrorResult(lock.lockError);
       }
 
@@ -1723,14 +1708,12 @@ export async function executeTool(
         const oldPrice = booking.total_price;
         const delta = newPrice - oldPrice;
 
-        // C (money ordering): write the new dates + price to the booking BEFORE
-        // any Stripe call. Two reasons:
-        //  1. If the DB write fails, NO money moves at all (we return here).
-        //  2. The booking row is the idempotency anchor — after this write it
-        //     holds newPrice, so a retried reschedule recomputes delta = 0 (and
-        //     the same-dates no-op fires above) and never charges/refunds twice.
-        // This replaces the old Stripe-first order, where a DB failure after a
-        // successful refund let a retry refund a SECOND time.
+        // Policy 4.A (Anthropic Software Directory): this tool moves no money.
+        // It writes the new dates + price to the booking row and reports the
+        // previous price, the new price and the difference as amounts. No
+        // PaymentIntent and no refund is created here: any difference is
+        // settled between the guest and the host under the host's own terms,
+        // outside this tool.
         const { error: updateErr } = await supabase
           .from("bookings")
           .update({
@@ -1740,79 +1723,7 @@ export async function executeTool(
           })
           .eq("id", booking.id);
         if (updateErr) {
-          // DB write failed → nothing was charged or refunded. Safe to retry.
           return { content: [{ type: "text", text: JSON.stringify({ error: updateErr.message }) }], isError: true };
-        }
-
-        // Now move the price delta. A deterministic Stripe Idempotency-Key (per
-        // booking + direction + delta + target dates) collapses concurrent
-        // duplicates to a single movement on Stripe's side — belt-and-suspenders
-        // with the DB anchor above.
-        let stripeAction: Record<string, unknown> | null = null;
-        if (delta !== 0 && booking.stripe_payment_intent_id) {
-          const direction = delta > 0 ? "charge" : "refund";
-          const idempotencyKey =
-            `reschedule_${booking.id}_${direction}_${Math.abs(delta)}_${newCheckIn}_${newCheckOut}`;
-          try {
-            if (delta > 0) {
-              // Price increased: additional charge, manual capture, routed to the
-              // host's connected Stripe (host = merchant of record).
-              const { data: reschedProp } = await reader
-                .from("properties")
-                .select("stripe_account_id, stripe_onboarding_complete")
-                .eq("id", booking.property_id)
-                .single();
-              const pi = await createPaymentIntent({
-                amount: delta,
-                currency: booking.currency,
-                captureMethod: "manual",
-                hostStripeAccountId: reschedProp?.stripe_account_id ?? null,
-                hostOnboardingComplete: reschedProp?.stripe_onboarding_complete ?? null,
-                metadata: {
-                  booking_id: booking.id,
-                  type: "reschedule_delta",
-                  original_payment_intent: booking.stripe_payment_intent_id,
-                },
-                idempotencyKey,
-              });
-              stripeAction = { type: "additional_charge", amount: delta, paymentIntentId: pi.id, status: pi.status };
-            } else {
-              // Price decreased: partial refund.
-              const refund = await createRefund(booking.stripe_payment_intent_id, Math.abs(delta), idempotencyKey);
-              stripeAction = { type: "partial_refund", amount: Math.abs(delta), refundId: refund.id, status: refund.status };
-            }
-          } catch (stripeErr) {
-            // Fail-closed & LOUD: the dates are already moved but the payment
-            // adjustment did not complete. We do NOT report success and we do NOT
-            // roll back the dates (a rollback write could itself fail, and the
-            // calendar has already moved). Ops reconciles from this error + the
-            // structured log. Documented as a residual in the PR description.
-            const detail = stripeErr instanceof Error ? stripeErr.message : String(stripeErr);
-            console.error(
-              JSON.stringify({
-                event: "reschedule_payment_adjustment_failed",
-                bookingId: booking.id,
-                direction,
-                delta,
-                ts: new Date().toISOString(),
-                error: detail,
-              })
-            );
-            return {
-              content: [{
-                type: "text",
-                text: JSON.stringify({
-                  error:
-                    "Booking dates were updated, but the payment adjustment failed. The stay now shows the new dates and price; the delta payment/refund did not complete and needs manual reconciliation. Nothing was charged or refunded twice.",
-                  reservationId: booking.id,
-                  newDates: { checkIn: newCheckIn, checkOut: newCheckOut },
-                  pricing: { previousPrice: oldPrice, newPrice, delta, currency: booking.currency, direction, paymentAdjustment: "failed" },
-                  detail,
-                }, null, 2),
-              }],
-              isError: true,
-            };
-          }
         }
 
         return {
@@ -1828,7 +1739,6 @@ export async function executeTool(
                 newPrice,
                 delta,
                 currency: booking.currency,
-                stripeAction,
               },
               reason: reason ?? null,
             }, null, 2),

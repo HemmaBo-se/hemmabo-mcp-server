@@ -641,14 +641,6 @@
             "type": "string",
             "description": "Quote ID from booking.negotiate to lock the price."
           },
-          "paymentMode": {
-            "type": "string",
-            "enum": [
-              "checkout_session",
-              "payment_intent"
-            ],
-            "description": "Payment flow type."
-          },
           "channel": {
             "type": "string",
             "enum": [
@@ -696,32 +688,20 @@
           },
           "totalPrice": {
             "type": "integer",
-            "description": "Final total charged (or to be charged), in minor currency units."
+            "description": "Total for the stay in minor currency units, as shown on the host's Stripe Checkout page."
           },
           "paymentUrl": {
             "type": "string",
             "format": "uri",
-            "description": "Stripe Checkout redirect URL."
-          },
-          "payment_modes": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Supported payment modes."
+            "description": "Host-configured Stripe Checkout URL for the guest to open in their own browser."
           },
           "createdAt": {
             "type": "string",
             "format": "date-time"
           },
-          "mpp": {
-            "type": "object",
-            "additionalProperties": true,
-            "description": "Present when paymentMode='payment_intent'."
-          },
           "status": {
             "type": "string",
-            "description": "Booking status (typically 'pending' until payment succeeds)."
+            "description": "Booking status (typically 'pending' until the Stripe webhook confirms the booking)."
           },
           "error": {
             "type": "string",
@@ -769,10 +749,13 @@
             ],
             "description": "Final booking status after cancellation."
           },
-          "refund": {
-            "type": "object",
-            "description": "Refund payload returned by cancel-booking edge function, when present.",
-            "additionalProperties": true
+          "checkIn": {
+            "type": "string",
+            "description": "Arrival date of the cancelled stay (YYYY-MM-DD)."
+          },
+          "checkOut": {
+            "type": "string",
+            "description": "Departure date of the cancelled stay (YYYY-MM-DD)."
           },
           "error": {
             "type": "string",
@@ -961,10 +944,6 @@
               },
               "currency": {
                 "type": "string"
-              },
-              "stripeAction": {
-                "type": "object",
-                "additionalProperties": true
               }
             },
             "additionalProperties": true
