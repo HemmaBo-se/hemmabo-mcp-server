@@ -1,11 +1,11 @@
 /**
- * booking_locks primitive — shared by the MCP booking tools (lib/tools-base.ts)
- * and the ACP checkout endpoint (api/acp.ts).
+ * booking_locks primitive — used by the ACP checkout endpoint (api/acp.ts).
+ * The MCP booking tools in lib/tools-base.ts that shared it were removed from
+ * the platform connector (ADR 0019).
  *
- * Extracted verbatim from lib/tools-base.ts (no behavior change) so both call
- * paths acquire and release locks through ONE implementation and cannot drift.
- * The MCP-transport-shaped error result (lockErrorResult) stays in tools-base;
- * this module is transport-agnostic and returns a plain discriminated result.
+ * Extracted verbatim from lib/tools-base.ts (no behavior change) so every call
+ * path acquires and releases locks through ONE implementation.
+ * This module is transport-agnostic and returns a plain discriminated result.
  *
  * A booking_locks row is a short-lived hold on (property, date-range) that
  * closes the TOCTOU window between an availability check and the booking

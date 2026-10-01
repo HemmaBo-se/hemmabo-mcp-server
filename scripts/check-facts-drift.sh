@@ -5,32 +5,34 @@
 #
 # Canonical facts (must agree on every live surface below):
 #   - 12 languages    (Konversa guest chat; NEVER "11 languages" again, PR #197)
-#   - 13 runtime tools (9 HemmaBo tools + 2 host onboarding + 2 VRP verification)
+#   - 6 runtime tools (2 HemmaBo tools + 2 host onboarding + 2 VRP verification;
+#                      ADR 0019 — the platform connector is catalog and verifier)
 #   - Apache-2.0       (reference-impl license; ADR 0010 D7 — patent grant for
 #                       payment-network adoption. NEVER drift back to "MIT" on a
 #                       license-bearing surface; PR #221 relicensed but left
 #                       README/glama.json/.plugin/plugin.json on MIT.)
 #
-# "11 languages" / "15 tools" have drifted onto Glama/Smithery before. This gate
+# "11 languages" / "15 tools" / "13 tools" have drifted onto Glama/Smithery before. This gate
 # turns that drift into a build failure instead of a manual 5-surface re-check
 # after every edit.
 #
 # SCOPE — only the live surfaces that feed agents/registries are checked.
 # Historical records (docs/adr/**, docs/operations/** audit receipts) correctly
-# say "11 tools" / "15 tools" because that was true in their era; rewriting them
+# say "11 tools" / "13 tools" / "15 tools" because that was true in their era; rewriting them
 # would falsify history, so they are intentionally OUT of scope (same reason
 # check-docs-drift uses a fixed file list rather than a repo-wide scan).
 #
 # Matching is PER-OCCURRENCE (grep -o), not per-line: a single packed line that
-# legitimately says "13 runtime tools" AND wrongly says "15 runtime tools" still
-# fails on the "15" — the canonical value elsewhere on the line does not mask it.
+# legitimately says "6 runtime tools" AND wrongly says "13 runtime tools" still
+# fails on the "13" — the canonical value elsewhere on the line does not mask it.
 #
 # NO false positives by construction:
 #   * Only PLURAL "languages" / "språk" is a count claim. Singular "language" in
 #     "ISO 639-1 language hint" / "BCP-47 language tag" is left alone.
 #   * The tool TOTAL is matched only as "<N> runtime tools". The legitimate
-#     sub-counts ("9 HemmaBo tools", "2 host onboarding tools",
+#     sub-counts ("2 HemmaBo tools", "2 host onboarding tools",
 #     "2 VRP verification tools") never say "runtime tools", so they pass.
+#   * The HemmaBo sub-count is matched only as "<N> HemmaBo tools".
 #
 # Exits 0 on clean, 1 on drift.
 
@@ -91,16 +93,22 @@ check_rule "wrong language count in Swedish (canonical: 12 språk)" \
   '\b[0-9]+[ -](olika språk|språk)\b' 12 \
   "use '12 språk'"
 
-# 3. Tool TOTAL must be 13 ("<N> runtime tools").
-check_rule "wrong tool total (canonical: 13 runtime tools)" \
-  '\b[0-9]+[ -]runtime tools\b' 13 \
-  "use '13 runtime tools: 9 HemmaBo tools + 2 host onboarding + 2 VRP verification'"
+# 3. Tool TOTAL must be 6 ("<N> runtime tools").
+check_rule "wrong tool total (canonical: 6 runtime tools)" \
+  '\b[0-9]+[ -]runtime tools\b' 6 \
+  "use '6 runtime tools: 2 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools'"
 
-# 4. Known stale tool totals as a bare "<N> tools" literal. 11/14/15 are never a
-#    legitimate sub-count (those are 9 / 2 / 2), so flagging them is safe.
-check_rule "stale tool total (the old wrong '11 tools' / '14 tools' / '15 tools')" \
-  '\b1[145][ -]tools\b' "" \
-  "canonical total is 13 tools (13 runtime tools)"
+# 3b. HemmaBo sub-count must be 2 ("<N> HemmaBo tools": search_properties +
+#     search_availability). The 9-tool sub-count is retired with the booking tools.
+check_rule "wrong HemmaBo tool sub-count (canonical: 2 HemmaBo tools)" \
+  '\b[0-9]+[ -]HemmaBo tools\b' 2 \
+  "use '2 HemmaBo tools' (hemmabo_search_properties + hemmabo_search_availability)"
+
+# 4. Known stale tool totals as a bare "<N> tools" literal. 11/13/14/15 are never
+#    a legitimate sub-count (those are 2 / 2 / 2), so flagging them is safe.
+check_rule "stale tool total (the old '11 tools' / '13 tools' / '14 tools' / '15 tools')" \
+  '\b1[1345][ -]tools\b' "" \
+  "canonical total is 6 tools (6 runtime tools)"
 
 # 5. ACP is the "Agentic Commerce Protocol" (Stripe is the payment PROVIDER, not
 #    the protocol). "Stripe Agentic Commerce Protocol" renames an open standard
@@ -154,8 +162,8 @@ done
 
 if [[ $drift -ne 0 ]]; then
   echo "facts-drift check: FAILED — fix the counts above so every live surface agrees."
-  echo "Canonical: 12 languages, 13 runtime tools, Apache-2.0 license."
+  echo "Canonical: 12 languages, 6 runtime tools, Apache-2.0 license."
   exit 1
 fi
 
-echo "facts-drift check: OK — 12 languages / 13 runtime tools / Apache-2.0 consistent on all live surfaces."
+echo "facts-drift check: OK — 12 languages / 6 runtime tools / Apache-2.0 consistent on all live surfaces."

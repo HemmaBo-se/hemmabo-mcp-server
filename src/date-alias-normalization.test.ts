@@ -16,14 +16,6 @@ describe("normalizeDateAliases (snake_case date param migration)", () => {
     assert.equal(out.guests, 4);
   });
 
-  it("maps reschedule new_check_in/new_check_out aliases", () => {
-    const out = normalizeDateAliases({ reservationId: "r1", new_check_in: "2026-08-01", new_check_out: "2026-08-08" });
-    assert.equal(out.newCheckIn, "2026-08-01");
-    assert.equal(out.newCheckOut, "2026-08-08");
-    assert.equal("new_check_in" in out, false);
-    assert.equal("new_check_out" in out, false);
-  });
-
   it("returns the same object untouched for canonical camelCase input", () => {
     const input = { checkIn: "2026-07-01", checkOut: "2026-07-08" };
     const out = normalizeDateAliases(input);

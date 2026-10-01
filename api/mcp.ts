@@ -493,14 +493,14 @@ registerToolSchemas(TOOLS);
 // return no PII. Canonical snake_case names are exposed via tools/list; legacy
 // dotted aliases from lib/tools.ts TOOL_NAME_ALIASES stay accepted inbound.
 //
-// Any tool NOT in this set requires authentication:
-//   booking.create, booking.negotiate, booking.checkout, booking.cancel,
-//   booking.reschedule, booking.status (PII).
+// Since ADR 0019 every tool in tools/list is in this set: the platform
+// connector writes no bookings and moves no money. Any name NOT in this set
+// (unknown, or one of the removed booking tools) still requires
+// authentication and then fails as an unknown tool — fail closed.
 export const ANON_TOOLS: ReadonlySet<string> = new Set([
   // Canonical snake_case names (#59 — claude.ai web rejects dots)
   "hemmabo_search_properties",
   "hemmabo_search_availability",
-  "hemmabo_booking_quote",
   "hemmabo_host_readiness_check",
   "hemmabo_host_onboarding_link",
   "verify_vacation_rental_node",
@@ -508,7 +508,6 @@ export const ANON_TOOLS: ReadonlySet<string> = new Set([
   // Legacy dotted aliases (inbound compatibility — TOOL_NAME_ALIASES)
   "search.properties",
   "search.availability",
-  "booking.quote",
 ]);
 
 /**
@@ -550,18 +549,15 @@ export async function serve(req: VercelRequest, res: VercelResponse, surface: Mc
   if (req.method === "DELETE") return res.status(202).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  // Auth model: public read, signed write.
+  // Auth model: public read; every listed tool is read-only (ADR 0019).
   // - initialize / tools/list / prompts/* / ping: anonymous (registry discovery).
   // - tools/call for ANON_TOOLS: anonymous. These are pure read-only discovery
   //   and pricing helpers. Same data is published on the host's public website,
   //   and Supabase RLS restricts properties/snapshot reads to published rows.
   //   Bookings reads from these tools (availability gap detection) only return
   //   boolean availability + blocked-date ranges, never PII.
-  // - tools/call for any other tool (booking writes, status with PII): requires
-  //   Bearer token (MCP_API_KEY or OAuth client_credentials access token).
-  //
-  // This keeps read-only public discovery separate from protected stateful actions
-  // and PII reads, which remain behind authentication.
+  // - tools/call for any name not in ANON_TOOLS (unknown or removed tools):
+  //   requires a Bearer token (MCP_API_KEY or OAuth access token) — fail closed.
   const requestMessages = Array.isArray(req.body) ? req.body : [req.body];
   // ChatGPT surface: the only callable tools are the three anonymous read-only
   // ones; every other tool is rejected in handleJsonRpc before any execution,

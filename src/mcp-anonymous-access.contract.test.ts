@@ -5,7 +5,6 @@ import { ANON_TOOLS, isAuthRequiredMessage, TOOLS } from "../api/mcp.js";
 const ANON_CANONICAL_NAMES = [
   "hemmabo_search_properties",
   "hemmabo_search_availability",
-  "hemmabo_booking_quote",
   "hemmabo_host_readiness_check",
   "hemmabo_host_onboarding_link",
   "verify_vacation_rental_node",
@@ -15,21 +14,30 @@ const ANON_CANONICAL_NAMES = [
 const ANON_ALIASES = [
   "search.properties",
   "search.availability",
-  "booking.quote",
 ] as const;
 
-const AUTH_REQUIRED_TOOLS = [
+// The booking tools removed from the platform connector (ADR 0019), canonical
+// and legacy dotted. They are unknown names now and must fail closed.
+const REMOVED_TOOL_NAMES = [
+  "hemmabo_booking_quote",
   "hemmabo_booking_create",
   "hemmabo_booking_negotiate",
   "hemmabo_booking_checkout",
   "hemmabo_booking_cancel",
   "hemmabo_booking_reschedule",
   "hemmabo_booking_status",
+  "booking.quote",
+  "booking.create",
+  "booking.negotiate",
+  "booking.checkout",
+  "booking.cancel",
+  "booking.reschedule",
+  "booking.status",
 ] as const;
 
 describe("anonymous tool allowlist contract", () => {
-  it("ANON_TOOLS contains exactly the 7 read-only canonical names plus 3 aliases", () => {
-    assert.equal(ANON_TOOLS.size, 10);
+  it("ANON_TOOLS contains exactly the 6 read-only canonical names plus 2 aliases", () => {
+    assert.equal(ANON_TOOLS.size, 8);
     for (const n of [...ANON_CANONICAL_NAMES, ...ANON_ALIASES]) {
       assert.ok(ANON_TOOLS.has(n), `expected ANON_TOOLS to contain ${n}`);
     }
@@ -44,8 +52,8 @@ describe("anonymous tool allowlist contract", () => {
     }
   });
 
-  it("no auth-required tool is in ANON_TOOLS", () => {
-    for (const name of AUTH_REQUIRED_TOOLS) {
+  it("no removed booking tool name is in ANON_TOOLS", () => {
+    for (const name of REMOVED_TOOL_NAMES) {
       assert.ok(!ANON_TOOLS.has(name), `${name} must NOT be anonymous`);
     }
   });
@@ -80,8 +88,8 @@ describe("isAuthRequiredMessage decision function", () => {
     }
   });
 
-  it("returns true for every write/PII tool", () => {
-    for (const name of AUTH_REQUIRED_TOOLS) {
+  it("returns true for every removed booking tool name (fail closed)", () => {
+    for (const name of REMOVED_TOOL_NAMES) {
       assert.equal(
         isAuthRequiredMessage({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: {} } }),
         true,

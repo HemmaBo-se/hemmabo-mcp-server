@@ -75,7 +75,7 @@ const REQUIRED_POSITIONING: Array<string | string[]> = [
   "stripe owns payment facts",
   "not an ota",
   "not a marketplace",
-  "hemmabo + vrp, 13 runtime tools",
+  "6 runtime tools: 2 hemmabo tools, 2 host onboarding tools, and 2 vrp verification tools.",
   "host onboarding",
   "host-domain signed verified stay offers",
 ];

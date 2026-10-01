@@ -31,16 +31,9 @@ no personal data:
 
 - `hemmabo_search_properties` — find host-owned properties by place and dates
 - `hemmabo_search_availability` — check availability
-- `hemmabo_search_similar` / `hemmabo_compare_properties` — decision support
-- `hemmabo_booking_quote` — a non-binding price quote
 - `get_verified_stay_offer` — fetch the host-domain, Ed25519-signed VRP stay offer
 - `verify_vacation_rental_node` — verify a node's signature against its domain
 - `hemmabo_host_readiness_check` / `hemmabo_host_onboarding_link` — host onboarding
-
-The booking lifecycle tools (create, checkout, reschedule, cancel, status) return
-personal data and therefore stay behind authentication; they are **not** part of a
-no-auth connection. Connect them only if you need agent-driven booking (see
-[Optional: OAuth 2.0](#optional-oauth-20-for-booking-tools)).
 
 ---
 
@@ -77,15 +70,6 @@ the signed direct-booking URL on the host's own domain.
 - `GET https://www.hemmabo.com/mcp` returns `{"status":"ok","transport":"streamable-http",...}`.
 - A `tools/list` JSON-RPC call returns the tool set above.
 
-## Optional: OAuth 2.0 (for booking tools)
-
-If you need the authenticated tools (booking create/checkout/etc.), choose
-**OAuth 2.0** in step 3 instead of No Authentication and provide HemmaBo's
-authorization and token URLs, client ID, and client secret. HemmaBo supports the
-OAuth 2.0 authorization-code flow with Dynamic Client Registration; contact
-HemmaBo to provision credentials. For discovery and verification alone, No
-Authentication is sufficient and simpler.
-
 ## Troubleshooting
 
 - **"SSE not supported" / transport error:** none expected — HemmaBo speaks
@@ -94,7 +78,7 @@ Authentication is sufficient and simpler.
   egress FQDN allowlist.
 - **Redirect / empty response:** use the `www.` URL, not the apex.
 - **No tools appear:** ensure the data store is **Active**, then reload and enable
-  custom actions (Gemini Enterprise limits to 100 simultaneously; HemmaBo exposes 15).
+  custom actions (Gemini Enterprise limits to 100 simultaneously; HemmaBo exposes 6).
 
 ---
 

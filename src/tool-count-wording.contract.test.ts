@@ -67,25 +67,29 @@ function collectScanFiles(): string[] {
 
 describe("tool count wording contract", () => {
   it("runtime tool counts are explicit", () => {
-    assert.equal(HEMMABO_TOOL_SPECS.length, 9, "HemmaBo federation tool count must stay explicit");
+    assert.equal(HEMMABO_TOOL_SPECS.length, 2, "HemmaBo federation tool count must stay explicit");
     assert.equal(HOST_ONBOARDING_TOOL_NAMES.length, 2, "Host onboarding tool count must stay explicit");
     assert.equal(VRP_TOOL_NAMES.length, 2, "VRP verification tool count must stay explicit");
     assert.equal(
       RUNTIME_TOOL_SPECS.length,
       HEMMABO_TOOL_SPECS.length + HOST_ONBOARDING_TOOL_NAMES.length + VRP_TOOL_NAMES.length,
-      "runtime tool count must equal 9 HemmaBo tools plus 2 host onboarding tools plus 2 VRP verification tools",
+      "runtime tool count must equal 2 HemmaBo tools plus 2 host onboarding tools plus 2 VRP verification tools",
     );
+    assert.equal(RUNTIME_TOOL_SPECS.length, 6, "runtime tool count must stay 6 (ADR 0019)");
   });
 
-  it("does not describe the full runtime surface as all 9 tools", () => {
-    const ambiguousAllNine = new RegExp("\\ball\\s+9\\s+(?:runtime\\s+)?tool(?:s|\\s+specs)?\\b", "i");
+  it("does not describe the runtime surface with a stale tool count", () => {
+    const staleCount = new RegExp(
+      "\\ball\\s+(?:9|13)\\s+(?:runtime\\s+)?tool(?:s|\\s+specs)?\\b|\\b13\\s+runtime\\s+tools\\b|\\b9\\s+HemmaBo\\s+tools\\b",
+      "i",
+    );
     const offenders: string[] = [];
 
     for (const file of collectScanFiles()) {
       const source = readFileSync(resolve(REPO_ROOT, file), "utf8");
       const lines = source.split(/\r?\n/);
       lines.forEach((line, index) => {
-        if (ambiguousAllNine.test(line)) {
+        if (staleCount.test(line)) {
           offenders.push(`${file}:${index + 1}: ${line.trim()}`);
         }
       });
@@ -95,9 +99,8 @@ describe("tool count wording contract", () => {
       offenders,
       [],
       [
-        "Do not write 'all 9 tools/specs' for the runtime MCP surface.",
-        "Use '13 runtime tools: 9 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools'.",
-        "It is still OK to say '9 HemmaBo tools' when referring only to the booking/federation subset.",
+        "Do not write 'all 9/13 tools/specs', '13 runtime tools' or '9 HemmaBo tools' for the runtime MCP surface.",
+        "Use '6 runtime tools: 2 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools.' (ADR 0019).",
       ].join(" "),
     );
   });
