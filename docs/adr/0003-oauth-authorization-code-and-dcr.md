@@ -29,6 +29,8 @@ The authorize endpoint renders a stateless consent page ("Allow Claude to use He
 | `authorization_code` | Claude.ai, future browser-based AI connectors | 1 h | 30 d, single-use, rotation on every refresh | PKCE `S256` required, `plain` rejected at `/authorize`. |
 | `refresh_token` | clients that received one | 1 h on the new access token | new 30 d on rotation | RFC 6749 §10.4 reuse detection: presenting a revoked refresh token invalidates the entire rotation chain. |
 
+Since 2026-10-01 the RFC 8414 metadata at `/.well-known/oauth-authorization-server` advertises only `authorization_code` and `refresh_token` in `grant_types_supported`: `client_credentials` is no longer listed because Anthropic's connector client does not use it and its documentation names the grant as unsupported on a connector authorization server, while `/oauth/token` keeps accepting `grant_type=client_credentials` unchanged for operator-provisioned clients (locked by `src/oauth-token-grants.contract.test.ts`).
+
 Authorization codes live 10 minutes (RFC 6749 §4.1.2 recommendation) and are single-use enforced by `used_at IS NULL` on redemption.
 
 ### 2.3 Token formats

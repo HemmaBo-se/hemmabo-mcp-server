@@ -13,7 +13,10 @@
  *     and self-hosted forks self-describe correctly).
  *   - Advertised grants, code-challenge methods and auth methods match
  *     ADR 0003 §2.2 — extending or shrinking the surface must come with a
- *     deliberate update to this test.
+ *     deliberate update to this test. "Advertised" is not "accepted":
+ *     client_credentials stays accepted at /oauth/token for operator-
+ *     provisioned clients (src/oauth-token-grants.contract.test.ts locks
+ *     that side) but is never listed in grant_types_supported.
  *
  * Run: npx tsx --test src/oauth-authorization-server.contract.test.ts
  */
@@ -61,12 +64,20 @@ describe("oauth-authorization-server discovery (RFC 8414)", () => {
     assert.equal(r.body.revocation_endpoint,    `${BASE}/oauth/revoke`);
   });
 
-  it("supports exactly the three grants from ADR 0003 §2.2", async () => {
+  it("advertises exactly the two public grants from ADR 0003 §2.2 (authorization_code, refresh_token)", async () => {
     const r = await callHandler();
     assert.deepEqual(
       r.body.grant_types_supported,
-      ["authorization_code", "refresh_token", "client_credentials"],
-      "Changing the supported grants is a contract change — update ADR 0003 §2.2 in the same PR."
+      ["authorization_code", "refresh_token"],
+      "Changing the advertised grants is a contract change — update ADR 0003 §2.2 in the same PR. client_credentials must stay accepted at /oauth/token for operator-provisioned clients but is never advertised here (Anthropic connector AS: no client_credentials grant)."
+    );
+  });
+
+  it("never advertises client_credentials (accepted at /oauth/token for operator-provisioned clients only)", async () => {
+    const r = await callHandler();
+    assert.ok(
+      !(r.body.grant_types_supported as string[]).includes("client_credentials"),
+      "client_credentials is an operator-provisioned grant; listing it in RFC 8414 metadata invites public clients to request it and reads as a machine-to-machine AS to Anthropic's connector review."
     );
   });
 

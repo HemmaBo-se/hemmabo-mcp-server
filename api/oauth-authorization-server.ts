@@ -44,12 +44,17 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     registration_endpoint:  `${base}/oauth/register`,
     revocation_endpoint:    `${base}/oauth/revoke`,
 
-    // Grants. authorization_code + refresh_token cover Claude.ai;
-    // client_credentials covers the existing ChatGPT Apps SDK track.
+    // Grants. authorization_code + refresh_token cover Claude.ai. Anthropic's
+    // connector client never uses client_credentials and its documentation
+    // lists that grant as unsupported on a connector authorization server,
+    // so it is deliberately NOT advertised here. /oauth/token still accepts
+    // grant_type=client_credentials for operator-provisioned clients (the
+    // ChatGPT Apps SDK track, api/oauth.ts) — RFC 8414 §2 lists what a
+    // client may discover, not every grant the token endpoint can serve.
+    // ADR 0003 §2.2.
     grant_types_supported: [
       "authorization_code",
       "refresh_token",
-      "client_credentials",
     ],
 
     response_types_supported: ["code"],

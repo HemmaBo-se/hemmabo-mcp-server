@@ -93,7 +93,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       registration: {
         endpoint: `${base}/oauth/register`,
         description:
-          "Register an OAuth client to obtain client_id and client_secret. Use POST /oauth/token with grant_type=client_credentials to get an access token.",
+          "Register an OAuth client to obtain client_id and client_secret.",
       },
     },
     homepage: "https://www.hemmabo.com",
