@@ -179,13 +179,13 @@ const F = {
 const REGION = {
   type: "string" as const,
   description:
-    "Region, area, or destination to search within (e.g. 'Skåne', 'Kävlinge', 'Toscana', 'Bavaria'). Partial case-insensitive match. Provide at least one of region or country; omit only when country alone is sufficient.",
+    "Region, area, or destination to search within (e.g. 'Skåne', 'Kävlinge', 'Toscana', 'Bavaria'). Partial case-insensitive match against region, city, and country. Optional — omit both region and country and the search spans every published property.",
 } satisfies JsonSchemaField;
 
 const COUNTRY = {
   type: "string" as const,
   description:
-    "Country name to filter by (e.g. 'Sweden', 'Italy', 'Morocco'). Partial case-insensitive match. Provide at least one of region or country; omit when region already narrows the destination.",
+    "Country name to filter by (e.g. 'Sweden', 'Italy', 'Morocco'). Partial case-insensitive match against the country field. Optional — omit both region and country and the search spans every published property.",
 } satisfies JsonSchemaField;
 
 // ── Property output object (shared between search tools) ─────────
@@ -228,7 +228,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_search_properties",
     description:
-      "Search available vacation rental properties by location and travel dates. Use when the user wants to find or browse places to stay. Discovery only — call get_verified_stay_offer with the host domain and same dates before the final answer so the client can render the verified stay offer widget; never quote a final price or booking link from search alone. Do NOT use when the user already has a propertyId or host domain. Returns propertyId, host domain, live availability, host-source pricing, and capacity. Parameters combine as one filter with guests and the checkIn/checkOut range (checkIn strictly before checkOut): region matches broadly against region, city, and country names, while country matches the country field alone — omit both and the search spans every published property. Capacity misses are excluded; date-unavailable matches return separately in unavailableMatches with up to three alternative windows.",
+      "Search available vacation rental properties by location and travel dates. Use when the user wants to find or browse places to stay. Discovery only — call get_verified_stay_offer with the host domain and same dates before the final answer so the client can render the verified stay offer widget; never quote a final price or booking link from search alone. Do NOT use when the user already has a propertyId or host domain. Returns propertyId, host domain, live availability, host-source pricing, and capacity. Parameters combine as one filter with guests and the checkIn/checkOut range (checkIn strictly before checkOut): region matches broadly against region, city, and country names, while country matches the country field alone — omit both and the search spans every published property. Capacity misses are excluded; date-unavailable matches return separately in unavailableMatches with up to three alternative windows. Booking and payment happen only on the host's own domain, at the signed direct_booking_url; this server has no booking, checkout, or payment step.",
     inputSchema: {
       type: "object",
       properties: {
@@ -267,7 +267,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_search_availability",
     description:
-      "Check whether a specific property is available for the requested dates. Use this tool after the user has selected a property from hemmabo_search_properties and wants to confirm availability before getting a quote. Do NOT use for general browsing — use hemmabo_search_properties instead. Read-only, open to anonymous callers (no Bearer token), and rate-limited: checking availability never places a hold or reserves dates. Returns available=true/false with conflict details and, when unavailable, the host node's own next available window (alternativeDates, at most one entry — the same window the node's /api/availability reports, never a platform-invented date); a stale inbound calendar sync blocks an available answer (fails closed with calendar_freshness) instead of guessing. Omit guests to check dates only; pass it to price the alternative windows and to gate capacity — counts above the property's maximum return available=false (guests_exceed_max) with no alternatives. Stays shorter than the host's effective minimum nights return available=false with reasonCode min_nights_violation — extend the stay rather than shifting dates. The verdict always matches the host node's own availability API.",
+      "Check whether a specific property is available for the requested dates. Use this tool after the user has selected a property from hemmabo_search_properties and wants to confirm availability before getting a quote. Do NOT use for general browsing — use hemmabo_search_properties instead. Read-only, open to anonymous callers (no Bearer token), and rate-limited: checking availability never places a hold or reserves dates. Returns available=true/false with conflict details and, when unavailable, the host node's own next available window (alternativeDates, at most one entry — the same window the node's /api/availability reports, never a platform-invented date); a stale inbound calendar sync blocks an available answer (fails closed with calendar_freshness) instead of guessing. Omit guests to check dates only; pass it to price the alternative windows and to gate capacity — counts above the property's maximum return available=false (guests_exceed_max) with no alternatives. Stays shorter than the host's effective minimum nights return available=false with reasonCode min_nights_violation — extend the stay rather than shifting dates. The verdict always matches the host node's own availability API. Booking and payment happen only on the host's own domain, at the signed direct_booking_url; this server has no booking, checkout, or payment step.",
     inputSchema: {
       type: "object",
       properties: {
