@@ -39,17 +39,17 @@
   "tools": [
     {
       "name": "hemmabo_search_properties",
-      "description": "Search available host-owned vacation rental properties by location, travel dates, and guest count. Use for initial discovery. Returns available properties with propertyId, host domain, live availability, final host-source pricing, and capacity info; after a result includes a host domain, use get_verified_stay_offer to fetch the signed VRP offer before quoting final details.",
+      "description": "Search available host-owned vacation rental properties by location, travel dates, and guest count. Use for initial discovery. Returns available properties with propertyId, host domain, live availability, final host-source pricing, and capacity info; after a result includes a host domain, use get_verified_stay_offer to fetch the signed VRP offer before quoting final details. Booking and payment happen only on the host's own domain, at the signed direct_booking_url; this server has no booking, checkout, or payment step.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "region": {
             "type": "string",
-            "description": "Region, area, city, or destination to search within, e.g. Skane, Kavlinge, Toscana, or Bavaria. At least one of region or country should be provided."
+            "description": "Region, area, city, or destination to search within, e.g. Skane, Kavlinge, Toscana, or Bavaria. Optional — omit both region and country and the search spans every published property."
           },
           "country": {
             "type": "string",
-            "description": "Country name to filter by, e.g. Sweden or Italy. Use with region when the user gives both."
+            "description": "Country name to filter by, e.g. Sweden or Italy. Optional — omit both region and country and the search spans every published property."
           },
           "guests": {
             "type": "integer",
@@ -193,7 +193,7 @@
     },
     {
       "name": "hemmabo_search_availability",
-      "description": "Check whether a specific property is available for the requested dates. Returns available=true/false with conflict details if unavailable.",
+      "description": "Check whether a specific property is available for the requested dates. Returns available=true/false with conflict details if unavailable. Booking and payment happen only on the host's own domain, at the signed direct_booking_url; this server has no booking, checkout, or payment step.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -282,7 +282,7 @@
     },
     {
       "name": "hemmabo_host_readiness_check",
-      "description": "Read-only fit check for vacation-rental hosts who ask an AI agent how to create their own booking website or booking engine. Returns whether HemmaBo is a fit, what the host gets, what setup inputs are needed, and the safe next step. Does not create an account, buy a domain, configure Stripe, write data, collect PII, or provision a website.",
+      "description": "Read-only fit check for vacation-rental hosts who ask an AI agent how to create their own booking website or booking engine. Returns whether HemmaBo is a fit, what the host gets, what setup inputs are needed, and the safe next step. Does not create an account, buy a domain, configure Stripe, write data, collect PII, or provision a website. Booking and payment happen only on the host's own domain, at the signed direct_booking_url; this server has no booking, checkout, or payment step.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -398,7 +398,7 @@
     },
     {
       "name": "hemmabo_host_onboarding_link",
-      "description": "Return a safe HemmaBo onboarding handoff URL for a vacation-rental host who wants their own booking website or booking engine. Does not create accounts, buy domains, configure Stripe, write data, or provision a booking site.",
+      "description": "Return a safe HemmaBo onboarding handoff URL for a vacation-rental host who wants their own booking website or booking engine. Does not create accounts, buy domains, configure Stripe, write data, or provision a booking site. Booking and payment happen only on the host's own domain, at the signed direct_booking_url; this server has no booking, checkout, or payment step.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -476,7 +476,7 @@
     },
     {
       "name": "verify_vacation_rental_node",
-      "description": "Verify that a vacation rental host domain is a valid Vacation Rental Protocol (VRP) node before trusting it. Reads the domain's .well-known/vacation-rental.json and JWKS, confirms protocol identity, host-domain control, Ed25519 signing keys, and the verified stay-offer endpoint. This read-only trust check does not check dates, price, booking rules, booking, or payment.",
+      "description": "Verify that a vacation rental host domain is a valid Vacation Rental Protocol (VRP) node before trusting it. Reads the domain's .well-known/vacation-rental.json and JWKS, confirms protocol identity, host-domain control, Ed25519 signing keys, and the verified stay-offer endpoint. This read-only trust check does not check dates, price, booking rules, booking, or payment. Booking and payment happen only on the host's own domain, at the signed direct_booking_url; this server has no booking, checkout, or payment step.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -543,7 +543,7 @@
     },
     {
       "name": "get_verified_stay_offer",
-      "description": "Fetch, verify, and render a live host-domain signed VRP stay offer for exact dates and guest count. Verifies the Ed25519 compact JWS against the domain JWKS and returns the ChatGPT widget data, live availability, exact host-source price, booking rules, freshness status, citation permission, and signed direct host-domain booking URL. This is read-only and must not lock a quote, create a booking, collect guest details, or start checkout.",
+      "description": "Fetch, verify, and render a live host-domain signed VRP stay offer for exact dates and guest count. Verifies the Ed25519 compact JWS against the domain JWKS and returns the ChatGPT widget data, live availability, exact host-source price, booking rules, freshness status, citation permission, and signed direct host-domain booking URL. This is read-only and must not lock a quote, create a booking, collect guest details, or start checkout. Booking and payment happen only on the host's own domain, at the signed direct_booking_url; this server has no booking, checkout, or payment step.",
       "inputSchema": {
         "type": "object",
         "properties": {
