@@ -32,7 +32,7 @@ Read these files in the target repo (skip silently if absent):
 - `package.json` (entry points, scripts, dependencies)
 - `lib/**/*.ts` (single source of truth helpers — pricing, availability, validation)
 - `api/**/*.ts` (Vercel serverless or sibling transport)
-- `src/**/*.ts` (stdio bin, contract tests, alternate transports)
+- `src/**/*.ts` (contract tests; `src/stdio.ts` is the Glama Docker build entry, not a published bin)
 - `supabase/**` (SQL schemas, RLS, edge functions)
 - `.github/workflows/*.yml` (CI scope)
 

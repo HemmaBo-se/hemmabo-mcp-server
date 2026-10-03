@@ -125,4 +125,25 @@ describe("catalog surfaces contract", () => {
       "llms.txt must say the MCP tools do not check out, take payment or cancel",
     );
   });
+
+  // ToolBench (scan 2026-09-23) classed the repo STDIO with 0 tools while the
+  // package.json bin pointed at a stdio entry. The only start is
+  // https://www.hemmabo.com/mcp; src/stdio.ts is Glama's Docker build entry.
+  it("the package publishes no bin and no catalog surface lists stdio as a transport", () => {
+    const pkg = JSON.parse(read("package.json"));
+    assert.equal(pkg.bin, undefined, "package.json must not carry a bin");
+    assert.ok(pkg.files.includes("!dist/src/stdio.js"), "the npm tarball must not ship dist/src/stdio.js");
+    const lockRoot = JSON.parse(read("package-lock.json")).packages[""];
+    assert.equal(lockRoot.bin, undefined, "package-lock.json root must not carry a bin");
+    assert.deepEqual(
+      (JSON.parse(SURFACES["server.json"]).remotes as Array<{ type: string; url: string }>).map((r) => [r.type, r.url]),
+      [["streamable-http", "https://www.hemmabo.com/mcp"]],
+    );
+    assert.equal(JSON.parse(SURFACES["server.json"]).packages, undefined, "server.json must not list a package");
+    assert.match(SURFACES["smithery.yaml"], /^httpTransport:\n  url: https:\/\/www\.hemmabo\.com\/mcp$/m);
+    assert.doesNotMatch(SURFACES["smithery.yaml"], /^startCommand:/m, "smithery.yaml must not carry a startCommand");
+    const fafTransport = SURFACES["project.faf"].match(/^\s+transport: "([^"]+)"$/m);
+    assert.ok(fafTransport, "project.faf must carry stack.transport");
+    assert.doesNotMatch(fafTransport[1], /stdio/i, "project.faf must not list stdio as a transport");
+  });
 });

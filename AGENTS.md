@@ -13,8 +13,10 @@ is `>=20 <23`; the Cloud VM ships Node 22.
 
 - **Remote-only / serverless.** Deployed as Vercel serverless functions under
   `api/**`; the live `/mcp` is `api/mcp.ts`, reached at
-  `https://www.hemmabo.com/mcp`. There is no standalone HTTP server or stdio
-  binary — `src/index.ts` / `src/stdio.ts` were removed (see #212).
+  `https://www.hemmabo.com/mcp`. There is no standalone HTTP server and no
+  published stdio binary: `package.json` has no `bin`. `src/stdio.ts` exists
+  only because Glama's Docker build runs `node dist/src/stdio.js` (#238); that
+  command is set in Glama's admin, not in this repo. Do not re-add a `bin`.
 - **Build:** `npm run build` (`tsc` → `dist/`). `npm run dev` is `tsc --watch`
   (recompile only).
 - **Local run:** `vercel dev` exercises the `api/**` functions locally.
