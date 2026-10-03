@@ -74,7 +74,7 @@ const HOST_LANGUAGE = {
 
 const PRODUCT_OUTPUT: JsonSchemaField = {
   type: "object",
-  description: "HemmaBo product summary, pricing, onboarding URL, and live proof URLs.",
+  description: "HemmaBo product summary, the host's subscription price, onboarding URL, and live proof URLs.",
   properties: {
     name: { type: "string", description: "Product name ('HemmaBo')." },
     category: { type: "string", description: "Product category, e.g. 'host-owned booking engine for vacation rentals'." },
@@ -84,8 +84,10 @@ const PRODUCT_OUTPUT: JsonSchemaField = {
     live_reference_domain: { type: "string", format: "uri", description: "Live reference host-node domain to show the model in action." },
     price: {
       type: "object",
-      description: "Subscription pricing for the host.",
+      description: "The host's HemmaBo subscription. The host pays it; a guest never pays it (guests pay the host for the stay, on Stripe).",
       properties: {
+        payer: { type: "string", enum: ["host"], description: "Who pays this price: always the host, never a guest." },
+        summary: { type: "string", description: "The price as one sentence: 'The host pays $39/month.'" },
         amount: { type: "integer", description: "Monthly subscription price in major currency units (e.g. 39)." },
         currency: { type: "string", description: "ISO 4217 currency code (e.g. 'USD')." },
         interval: { type: "string", description: "Billing interval (e.g. 'month')." },
@@ -213,7 +215,7 @@ const HOST_ONBOARDING_TOOL_SPECS: readonly ToolSpecType[] = [
       type: "object",
       properties: {
         ok: { type: "boolean" },
-        product: { type: "object", additionalProperties: true, description: "HemmaBo product, pricing, onboarding URL, and live proof URLs." },
+        product: { type: "object", additionalProperties: true, description: "HemmaBo product, the host's subscription price (the host pays $39/month; a guest never pays it), onboarding URL, and live proof URLs." },
         capabilities: { type: "array", items: { type: "string" }, description: "Host-facing capabilities included in HemmaBo." },
         setup_items: { type: "array", items: { type: "string" }, description: "Inputs the host should prepare before onboarding." },
         next_step: { type: "object", additionalProperties: true, description: "Safe handoff action for the host." },
