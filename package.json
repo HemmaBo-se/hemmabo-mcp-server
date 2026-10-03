@@ -10,6 +10,8 @@
     "!dist/**/*.map",
     "!dist/**/*.test.js",
     "!dist/**/*.test.d.ts",
+    "!dist/src/stdio.js",
+    "!dist/src/stdio.d.ts",
     "README.md",
     "LICENSE"
   ],
@@ -83,8 +85,5 @@
   },
   "engines": {
     "node": ">=20 <23"
-  },
-  "bin": {
-    "hemmabo-mcp-server": "dist/src/stdio.js"
   }
 }

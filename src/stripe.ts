@@ -1,7 +1,7 @@
 /**
  * Stripe helpers — REST API via fetch (no SDK dependency)
  *
- * Used by both api/mcp.ts (HTTP) and src/stdio.ts (stdio)
+ * Used by api/acp.ts (the ACP checkout HTTP endpoints); no MCP tool calls it.
  * Requires STRIPE_SECRET_KEY environment variable
  */
 

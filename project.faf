@@ -29,7 +29,7 @@ description: >
 stack:
   language: "TypeScript"
   runtime: "Vercel Serverless"
-  transport: "Streamable HTTP (primary) + stdio"
+  transport: "Streamable HTTP (remote-only)"
   database: "Supabase (PostgreSQL) - read via service role"
   payments: "Stripe Connect - direct to host"
   build: "tsc"

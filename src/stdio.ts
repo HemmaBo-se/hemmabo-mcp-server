@@ -1,13 +1,17 @@
 #!/usr/bin/env node
 /**
- * Local stdio transport for the HemmaBo MCP server.
+ * Glama Docker build entry — not a published or supported launch.
  *
- * The production server is remote / HTTP (api/mcp.ts, served at
- * https://www.hemmabo.com/mcp). This thin entry reuses the EXACT same
- * JSON-RPC dispatcher (`handleJsonRpc`) over a stdio transport, so local
- * clients — and the Glama Docker build (`mcp-proxy -- node dist/src/stdio.js`)
- * — get behaviour identical to the live HTTP server. No tool logic is
- * duplicated here; only the transport differs.
+ * The only start is the remote server: api/mcp.ts, served at
+ * https://www.hemmabo.com/mcp. package.json carries no `bin`, so npm installs
+ * no command for this file. It exists because Glama's Docker build for the
+ * GitHub-repo listing runs `mcp-proxy -- node dist/src/stdio.js` (#238); that
+ * command lives in Glama's admin settings, not in this repo. Remove this file
+ * only after that build no longer calls it.
+ *
+ * It reuses the EXACT same JSON-RPC dispatcher (`handleJsonRpc`) over a stdio
+ * transport, so the Glama build answers like the live HTTP server. No tool
+ * logic is duplicated here; only the transport differs.
  *
  * Tool execution (tools/call) reads Supabase credentials lazily from env at
  * call time. `initialize` and `tools/list` work without any env, which is what
