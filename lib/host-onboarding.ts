@@ -100,11 +100,11 @@ function baseResponse(args: JsonRecord): JsonRecord {
       live_proof_url: LIVE_PROOF_URL,
       live_reference_domain: VILLA_PROOF_URL,
       // The host's HemmaBo subscription — the host pays it, never a guest
-      // (CEO 2026-10-03: "The host pays $39/month"). The payer is explicit so no
+      // (CEO 2026-10-03: "The host pays HemmaBo $39/month"). The payer is explicit so no
       // agent can read the amount as a guest or stay price.
       price: {
         payer: "host",
-        summary: "The host pays $39/month.",
+        summary: "The host pays HemmaBo $39/month.",
         amount: 39,
         currency: "USD",
         interval: "month",
