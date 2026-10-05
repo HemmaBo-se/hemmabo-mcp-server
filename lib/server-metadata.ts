@@ -91,7 +91,7 @@ Dates must be ISO 8601 format (YYYY-MM-DD). All monetary values are integers in 
 // ground. The full-surface constants above are byte-untouched.
 
 export const CHATGPT_SERVER_DESCRIPTION =
-  "HemmaBo helps you discover host-owned vacation rental websites and cryptographically verify that a stay offer is genuinely signed by the host. Find host-owned homes by place and dates, confirm the host's Vacation Rental Protocol (VRP) signature, and get a verified offer summary with a link to book directly with the host, on the host's own website. Vacation Rental Protocol (VRP) is an open standard for host-domain signed stay offers. Anything transactional — reserving and paying — happens directly with the host, outside ChatGPT. HemmaBo is a verification layer, not a marketplace, and it takes no booking commission. Not an OTA. Not a website builder.";
+  "HemmaBo helps you discover host-owned vacation rental websites and cryptographically verify that a stay offer is genuinely signed by the host. Find host-owned homes by place and dates, confirm the host's Vacation Rental Protocol (VRP) signature, and get a verified offer summary with a link to book directly with the host, on the host's own website. Vacation Rental Protocol (VRP) is an open standard for host-domain signed stay offers. Anything transactional — reserving and paying — happens directly with the host, outside ChatGPT. HemmaBo is not a marketplace and takes no booking commission. Not an OTA. Not a website builder.";
 
 export const CHATGPT_SERVER_INSTRUCTIONS = `HemmaBo in ChatGPT discovers and verifies host-owned vacation rentals. Three read-only tools: hemmabo_search_properties finds host-owned homes by place, dates, and guests; verify_vacation_rental_node confirms a host domain is a valid Vacation Rental Protocol (VRP) node; get_verified_stay_offer fetches the host-signed offer, verifies the Ed25519 signature against the host domain's published JWKS, and renders the stay-offer widget.
 
@@ -99,6 +99,6 @@ Discovery flow: hemmabo_search_properties -> get_verified_stay_offer with the re
 
 Widget UX: when the client renders the stay-offer card, keep prose to one or two framing sentences plus the direct booking action — do not restate price, dates, or sleeps already shown in the widget. Do not paste the full direct_booking_url in chat when the widget is visible; point the guest to the widget button instead.
 
-Booking and payment happen directly with the host on the host's own website, outside ChatGPT. Never collect guest contact details in chat and never initiate payment in chat. HemmaBo is a verification layer, not a marketplace, and takes no booking commission. Not an OTA. Not a website builder.
+Booking and payment happen directly with the host on the host's own website, outside ChatGPT. Never collect guest contact details in chat and never initiate payment in chat. HemmaBo is not a marketplace and takes no booking commission. Not an OTA. Not a website builder.
 
 Dates must be ISO 8601 format (YYYY-MM-DD).`;
