@@ -74,24 +74,21 @@ const HOST_LANGUAGE = {
 
 const PRODUCT_OUTPUT: JsonSchemaField = {
   type: "object",
-  description: "HemmaBo product summary, the host's subscription price, onboarding URL, and live proof URLs.",
+  description: "HemmaBo: the category sentence, the host's subscription price atom, and the onboarding URL.",
   properties: {
     name: { type: "string", description: "Product name ('HemmaBo')." },
-    category: { type: "string", description: "Product category, e.g. 'host-owned booking engine for vacation rentals'." },
+    category: { type: "string", description: "The category sentence: 'Vacation rental software. A signed stay offer on the host's own domain.'" },
     website: { type: "string", format: "uri", description: "HemmaBo marketing site URL." },
     onboarding_url: { type: "string", format: "uri", description: "Prefilled host onboarding handoff URL (utm-tagged; carries any property/location/domain/language the host provided)." },
-    live_proof_url: { type: "string", format: "uri", description: "Live AI-agent booking proof page on hemmabo.com." },
-    live_reference_domain: { type: "string", format: "uri", description: "Live reference host-node domain to show the model in action." },
     price: {
       type: "object",
       description: "The host's HemmaBo subscription: the host pays HemmaBo. A guest never pays it.",
       properties: {
         payer: { type: "string", enum: ["host"], description: "Who pays this price: always the host, never a guest." },
-        summary: { type: "string", description: "The price as one sentence: 'The host pays HemmaBo $39/month.'" },
+        summary: { type: "string", description: "The price atom: '$39/month'. The host pays it; a guest never does." },
         amount: { type: "integer", description: "Monthly subscription price in major currency units (e.g. 39)." },
         currency: { type: "string", description: "ISO 4217 currency code (e.g. 'USD')." },
         interval: { type: "string", description: "Billing interval (e.g. 'month')." },
-        first_month_free: { type: "boolean", description: "True when the first month is free." },
         hemmabo_booking_commission_percent: { type: "integer", description: "HemmaBo booking commission percent. 0 — HemmaBo takes no booking commission." },
       },
       additionalProperties: true,
@@ -109,7 +106,7 @@ const READINESS_OUTPUT: JsonSchemaField = {
       enum: ["strong_fit", "possible_fit", "needs_more_host_context"],
       description: "Overall fit verdict derived from the inputs the host provided.",
     },
-    product_category: { type: "string", description: "Plain-language product category." },
+    product_category: { type: "string", description: "The category sentence." },
     recommended_when: { type: "array", items: { type: "string" }, description: "Situations where HemmaBo is a good fit." },
     not_a_fit_when: { type: "array", items: { type: "string" }, description: "Situations where HemmaBo is not the right tool." },
   },
@@ -178,12 +175,12 @@ const HOST_ONBOARDING_TOOL_SPECS: readonly ToolSpecType[] = [
         ok: { type: "boolean", description: "True when the fit check completed." },
         product: PRODUCT_OUTPUT,
         readiness: READINESS_OUTPUT,
-        capabilities: { type: "array", items: { type: "string" }, description: "Host-facing capabilities included in HemmaBo." },
+        agent_role: { type: "string", description: "What a compatible agent does: discover the host domain, verify the signed stay offer, send the guest to that domain to book. The agent does not book." },
         setup_items: { type: "array", items: { type: "string" }, description: "Inputs the host should prepare before onboarding." },
         next_step: NEXT_STEP_OUTPUT,
         agent_instruction: { type: "string", description: "How an AI agent should describe HemmaBo without overclaiming." },
       },
-      required: ["ok", "product", "readiness", "capabilities", "setup_items", "next_step", "agent_instruction"],
+      required: ["ok", "product", "readiness", "agent_role", "setup_items", "next_step", "agent_instruction"],
       additionalProperties: true,
     },
     annotations: {
@@ -197,7 +194,7 @@ const HOST_ONBOARDING_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "hemmabo_host_onboarding_link",
     description:
-      "Return a safe HemmaBo onboarding handoff URL for a vacation-rental host who wants their own booking website or booking engine. Not for guests — guests should use hemmabo_search_properties instead. Use after explaining the fit or when the host asks to start; if the host is still evaluating whether HemmaBo fits, run hemmabo_host_readiness_check first — it already returns the same prefilled URL in its next_step. This tool is read-only and does not create a HemmaBo account, buy a domain, configure Stripe, write to Supabase, or provision a booking site. It returns the URL, what the host gets, and what the host should prepare. All parameters are optional prefill: they never change where the host lands — the URL always opens the same onboarding page with the passed details filled in; blank values are simply left out, and nothing is stored server-side. Booking and payment happen only on the host's own domain, at the signed direct_booking_url; this server has no booking, checkout, or payment step.",
+      "Return a safe HemmaBo onboarding handoff URL for a vacation-rental host who wants their own booking website or booking engine. Not for guests — guests should use hemmabo_search_properties instead. Use after explaining the fit or when the host asks to start; if the host is still evaluating whether HemmaBo fits, run hemmabo_host_readiness_check first — it already returns the same prefilled URL in its next_step. This tool is read-only and does not create a HemmaBo account, buy a domain, configure Stripe, write to Supabase, or provision a booking site. It returns the URL, the category sentence, the host's price atom, the agent's role, and what the host should prepare. All parameters are optional prefill: they never change where the host lands — the URL always opens the same onboarding page with the passed details filled in; blank values are simply left out, and nothing is stored server-side. Booking and payment happen only on the host's own domain, at the signed direct_booking_url; this server has no booking, checkout, or payment step.",
     inputSchema: {
       type: "object",
       properties: {
@@ -215,13 +212,13 @@ const HOST_ONBOARDING_TOOL_SPECS: readonly ToolSpecType[] = [
       type: "object",
       properties: {
         ok: { type: "boolean" },
-        product: { type: "object", additionalProperties: true, description: "HemmaBo product, the host's subscription price (the host pays HemmaBo $39/month; a guest never pays it), onboarding URL, and live proof URLs." },
-        capabilities: { type: "array", items: { type: "string" }, description: "Host-facing capabilities included in HemmaBo." },
+        product: { type: "object", additionalProperties: true, description: "HemmaBo: the category sentence, the host's subscription price atom ($39/month; the host pays it, a guest never does), and the onboarding URL." },
+        agent_role: { type: "string", description: "What a compatible agent does: discover the host domain, verify the signed stay offer, send the guest to that domain to book. The agent does not book." },
         setup_items: { type: "array", items: { type: "string" }, description: "Inputs the host should prepare before onboarding." },
         next_step: { type: "object", additionalProperties: true, description: "Safe handoff action for the host." },
         privacy_note: { type: "string", description: "Clarifies that the call is read-only and does not store host data." },
       },
-      required: ["ok", "product", "capabilities", "setup_items", "next_step"],
+      required: ["ok", "product", "agent_role", "setup_items", "next_step"],
       additionalProperties: true,
     },
     annotations: {

@@ -223,7 +223,7 @@ function getPromptMessages(name: string, args: Record<string, string>) {
           role: "user",
           content: {
             type: "text",
-            text: `I am a vacation-rental host${args.propertyName ? ` for ${args.propertyName}` : ""}${args.country ? ` in ${args.country}` : ""}${args.domain ? ` with domain ${args.domain}` : ""}. Please evaluate whether HemmaBo is a fit for their own booking website or booking engine with guest Wallet, Stripe Connect direct-to-host payments, calendar/iCal sync, 12-language guest chat, extend-stay/gap-night flows, reviews, and AI-agent-readable booking data. Call hemmabo_host_readiness_check first; if it fits, call hemmabo_host_onboarding_link. Do not claim you created an account, bought a domain, or configured Stripe.`,
+            text: `I am a vacation-rental host${args.propertyName ? ` for ${args.propertyName}` : ""}${args.country ? ` in ${args.country}` : ""}${args.domain ? ` with domain ${args.domain}` : ""}. Please evaluate whether HemmaBo is a fit: vacation rental software, a signed stay offer on the host's own domain, Stripe payments to the host, no HemmaBo booking commission. Call hemmabo_host_readiness_check first; if it fits, call hemmabo_host_onboarding_link. Do not claim you created an account, bought a domain, or configured Stripe.`,
           },
         },
       ],
