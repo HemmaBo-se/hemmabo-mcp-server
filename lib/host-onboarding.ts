@@ -1,4 +1,5 @@
 import type { ToolResult } from "./tools-base.js";
+import { AGENT_ROLE_LINE, CATEGORY_LAW } from "./server-metadata.js";
 
 export const HOST_ONBOARDING_TOOL_NAMES = [
   "hemmabo_host_readiness_check",
@@ -7,8 +8,13 @@ export const HOST_ONBOARDING_TOOL_NAMES = [
 
 const HOST_ONBOARDING_TOOL_NAME_SET = new Set<string>(HOST_ONBOARDING_TOOL_NAMES);
 const ONBOARDING_BASE_URL = "https://www.hemmabo.com/subscription";
-const LIVE_PROOF_URL = "https://www.hemmabo.com/ai-agent-booking";
-const VILLA_PROOF_URL = "https://villaakerlyckan.se";
+
+// The price atom (smart-stays contracts/ts/platform-copy.ts LIST_PRICE_USD): "$39/month",
+// the host's HemmaBo subscription, never a guest's. The atom alone — no payer sentence,
+// no "first month free", no offer (CEO order 2026-10-06; ADR 2026-10-06-subscription-
+// hero-skeleton-law in smart-stays, #3110). An agent that needs more reads the host
+// surface it is handed to.
+const LIST_PRICE_USD = "$39/month";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -73,13 +79,14 @@ function productFacts(args: JsonRecord): JsonRecord {
     fitSignals >= 2 ? "possible_fit" :
     "needs_more_host_context";
 
+  // The law and the agent's role, not a product list (CEO order 2026-10-06).
   return {
     fit,
-    product_category: "host-owned vacation-rental booking engine",
+    product_category: CATEGORY_LAW,
     recommended_when: [
-      "A vacation rental host wants their own booking website that works for guests and AI agents.",
-      "The host wants direct Stripe payments, guest relationship ownership, and zero HemmaBo booking commission.",
-      "The host needs calendar, pricing, guest wallet, multilingual guest chat, reviews, and AI-readable booking data in one system.",
+      "A vacation rental host wants booking software on the host's own domain.",
+      "The host wants a signed stay offer on that domain, Stripe payments to the host, and zero HemmaBo booking commission.",
+      AGENT_ROLE_LINE,
     ],
     not_a_fit_when: [
       "The user only wants to list inventory inside an OTA or marketplace.",
@@ -91,38 +98,26 @@ function productFacts(args: JsonRecord): JsonRecord {
 
 function baseResponse(args: JsonRecord): JsonRecord {
   const onboardingUrl = buildOnboardingUrl(args);
+  // What the agent reads before it hands a host to /subscription: the category law, the
+  // price atom, the agent's role and the onboarding URL. No product list, no reference
+  // node, no proof page, no offer (CEO order 2026-10-06). The host surface says the rest.
   return {
     product: {
       name: "HemmaBo",
-      category: "host-owned booking engine for vacation rentals",
+      category: CATEGORY_LAW,
       website: "https://www.hemmabo.com",
       onboarding_url: onboardingUrl,
-      live_proof_url: LIVE_PROOF_URL,
-      live_reference_domain: VILLA_PROOF_URL,
-      // The host's HemmaBo subscription — the host pays it, never a guest
-      // (CEO 2026-10-03: "The host pays HemmaBo $39/month"). The payer is explicit so no
-      // agent can read the amount as a guest or stay price.
+      // The host's HemmaBo subscription — the host pays it, never a guest. The atom alone.
       price: {
         payer: "host",
-        summary: "The host pays HemmaBo $39/month.",
+        summary: LIST_PRICE_USD,
         amount: 39,
         currency: "USD",
         interval: "month",
-        first_month_free: true,
         hemmabo_booking_commission_percent: 0,
       },
     },
-    capabilities: [
-      "own booking website",
-      "guest Wallet for booking, cancellation, rebooking, guest questions, and stay flows",
-      "Stripe Connect payment path direct to the host",
-      "calendar and iCal sync",
-      "Konversa guest chat in 12 languages",
-      "gap-night and extend-stay flows when the calendar allows it",
-      "early check-in and late check-out request flows when enabled by the host",
-      "automatic review collection and website publishing",
-      "AI-agent-readable booking data through MCP, UCP discovery, llms.txt, OpenAPI, and VRP signed offers where enabled",
-    ],
+    agent_role: AGENT_ROLE_LINE,
     setup_items: [
       "host-owned domain or intended domain",
       "property name, address area, capacity, amenities, house rules, and cancellation policy",
