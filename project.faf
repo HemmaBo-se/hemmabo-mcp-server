@@ -2,7 +2,7 @@ faf_version: "3.0"
 
 project:
   name: "hemmabo-mcp-server"
-  version: "5.0.0"
+  version: "5.0.1"
   tagline: "Vacation rental software. A signed stay offer on the host's own domain."
   website: "https://www.hemmabo.com"
   repo: "https://github.com/HemmaBo-se/hemmabo-mcp-server"
@@ -23,8 +23,7 @@ description: >
   verification tools for host-domain discovery and signed stay offers.
   All data is live from Supabase - never cached, never estimated.
   Stripe payments go direct to host. Each property is its own node
-  on its own official website. HemmaBo is not an OTA, not a marketplace,
-  and not a website builder.
+  on its own official website. HemmaBo is not an OTA and not a marketplace.
 
 stack:
   language: "TypeScript"
