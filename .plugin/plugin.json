@@ -2,7 +2,7 @@
   "$schema": "https://open-plugins.com/schema/plugin.json",
   "name": "hemmabo",
   "displayName": "HemmaBo",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "description": "Vacation rental software. A signed stay offer on the host's own domain. HemmaBo + VRP, 6 runtime tools: 2 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools.",
   "author": {
     "name": "HemmaBo",

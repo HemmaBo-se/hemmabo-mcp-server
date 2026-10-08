@@ -1,6 +1,6 @@
 {
   "name": "hemmabo-mcp-server",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "mcpName": "com.hemmabo/hemmabo-mcp-server",
   "description": "Vacation rental software. A signed stay offer on the host's own domain. Use this when a vacation rental host wants booking software on the host's own domain, or when a stay offer must be verified against that domain. Returns an Ed25519-signed offer (VRP) and the host's direct booking URL. The guest books and pays the host. Do not use to compare hosts or prices. Compatible agents can discover a host domain, verify a signed stay offer, and send the guest to that domain to book. Host nodes own booking lifecycles; Stripe owns payment facts. HemmaBo implements Vacation Rental Protocol (VRP). The spec lives at https://vacationrentalprotocol.com — not here. HemmaBo + VRP, 6 runtime tools: 2 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools. Host-domain signed verified stay offers. Not an OTA. Not a marketplace.",
   "type": "module",
