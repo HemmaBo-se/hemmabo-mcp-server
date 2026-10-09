@@ -42,6 +42,7 @@ import { verifyAp2PaymentMandate, resolveAp2IssuerJwks } from "../lib/ap2.js";
 import { bookingTokenMatches } from "../lib/booking-binding.js";
 import { readNodeNetworkProfile, classifySptRedemptionError } from "../lib/stripe-network-profile.js";
 import { acquireBookingLock, releaseBookingLock } from "../lib/booking-locks.js";
+import { agentTransactionsClosed } from "../lib/agent-transactions.js";
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -1001,7 +1002,16 @@ async function cancelCheckout(checkoutId: string, res: VercelResponse, base: str
 
 // ── HTTP Router ──────────────────────────────────────────────────
 
+// S22 (CEO order 2026-10-09): agent checkout is closed unless the CEO opens it
+// (lib/agent-transactions.ts). Closed, every /acp/* request answers 403 here,
+// before auth, the body, a database client or Stripe; acpRouter does not run.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (agentTransactionsClosed(res)) return;
+  return acpRouter(req, res);
+}
+
+// The ACP checkout as it runs when the switch is open. Kept, not deleted.
+export async function acpRouter(req: VercelRequest, res: VercelResponse) {
   // Origin is intentionally unrestricted — ACP agents are not browsers.
   // Browser-based CSRF is mitigated by requiring Authorization on all
   // mutating methods (POST, PUT); browsers cannot send that header

@@ -140,9 +140,9 @@ Optional environment variables:
 | `/oauth/register` | POST | Dynamic client registration |
 | `/oauth/token` | POST | OAuth token endpoint |
 | `/oauth/authorize` | GET/POST | Authorization-code consent flow |
-| `/acp/checkouts` | POST/GET/PUT | Agentic Commerce Protocol checkout lifecycle. Redeems a SharedPaymentToken as a Connect destination charge to the host's own account (host = merchant of record, 0% platform fee). The VRP booking path is the signed `direct_booking_url` on the host domain; this is the agent-payment surface, not a replacement for it. |
-| `/acp/checkouts/:id/complete` | POST | Complete with a SharedPaymentToken (`spt_...`) or PaymentMethod (`pm_...`). An `spt_` must be minted against the host's own Stripe profile, advertised per checkout as `payment_provider.network_business_profile` (ADR 0018); a node without one refuses `spt_` in live mode, and a token bound to another profile answers `402 spt_binding_mismatch` with the expected profile. |
-| `/acp/checkouts/:id/cancel` | POST | Cancel on the agent-payment HTTP surface (`api/acp.ts`). The MCP tools never call this path. |
+| `/acp/checkouts` | POST/GET/PUT | **Closed: answers 403** "Agents verify and send the guest to the host's booking page" (`lib/agent-transactions.ts`). Agentic Commerce Protocol checkout lifecycle when open. Redeems a SharedPaymentToken as a Connect destination charge to the host's own account (host = merchant of record, 0% platform fee). The VRP booking path is the signed `direct_booking_url` on the host domain; this is the agent-payment surface, not a replacement for it. |
+| `/acp/checkouts/:id/complete` | POST | **Closed: answers 403.** When open: complete with a SharedPaymentToken (`spt_...`) or PaymentMethod (`pm_...`). An `spt_` must be minted against the host's own Stripe profile, advertised per checkout as `payment_provider.network_business_profile` (ADR 0018); a node without one refuses `spt_` in live mode, and a token bound to another profile answers `402 spt_binding_mismatch` with the expected profile. |
+| `/acp/checkouts/:id/cancel` | POST | **Closed: answers 403.** When open: cancel on the agent-payment HTTP surface (`api/acp.ts`). The MCP tools never call this path. |
 
 ## Transports
 
