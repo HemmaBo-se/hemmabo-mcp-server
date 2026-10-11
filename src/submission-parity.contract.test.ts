@@ -6,7 +6,7 @@
  * removed `hemmabo_search_similar` + `hemmabo_compare_properties` from TOOLS,
  * but both kept their annotations, justifications and test cases in the
  * submission file, while the two live host-onboarding tools
- * (`hemmabo_host_readiness_check`, `hemmabo_host_onboarding_link`) had no entry
+ * (`hemmabo_check_host_readiness`, `hemmabo_get_host_onboarding_link`) had no entry
  * at all. A reviewer running the submitted test suite would have called two
  * tools that no longer exist and never exercised two that do.
  *

@@ -4,11 +4,11 @@ import { TOOLS } from "../api/mcp.js";
 
 const EXPECTED: Record<string, { readOnlyHint: boolean; openWorldHint: boolean; destructiveHint: boolean }> = {
   "hemmabo_search_properties":   { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
-  "hemmabo_search_availability": { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
-  "hemmabo_host_readiness_check": { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
-  "hemmabo_host_onboarding_link": { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
-  "verify_vacation_rental_node": { readOnlyHint: true,  openWorldHint: true,  destructiveHint: false },
-  "get_verified_stay_offer":     { readOnlyHint: true,  openWorldHint: true,  destructiveHint: false },
+  "hemmabo_check_availability": { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
+  "hemmabo_check_host_readiness": { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
+  "hemmabo_get_host_onboarding_link": { readOnlyHint: true,  openWorldHint: false, destructiveHint: false },
+  "vrp_verify_node": { readOnlyHint: true,  openWorldHint: true,  destructiveHint: false },
+  "vrp_get_verified_stay_offer":     { readOnlyHint: true,  openWorldHint: true,  destructiveHint: false },
 };
 
 describe("mcp tool annotations contract", () => {

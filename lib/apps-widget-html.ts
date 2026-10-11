@@ -414,7 +414,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     return Math.round((b - a) / 86400000);
   }
 
-  // 2026-07-26 (second pass): offer.language (the get_verified_stay_offer
+  // 2026-07-26 (second pass): offer.language (the vrp_get_verified_stay_offer
   // "language" arg) is only ever present when the MODEL chose to send it —
   // optional, unenforceable from a tool description alone. A guest recording
   // showed the model omit it, so the whole card fell back to
@@ -622,8 +622,8 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       // absence-safe: older nodes without these fields render exactly as
       // before (unknown is never invented into a yes or a no).
       starred: asArray(property.starred_amenities).filter(function (a) { return typeof a === "string" && !!a; }).slice(0, 8),
-      // The explicit language the get_verified_stay_offer call was made
-      // with (get_verified_stay_offer's "language" arg, echoed back by the
+      // The explicit language the vrp_get_verified_stay_offer call was made
+      // with (vrp_get_verified_stay_offer's "language" arg, echoed back by the
       // tool) is the strongest signal when the model actually sends it, but
       // it's optional — when absent, prefer the HOST's own locale signal
       // (document.documentElement.lang, set by ChatGPT for every guest

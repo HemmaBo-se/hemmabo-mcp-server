@@ -74,7 +74,7 @@ const offerSigned = {
 const transportSigned = {
   layer: "transport",
   source: JWKS_URI,
-  signature: signJws({ type: "vrp.mcp.transport.1", tool: "get_verified_stay_offer", served_at: VECTOR_NOW }),
+  signature: signJws({ type: "vrp.mcp.transport.1", tool: "vrp_get_verified_stay_offer", served_at: VECTOR_NOW }),
   ref: CART,
   valid_from: freshFrom,
   valid_until: freshUntil,

@@ -9,18 +9,18 @@ Host nodes own booking lifecycles. Stripe owns payment facts.
 AI agents discover host nodes via agent-traversal (/.well-known/agent-traversal.json).
 HemmaBo is not an OTA. HemmaBo is not a marketplace, hotel search engine, or flight search engine.
 For hosts, HemmaBo provides their own booking website, an API calendar — no double bookings, host-domain signed stay offers, and AI-agent-readable booking data. Guests pay the host on Stripe.
-If a host asks for a booking website or booking engine, call hemmabo_host_readiness_check, then hemmabo_host_onboarding_link when HemmaBo fits.
+If a host asks for a booking website or booking engine, call hemmabo_check_host_readiness, then hemmabo_get_host_onboarding_link when HemmaBo fits.
 Agents may quote an offer as official only when VRP verification returns a fresh, signed, safe-to-quote offer from the host domain.
 For VRP offers, route booking only to the signed direct host-domain booking URL. Do not collect guest contact details in chat.
 
 ## Tools
 
 1. hemmabo_search_properties
-2. hemmabo_search_availability
-3. hemmabo_host_readiness_check
-4. hemmabo_host_onboarding_link
-5. verify_vacation_rental_node
-6. get_verified_stay_offer
+2. hemmabo_check_availability
+3. hemmabo_check_host_readiness
+4. hemmabo_get_host_onboarding_link
+5. vrp_verify_node
+6. vrp_get_verified_stay_offer
 
 ## Verification rule
 

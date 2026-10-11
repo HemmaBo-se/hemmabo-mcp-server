@@ -1,5 +1,7 @@
 # ChatGPT App v2.0.0 — avslag + tvärytligt tool-surface-audit-plan
 
+> **Verktygsnamn uppdaterade 2026-10-11.** Dokumentet använder verktygsnamnen som gäller sedan namnbytet 2026-10-11 (produktverktyg `hemmabo_`, protokollverktyg `vrp_`, varje namn verb_substantiv). På dokumentets eget datum hade verktygen tidigare namn; de finns i filens git-historik. Inget annat i dokumentet är ändrat.
+
 **Datum:** 2026-08-05
 **Status:** planerings-/handoff-dokument. **INGEN kod ändrad.** Arbetet utförs **imorgon (2026-08-06+)**.
 **Källor:** OpenAI-avslagsmejlet (2026-08-05), `submission/chatgpt-app-submission.json` @ origin/main, `api/mcp.ts` @ origin/main, [[chatgpt-submission-draft-audit-2026-07-27]], [[stripe-spt-acp-thread-status]], [[chatgpt-connector-is-the-30min-promise]].
@@ -46,7 +48,7 @@ OpenAI-mejlets kärna, ordagrant:
 | `hemmabo_booking_reschedule` | **utfärdar Stripe-debitering/återbetalning** |
 | `hemmabo_booking_cancel` | **utfärdar Stripe-återbetalning** |
 
-Sekundär misstänkt ("digital goods/services"): `hemmabo_host_onboarding_link` + `hemmabo_host_readiness_check` säljer/onboardar SaaS-prenumerationen (en digital tjänst).
+Sekundär misstänkt ("digital goods/services"): `hemmabo_get_host_onboarding_link` + `hemmabo_check_host_readiness` säljer/onboardar SaaS-prenumerationen (en digital tjänst).
 
 **Slutsats:** appen faciliterar in-chat-handel utanför OpenAI:s sanktionerade commerce-program → policybrott. Detta är HÖGST sannolikt (evidensbaserat), men bekräfta exakt trigger via appell-svaret innan resubmit.
 
@@ -71,11 +73,11 @@ Preliminär bedömning (agentens; **inte beslutad** — besluta tool-för-tool m
 | # | Verktyg | Verklig aktör via MCP? | Identitet/auth möjlig? | Handel? | Prel. verdikt |
 |---|---|---|---|---|---|
 | 1 | `hemmabo_search_properties` | ja (upptäckt) | nej behövs ej | nej | **BEHÅLL** |
-| 2 | `hemmabo_search_availability` | ja (upptäckt) | nej behövs ej | nej | **BEHÅLL** |
-| 3 | `get_verified_stay_offer` | ja (verifiering + `direct_booking_url`-handoff) | nej behövs ej | nej (handoff) | **BEHÅLL (kärna)** |
-| 4 | `verify_vacation_rental_node` | ja (VRP-verify) | nej behövs ej | nej | **BEHÅLL** |
-| 5 | `hemmabo_host_readiness_check` | delvis (read-only fit-verdikt) | nej | gräns (säljer SaaS) | **OMPRÖVA** |
-| 6 | `hemmabo_host_onboarding_link` | tveksamt (ingen onboardar via MCP) | nej — signup sker på sajten | gräns (digital tjänst) | **OMPRÖVA / ev. ta bort ur gäst-appen** |
+| 2 | `hemmabo_check_availability` | ja (upptäckt) | nej behövs ej | nej | **BEHÅLL** |
+| 3 | `vrp_get_verified_stay_offer` | ja (verifiering + `direct_booking_url`-handoff) | nej behövs ej | nej (handoff) | **BEHÅLL (kärna)** |
+| 4 | `vrp_verify_node` | ja (VRP-verify) | nej behövs ej | nej | **BEHÅLL** |
+| 5 | `hemmabo_check_host_readiness` | delvis (read-only fit-verdikt) | nej | gräns (säljer SaaS) | **OMPRÖVA** |
+| 6 | `hemmabo_get_host_onboarding_link` | tveksamt (ingen onboardar via MCP) | nej — signup sker på sajten | gräns (digital tjänst) | **OMPRÖVA / ev. ta bort ur gäst-appen** |
 | 7 | `hemmabo_booking_status` | tveksamt (kräver gäst-identitet) | **nej via MCP** | nej | **OMPRÖVA / handoff till gästportal** |
 | 8 | `hemmabo_booking_quote` | tveksamt | svag | gräns (pris-lås före checkout) | **TA BORT ur MCP-ytan** |
 | 9 | `hemmabo_booking_create` | nej (kräver gäst-identitet) | **nej via MCP** | ja | **TA BORT / handoff** |

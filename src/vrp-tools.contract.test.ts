@@ -96,13 +96,13 @@ describe("VRP MCP tools", () => {
       return new Response("not found", { status: 404 });
     });
 
-    const result = await executeTool("verify_vacation_rental_node", { domain: "villaakerlyckan.se" }, clients);
+    const result = await executeTool("vrp_verify_node", { domain: "villaakerlyckan.se" }, clients);
     assert.equal(result.isError, undefined);
     assert.equal(signals.length, 2, "VRP node verification fetches discovery and JWKS");
     assert.ok(signals.every((signal) => !signal.aborted), "timeout signals should not abort successful fast responses");
   });
 
-  it("verify_vacation_rental_node verifies discovery and Ed25519 JWKS without Supabase", async () => {
+  it("vrp_verify_node verifies discovery and Ed25519 JWKS without Supabase", async () => {
     const { publicKey } = generateKeyPairSync("ed25519");
     const jwk = publicKey.export({ format: "jwk" }) as Record<string, unknown>;
     jwk.kid = "vrp-test-key";
@@ -166,7 +166,7 @@ describe("VRP MCP tools", () => {
       return new Response("not found", { status: 404 });
     });
 
-    const result = await executeTool("verify_vacation_rental_node", { domain: "villaakerlyckan.se" }, clients);
+    const result = await executeTool("vrp_verify_node", { domain: "villaakerlyckan.se" }, clients);
     assert.equal(result.isError, undefined);
     const parsed = JSON.parse(result.content[0].text);
     assert.equal(parsed.verified, true);
@@ -175,7 +175,7 @@ describe("VRP MCP tools", () => {
     assert.equal(parsed.signing.alg, "EdDSA");
   });
 
-  it("get_verified_stay_offer reads production signature.jws and returns safe quote guardrails", async () => {
+  it("vrp_get_verified_stay_offer reads production signature.jws and returns safe quote guardrails", async () => {
     const { publicKey, privateKey } = generateKeyPairSync("ed25519");
     const jwk = publicKey.export({ format: "jwk" }) as Record<string, unknown>;
     jwk.kid = "vrp-test-key";
@@ -341,7 +341,7 @@ describe("VRP MCP tools", () => {
       return new Response("not found", { status: 404 });
     });
 
-    const result = await executeTool("get_verified_stay_offer", {
+    const result = await executeTool("vrp_get_verified_stay_offer", {
       domain: "villaakerlyckan.se",
       checkIn: "2026-07-01",
       checkOut: "2026-07-08",
@@ -486,7 +486,7 @@ describe("VRP MCP tools", () => {
     // is still accepted and resolves to the same verified offer. The wire
     // URL above already asserted snake_case, so the casing translation holds
     // for both input forms.
-    const legacy = await executeTool("get_verified_stay_offer", {
+    const legacy = await executeTool("vrp_get_verified_stay_offer", {
       domain: "villaakerlyckan.se",
       check_in: "2026-07-01",
       check_out: "2026-07-08",
@@ -499,7 +499,7 @@ describe("VRP MCP tools", () => {
     assert.equal(legacyParsed.checkOut, "2026-07-08");
   });
 
-  it("get_verified_stay_offer localizes the amenity row and echoes the requested language (2026-07-26 fix)", async () => {
+  it("vrp_get_verified_stay_offer localizes the amenity row and echoes the requested language (2026-07-26 fix)", async () => {
     // Regression for a guest recording where the widget's headline amenity
     // row stayed English ("Breakfast included · EV charging · … · WiFi")
     // inside an otherwise-Swedish card: formatAmenityLabel never saw the
@@ -560,7 +560,7 @@ describe("VRP MCP tools", () => {
       return new Response("not found", { status: 404 });
     });
 
-    const result = await executeTool("get_verified_stay_offer", {
+    const result = await executeTool("vrp_get_verified_stay_offer", {
       domain: "villaakerlyckan.se",
       checkIn: "2026-11-03",
       checkOut: "2026-11-04",
@@ -581,7 +581,7 @@ describe("VRP MCP tools", () => {
 
     // Omitting language keeps today's English behaviour byte-for-byte —
     // this fix must never change output for existing callers.
-    const englishResult = await executeTool("get_verified_stay_offer", {
+    const englishResult = await executeTool("vrp_get_verified_stay_offer", {
       domain: "villaakerlyckan.se",
       checkIn: "2026-11-03",
       checkOut: "2026-11-04",
@@ -648,7 +648,7 @@ describe("VRP MCP tools", () => {
       return new Response("not found", { status: 404 });
     });
 
-    const englishResult = await executeTool("get_verified_stay_offer", {
+    const englishResult = await executeTool("vrp_get_verified_stay_offer", {
       domain: "villaakerlyckan.se",
       checkIn: "2026-11-03",
       checkOut: "2026-11-04",
@@ -672,7 +672,7 @@ describe("VRP MCP tools", () => {
 
     // Omitting language keeps today's plain "<amount> <CODE>" string
     // byte-for-byte — this fix must never change output for existing callers.
-    const noLangResult = await executeTool("get_verified_stay_offer", {
+    const noLangResult = await executeTool("vrp_get_verified_stay_offer", {
       domain: "villaakerlyckan.se",
       checkIn: "2026-11-03",
       checkOut: "2026-11-04",
@@ -685,7 +685,7 @@ describe("VRP MCP tools", () => {
     );
   });
 
-  it("get_verified_stay_offer refuses quoteable status for signed but unavailable offers", async () => {
+  it("vrp_get_verified_stay_offer refuses quoteable status for signed but unavailable offers", async () => {
     const { publicKey, privateKey } = generateKeyPairSync("ed25519");
     const jwk = publicKey.export({ format: "jwk" }) as Record<string, unknown>;
     jwk.kid = "vrp-test-key";
@@ -749,7 +749,7 @@ describe("VRP MCP tools", () => {
       return new Response("not found", { status: 404 });
     });
 
-    const result = await executeTool("get_verified_stay_offer", {
+    const result = await executeTool("vrp_get_verified_stay_offer", {
       domain: "villaakerlyckan.se",
       check_in: "2026-05-22",
       check_out: "2026-05-24",

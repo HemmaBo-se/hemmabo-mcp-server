@@ -1,5 +1,7 @@
 # ADR 0004 Phase 1 - Inventory and Stale-Surface Audit
 
+> **Tool names updated 2026-10-11.** This record uses the tool names in force since the 2026-10-11 rename (product tools `hemmabo_`, protocol tools `vrp_`, every name verb_noun). On the record's own date the tools carried earlier names; those are in this file's git history. Nothing else in the record was changed.
+
 Date: 2026-05-18
 Scope: `hemmabo-mcp-server` public discovery, metadata, and packaging surfaces only.
 Runtime changes: none.
@@ -14,7 +16,7 @@ All public surfaces should align to:
 
 | Surface | Status | Notes |
 |---|---|---|
-| `README.md` | stale: missing VRP | 13 tools text exists, but tools table lists 11 HemmaBo tools only and does not include `verify_vacation_rental_node` / `get_verified_stay_offer`. |
+| `README.md` | stale: missing VRP | 13 tools text exists, but tools table lists 11 HemmaBo tools only and does not include `vrp_verify_node` / `vrp_get_verified_stay_offer`. |
 | `package.json` | stale: old positioning | Says 13 tools, but does not include canonical HemmaBo+VRP wording or VRP/verified stay offer keywords. |
 | `glama.json` | stale: wrong tool count | `tools[]` lists 11 tools (missing both VRP tools). |
 | `smithery.yaml` | stale: old positioning | Says 13 tools, but no explicit HemmaBo+VRP doctrine phrase and no explicit signed verified stay offer positioning. |

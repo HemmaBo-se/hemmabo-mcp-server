@@ -1,5 +1,7 @@
 # ADR 0014 — ToolBench (Arcade) quality scoring: methodology of record; adopt Remote model as external quality gate
 
+> **Tool names updated 2026-10-11.** This record uses the tool names in force since the 2026-10-11 rename (product tools `hemmabo_`, protocol tools `vrp_`, every name verb_noun). On the record's own date the tools carried earlier names; those are in this file's git history. Nothing else in the record was changed, except row 7 of the audit table (the naming lock, superseded 2026-10-11).
+
 **Status:** Accepted — CEO-confirmed 2026-08-09. Server submitted to ToolBench under the **Remote** model (endpoint `https://www.hemmabo.com/mcp`, "I'm the author") on 2026-08-09; grade **pending**. **No tool-code changes made by this ADR** — it records the methodology and the audit so future improvement work measures against facts, not memory.
 **Related:** Arcade.dev acquired Smithery 2026-08-05 (ToolBench is Arcade's public MCP quality benchmark, toolbench.arcade.dev); ADR 0001 (tool-definition single source of truth + naming); Smithery quality 98 with the locked VRP naming exception.
 
@@ -57,7 +59,7 @@ The 13 tools (`lib/tool-definitions-base.ts`, `lib/tool-definitions.ts`) were re
 | 4 | No pagination guidance | Paginated Result | **Gap, low urgency** — only `hemmabo_search_properties` returns an unbounded array; no `limit`/`cursor`/`has_more`; small live set today, relevant at federation scale |
 | 5 | Missing parameter constraints | Constrained Input | **3 gaps** — `guests` has `minimum:1` but no `maximum` (shared `F.guests`, 7 tools); `guestPhone` says E.164 but no `pattern`; `language` fields ISO/BCP-47 in text but unconstrained |
 | 6 | Destructive ops unguarded | Confirmation Request | Clean by design — writes key on UUIDs (never fuzzy names); search returns matches + stable ids; write tools say "only after explicit user confirmation" |
-| 7 | Naming inconsistencies | (Tool Description) | **LOCKED — will not fix.** The two unprefixed VRP tools (`get_verified_stay_offer`, `verify_vacation_rental_node`) are vendor-neutral on purpose; VRP is an open standard, not HemmaBo property. Also a Definition-Quality item → N/A for Remote regardless |
+| 7 | Naming inconsistencies | (Tool Description) | **Superseded 2026-10-11 (CEO order).** Locked 2026-08-09 as "will not fix": the two VRP tools stayed unprefixed so they would be vendor-neutral. Since 2026-10-11 there are two namespaces: `hemmabo_` for product tools, `vrp_` for protocol tools (`vrp_verify_node`, `vrp_get_verified_stay_offer`), every name verb_noun. The VRP tools stay vendor-neutral: `vrp_`, never `hemmabo_` — VRP is an open standard, not HemmaBo property. Also a Definition-Quality item → N/A for Remote regardless |
 | 8 | Missing tool annotations | Performance Hint | Strong — rate-limit + idempotency hints, prefer-X guidance, MCP annotations (`readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint`) |
 
 ## Planned work (NOT done here — awaits CEO go)

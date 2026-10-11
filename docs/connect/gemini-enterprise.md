@@ -30,10 +30,10 @@ A no-auth connection exposes HemmaBo's read-only tools — no writes, no payment
 no personal data:
 
 - `hemmabo_search_properties` — find host-owned properties by place and dates
-- `hemmabo_search_availability` — check availability
-- `get_verified_stay_offer` — fetch the host-domain, Ed25519-signed VRP stay offer
-- `verify_vacation_rental_node` — verify a node's signature against its domain
-- `hemmabo_host_readiness_check` / `hemmabo_host_onboarding_link` — host onboarding
+- `hemmabo_check_availability` — check availability
+- `vrp_get_verified_stay_offer` — fetch the host-domain, Ed25519-signed VRP stay offer
+- `vrp_verify_node` — verify a node's signature against its domain
+- `hemmabo_check_host_readiness` / `hemmabo_get_host_onboarding_link` — host onboarding
 
 ---
 
@@ -60,7 +60,7 @@ Done once by a Google Cloud admin of your Gemini Enterprise project:
    HemmaBo tools you want (the tool list above).
 
 That's it. An agent in your workspace can now, for example, search for a stay,
-call `get_verified_stay_offer` for the chosen host domain, and route the guest to
+call `vrp_get_verified_stay_offer` for the chosen host domain, and route the guest to
 the signed direct-booking URL on the host's own domain.
 
 ---

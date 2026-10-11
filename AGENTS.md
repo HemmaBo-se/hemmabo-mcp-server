@@ -30,7 +30,7 @@ is `>=20 <23`; the Cloud VM ships Node 22.
 
 - Without Supabase env, the DB-backed federation/booking tools return
   `{"error":"Database not configured…"}`, but the **2 host-onboarding tools**
-  (`hemmabo_host_readiness_check`, `hemmabo_host_onboarding_link`) and the VRP
+  (`hemmabo_check_host_readiness`, `hemmabo_get_host_onboarding_link`) and the VRP
   verification / pure-logic paths still work.
 - To enable the DB-backed tools set `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`
   (service role bypasses RLS; `SUPABASE_ANON_KEY` is used for published reads).

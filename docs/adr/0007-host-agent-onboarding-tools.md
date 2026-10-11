@@ -1,5 +1,7 @@
 # ADR 0007: Host-agent onboarding tools are read-only discovery and handoff
 
+> **Tool names updated 2026-10-11.** This record uses the tool names in force since the 2026-10-11 rename (product tools `hemmabo_`, protocol tools `vrp_`, every name verb_noun). On the record's own date the tools carried earlier names; those are in this file's git history. Nothing else in the record was changed.
+
 ## Status
 
 Accepted.
@@ -30,8 +32,8 @@ commercial consent, payment setup, and domain ownership checks.
 
 Add two anonymous, read-only, snake_case MCP tools:
 
-- `hemmabo_host_readiness_check`
-- `hemmabo_host_onboarding_link`
+- `hemmabo_check_host_readiness`
+- `hemmabo_get_host_onboarding_link`
 
 These tools are part of the runtime MCP surface but are not booking tools and
 are not VRP verification tools. The runtime count is now:
@@ -42,8 +44,8 @@ are not VRP verification tools. The runtime count is now:
 
 For a host intent, agents should call:
 
-1. `hemmabo_host_readiness_check`
-2. `hemmabo_host_onboarding_link` when HemmaBo fits
+1. `hemmabo_check_host_readiness`
+2. `hemmabo_get_host_onboarding_link` when HemmaBo fits
 
 The tools may return:
 

@@ -1,5 +1,7 @@
 # ADR 0015: Availability buffer parity with the host node's truth path
 
+> **Tool names updated 2026-10-11.** This record uses the tool names in force since the 2026-10-11 rename (product tools `hemmabo_`, protocol tools `vrp_`, every name verb_noun). On the record's own date the tools carried earlier names; those are in this file's git history. Nothing else in the record was changed.
+
 - Status: Accepted
 - Date: 2026-08-19
 
@@ -16,7 +18,7 @@ rows raw, and its alternative-window scan ignored `min_nights`.
 
 Consequence (SoT audit 2026-08-18, live case villaakerlyckan.se): a channex
 stay [2026-09-08, 2026-09-10) with buffer 1/1 blocks the night of 09-07 on
-the node, yet `hemmabo_search_availability` answered available for
+the node, yet `hemmabo_check_availability` answered available for
 09-05→09-08 and the gap-scan offered 1-night windows the node refuses with
 `min_nights_violation`. The MCP surface promised what the node denied.
 The node's search layer got the same fix in smart-stays PR #2660.

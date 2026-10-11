@@ -5,7 +5,7 @@ import { HEMMABO_WIDGET_TOOL_META } from "./apps-widget.js";
 import type { ToolClients, ToolResult } from "./tools-base.js";
 
 const WIDGET_RESULT_TOOL_NAMES = new Set([
-  "get_verified_stay_offer",
+  "vrp_get_verified_stay_offer",
 ]);
 
 export {

@@ -378,7 +378,7 @@ export type ToolResult = {
 const TOOL_NAME_ALIASES: Record<string, string> = {
   // Search tree
   "search.properties": "hemmabo_search_properties",
-  "search.availability": "hemmabo_search_availability",
+  "search.availability": "hemmabo_check_availability",
 };
 
 /**
@@ -710,7 +710,7 @@ async function findAlternativeDates(
     return [];
   }
   // One truth: the node's own nextAvailable for the same stay tuple. Every
-  // caller (search_properties, search_availability) follows this helper, so
+  // caller (search_properties, check_availability) follows this helper, so
   // no surface can offer a window the node itself would not.
   return nodeNextAvailableAlternatives(supabase, propertyId, checkIn, checkOut, guests);
 }
@@ -774,7 +774,7 @@ export async function executeTool(
           after: prop.buffer_nights_after ?? 0,
         };
         // Node parity (CEO order 2026-08-19): enforce the effective min-nights
-        // BEFORE the calendar check, exactly like hemmabo_search_availability, and
+        // BEFORE the calendar check, exactly like hemmabo_check_availability, and
         // surface a too-short stay as an unavailable entry carrying the NUMBER +
         // extend guidance. Never a silent drop — that left the agent to invent a
         // wrong reason ("dates are taken") for dates that were actually free.
@@ -799,7 +799,7 @@ export async function executeTool(
             available: false,
             reasonCode: "min_nights_violation",
             // Byte-identical reason with the node's /api/availability and
-            // hemmabo_search_availability min_nights_violation branch — via the
+            // hemmabo_check_availability min_nights_violation branch — via the
             // vendored single source, never an inline template.
             reason: minNightsRefusalReason(effectiveMinNights, requestedNights),
             minimumNights: effectiveMinNights,
@@ -897,7 +897,7 @@ export async function executeTool(
               userFacingRule: "Describe directBookingTotal as the direct host-source total. Do not present discounts, savings, percentage comparisons, HemmaBo platform prices, federation prices, OTA prices, marketplace prices, or comparison prices.",
             },
             agentGuidance: results.length > 0
-              ? "Each result is a matching host domain; return them as given and do not rank them or compare their prices. When a host domain is known, call get_verified_stay_offer with the same check-in, check-out, and guest count so the client can render the verified stay offer widget. For pricing, use directBookingTotal as the direct host-source total and hostSourcePublicTotal only as source context. Do not present discounts, savings, percentage comparisons, HemmaBo platform prices, OTA comparisons, or marketplace discounts. Each result carries booking_url on the host's own domain — the signed direct host-domain booking URL comes from the verified offer. If the guest wants to book, route only to that URL; do not collect contact details or take payment in chat."
+              ? "Each result is a matching host domain; return them as given and do not rank them or compare their prices. When a host domain is known, call vrp_get_verified_stay_offer with the same check-in, check-out, and guest count so the client can render the verified stay offer widget. For pricing, use directBookingTotal as the direct host-source total and hostSourcePublicTotal only as source context. Do not present discounts, savings, percentage comparisons, HemmaBo platform prices, OTA comparisons, or marketplace discounts. Each result carries booking_url on the host's own domain — the signed direct host-domain booking URL comes from the verified offer. If the guest wants to book, route only to that URL; do not collect contact details or take payment in chat."
               : anyMinNightsViolation
                 ? "The requested stay is shorter than the property's minimum. Read minimumNights on each unavailable match and tell the guest that exact figure, then suggest extending the stay to meet it. Do NOT say the dates are unavailable and do NOT ask the guest to change month or guest count — the dates may well be free."
                 : unavailableMatches.some((p) => Array.isArray(p.alternativeDates) && p.alternativeDates.length > 0)
@@ -911,7 +911,7 @@ export async function executeTool(
       };
     }
 
-    case "hemmabo_search_availability": {
+    case "hemmabo_check_availability": {
       const reqErr = validateRequiredArgs(args, ["propertyId", "checkIn", "checkOut"]);
       if (reqErr) return toolError(reqErr);
       const { propertyId, checkIn, checkOut, guests } = args as { propertyId: string; checkIn: string; checkOut: string; guests?: number };

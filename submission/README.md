@@ -2,7 +2,7 @@
 
 This folder contains everything the CEO needs to fill the OpenAI Apps submission form. All values are derived from production endpoints in this repo (`hemmabo-mcp-server`). The only external precondition is the branded proxy line in `hemmabo-smart-stays` (PR #2568) so that `https://www.hemmabo.com/mcp/chatgpt` is live.
 
-**This submission exposes exactly 3 read-only tools** (`hemmabo_search_properties`, `verify_vacation_rental_node`, `get_verified_stay_offer`) on the dedicated `/mcp/chatgpt` surface. No in-chat booking, checkout, payment, or host onboarding — anything transactional happens on the host's own website, outside ChatGPT. Do NOT point the form at `/mcp` (the full 13-tool federation surface): that is the surface the v2.0.0 rejection was about.
+**This submission exposes exactly 3 read-only tools** (`hemmabo_search_properties`, `vrp_verify_node`, `vrp_get_verified_stay_offer`) on the dedicated `/mcp/chatgpt` surface. No in-chat booking, checkout, payment, or host onboarding — anything transactional happens on the host's own website, outside ChatGPT. Do NOT point the form at `/mcp` (the full 13-tool federation surface): that is the surface the v2.0.0 rejection was about.
 
 ## Submission order (do these in sequence)
 

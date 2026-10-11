@@ -78,10 +78,10 @@ describe("ChatGPT Apps verified stay widget", () => {
   it("binds only the render tool to the widget template while keeping data tools data-first", () => {
     const dataTools = [
       "hemmabo_search_properties",
-      "hemmabo_search_availability",
-      "hemmabo_host_readiness_check",
-      "hemmabo_host_onboarding_link",
-      "verify_vacation_rental_node",
+      "hemmabo_check_availability",
+      "hemmabo_check_host_readiness",
+      "hemmabo_get_host_onboarding_link",
+      "vrp_verify_node",
     ];
 
     for (const name of dataTools) {
@@ -91,8 +91,8 @@ describe("ChatGPT Apps verified stay widget", () => {
       assert.equal((tool._meta?.ui as { resourceUri?: string } | undefined)?.resourceUri, undefined);
     }
 
-    const renderTool = TOOLS.find((t) => t.name === "get_verified_stay_offer");
-    assert.ok(renderTool, "get_verified_stay_offer must exist");
+    const renderTool = TOOLS.find((t) => t.name === "vrp_get_verified_stay_offer");
+    assert.ok(renderTool, "vrp_get_verified_stay_offer must exist");
     assert.equal(renderTool._meta?.["openai/outputTemplate"], HEMMABO_WIDGET_URI);
     assert.equal(renderTool._meta?.["ui/resourceUri"], HEMMABO_WIDGET_URI);
     assert.deepEqual(renderTool._meta?.ui, { resourceUri: HEMMABO_WIDGET_URI });
@@ -101,16 +101,16 @@ describe("ChatGPT Apps verified stay widget", () => {
   it("guides ChatGPT to call the render tool after search results", () => {
     const searchTool = TOOLS.find((t) => t.name === "hemmabo_search_properties");
     assert.ok(searchTool, "hemmabo_search_properties must exist");
-    assert.match(searchTool.description, /call get_verified_stay_offer/);
+    assert.match(searchTool.description, /call vrp_get_verified_stay_offer/);
     assert.match(searchTool.description, /render the verified stay offer widget/);
 
     const toolsSource = readFileSync(new URL("../lib/tools-base.ts", import.meta.url), "utf8");
     // No ranking in the search agentGuidance (CEO 2026-09-28): return each matching
-    // host domain, do not rank; call get_verified_stay_offer once a domain is known.
+    // host domain, do not rank; call vrp_get_verified_stay_offer once a domain is known.
     assert.match(toolsSource, /return them as given and do not rank them or compare their prices/);
     assert.match(
       toolsSource,
-      /When a host domain is known, call get_verified_stay_offer with the same check-in, check-out, and guest count/,
+      /When a host domain is known, call vrp_get_verified_stay_offer with the same check-in, check-out, and guest count/,
     );
     // The search agentGuidance must carry no ranking words.
     const guidance = /agentGuidance: results\.length > 0\s*\?\s*"([^"]+)"/.exec(toolsSource)?.[1] ?? "";
@@ -119,8 +119,8 @@ describe("ChatGPT Apps verified stay widget", () => {
   });
 
   it("keeps widget requests away from quote-lock tools", () => {
-    const renderTool = TOOLS.find((t) => t.name === "get_verified_stay_offer");
-    assert.ok(renderTool, "get_verified_stay_offer must exist");
+    const renderTool = TOOLS.find((t) => t.name === "vrp_get_verified_stay_offer");
+    assert.ok(renderTool, "vrp_get_verified_stay_offer must exist");
     assert.match(renderTool.description, /read-only/i);
     assert.match(renderTool.description, /must not lock a quote/i);
     assert.doesNotMatch(renderTool.description, /book a node\/stay offer/i);

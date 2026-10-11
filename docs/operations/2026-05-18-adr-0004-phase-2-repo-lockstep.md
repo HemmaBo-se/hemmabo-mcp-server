@@ -1,5 +1,7 @@
 # ADR 0004 Phase 2 - Repo-Owned Lockstep Update
 
+> **Tool names updated 2026-10-11.** This record uses the tool names in force since the 2026-10-11 rename (product tools `hemmabo_`, protocol tools `vrp_`, every name verb_noun). On the record's own date the tools carried earlier names; those are in this file's git history. Nothing else in the record was changed.
+
 Date: 2026-05-18
 Scope: Repo-owned metadata/discovery/packaging surfaces only.
 Runtime logic changes: none.
@@ -29,8 +31,8 @@ HemmaBo + VRP, 13 tools, host-domain signed verified stay offers.
 ## Lockstep outcomes
 
 - Glama metadata now lists all 13 tools, including:
-  - `verify_vacation_rental_node`
-  - `get_verified_stay_offer`
+  - `vrp_verify_node`
+  - `vrp_get_verified_stay_offer`
 - ChatGPT submission now includes both VRP tools with annotations and justifications.
 - ChatGPT submission test prompts now follow ADR 0004 Section 2.3 trigger doctrine:
   - 7 positive prompts

@@ -181,7 +181,7 @@ describe("validateDateOrder", () => {
 describe("tool parity", () => {
   const EXPECTED_TOOLS = [
     "hemmabo_search_properties",
-    "hemmabo_search_availability",
+    "hemmabo_check_availability",
   ] as const;
 
   // We verify parity by calling executeTool with dummy args and checking
@@ -257,7 +257,7 @@ describe("tool parity", () => {
   });
 });
 
-describe("hemmabo_search_availability — capacity guard", () => {
+describe("hemmabo_check_availability — capacity guard", () => {
   it("rejects guest counts above property max before suggesting date alternatives", async () => {
     const { executeTool } = await import("../lib/tools.js");
 
@@ -293,7 +293,7 @@ describe("hemmabo_search_availability — capacity guard", () => {
     };
 
     const result = await executeTool(
-      "hemmabo_search_availability",
+      "hemmabo_check_availability",
       {
         propertyId: "3ef1d46d-5c23-46fe-86cb-8e714abf734f",
         checkIn: "2026-05-23",

@@ -15,9 +15,9 @@ Your job is to explain, explore, and improve this MCP server. You understand bot
 
 ## What This System Does
 The HemmaBo MCP server connects AI agents (like Claude, ChatGPT) to host-owned vacation rental websites. Each property is its own node. The server has six tools, and all of them only read:
-- `hemmabo_search_properties` and `hemmabo_search_availability` — find properties and check live availability (blocked dates, confirmed bookings, temporary locks)
-- `hemmabo_host_readiness_check` and `hemmabo_host_onboarding_link` — for hosts who want their own booking website
-- `verify_vacation_rental_node` and `get_verified_stay_offer` — verify a host domain and its signed VRP stay offer
+- `hemmabo_search_properties` and `hemmabo_check_availability` — find properties and check live availability (blocked dates, confirmed bookings, temporary locks)
+- `hemmabo_check_host_readiness` and `hemmabo_get_host_onboarding_link` — for hosts who want their own booking website
+- `vrp_verify_node` and `vrp_get_verified_stay_offer` — verify a host domain and its signed VRP stay offer
 
 The agent verifies a signed offer from the host's domain and sends the guest to the host's booking page. The agent never books, pays, cancels or changes a booking.
 
