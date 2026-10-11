@@ -76,6 +76,14 @@ export const HEMMABO_ALL_WIDGET_URIS: readonly string[] = [
 
 const VILLA_AKERLYCKAN_SUPABASE_DOMAIN = "https://vfalgymbhyfqsyxkvpqg.supabase.co";
 
+// Widget CSP: exact hosts only. OpenAI's review held the render tool on
+// 2026-10-11 with "a CSP is either missing or too broad" (wildcards). The card
+// makes no fetch of its own, and its photos come from HemmaBo's image storage,
+// which holds every HemmaBo node's photos. No node domain is listed, so every
+// VRP node is treated the same; booking links open without a redirect allowlist.
+const WIDGET_CONNECT_DOMAINS = ["https://www.hemmabo.com", "https://hemmabo.com"];
+const WIDGET_RESOURCE_DOMAINS = [VILLA_AKERLYCKAN_SUPABASE_DOMAIN, "https://www.hemmabo.com"];
+
 export function buildWidgetResourceMeta(mcpEndpointUrl: string) {
   const widgetOrigin = chatgptWidgetOriginFromMcpEndpoint(mcpEndpointUrl);
   const claudeDomain = claudeMcpAppDomain(mcpEndpointUrl);
@@ -86,47 +94,16 @@ export function buildWidgetResourceMeta(mcpEndpointUrl: string) {
     "openai/widgetPrefersBorder": true,
     "openai/widgetDomain": widgetOrigin,
     "openai/widgetCSP": {
-      connect_domains: [
-        "https://hemmabo-mcp-server.vercel.app",
-        "https://www.hemmabo.com",
-        "https://hemmabo.com",
-        "https://*.supabase.co",
-      ],
-      resource_domains: [
-        VILLA_AKERLYCKAN_SUPABASE_DOMAIN,
-        "https://www.hemmabo.com",
-        "https://*.hemmabo.com",
-        "https://*.supabase.co",
-        "https://*.vercel.app",
-        "https://www.villaakerlyckan.se",
-        "https://villaakerlyckan.se",
-      ],
-      redirect_domains: [
-        "https://www.villaakerlyckan.se",
-        "https://villaakerlyckan.se",
-        "https://checkout.stripe.com",
-        "https://*.stripe.com",
-      ],
+      connect_domains: [...WIDGET_CONNECT_DOMAINS],
+      resource_domains: [...WIDGET_RESOURCE_DOMAINS],
+      redirect_domains: [] as string[],
     },
     ui: {
       prefersBorder: true,
       domain: claudeDomain,
       csp: {
-        connectDomains: [
-          "https://hemmabo-mcp-server.vercel.app",
-          "https://www.hemmabo.com",
-          "https://hemmabo.com",
-          "https://*.supabase.co",
-        ],
-        resourceDomains: [
-          VILLA_AKERLYCKAN_SUPABASE_DOMAIN,
-          "https://www.hemmabo.com",
-          "https://*.hemmabo.com",
-          "https://*.supabase.co",
-          "https://*.vercel.app",
-          "https://www.villaakerlyckan.se",
-          "https://villaakerlyckan.se",
-        ],
+        connectDomains: [...WIDGET_CONNECT_DOMAINS],
+        resourceDomains: [...WIDGET_RESOURCE_DOMAINS],
       },
     },
   } as const;

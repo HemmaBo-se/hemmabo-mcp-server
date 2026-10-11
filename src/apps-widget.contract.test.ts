@@ -43,6 +43,37 @@ describe("ChatGPT Apps verified stay widget", () => {
     assert.ok(resource._meta["openai/widgetDescription"]);
   });
 
+  it("widget CSP lists only exact HemmaBo hosts: no wildcard, no vercel.app, no node domain", () => {
+    // OpenAI's review held vrp_get_verified_stay_offer on 2026-10-11: "a CSP is
+    // either missing or too broad". Every entry must be one of these exact
+    // origins; a node domain would favour one VRP node over the others.
+    const allowed = new Set(["https://www.hemmabo.com", "https://hemmabo.com", VILLA_AKERLYCKAN_SUPABASE_ORIGIN]);
+    const metas = [
+      ...RESOURCES.map((r) => ({ uri: r.uri, meta: r._meta as unknown as Record<string, any> })),
+      ...HEMMABO_ALL_WIDGET_URIS.map((uri) => ({ uri, meta: readResource(uri)!.contents[0]._meta as Record<string, any> })),
+    ];
+    for (const { uri, meta } of metas) {
+      const openai = meta["openai/widgetCSP"];
+      const ui = meta.ui.csp;
+      assert.ok(openai.connect_domains.length > 0 && openai.resource_domains.length > 0, `${uri}: CSP must not be missing`);
+      const lists: Record<string, string[]> = {
+        connect_domains: openai.connect_domains,
+        resource_domains: openai.resource_domains,
+        redirect_domains: openai.redirect_domains,
+        connectDomains: ui.connectDomains,
+        resourceDomains: ui.resourceDomains,
+      };
+      for (const [name, list] of Object.entries(lists)) {
+        for (const domain of list) {
+          assert.ok(allowed.has(domain), `${uri} ${name}: ${domain} is not an exact HemmaBo host`);
+        }
+      }
+      assert.deepEqual(openai.redirect_domains, []);
+      assert.deepEqual(ui.connectDomains, openai.connect_domains);
+      assert.deepEqual(ui.resourceDomains, openai.resource_domains);
+    }
+  });
+
   it("serves EVERY historical widget URI (frozen app snapshots depend on it)", () => {
     // v1..v9 without holes plus the legacy alias: a published ChatGPT app is
     // frozen on the URI it was approved with — a missing version = red
