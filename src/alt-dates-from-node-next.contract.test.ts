@@ -7,7 +7,7 @@
  *   node /api/availability + node MCP  → available:false, host_blocked,
  *                                        nextAvailable 2026-10-26→27, 3 800 SEK
  *   www.hemmabo.com/mcp
- *     hemmabo_search_availability      → alternativeDates[0] = 2026-10-01→03, 8 600 SEK
+ *     hemmabo_check_availability      → alternativeDates[0] = 2026-10-01→03, 8 600 SEK
  *     hemmabo_booking_quote            → alternativeDates[0] = 2026-10-01→03, 8 600 SEK
  *
  * Two truths for one property. Pinned here: for a closed stay, alternativeDates
@@ -172,7 +172,7 @@ function payloadOf(result: { content: Array<{ text?: string }> }): { text: strin
   return { text, json: JSON.parse(text) };
 }
 
-for (const tool of ["hemmabo_search_availability"] as const) {
+for (const tool of ["hemmabo_check_availability"] as const) {
   describe(`${tool} — alternativeDates is the node's nextAvailable (18–19 Oct host block)`, () => {
     it("carries exactly the node's window: 2026-10-26→27, 1 night, 3 800 SEK — never 2026-10-01", async () => {
       const { inserts, clients } = makeClients();

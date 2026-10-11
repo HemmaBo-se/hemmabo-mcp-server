@@ -26,15 +26,15 @@ function authForTool(name: string): "none" | "bearer" {
 const MANIFEST_SUMMARIES: Record<string, string> = {
   "hemmabo_search_properties":
     "Search available vacation rental properties by region, country, guest count and dates. Returns live availability and pricing.",
-  "hemmabo_search_availability":
+  "hemmabo_check_availability":
     "Check whether a specific property is available for given dates. If blocked, returns the host node's own next available window so agents can keep the guest moving.",
-  "hemmabo_host_readiness_check":
+  "hemmabo_check_host_readiness":
     "Read-only fit check for vacation-rental hosts asking how to create their own booking website or booking engine with HemmaBo.",
-  "hemmabo_host_onboarding_link":
+  "hemmabo_get_host_onboarding_link":
     "Return a safe HemmaBo onboarding handoff URL for a host. Does not create an account, buy a domain, configure Stripe, or store host data.",
-  "verify_vacation_rental_node":
+  "vrp_verify_node":
     "Verify that a host domain exposes VRP v0.1 discovery and an Ed25519 JWKS for signed stay offers.",
-  "get_verified_stay_offer":
+  "vrp_get_verified_stay_offer":
     "Fetch, verify, and render a fresh host-domain signed VRP stay offer widget with live availability, exact price, citation permission and direct booking URL.",
 };
 

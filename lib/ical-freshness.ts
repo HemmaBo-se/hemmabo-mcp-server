@@ -218,7 +218,7 @@ export function calendarFreshnessUnavailablePayload(
       : "Incoming OTA calendar sync is stale.",
     calendar_freshness: calendarFreshness,
     agentGuidance:
-      "Do not quote bookability. Call get_verified_stay_offer on the host domain after calendar sync is fresh.",
+      "Do not quote bookability. Call vrp_get_verified_stay_offer on the host domain after calendar sync is fresh.",
   };
 }
 

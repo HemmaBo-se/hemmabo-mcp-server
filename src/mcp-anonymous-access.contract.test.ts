@@ -4,11 +4,11 @@ import { ANON_TOOLS, isAuthRequiredMessage, TOOLS } from "../api/mcp.js";
 
 const ANON_CANONICAL_NAMES = [
   "hemmabo_search_properties",
-  "hemmabo_search_availability",
-  "hemmabo_host_readiness_check",
-  "hemmabo_host_onboarding_link",
-  "verify_vacation_rental_node",
-  "get_verified_stay_offer",
+  "hemmabo_check_availability",
+  "hemmabo_check_host_readiness",
+  "hemmabo_get_host_onboarding_link",
+  "vrp_verify_node",
+  "vrp_get_verified_stay_offer",
 ] as const;
 
 const ANON_ALIASES = [

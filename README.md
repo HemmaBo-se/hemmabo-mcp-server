@@ -85,11 +85,11 @@ All six tools only read. The agent never books, pays, cancels or changes a booki
 | Tool | Purpose | Read-only |
 |------|---------|-----------|
 | `hemmabo_search_properties` | Search published vacation rentals by location, dates, and guest count. | Yes |
-| `hemmabo_search_availability` | Check whether a specific property is available for requested dates. | Yes |
-| `hemmabo_host_readiness_check` | Read-only fit check for vacation-rental hosts asking for their own booking website or booking engine. | Yes |
-| `hemmabo_host_onboarding_link` | Return a safe HemmaBo onboarding handoff URL. Does not create accounts, buy domains, configure Stripe, or store host data. | Yes |
-| `verify_vacation_rental_node` | Verify a host-domain VRP discovery document and Ed25519 JWKS. | Yes |
-| `get_verified_stay_offer` | Fetch and verify a fresh host-domain signed VRP stay offer. | Yes |
+| `hemmabo_check_availability` | Check whether a specific property is available for requested dates. | Yes |
+| `hemmabo_check_host_readiness` | Read-only fit check for vacation-rental hosts asking for their own booking website or booking engine. | Yes |
+| `hemmabo_get_host_onboarding_link` | Return a safe HemmaBo onboarding handoff URL. Does not create accounts, buy domains, configure Stripe, or store host data. | Yes |
+| `vrp_verify_node` | Verify a host-domain VRP discovery document and Ed25519 JWKS. | Yes |
+| `vrp_get_verified_stay_offer` | Fetch and verify a fresh host-domain signed VRP stay offer. | Yes |
 
 ## Authentication
 

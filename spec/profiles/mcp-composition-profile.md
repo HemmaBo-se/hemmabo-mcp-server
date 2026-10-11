@@ -37,7 +37,7 @@ The signed payload (`buildMcpTransportAssertion`) is:
 {
   "vrp_mcp_profile_version": "1.0",
   "type": "vrp.mcp.transport.1",
-  "tool": "get_verified_stay_offer",
+  "tool": "vrp_get_verified_stay_offer",
   "arguments_sha256": "<hex sha-256 of canonical arguments>",
   "served_at": "2026-06-24T11:40:00Z",
   "issuer": "villaakerlyckan.se",

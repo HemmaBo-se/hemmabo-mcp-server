@@ -117,7 +117,7 @@ export const TOOLS = TOOL_SPECS.map((t) => {
 // ONLY the read-only discovery + cryptographic-verification tools listed below.
 // Any booking/checkout/host-onboarding tool is invisible in tools/list and
 // rejected in tools/call on this surface; all booking/payment happens on the
-// host's own website (via get_verified_stay_offer's returned URL).
+// host's own website (via vrp_get_verified_stay_offer's returned URL).
 //
 // SCOPED + ADDITIVE: the default "full" surface (/mcp) — and therefore npm /
 // MCP registry / Smithery / Glama / every other client — stays byte-for-byte
@@ -126,8 +126,8 @@ export type McpSurface = "full" | "chatgpt";
 
 export const CHATGPT_TOOL_NAMES: ReadonlySet<string> = new Set([
   "hemmabo_search_properties",
-  "verify_vacation_rental_node",
-  "get_verified_stay_offer",
+  "vrp_verify_node",
+  "vrp_get_verified_stay_offer",
 ]);
 
 
@@ -186,7 +186,7 @@ export const PROMPTS = [
 // ── Resources (ChatGPT Apps SDK UI widgets) ──────────────────────
 //
 // Apps SDK requires `ui://` resources that ChatGPT renders inline.
-// get_verified_stay_offer is the render tool that points to this template.
+// vrp_get_verified_stay_offer is the render tool that points to this template.
 
 export const RESOURCES = [buildWidgetResource(HEMMABO_CANONICAL_MCP_ENDPOINT)];
 
@@ -223,7 +223,7 @@ function getPromptMessages(name: string, args: Record<string, string>) {
           role: "user",
           content: {
             type: "text",
-            text: `I am a vacation-rental host${args.propertyName ? ` for ${args.propertyName}` : ""}${args.country ? ` in ${args.country}` : ""}${args.domain ? ` with domain ${args.domain}` : ""}. Please evaluate whether HemmaBo is a fit: vacation rental software, a signed stay offer on the host's own domain, Stripe payments to the host, no HemmaBo booking commission. Call hemmabo_host_readiness_check first; if it fits, call hemmabo_host_onboarding_link. Do not claim you created an account, bought a domain, or configured Stripe.`,
+            text: `I am a vacation-rental host${args.propertyName ? ` for ${args.propertyName}` : ""}${args.country ? ` in ${args.country}` : ""}${args.domain ? ` with domain ${args.domain}` : ""}. Please evaluate whether HemmaBo is a fit: vacation rental software, a signed stay offer on the host's own domain, Stripe payments to the host, no HemmaBo booking commission. Call hemmabo_check_host_readiness first; if it fits, call hemmabo_get_host_onboarding_link. Do not claim you created an account, bought a domain, or configured Stripe.`,
           },
         },
       ],
@@ -237,7 +237,7 @@ function getPromptMessages(name: string, args: Record<string, string>) {
           role: "user",
           content: {
             type: "text",
-            text: `I want to plan a trip to ${args.destination || "a vacation destination"} from ${args.checkIn || "TBD"} to ${args.checkOut || "TBD"} for ${args.guests || "2"} guests. Please: (1) search for available host-owned properties, (2) if a host domain is known, call get_verified_stay_offer to render the host-domain verified stay offer widget and show only live availability, final host-source price, and the signed direct booking path, and (3) if I ask to book or pay, send me only to the signed direct host-domain booking URL; do not collect guest contact details or take payment in chat.`,
+            text: `I want to plan a trip to ${args.destination || "a vacation destination"} from ${args.checkIn || "TBD"} to ${args.checkOut || "TBD"} for ${args.guests || "2"} guests. Please: (1) search for available host-owned properties, (2) if a host domain is known, call vrp_get_verified_stay_offer to render the host-domain verified stay offer widget and show only live availability, final host-source price, and the signed direct booking path, and (3) if I ask to book or pay, send me only to the signed direct host-domain booking URL; do not collect guest contact details or take payment in chat.`,
           },
         },
       ],
@@ -315,7 +315,7 @@ export async function handleJsonRpc(
             ? TOOLS.filter((t) => CHATGPT_TOOL_NAMES.has(t.name)).map((t) =>
                 // ChatGPT renders the design-guidelines-native template
                 // variant; every other surface keeps the premium v9 template.
-                t.name === "get_verified_stay_offer"
+                t.name === "vrp_get_verified_stay_offer"
                   ? { ...t, _meta: { ...t._meta, ...HEMMABO_NATIVE_WIDGET_TOOL_META } }
                   : t
               )
@@ -342,7 +342,7 @@ export async function handleJsonRpc(
               type: "text",
               text: JSON.stringify({
                 error: "Tool not available in ChatGPT.",
-                detail: "HemmaBo in ChatGPT only discovers and verifies host-owned vacation rentals. Any booking or payment is completed on the host's own website. Call get_verified_stay_offer to obtain that website URL.",
+                detail: "HemmaBo in ChatGPT only discovers and verifies host-owned vacation rentals. Any booking or payment is completed on the host's own website. Call vrp_get_verified_stay_offer to obtain that website URL.",
               }),
             }],
             isError: true,
@@ -388,7 +388,7 @@ export async function handleJsonRpc(
             });
         if (
           surface === "chatgpt" &&
-          toolName === "get_verified_stay_offer" &&
+          toolName === "vrp_get_verified_stay_offer" &&
           result && typeof result === "object" && (result as { _meta?: unknown })._meta
         ) {
           // Point the render envelope at the native template on the ChatGPT
@@ -500,11 +500,11 @@ registerToolSchemas(TOOLS);
 export const ANON_TOOLS: ReadonlySet<string> = new Set([
   // Canonical snake_case names (#59 — claude.ai web rejects dots)
   "hemmabo_search_properties",
-  "hemmabo_search_availability",
-  "hemmabo_host_readiness_check",
-  "hemmabo_host_onboarding_link",
-  "verify_vacation_rental_node",
-  "get_verified_stay_offer",
+  "hemmabo_check_availability",
+  "hemmabo_check_host_readiness",
+  "hemmabo_get_host_onboarding_link",
+  "vrp_verify_node",
+  "vrp_get_verified_stay_offer",
   // Legacy dotted aliases (inbound compatibility — TOOL_NAME_ALIASES)
   "search.properties",
   "search.availability",

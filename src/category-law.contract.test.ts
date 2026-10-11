@@ -44,7 +44,7 @@ const LOCKED = {
   AGENT_ROLE_LINE:
     "Compatible agents can discover a host domain, verify a signed stay offer, and send the guest to that domain to book.",
   SEARCH_AFTER:
-    "After search, return each matching host domain and that host's direct booking URL. Do not rank hosts, do not compare prices, do not lead with a favourite. When a host domain is known, call get_verified_stay_offer.",
+    "After search, return each matching host domain and that host's direct booking URL. Do not rank hosts, do not compare prices, do not lead with a favourite. When a host domain is known, call vrp_get_verified_stay_offer.",
 };
 
 // Removed from the full surface by the CEO lock; written as patterns so the

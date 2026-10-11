@@ -3,7 +3,7 @@
  * NOT silently drop a matched property whose only problem is a too-short stay.
  * A below-minimum window is surfaced as an unavailableMatches entry carrying
  * reasonCode "min_nights_violation", the NUMBER (minimumNights) and a
- * byte-identical reason — exactly like hemmabo_search_availability and the
+ * byte-identical reason — exactly like hemmabo_check_availability and the
  * node's /api/availability — and the agentGuidance tells the agent to extend
  * the stay, never to claim the dates are unavailable or ask to change month.
  *
@@ -120,7 +120,7 @@ describe("search_properties min-stay agent-surface parity", () => {
     assert.equal(match.available, false);
     assert.equal(match.reasonCode, "min_nights_violation");
     assert.equal(match.minimumNights, 3);
-    // Byte-identical with the node + hemmabo_search_availability.
+    // Byte-identical with the node + hemmabo_check_availability.
     assert.equal(match.reason, "Minimum stay is 3 nights. Requested 2.");
 
     // The guidance must point the agent at the number and extending the stay —

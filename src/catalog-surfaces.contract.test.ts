@@ -38,11 +38,11 @@ const COUNT_SENTENCE =
 
 const SIX_TOOLS = [
   "hemmabo_search_properties",
-  "hemmabo_search_availability",
-  "verify_vacation_rental_node",
-  "get_verified_stay_offer",
-  "hemmabo_host_readiness_check",
-  "hemmabo_host_onboarding_link",
+  "hemmabo_check_availability",
+  "vrp_verify_node",
+  "vrp_get_verified_stay_offer",
+  "hemmabo_check_host_readiness",
+  "hemmabo_get_host_onboarding_link",
 ];
 
 // The seven booking tools removed by ADR 0019 all carried this prefix.

@@ -56,8 +56,8 @@ describe("ChatGPT MCP surface", () => {
       "hemmabo_booking_create",
       "hemmabo_booking_checkout",
       "hemmabo_booking_cancel",
-      "hemmabo_host_onboarding_link",
-      "hemmabo_host_readiness_check",
+      "hemmabo_get_host_onboarding_link",
+      "hemmabo_check_host_readiness",
     ]) {
       assert.ok(!names.includes(forbidden), `${forbidden} must not appear on the ChatGPT surface`);
     }
@@ -65,7 +65,7 @@ describe("ChatGPT MCP surface", () => {
 
   it("tools/call rejects an off-surface tool without executing it", async () => {
     const res = (await handleJsonRpc(
-      { jsonrpc: "2.0", method: "tools/call", id: 2, params: { name: "hemmabo_search_availability", arguments: {} } },
+      { jsonrpc: "2.0", method: "tools/call", id: 2, params: { name: "hemmabo_check_availability", arguments: {} } },
       CTX_CHATGPT,
     )) as unknown as CallResult;
     assert.equal(res.result?.isError, true, "off-surface tool call must return an error result");
@@ -103,7 +103,7 @@ describe("ChatGPT MCP surface", () => {
       /\bACP\b/,
       /\bAP2\b/,
       /\bUCP\b/,
-      /booking_create|booking_cancel|booking_quote|booking_negotiate|booking_reschedule|booking_status|search_availability|host_readiness|host_onboarding/,
+      /booking_create|booking_cancel|booking_quote|booking_negotiate|booking_reschedule|booking_status|check_availability|host_readiness|host_onboarding/,
     ]) {
       assert.ok(!forbidden.test(text), `ChatGPT-surface initialize must not mention ${forbidden}`);
     }
@@ -153,14 +153,14 @@ describe("ChatGPT MCP surface", () => {
     assert.ok(!v9Text.includes(".unfold.open ~ .hbcoin"), "v9 must NOT gate the seal to the expanded view — premium coin stays as-is");
   });
 
-  it("points get_verified_stay_offer's render envelope at the native template on ChatGPT, v9 elsewhere", async () => {
+  it("points vrp_get_verified_stay_offer's render envelope at the native template on ChatGPT, v9 elsewhere", async () => {
     const res = (await handleJsonRpc({ jsonrpc: "2.0", method: "tools/list", id: 10 }, CTX_CHATGPT)) as unknown as ToolsListMetaResult;
-    const offer = (res.result?.tools ?? []).find((t) => t.name === "get_verified_stay_offer");
+    const offer = (res.result?.tools ?? []).find((t) => t.name === "vrp_get_verified_stay_offer");
     assert.equal(offer?._meta?.["openai/outputTemplate"], NATIVE_URI, "ChatGPT tools/list must render via the native template");
     assert.equal(offer?._meta?.["ui/resourceUri"], NATIVE_URI);
 
     const resFull = (await handleJsonRpc({ jsonrpc: "2.0", method: "tools/list", id: 11 }, CTX_FULL)) as unknown as ToolsListMetaResult;
-    const offerFull = (resFull.result?.tools ?? []).find((t) => t.name === "get_verified_stay_offer");
+    const offerFull = (resFull.result?.tools ?? []).find((t) => t.name === "vrp_get_verified_stay_offer");
     assert.equal(offerFull?._meta?.["openai/outputTemplate"], V9_URI, "full-surface tools/list _meta must stay on v9 — /mcp is unchanged");
   });
 });

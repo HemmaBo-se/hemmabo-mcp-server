@@ -1,6 +1,6 @@
 /**
  * Contract (CEO order 2026-08-19, min-nights node parity):
- * hemmabo_search_availability enforces the SAME per-node min-stay as the
+ * hemmabo_check_availability enforces the SAME per-node min-stay as the
  * node's /api/availability — search must never answer available where the
  * node answers min_nights_violation, and the refusal must be byte-identical
  * in reason ("Minimum stay is X nights. Requested N.").
@@ -101,11 +101,11 @@ function parsePayload(result: { content: Array<{ type: string; text: string }> }
   return JSON.parse(result.content[0].text) as Record<string, unknown>;
 }
 
-describe("search_availability min-stay node parity", () => {
+describe("check_availability min-stay node parity", () => {
   it("refuses a below-minimum window exactly like the node", async () => {
     const clients = makeClients(fixtures);
     const result = await executeTool(
-      "hemmabo_search_availability",
+      "hemmabo_check_availability",
       { propertyId: PROP, checkIn: "2031-09-05", checkOut: "2031-09-07", guests: 2 },
       clients,
     );
@@ -120,7 +120,7 @@ describe("search_availability min-stay node parity", () => {
   it("does not min-refuse a window that meets the node's minimum", async () => {
     const clients = makeClients(fixtures);
     const result = await executeTool(
-      "hemmabo_search_availability",
+      "hemmabo_check_availability",
       { propertyId: PROP, checkIn: "2031-09-05", checkOut: "2031-09-08" },
       clients,
     );

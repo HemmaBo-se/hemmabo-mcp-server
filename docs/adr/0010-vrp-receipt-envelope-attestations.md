@@ -1,5 +1,7 @@
 # ADR 0010 — VRP receipt envelope: flat `attestations[]` as the v1 core
 
+> **Tool names updated 2026-10-11.** This record uses the tool names in force since the 2026-10-11 rename (product tools `hemmabo_`, protocol tools `vrp_`, every name verb_noun). On the record's own date the tools carried earlier names; those are in this file's git history. Nothing else in the record was changed.
+
 **Status:** Accepted — v1 scope LOCKED 2026-06-24. Reference implementation in progress in `hemmabo-mcp-server`: D7 (code side), Fas 1, D6, D9, and Fas 4 have landed (see §9). Remaining: CC0 spec text on `vacationrentalprotocol.com`, live node emit (Phase 2 on `smart-stays`), §3 key-lifecycle, and implementer #2.
 **Date:** 2026-06-24
 **Author:** CEO + agent
@@ -19,7 +21,7 @@ Before locking scope we audited the **live code** against the pitch. The gap mat
 because a credible standard is judged on what its reference implementation actually
 does, not on its positioning:
 
-- **There is no `attestations[]` envelope today.** `get_verified_stay_offer`
+- **There is no `attestations[]` envelope today.** `vrp_get_verified_stay_offer`
   verifies a **single** Ed25519 compact JWS (`verifyCompactJws`, `lib/vrp.ts`) and
   returns a flat agent view. A repo-wide search for `attestation|receipt|tlog|
   inclusion_proof` returns **zero hits in runtime code** — only in ops/evidence docs.
@@ -130,7 +132,7 @@ MCP has no native message signing, and `api/mcp.ts` is a stateless per-request
 transport. Therefore an MCP tool call **MUST NOT** be treated as a signed artifact.
 The MCP composition profile defines a `layer: "transport"` attestation in which **the
 node signs a statement** — e.g. *"this signed offer was served in response to MCP tool
-call `get_verified_stay_offer` with parameters P at time T"*. The attestation's subject
+call `vrp_get_verified_stay_offer` with parameters P at time T"*. The attestation's subject
 is the **node's assertion about the interaction**, not the (unsigned) tool call itself.
 
 ### D7 — Licensing: CC0 spec text, Apache-2.0 code with explicit patent grant

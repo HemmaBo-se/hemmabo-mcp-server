@@ -2,7 +2,7 @@ faf_version: "3.0"
 
 project:
   name: "hemmabo-mcp-server"
-  version: "5.0.1"
+  version: "6.0.0"
   tagline: "Vacation rental software. A signed stay offer on the host's own domain."
   website: "https://www.hemmabo.com"
   repo: "https://github.com/HemmaBo-se/hemmabo-mcp-server"
@@ -52,15 +52,15 @@ tools:
   list:
     - name: "hemmabo_search_properties"
       description: "Search available properties by region, country, dates, guest count."
-    - name: "hemmabo_search_availability"
+    - name: "hemmabo_check_availability"
       description: "Check if a specific property is available for given dates."
-    - name: "hemmabo_host_readiness_check"
+    - name: "hemmabo_check_host_readiness"
       description: "Read-only fit check for vacation-rental hosts asking for their own booking website or booking engine."
-    - name: "hemmabo_host_onboarding_link"
+    - name: "hemmabo_get_host_onboarding_link"
       description: "Return a safe HemmaBo onboarding handoff URL without creating accounts, buying domains, configuring Stripe, or storing host data."
-    - name: "verify_vacation_rental_node"
+    - name: "vrp_verify_node"
       description: "Verify a host-domain VRP discovery document and Ed25519 JWKS."
-    - name: "get_verified_stay_offer"
+    - name: "vrp_get_verified_stay_offer"
       description: "Fetch and verify a fresh host-domain signed VRP stay offer."
 
 use_when:

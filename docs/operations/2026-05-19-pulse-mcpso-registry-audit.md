@@ -1,5 +1,7 @@
 # PulseMCP, MCP.so, and Official Registry Audit
 
+> **Tool names updated 2026-10-11.** This record uses the tool names in force since the 2026-10-11 rename (product tools `hemmabo_`, protocol tools `vrp_`, every name verb_noun). On the record's own date the tools carried earlier names; those are in this file's git history. Nothing else in the record was changed.
+
 Date: 2026-05-19
 Scope: ADR 0004 discovery and packaging surfaces after `hemmabo-mcp-server@3.2.9`
 
@@ -36,8 +38,8 @@ Live MCP discovery:
 
 The live MCP metadata exposes 13 tools, including:
 
-- `verify_vacation_rental_node`
-- `get_verified_stay_offer`
+- `vrp_verify_node`
+- `vrp_get_verified_stay_offer`
 
 ## Official MCP Registry State
 
@@ -114,8 +116,8 @@ Observed stale indicators:
 
 - Missing VRP positioning
 - Missing `HemmaBo + VRP, 13 tools`
-- Missing `verify_vacation_rental_node`
-- Missing `get_verified_stay_offer`
+- Missing `vrp_verify_node`
+- Missing `vrp_get_verified_stay_offer`
 - Contains old names such as `check_availability` and `get_canonical_quote`
 - One stale listing references `https://hemmabo-smart-stays.vercel.app/api/mcp`
 
@@ -141,7 +143,7 @@ Canonical package:
 hemmabo-mcp-server@3.2.9
 
 Current tool surface:
-13 tools, including verify_vacation_rental_node and get_verified_stay_offer.
+13 tools, including vrp_verify_node and vrp_get_verified_stay_offer.
 
 Please remove or refresh stale references to:
 - hemmabo-smart-stays

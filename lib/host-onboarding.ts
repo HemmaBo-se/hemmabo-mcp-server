@@ -2,8 +2,8 @@ import type { ToolResult } from "./tools-base.js";
 import { AGENT_ROLE_LINE, CATEGORY_LAW } from "./server-metadata.js";
 
 export const HOST_ONBOARDING_TOOL_NAMES = [
-  "hemmabo_host_readiness_check",
-  "hemmabo_host_onboarding_link",
+  "hemmabo_check_host_readiness",
+  "hemmabo_get_host_onboarding_link",
 ] as const;
 
 const HOST_ONBOARDING_TOOL_NAME_SET = new Set<string>(HOST_ONBOARDING_TOOL_NAMES);
@@ -142,7 +142,7 @@ export async function executeHostOnboardingTool(
   name: string,
   args: JsonRecord
 ): Promise<ToolResult> {
-  if (name === "hemmabo_host_readiness_check") {
+  if (name === "hemmabo_check_host_readiness") {
     const payload = {
       ok: true,
       ...baseResponse(args),
@@ -156,7 +156,7 @@ export async function executeHostOnboardingTool(
     return textResult(payload);
   }
 
-  if (name === "hemmabo_host_onboarding_link") {
+  if (name === "hemmabo_get_host_onboarding_link") {
     const payload = {
       ok: true,
       ...baseResponse(args),

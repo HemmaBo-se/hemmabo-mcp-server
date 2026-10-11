@@ -99,10 +99,10 @@ check_rule "wrong tool total (canonical: 6 runtime tools)" \
   "use '6 runtime tools: 2 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools'"
 
 # 3b. HemmaBo sub-count must be 2 ("<N> HemmaBo tools": search_properties +
-#     search_availability). The 9-tool sub-count is retired with the booking tools.
+#     check_availability). The 9-tool sub-count is retired with the booking tools.
 check_rule "wrong HemmaBo tool sub-count (canonical: 2 HemmaBo tools)" \
   '\b[0-9]+[ -]HemmaBo tools\b' 2 \
-  "use '2 HemmaBo tools' (hemmabo_search_properties + hemmabo_search_availability)"
+  "use '2 HemmaBo tools' (hemmabo_search_properties + hemmabo_check_availability)"
 
 # 4. Known stale tool totals as a bare "<N> tools" literal. 11/13/14/15 are never
 #    a legitimate sub-count (those are 2 / 2 / 2), so flagging them is safe.

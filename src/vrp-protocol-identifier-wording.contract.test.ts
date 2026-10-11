@@ -10,7 +10,7 @@
  * VRP_PROTOCOL; every place this server names the protocol identifier must
  * read it from there — never "vrp", never "VRP", never a second slug.
  *
- * Before this contract the verify_vacation_rental_node output schema said
+ * Before this contract the vrp_verify_node output schema said
  * the field is "typically 'vrp'", which no conforming node ever returns.
  *
  * Run: npx tsx --test src/vrp-protocol-identifier-wording.contract.test.ts
@@ -69,9 +69,9 @@ describe("VRP protocol identifier wording", () => {
     assert.doesNotMatch(VRP_PROTOCOL, SLUG_AS_IDENTIFIER);
   });
 
-  it("verify_vacation_rental_node describes its protocol output with VRP_PROTOCOL", () => {
-    const spec = TOOL_SPECS.find((t) => t.name === "verify_vacation_rental_node");
-    assert.ok(spec, "verify_vacation_rental_node must exist");
+  it("vrp_verify_node describes its protocol output with VRP_PROTOCOL", () => {
+    const spec = TOOL_SPECS.find((t) => t.name === "vrp_verify_node");
+    assert.ok(spec, "vrp_verify_node must exist");
     const protocolField = (spec.outputSchema as SchemaNode | undefined)?.properties?.protocol;
     assert.ok(protocolField, "output schema must describe the protocol field");
     const description = String(protocolField.description ?? "");

@@ -1,5 +1,7 @@
 # VRP MCP guardrails production receipt
 
+> **Tool names updated 2026-10-11.** This record uses the tool names in force since the 2026-10-11 rename (product tools `hemmabo_`, protocol tools `vrp_`, every name verb_noun). On the record's own date the tools carried earlier names; those are in this file's git history. Nothing else in the record was changed.
+
 Date: 2026-05-18
 Status: Production proof recorded
 Scope: `hemmabo-mcp-server` VRP tools after PR #98
@@ -11,7 +13,7 @@ Related work:
 
 ## Purpose
 
-This receipt records live production verification that the MCP server can call `get_verified_stay_offer`, verify the host-domain signed offer, and return agent guardrails that prevent unsafe booking claims.
+This receipt records live production verification that the MCP server can call `vrp_get_verified_stay_offer`, verify the host-domain signed offer, and return agent guardrails that prevent unsafe booking claims.
 
 This is evidence capture only. It does not change runtime behavior, tools, schemas, CI, or secrets.
 
@@ -40,8 +42,8 @@ Observed result:
 - MCP endpoint: `https://hemmabo-mcp-server.vercel.app/mcp`
 - Tool count includes 13 tools
 - VRP tools present:
-  - `verify_vacation_rental_node`
-  - `get_verified_stay_offer`
+  - `vrp_verify_node`
+  - `vrp_get_verified_stay_offer`
 
 Health endpoint:
 
@@ -65,7 +67,7 @@ Tool call:
   "id": 1,
   "method": "tools/call",
   "params": {
-    "name": "get_verified_stay_offer",
+    "name": "vrp_get_verified_stay_offer",
     "arguments": {
       "domain": "villaakerlyckan.se",
       "check_in": "2026-05-22",
@@ -114,7 +116,7 @@ Tool call:
   "id": 2,
   "method": "tools/call",
   "params": {
-    "name": "get_verified_stay_offer",
+    "name": "vrp_get_verified_stay_offer",
     "arguments": {
       "domain": "villaakerlyckan.se",
       "check_in": "2026-05-19",

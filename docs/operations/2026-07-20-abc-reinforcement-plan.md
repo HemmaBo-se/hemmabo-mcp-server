@@ -1,5 +1,7 @@
 # A/B/C-förstärkningarna — dokumenterat läge och byggordning
 
+> **Verktygsnamn uppdaterade 2026-10-11.** Dokumentet använder verktygsnamnen som gäller sedan namnbytet 2026-10-11 (produktverktyg `hemmabo_`, protokollverktyg `vrp_`, varje namn verb_substantiv). På dokumentets eget datum hade verktygen tidigare namn; de finns i filens git-historik. Inget annat i dokumentet är ändrat.
+
 **Datum:** 2026-07-20
 **Status:** Dokumenterade förstärkningar — inget byggt; var och en väntar på eget "bygg"
 **Kontext:** Analyssession 2026-07-20 (kodverifierad i två oberoende granskningsrundor).
@@ -56,7 +58,7 @@ enbart via `valid_until` (`generated_at` + `checked_at`-fälten finns men
 används inte som replay-skydd). En agent kan inte binda en offert till sin
 egen förfrågan.
 
-**Bygget:** valfri `agent_nonce`-parameter på `get_verified_stay_offer`
+**Bygget:** valfri `agent_nonce`-parameter på `vrp_get_verified_stay_offer`
 som ekas ordagrant inne i den signerade payloaden. Spec-ändring i
 vrp-spec (v0.2-spåret) + signeringssidan i smart-stays + verifierarsidan
 här. **Relation till x402-spåret:** betalnings-bindningen (nonce =

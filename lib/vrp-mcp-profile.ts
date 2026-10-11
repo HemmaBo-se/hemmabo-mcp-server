@@ -22,7 +22,7 @@ export const VRP_MCP_TRANSPORT_LAYER = "transport";
 export const VRP_MCP_ASSERTION_TYPE = "vrp.mcp.transport.1";
 
 export interface McpTransportAssertionInput {
-  /** MCP tool name, e.g. "get_verified_stay_offer". */
+  /** MCP tool name, e.g. "vrp_get_verified_stay_offer". */
   tool: string;
   /** The tool-call arguments object (hashed canonically, never stored raw). */
   arguments: Record<string, unknown>;

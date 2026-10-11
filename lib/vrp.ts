@@ -13,8 +13,8 @@ export const VRP_PROTOCOL_VERSION = "0.1";
 export const VRP_JWS_ALG = "EdDSA";
 export const VRP_FETCH_TIMEOUT_MS = 8_000;
 export const VRP_TOOL_NAMES = [
-  "verify_vacation_rental_node",
-  "get_verified_stay_offer",
+  "vrp_verify_node",
+  "vrp_get_verified_stay_offer",
 ] as const;
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -849,7 +849,7 @@ function buildAgentQuoteView(
 /**
  * Turn the node's own `host_alternatives` (returned when the requested dates
  * are blocked) into a one-line, actionable next step so an agent never hits a
- * wall. The agent re-calls get_verified_stay_offer for the chosen window to get
+ * wall. The agent re-calls vrp_get_verified_stay_offer for the chosen window to get
  * a signed, bookable offer. Node's own dates only — never a comparison.
  */
 function buildAgentNextStep(hostAlternatives: JsonRecord | null): string | null {
@@ -866,7 +866,7 @@ function buildAgentNextStep(hostAlternatives: JsonRecord | null): string | null 
     options.push(`next open window ${stringValue(next.check_in)}–${stringValue(next.check_out)}`);
   }
   if (options.length === 0) return null;
-  return `Requested dates are not bookable. The host's own open options: ${options.join("; ")}. Re-call get_verified_stay_offer for the chosen window to get a signed, bookable offer.`;
+  return `Requested dates are not bookable. The host's own open options: ${options.join("; ")}. Re-call vrp_get_verified_stay_offer for the chosen window to get a signed, bookable offer.`;
 }
 
 async function runVerifyNode(args: Record<string, unknown>): Promise<ToolResult> {
@@ -983,9 +983,9 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
 export async function executeVrpTool(name: string, args: Record<string, unknown>): Promise<ToolResult> {
   try {
     switch (name) {
-      case "verify_vacation_rental_node":
+      case "vrp_verify_node":
         return await runVerifyNode(args);
-      case "get_verified_stay_offer":
+      case "vrp_get_verified_stay_offer":
         return await runGetVerifiedStayOffer(args);
       default:
         return toolError(`Unknown VRP tool: ${name}`);
