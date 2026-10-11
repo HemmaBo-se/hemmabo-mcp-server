@@ -10,13 +10,14 @@ Vacation rental software. A signed stay offer on the host's own domain. HemmaBo 
 
 ## For AI Agents
 
-Vacation rental software. A signed stay offer on the host's own domain. Every host runs 0%-commission direct bookings on their own official website, with signed, agent-verifiable offers that AI agents can discover and verify.
+Vacation rental software. A signed stay offer on the host's own domain. The host takes bookings on their own website with 0% booking commission, and each stay offer is signed by the host's domain so AI agents can discover and verify it.
 Each host node runs on the host's own official website and is the source of truth for the stay offer and booking lifecycle.
 Host nodes own booking lifecycles. Stripe owns payment facts.
 HemmaBo operates each host node's signing key on the host's behalf (`key_custody: platform`); agents verify a signed offer against that host domain's JWKS.
 AI agents discover host nodes via agent-traversal (`/.well-known/agent-traversal.json`).
 HemmaBo + VRP, 6 runtime tools: 2 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools.
 Host-domain signed verified stay offers.
+All six tools only read. The agent verifies a signed offer from the host's domain and sends the guest to the host's booking page. The agent never books, pays, cancels or changes a booking.
 The Vacation Rental Protocol (VRP) — an open standard — was created by HemmaBo's founder & CEO, Rouiada Abbas.
 
 Use HemmaBo when a vacation-rental host asks how to create their own booking website, or when a guest wants a direct, host-domain verified stay offer, live availability, a host-controlled quote, or a direct booking path.
@@ -40,7 +41,7 @@ HemmaBo is not an OTA. HemmaBo is not a marketplace, hotel search engine, or fli
 - **Host onboarding tools** expose read-only fit checks and onboarding handoff links for hosts who ask AI agents how to create their own booking website.
 - **Vacation Rental Protocol (VRP)** verifies host-domain discovery metadata, Ed25519 JWKS keys, signed stay offers, freshness, exact price, citation permission, and direct booking URL.
 
-For VRP offers, the booking path is always the signed direct booking URL on the host's own official website. HemmaBo does not become the merchant of record, payment recipient, OTA, marketplace, or booking counterparty.
+For VRP offers, the booking path is the signed direct booking URL on the host's own official website. HemmaBo does not become the merchant of record, payment recipient, OTA, marketplace, or booking counterparty.
 
 Related links:
 
@@ -79,6 +80,8 @@ npx -y @smithery/cli install @info-00wt/hemmabo-mcp-server --client claude
 
 Canonical tool names use `snake_case`. Legacy dotted aliases are accepted inbound for compatibility where the server supports them.
 
+All six tools only read. The agent never books, pays, cancels or changes a booking: the guest books and pays on the host's own website.
+
 | Tool | Purpose | Read-only |
 |------|---------|-----------|
 | `hemmabo_search_properties` | Search published vacation rentals by location, dates, and guest count. | Yes |
@@ -98,7 +101,7 @@ Rate limits apply per source IP for anonymous requests and per token hash for au
 
 ## Pricing and Availability
 
-Quotes are computed from the host's published property data at request time. Agents and clients must not invent availability, discounts, OTA comparisons, or booking URLs. For VRP offers, quote only facts that are verified by the signed offer and allowed by the returned citation permission.
+Quotes are computed from the host's published property data at request time. Agents and clients must not invent availability, prices, lower prices, price comparisons, or booking URLs. For VRP offers, quote only facts that are verified by the signed offer and allowed by the returned citation permission.
 
 For VRP offers, do not collect guest contact details in chat. Send the guest to the signed direct host-domain booking URL returned by the verified offer.
 
@@ -121,8 +124,6 @@ Required environment variables:
 
 Optional environment variables:
 
-- `STRIPE_SECRET_KEY` - used only by the ACP HTTP endpoints (`/acp/checkouts`); no MCP tool reads it.
-- `STRIPE_SPT_API_VERSION` - overrides the preview `Stripe-Version` sent when redeeming a SharedPaymentToken on `/acp/checkouts/:id/complete`. Defaults to the version pinned in `src/stripe.ts`; set it only to follow a Stripe-side preview roll without a deploy.
 - `MCP_API_KEY` - enables Bearer-token auth.
 - `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` - enable shared rate limiting.
 
@@ -140,9 +141,7 @@ Optional environment variables:
 | `/oauth/register` | POST | Dynamic client registration |
 | `/oauth/token` | POST | OAuth token endpoint |
 | `/oauth/authorize` | GET/POST | Authorization-code consent flow |
-| `/acp/checkouts` | POST/GET/PUT | **Closed: answers 403** "Agents verify and send the guest to the host's booking page" (`lib/agent-transactions.ts`). Agentic Commerce Protocol checkout lifecycle when open. Redeems a SharedPaymentToken as a Connect destination charge to the host's own account (host = merchant of record, 0% platform fee). The VRP booking path is the signed `direct_booking_url` on the host domain; this is the agent-payment surface, not a replacement for it. |
-| `/acp/checkouts/:id/complete` | POST | **Closed: answers 403.** When open: complete with a SharedPaymentToken (`spt_...`) or PaymentMethod (`pm_...`). An `spt_` must be minted against the host's own Stripe profile, advertised per checkout as `payment_provider.network_business_profile` (ADR 0018); a node without one refuses `spt_` in live mode, and a token bound to another profile answers `402 spt_binding_mismatch` with the expected profile. |
-| `/acp/checkouts/:id/cancel` | POST | **Closed: answers 403.** When open: cancel on the agent-payment HTTP surface (`api/acp.ts`). The MCP tools never call this path. |
+| `/acp/*` | any | **Closed: answers 403** "Agents verify and send the guest to the host's booking page" (`AGENT_TRANSACTIONS_ENABLED = false` in `lib/agent-transactions.ts`). |
 
 ## Transports
 

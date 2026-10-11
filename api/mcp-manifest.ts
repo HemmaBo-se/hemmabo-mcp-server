@@ -119,7 +119,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       data_sharing:
         "HemmaBo never stores card data, ID documents, or biometric data. The host is data controller for guest data — HemmaBo is processor. HemmaBo processes guest data on behalf of the host under Art. 28 GDPR. Bookings, guest details and calendar data are stored in Supabase.",
       external_redirects:
-        "Checkout completes via the host's own official website or a host-domain VRP direct booking URL.",
+        "Booking and payment happen on the host's own official website, at the host-domain VRP direct booking URL. The agent never books, pays, cancels or changes a booking.",
       content_safety: "No user-generated content. Property listings are curated by verified hosts.",
     },
     // No hemmabo_role: its value is on the category-law REMOVED list

@@ -99,7 +99,7 @@ proposed fix, and the test that would prevent regression.
 
 1. **Inventory phase.** Run `gh issue list --state open --label audit` to skip already-tracked findings.
 2. **Sweep phase.** Walk the checklist above. For each MATCH, open an issue with:
-   - Title: `[area-code] short description (e.g. C1 missing idempotency on POST /acp/checkouts)`
+   - Title: `[area-code] short description (e.g. C1 missing rate limit on POST /mcp)`
    - Body: code snippet, why it's a bug, proposed fix, regression-test outline, reference to the `hemmabo-mcp-server` precedent issue.
    - Labels: `audit`, plus one of `security`, `correctness`, `drift`, `dx`.
 3. **Fix phase.** For each issue in dependency order: create branch `fix/<issue-num>-<slug>`, write the test first, write the fix, run full test suite, commit with `fix(#NN): …` message that explains *why* not just *what*, push, open PR.
