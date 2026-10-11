@@ -30,9 +30,9 @@ Agents may cite a stay offer as official only when the returned VRP verification
 
 For signed VRP offers, the host domain is the booking and payment path.
 
-## Agent commerce interoperability
+## Booking and payment
 
-The ACP (Agentic Commerce Protocol) checkout path, with its AP2 (Agent Payments Protocol) Cart Mandate verification, is closed: it answers 403 "Agents verify and send the guest to the host's booking page", and no MCP tool checks out, takes payment or cancels. An agent verifies the signed VRP offer and sends the guest to its direct host-domain booking URL; the guest books and pays the host there.
+All six tools only read. The agent never books, pays, cancels or changes a booking. Agent payment endpoints are closed: they answer 403 "Agents verify and send the guest to the host's booking page". An agent verifies the signed VRP offer and sends the guest to its direct host-domain booking URL; the guest books and pays the host there.
 
 ## Links
 

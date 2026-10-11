@@ -17,8 +17,6 @@
     "direct-booking",
     "mcp-server",
     "stripe",
-    "stripe-acp",
-    "agentic-commerce",
     "travel"
   ]
 }

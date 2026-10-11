@@ -118,11 +118,11 @@ describe("catalog surfaces contract", () => {
     assert.deepEqual([...fafTools].sort(), [...SIX_TOOLS].sort());
   });
 
-  it("the ACP paragraph in llms.txt is an HTTP surface, not an MCP tool", () => {
+  it("llms.txt says the agent never books, pays, cancels or changes a booking", () => {
     const llms = SURFACES["llms.txt"];
     assert.ok(
-      llms.includes("no MCP tool checks out, takes payment or cancels"),
-      "llms.txt must say the MCP tools do not check out, take payment or cancel",
+      llms.includes("The agent never books, pays, cancels or changes a booking."),
+      "llms.txt must say the agent never books, pays, cancels or changes a booking",
     );
   });
 

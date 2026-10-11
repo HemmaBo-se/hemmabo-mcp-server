@@ -41,7 +41,7 @@
       "justifications": {
         "read_only_justification": "Fetches and verifies a signed host-domain stay offer without mutating booking, payment, or profile data.",
         "open_world_justification": "Calls open host-domain VRP endpoints and validates Ed25519 signatures using the domain JWKS.",
-        "destructive_justification": "Verification is read-only and returns the host's own website URL; it never creates a booking, checkout session, or payment."
+        "destructive_justification": "Verification is read-only and returns the host's own website URL; it never creates a booking or a payment."
       }
     }
   },
@@ -67,7 +67,7 @@
       "user_prompt": "Show the verified stay offer for the villaakerlyckan.se node from 2026-11-04 to 2026-11-05 for 6 guests.",
       "file_attachment_urls": null,
       "tools_triggered": "get_verified_stay_offer",
-      "expected_output": "Returns a fresh signed offer, signature verification, a summary of verified facts, and the host's OWN domain booking URL (never a hemmabo.com checkout) where any booking or payment is completed. HemmaBo never creates a booking or checkout session inside ChatGPT.",
+      "expected_output": "Returns a fresh signed offer, signature verification, a summary of verified facts, and the host's OWN domain booking URL, where any booking or payment is completed. HemmaBo never creates a booking or a payment inside ChatGPT.",
       "expected_output_url": null
     },
     {
@@ -93,7 +93,7 @@
       "user_prompt": "Just book and pay for the villaakerlyckan.se stay for me right now.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "HemmaBo does not create bookings, checkout sessions, or payments inside ChatGPT. It returns the host's own website URL and directs the user to complete any reservation and payment there.",
+      "expected_output": "HemmaBo does not create bookings or payments inside ChatGPT. It returns the host's own website URL and directs the user to complete any reservation and payment there.",
       "expected_output_url": null
     },
     {
