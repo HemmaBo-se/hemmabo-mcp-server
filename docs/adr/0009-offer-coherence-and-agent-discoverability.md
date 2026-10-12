@@ -1,16 +1,18 @@
 # ADR 0009 — Offer coherence and agent discoverability: binding build requirements
 
+> **Tool names updated 2026-10-11.** This record uses the tool names in force since the 2026-10-11 rename (product tools `hemmabo_`, protocol tools `vrp_`, every name verb_noun). On the record's own date the tools carried earlier names; those are in this file's git history. Nothing else in the record was changed.
+
 **Status:** Accepted — requirements LOCKED 2026-06-24 (no drift permitted). Implementation pending across `hemmabo-mcp-server` + `hemmabo-smart-stays`; tracked in §5.
 **Date:** 2026-06-24
 **Author:** CEO + agent
-**Related:** ADR `0004-agent-discovery-and-packaging-lockstep.md` (extends the lockstep table); ADR `0002-auth-payments-and-privacy-contracts.md`; federation tools `get_verified_stay_offer` + `hemmabo_search_properties` (this repo); node offer endpoint `smart-stays /api/verified-stay-offer`.
+**Related:** ADR `0004-agent-discovery-and-packaging-lockstep.md` (extends the lockstep table); ADR `0002-auth-payments-and-privacy-contracts.md`; federation tools `vrp_get_verified_stay_offer` + `hemmabo_search_properties` (this repo); node offer endpoint `smart-stays /api/verified-stay-offer`.
 
 ## Context
 
 On 2026-06-24 we ran the full agent discovery + booking flow **live** against
 `villaakerlyckan.se`, acting as a best-in-class AI agent, connector-free:
-`/.well-known/agent-traversal.json` → VRP discovery + JWKS → `verify_vacation_rental_node`
-(`verified: true`, EdDSA/Ed25519, did:web) → `get_verified_stay_offer` → `direct_booking_url`.
+`/.well-known/agent-traversal.json` → VRP discovery + JWKS → `vrp_verify_node`
+(`verified: true`, EdDSA/Ed25519, did:web) → `vrp_get_verified_stay_offer` → `direct_booking_url`.
 
 **Verdict on machine-readability: the node is best-in-class.** It already ships
 agent-traversal, VRP signed offers, an MCP manifest (7 typed tools + Stripe MPP +
@@ -48,7 +50,7 @@ are not opinions — each was observed in a live response. They are recorded her
 
 3. **F3 — Search and offer disagree on alternative dates.** For blocked dates,
    `hemmabo_search_properties` returned `unavailableMatches[].alternativeDates: []`,
-   while `get_verified_stay_offer` for the same property returned
+   while `vrp_get_verified_stay_offer` for the same property returned
    `host_alternatives.next_available = 2026-09-02 → 2026-09-05`. An agent that only
    searches sees no way forward, although the node itself knows the open window.
 
@@ -88,7 +90,7 @@ Each requirement has a testable acceptance criterion. "MUST" is normative.
 - **R3 — Search and offer MUST agree on alternative dates.** When a property is
   unavailable for the requested window, `hemmabo_search_properties`
   `unavailableMatches[].alternativeDates` MUST contain the same `next_available`
-  window that `get_verified_stay_offer` `host_alternatives` returns (single source
+  window that `vrp_get_verified_stay_offer` `host_alternatives` returns (single source
   of truth = the node's availability). *Acceptance:* a test asserts
   `search.alternativeDates` ⊇ `offer.host_alternatives.next_available` for the same
   property + dates.
@@ -146,7 +148,7 @@ Each requirement has a testable acceptance criterion. "MUST" is normative.
 
 | Req | Repo(s) | Surface |
 |-----|---------|---------|
-| R1 | `smart-stays` (signer) + `hemmabo-mcp-server` (conformance) | `/api/verified-stay-offer` payload breakdown; `get_verified_stay_offer` validation |
+| R1 | `smart-stays` (signer) + `hemmabo-mcp-server` (conformance) | `/api/verified-stay-offer` payload breakdown; `vrp_get_verified_stay_offer` validation |
 | R2 | `hemmabo-mcp-server` | `hemmabo_search_properties` error handling |
 | R3 | `hemmabo-mcp-server` + `smart-stays` | search `alternativeDates` ← node `host_alternatives` |
 | R4 | `hemmabo-mcp-server` | GitHub repo About; `package.json`; `glama.json`; `smithery.yaml`; `/.well-known/mcp.json` |

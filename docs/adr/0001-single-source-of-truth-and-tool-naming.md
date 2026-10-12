@@ -1,5 +1,7 @@
 # ADR 0001 — Single Source of Truth and MCP Tool Naming
 
+> **Tool names updated 2026-10-11.** This record uses the tool names in force since the 2026-10-11 rename (product tools `hemmabo_`, protocol tools `vrp_`, every name verb_noun). On the record's own date the tools carried earlier names; those are in this file's git history. Nothing else in the record was changed, except the dated amendment to §2.4.
+
 - **Status:** Proposed
 - **Date:** 2026-05-12
 - **Deciders:** HemmaBo core
@@ -83,7 +85,7 @@ Canonical naming pattern: `hemmabo_<domain>_<action>` (snake_case), matching the
 | Old (dotted, blocked in claude.ai web) | New (canonical) |
 |---|---|
 | `search.properties` | `hemmabo_search_properties` |
-| `search.availability` | `hemmabo_search_availability` |
+| `search.availability` | `hemmabo_check_availability` |
 | `search.similar` | `hemmabo_search_similar` |
 | `search.compare` | `hemmabo_compare_properties` |
 | `booking.quote` | `hemmabo_booking_quote` |
@@ -95,6 +97,8 @@ Canonical naming pattern: `hemmabo_<domain>_<action>` (snake_case), matching the
 | `booking.reschedule` | `hemmabo_booking_reschedule` |
 
 These canonical names already exist as the right-hand side of the `TOOL_NAME_ALIASES` map in [`lib/tools.ts`](../../lib/tools.ts). The dispatcher already normalises both. **The fix is to register the canonical names publicly and keep the dotted names as backward-compatible aliases during a deprecation window.**
+
+**Amendment 2026-10-11 (CEO order — two namespaces).** Every tool name is verb_noun in one of two namespaces: `hemmabo_` for product tools (`hemmabo_search_properties`, `hemmabo_check_availability`, `hemmabo_check_host_readiness`, `hemmabo_get_host_onboarding_link`) and `vrp_` for protocol tools (`vrp_verify_node`, `vrp_get_verified_stay_offer`). VRP is an open standard and HemmaBo a reference implementation, so a VRP tool never carries the `hemmabo_` prefix. The rename release (6.0.0) shipped without inbound aliases. Since 6.0.1 (CEO order 2026-10-12) the five earlier names are accepted inbound as aliases, like the dotted names of #59 (`TOOL_NAME_ALIASES` in `lib/tools-base.ts`, `ANON_TOOLS` in `api/mcp.ts`), and are never listed in tools/list: a client holding an old tool list gets the renamed tool instead of "Authorization required". `src/mcp-name-format.contract.test.ts` holds the rule.
 
 ### 2.5 Backwards-compatibility window for tool renames
 

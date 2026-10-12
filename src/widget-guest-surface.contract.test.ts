@@ -177,7 +177,7 @@ describe("2026-07-26 fix: widget UI language followed the browser, not the conve
   // A guest recording showed an English chat rendering a Swedish card
   // (dates/CTA/cancel-line/"Good to know") because the widget's language
   // switch read ONLY navigator.language — the rendering iframe's browser/OS
-  // locale — with no way to know what language get_verified_stay_offer was
+  // locale — with no way to know what language vrp_get_verified_stay_offer was
   // actually called with.
 
   it("normalizeOffer carries the tool response's language field onto the offer, falling back to the host locale signal (not \"\")", () => {
@@ -319,7 +319,7 @@ describe("2026-07-26 fix: minimum_guest_age is now always visible, not only behi
 describe("agent payload carries the locked welcome with a verbatim rule", () => {
   const vrpSource = readFileSync(new URL("../lib/vrp.ts", import.meta.url), "utf-8");
 
-  it("get_verified_stay_offer includes guest_welcome.by_locale", () => {
+  it("vrp_get_verified_stay_offer includes guest_welcome.by_locale", () => {
     assert.match(vrpSource, /guest_welcome: nodeName/);
     assert.match(vrpSource, /guestWelcomeByLocale\(nodeName\)/);
   });

@@ -26,15 +26,15 @@ function authForTool(name: string): "none" | "bearer" {
 const MANIFEST_SUMMARIES: Record<string, string> = {
   "hemmabo_search_properties":
     "Search available vacation rental properties by region, country, guest count and dates. Returns live availability and pricing.",
-  "hemmabo_search_availability":
+  "hemmabo_check_availability":
     "Check whether a specific property is available for given dates. If blocked, returns the host node's own next available window so agents can keep the guest moving.",
-  "hemmabo_host_readiness_check":
+  "hemmabo_check_host_readiness":
     "Read-only fit check for vacation-rental hosts asking how to create their own booking website or booking engine with HemmaBo.",
-  "hemmabo_host_onboarding_link":
+  "hemmabo_get_host_onboarding_link":
     "Return a safe HemmaBo onboarding handoff URL for a host. Does not create an account, buy a domain, configure Stripe, or store host data.",
-  "verify_vacation_rental_node":
+  "vrp_verify_node":
     "Verify that a host domain exposes VRP v0.1 discovery and an Ed25519 JWKS for signed stay offers.",
-  "get_verified_stay_offer":
+  "vrp_get_verified_stay_offer":
     "Fetch, verify, and render a fresh host-domain signed VRP stay offer widget with live availability, exact price, citation permission and direct booking URL.",
 };
 
@@ -119,7 +119,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       data_sharing:
         "HemmaBo never stores card data, ID documents, or biometric data. The host is data controller for guest data — HemmaBo is processor. HemmaBo processes guest data on behalf of the host under Art. 28 GDPR. Bookings, guest details and calendar data are stored in Supabase.",
       external_redirects:
-        "Checkout completes via the host's own official website or a host-domain VRP direct booking URL.",
+        "Booking and payment happen on the host's own official website, at the host-domain VRP direct booking URL. The agent never books, pays, cancels or changes a booking.",
       content_safety: "No user-generated content. Property listings are curated by verified hosts.",
     },
     // No hemmabo_role: its value is on the category-law REMOVED list

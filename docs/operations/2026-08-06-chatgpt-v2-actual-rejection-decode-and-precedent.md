@@ -1,5 +1,7 @@
 # ChatGPT App v2.0.0 — avkodning av det FAKTISKA avslaget + precedens (bevisrecord)
 
+> **Verktygsnamn uppdaterade 2026-10-11.** Dokumentet använder verktygsnamnen som gäller sedan namnbytet 2026-10-11 (produktverktyg `hemmabo_`, protokollverktyg `vrp_`, varje namn verb_substantiv). På dokumentets eget datum hade verktygen tidigare namn; de finns i filens git-historik. Inget annat i dokumentet är ändrat.
+
 **Datum:** 2026-08-06
 **Status:** bevis-/fyndrecord. **INGEN kod ändrad.** Kompletterar och stänger öppna TODO:s i
 [2026-08-05-planen (#325)](./2026-08-05-chatgpt-v2-rejection-tool-surface-audit-plan.md).
@@ -20,7 +22,7 @@
 - **Avslagsmeningen (verbatim):** *"Your app appears to enable or facilitate commerce for disallowed offerings (e.g., digital goods/services or other prohibited categories)."*
 - **Vad den EXAKT träffar** (evidensbaserat mot submissionen, inte gissat):
   1. **In-chat-handel med en tjänst (en vistelse):** `hemmabo_booking_checkout` skapar en Stripe Checkout Session i chatten (testfallet heter ordagrant *"Create a Stripe checkout link"*), plus `booking_create/negotiate/quote/cancel/reschedule`.
-  2. **Försäljning/onboarding av en digital SaaS-prenumeration:** `hemmabo_host_readiness_check` + `hemmabo_host_onboarding_link`, förstärkt av appbeskrivningen *"Use it when a host asks how to create their own booking website"* och testfallet *"I want my own booking website with payments straight to my own Stripe account"*.
+  2. **Försäljning/onboarding av en digital SaaS-prenumeration:** `hemmabo_check_host_readiness` + `hemmabo_get_host_onboarding_link`, förstärkt av appbeskrivningen *"Use it when a host asks how to create their own booking website"* och testfallet *"I want my own booking website with payments straight to my own Stripe account"*.
 - **Ärlig gräns:** OpenAI-mejlet är **generiskt** ("appears to … e.g., …") och **namnger inget specifikt verktyg**. Vår rotorsaks-mappning är därför en **evidensbaserad slutsats**, inte OpenAI-bekräftad. Enda sättet att få OpenAI att namnge exakt trigger är **appell-svaret** (se §8).
 - **Vad avslaget INTE var:** kategorin (vacation rental). Det är belagt i §7 — men det är kontext, inte svaret på "varför föll vi".
 
@@ -58,8 +60,8 @@ Avslaget nämner två "disallowed offerings". Båda finns belagda i `submission/
 
 | Bevis i submissionen | Vad det gör | Verifierad policyrad den bryter mot |
 |---|---|---|
-| `hemmabo_host_readiness_check` | fit-verdikt för värd som utvärderar HemmaBo (SaaS) | *"Selling digital products or services—including subscriptions—is not allowed"* |
-| `hemmabo_host_onboarding_link` | bygger onboarding-URL till HemmaBo-signup | *"must not display subscription plans, initiate new subscriptions, or promote upgrades"* |
+| `hemmabo_check_host_readiness` | fit-verdikt för värd som utvärderar HemmaBo (SaaS) | *"Selling digital products or services—including subscriptions—is not allowed"* |
+| `hemmabo_get_host_onboarding_link` | bygger onboarding-URL till HemmaBo-signup | *"must not display subscription plans, initiate new subscriptions, or promote upgrades"* |
 | App-beskrivning | *"HemmaBo verifies and **books** … Use it when a host asks **how to create their own booking website**"* | promotar SaaS + bred triggering för säljintent |
 | Testfall (host) | *"I want my own booking website with **payments straight to my own Stripe account**"* → `host_readiness_check` | säljer den digitala tjänsten i klartext |
 
@@ -78,7 +80,7 @@ Hämtad live 2026-08-06 från OpenAI:s app-submission-guidelines. Verbatim, de r
 - **Länk-förbud (viktig, missas lätt):** prohibited actions inkl. *"Link directly to a checkout or other transactional page"* och *"Link to a page that explicitly initiates the process to upgrade, subscribe, or complete a purchase."*
 - **Verktygsbeskrivningar:** *"Tools should behave exactly as their names, descriptions, and inputs indicate."* + *"Descriptions must not recommend overly broad triggering beyond the explicit user intent."*
 
-**Konsekvens för resubmit:** `get_verified_stay_offer` får returnera en URL till värdens **egendoms-/offer-sida**, inte en checkout-deeplink; och beskrivningen måste beskriva vad verktyget FAKTISKT gör (verifiering), inte "book".
+**Konsekvens för resubmit:** `vrp_get_verified_stay_offer` får returnera en URL till värdens **egendoms-/offer-sida**, inte en checkout-deeplink; och beskrivningen måste beskriva vad verktyget FAKTISKT gör (verifiering), inte "book".
 
 Lodging/vacation rental finns **inte** på förbudslistan (verifierad; se §7).
 
@@ -144,7 +146,7 @@ v1 kom in med **15 tools** (11 federation inkl. search_similar/compare_propertie
 ## 8. Öppet / ej bekräftat (inga gissningar bokförda som fakta)
 
 - **Appell-svar** för att få OpenAI att namnge exakt trigger (i stället för vår inferens). CEO skickar; agent skriver utkast.
-- **`get_verified_stay_offer`s `direct_booking_url`** — landar den på värdens egendoms-/offer-sida eller en checkout-deeplink? **Ej verifierat.** Avgör mot §3 länk-förbudet.
+- **`vrp_get_verified_stay_offer`s `direct_booking_url`** — landar den på värdens egendoms-/offer-sida eller en checkout-deeplink? **Ej verifierat.** Avgör mot §3 länk-förbudet.
 - **Filtrerad `tools/list` för OpenAI-ytan** (separat build/endpoint) — **ej byggt**.
 - **Direct Host faktiska verktygs-yta** — **ej reverse-engineerad** (kräver inloggad ChatGPT-session).
 - **Anthropic-feedbacken** (villaakerlyckan MCP) — refererad av Grok men **ej sedd i detta record**; måste läsas i original före utkast till svar.
@@ -169,5 +171,5 @@ v1 kom in med **15 tools** (11 federation inkl. search_similar/compare_propertie
 ## 10. Nästa (beslut till CEO — inte utfört här)
 
 1. **Ordning:** Anthropic (villaakerlyckan) vs OpenAI-resubmit — Grok föreslår Anthropic först (nära grönt, oberoende av OpenAI). Rimligt **om** Anthropic-feedbacken är som beskriven — läs originalet först.
-2. **OpenAI reducerad yta** (spikad riktning): `search_properties`, `verify_vacation_rental_node`, `get_verified_stay_offer`→host-URL; ev. `search_availability` (read-only). Inga booking/checkout/host-onboarding. + **kodfixen i `tools/list`** (§4).
+2. **OpenAI reducerad yta** (spikad riktning): `search_properties`, `vrp_verify_node`, `vrp_get_verified_stay_offer`→host-URL; ev. `search_availability` (read-only). Inga booking/checkout/host-onboarding. + **kodfixen i `tools/list`** (§4).
 3. **Appell-utkast** för att få trigger bekräftad (§8).

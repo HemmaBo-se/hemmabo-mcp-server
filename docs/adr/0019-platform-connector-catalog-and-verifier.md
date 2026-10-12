@@ -1,5 +1,7 @@
 # ADR 0019: The platform connector is catalog and verifier
 
+> **Tool names updated 2026-10-11.** This record uses the tool names in force since the 2026-10-11 rename (product tools `hemmabo_`, protocol tools `vrp_`, every name verb_noun). On the record's own date the tools carried earlier names; those are in this file's git history. Nothing else in the record was changed.
+
 - Status: Accepted (CEO decision, 2026-10-01)
 - Date: 2026-10-01
 - Decides for: the platform connector — `www.hemmabo.com/mcp` (full surface,
@@ -29,7 +31,7 @@ HemmaBo tools did work that belongs to the host node, not to the platform:
 
 A platform tool that writes bookings, reads guest data or states an unsigned
 price puts HemmaBo between the guest and the host. The signed offer from the
-host domain (`get_verified_stay_offer`) is the only price an agent needs, and
+host domain (`vrp_get_verified_stay_offer`) is the only price an agent needs, and
 the host domain is the only place a guest books, pays and manages a stay.
 
 ## Decision
@@ -44,12 +46,12 @@ the host domain is the only place a guest books, pays and manages a stay.
    `hemmabo_booking_cancel`, `hemmabo_booking_reschedule` (they write);
    `hemmabo_booking_status` (reads guest data — the manage link comes from the
    node, not a platform tool); `hemmabo_booking_quote` (unsigned platform price
-   from shared tables — only `get_verified_stay_offer` carries price). Their
+   from shared tables — only `vrp_get_verified_stay_offer` carries price). Their
    legacy dotted aliases (`booking.*`) are removed with them.
 3. **Remaining, six:** `hemmabo_search_properties`,
-   `hemmabo_search_availability`, `verify_vacation_rental_node`,
-   `get_verified_stay_offer`, `hemmabo_host_readiness_check`,
-   `hemmabo_host_onboarding_link`. All six are read-only and anonymous
+   `hemmabo_check_availability`, `vrp_verify_node`,
+   `vrp_get_verified_stay_offer`, `hemmabo_check_host_readiness`,
+   `hemmabo_get_host_onboarding_link`. All six are read-only and anonymous
    (`ANON_TOOLS`).
 4. **The name stays** "HemmaBo Host Booking Engine" (`SERVER_TITLE`).
 5. **The count sentence is exactly:** "6 runtime tools: 2 HemmaBo tools, 2 host

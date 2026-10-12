@@ -4,7 +4,7 @@
   "app_info": {
     "display_name": "HemmaBo",
     "subtitle": "Verified stay offers",
-    "description": "HemmaBo helps you discover host-owned vacation rental websites and cryptographically verify that a stay offer is genuinely signed by the host. Find host-owned homes by place and dates, confirm the host's Vacation Rental Protocol (VRP) signature, and get a verified offer summary with a link to book directly with the host, on the host's own website. Vacation Rental Protocol (VRP) is an open standard for host-domain signed stay offers. Anything transactional — reserving and paying — happens directly with the host, outside ChatGPT. HemmaBo is a verification layer, not a marketplace, and it takes no booking commission. Not an OTA. Not a website builder.",
+    "description": "HemmaBo helps you discover host-owned vacation rental websites and cryptographically verify that a stay offer is genuinely signed by the host. Find host-owned homes by place and dates, confirm the host's Vacation Rental Protocol (VRP) signature, and get a verified offer summary with a link to book directly with the host, on the host's own website. Vacation Rental Protocol (VRP) is an open standard for host-domain signed stay offers. Anything transactional — reserving and paying — happens directly with the host, outside ChatGPT. HemmaBo is not a marketplace and takes no booking commission. Not an OTA. Not a website builder.",
     "category": "TRAVEL"
   },
   "tools": {
@@ -20,7 +20,7 @@
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform any irreversible action."
       }
     },
-    "verify_vacation_rental_node": {
+    "vrp_verify_node": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": true,
@@ -32,7 +32,7 @@
         "destructive_justification": "Performs verification only and does not create, update, or delete any external state."
       }
     },
-    "get_verified_stay_offer": {
+    "vrp_get_verified_stay_offer": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": true,
@@ -41,7 +41,7 @@
       "justifications": {
         "read_only_justification": "Fetches and verifies a signed host-domain stay offer without mutating booking, payment, or profile data.",
         "open_world_justification": "Calls open host-domain VRP endpoints and validates Ed25519 signatures using the domain JWKS.",
-        "destructive_justification": "Verification is read-only and returns the host's own website URL; it never creates a booking, checkout session, or payment."
+        "destructive_justification": "Verification is read-only and returns the host's own website URL; it never creates a booking or a payment."
       }
     }
   },
@@ -58,7 +58,7 @@
       "description": "Verify one of the discovered host nodes (VRP trust metadata).",
       "user_prompt": "From the HemmaBo results, verify the host node villaakerlyckan.se before I trust its offer.",
       "file_attachment_urls": null,
-      "tools_triggered": "verify_vacation_rental_node",
+      "tools_triggered": "vrp_verify_node",
       "expected_output": "Returns VRP protocol version, discovery URL, JWKS URL, stay-offer endpoint, and signing-key details if verification succeeds. Read-only; creates no booking or payment.",
       "expected_output_url": null
     },
@@ -66,15 +66,15 @@
       "description": "Show a cryptographically verified stay offer for a discovered node and hand off to the host's own website.",
       "user_prompt": "Show the verified stay offer for the villaakerlyckan.se node from 2026-11-04 to 2026-11-05 for 6 guests.",
       "file_attachment_urls": null,
-      "tools_triggered": "get_verified_stay_offer",
-      "expected_output": "Returns a fresh signed offer, signature verification, a summary of verified facts, and the host's OWN domain booking URL (never a hemmabo.com checkout) where any booking or payment is completed. HemmaBo never creates a booking or checkout session inside ChatGPT.",
+      "tools_triggered": "vrp_get_verified_stay_offer",
+      "expected_output": "Returns a fresh signed offer, signature verification, a summary of verified facts, and the host's OWN domain booking URL, where any booking or payment is completed. HemmaBo never creates a booking or a payment inside ChatGPT.",
       "expected_output_url": null
     },
     {
       "description": "Verify a host domain the user typed themselves (outside search).",
       "user_prompt": "Is villaakerlyckan.se a genuine Vacation Rental Protocol host site? Verify it with HemmaBo.",
       "file_attachment_urls": null,
-      "tools_triggered": "verify_vacation_rental_node",
+      "tools_triggered": "vrp_verify_node",
       "expected_output": "Reads the domain's own /.well-known/vacation-rental.json and JWKS and returns protocol version, discovery URL, and signing-key details. Read-only trust check; no availability, pricing, booking, or payment.",
       "expected_output_url": null
     },
@@ -82,7 +82,7 @@
       "description": "Verified stay offer rendered in the guest's conversation language.",
       "user_prompt": "Zeig mir das verifizierte Angebot für villaakerlyckan.se vom 2026-11-04 bis 2026-11-05 für 6 Gäste.",
       "file_attachment_urls": null,
-      "tools_triggered": "get_verified_stay_offer",
+      "tools_triggered": "vrp_get_verified_stay_offer",
       "expected_output": "Returns the same signed offer and signature verification as in English; the language parameter only changes widget labels and date/currency formatting to German. The signed price and availability are unchanged, and any reservation still happens on the host's own website, never inside ChatGPT.",
       "expected_output_url": null
     }
@@ -93,7 +93,7 @@
       "user_prompt": "Just book and pay for the villaakerlyckan.se stay for me right now.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "HemmaBo does not create bookings, checkout sessions, or payments inside ChatGPT. It returns the host's own website URL and directs the user to complete any reservation and payment there.",
+      "expected_output": "HemmaBo does not create bookings or payments inside ChatGPT. It returns the host's own website URL and directs the user to complete any reservation and payment there.",
       "expected_output_url": null
     },
     {

@@ -179,13 +179,13 @@ const F = {
 const REGION = {
   type: "string" as const,
   description:
-    "Region, area, or destination to search within (e.g. 'Skåne', 'Kävlinge', 'Toscana', 'Bavaria'). Partial case-insensitive match. Provide at least one of region or country; omit only when country alone is sufficient.",
+    "Region, area, or destination to search within (e.g. 'Skåne', 'Kävlinge', 'Toscana', 'Bavaria'). Partial case-insensitive match against region, city, and country. Optional — omit both region and country and the search spans every published property.",
 } satisfies JsonSchemaField;
 
 const COUNTRY = {
   type: "string" as const,
   description:
-    "Country name to filter by (e.g. 'Sweden', 'Italy', 'Morocco'). Partial case-insensitive match. Provide at least one of region or country; omit when region already narrows the destination.",
+    "Country name to filter by (e.g. 'Sweden', 'Italy', 'Morocco'). Partial case-insensitive match against the country field. Optional — omit both region and country and the search spans every published property.",
 } satisfies JsonSchemaField;
 
 // ── Property output object (shared between search tools) ─────────
@@ -193,7 +193,7 @@ const COUNTRY = {
 const PROPERTY_LISTING_ITEM: JsonSchemaField = {
   type: "object",
   properties: {
-    propertyId: { type: "string", format: "uuid", description: "Stable UUID. Pass to subsequent tools (availability)." },
+    propertyId: { type: "string", format: "uuid", description: "Stable property UUID." },
     name: { type: "string", description: "Property display name." },
     domain: { type: "string", description: "Host-owned domain for this property." },
     booking_url: { type: ["string", "null"], format: "uri", description: "The host's own booking URL: https:// plus the host-owned domain. Null when the property has no domain." },
@@ -204,12 +204,10 @@ const PROPERTY_LISTING_ITEM: JsonSchemaField = {
     propertyType: { type: "string", description: "Property type classification." },
     currency: { type: "string", description: "ISO 4217 currency code (e.g. 'SEK', 'EUR')." },
     nights: { type: "integer", description: "Number of nights between check-in and check-out." },
-    publicTotal: { type: "integer", description: "Standard website total for the date range, in minor currency units." },
-    federationTotal: { type: "integer", description: "Legacy field: direct host-source total, in minor currency units. Do not label this as a HemmaBo platform, federation, OTA, marketplace, comparison, discount, or savings price in user-facing copy." },
-    federationDiscountPercent: { type: "integer", description: "Legacy internal field. Do not present this as a guest-facing discount, savings, or comparison." },
-    directBookingTotal: { type: "integer", description: "Preferred field for user-facing copy: direct host-source total, in minor currency units." },
-    hostSourcePublicTotal: { type: "integer", description: "Preferred field for user-facing copy: public host-source total for the date range, in minor currency units." },
-    directBookingDiscountPercent: { type: "integer", description: "Legacy internal field. Do not present this as a guest-facing discount, savings, or comparison." },
+    publicTotal: { type: "integer", description: "Standard website total for the date range, in whole units of the property's currency (not minor units)." },
+    federationTotal: { type: "integer", description: "Legacy field: the direct host-source total (the same value as directBookingTotal), in whole units of the property's currency (not minor units). Use directBookingTotal in user-facing copy." },
+    directBookingTotal: { type: "integer", description: "Preferred field for user-facing copy: direct host-source total, in whole units of the property's currency (not minor units)." },
+    hostSourcePublicTotal: { type: "integer", description: "Preferred field for user-facing copy: public host-source total for the date range, in whole units of the property's currency (not minor units)." },
     packageApplied: { type: "string", description: "Package applied (e.g. week or two_weeks), if any." },
     available: { type: "boolean", description: "Always true in search results because unavailable properties are filtered out." },
     signals: {
@@ -228,7 +226,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_search_properties",
     description:
-      "Search available vacation rental properties by location and travel dates. Use when the user wants to find or browse places to stay. Discovery only — call get_verified_stay_offer with the host domain and same dates before the final answer so the client can render the verified stay offer widget; never quote a final price or booking link from search alone. Do NOT use when the user already has a propertyId or host domain. Returns propertyId, host domain, live availability, host-source pricing, and capacity. Parameters combine as one filter with guests and the checkIn/checkOut range (checkIn strictly before checkOut): region matches broadly against region, city, and country names, while country matches the country field alone — omit both and the search spans every published property. Capacity misses are excluded; date-unavailable matches return separately in unavailableMatches with up to three alternative windows.",
+      "Search available vacation rental properties by location and travel dates. Use when the user wants to find or browse places to stay. Discovery only — call vrp_get_verified_stay_offer with the host domain and same dates before the final answer so the client can render the verified stay offer widget; never quote a final price or booking link from search alone. Do NOT use when the user already has a propertyId or host domain. Returns propertyId, host domain, live availability, host-source pricing, and capacity. Parameters combine as one filter with guests and the checkIn/checkOut range (checkIn strictly before checkOut): region matches broadly against region, city, and country names, while country matches the country field alone — omit both and the search spans every published property. Capacity misses are excluded; date-unavailable matches return separately in unavailableMatches with up to three alternative windows. Booking and payment happen only on the host's own domain, at the signed direct_booking_url. The agent never books, pays, cancels or changes a booking.",
     inputSchema: {
       type: "object",
       properties: {
@@ -265,9 +263,9 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
     },
   },
   {
-    name: "hemmabo_search_availability",
+    name: "hemmabo_check_availability",
     description:
-      "Check whether a specific property is available for the requested dates. Use this tool after the user has selected a property from hemmabo_search_properties and wants to confirm availability before getting a quote. Do NOT use for general browsing — use hemmabo_search_properties instead. Read-only, open to anonymous callers (no Bearer token), and rate-limited: checking availability never places a hold or reserves dates. Returns available=true/false with conflict details and, when unavailable, the host node's own next available window (alternativeDates, at most one entry — the same window the node's /api/availability reports, never a platform-invented date); a stale inbound calendar sync blocks an available answer (fails closed with calendar_freshness) instead of guessing. Omit guests to check dates only; pass it to price the alternative windows and to gate capacity — counts above the property's maximum return available=false (guests_exceed_max) with no alternatives. Stays shorter than the host's effective minimum nights return available=false with reasonCode min_nights_violation — extend the stay rather than shifting dates. The verdict always matches the host node's own availability API.",
+      "Use this tool to answer \"is it free these dates?\" for one known propertyId — a yes/no with conflict details, no signed price. For the final quoted price and booking link, use vrp_get_verified_stay_offer with the host domain instead. Never present this tool's numbers as the final price. Check whether a specific property is available for the requested dates. Use this tool after the user has selected a property from hemmabo_search_properties and wants to confirm availability before getting a quote. Do NOT use for general browsing — use hemmabo_search_properties instead. Read-only, open to anonymous callers (no Bearer token), and rate-limited: checking availability never places a hold or reserves dates. Returns available=true/false with conflict details and, when unavailable, the host node's own next available window (alternativeDates, at most one entry — the same window the node's /api/availability reports, never a platform-invented date); a stale inbound calendar sync blocks an available answer (fails closed with calendar_freshness) instead of guessing. Omit guests to check dates only; pass it to price the alternative windows and to gate capacity — counts above the property's maximum return available=false (guests_exceed_max) with no alternatives. Stays shorter than the host's effective minimum nights return available=false with reasonCode min_nights_violation — extend the stay rather than shifting dates. The verdict always matches the host node's own availability API. Booking and payment happen only on the host's own domain, at the signed direct_booking_url. The agent never books, pays, cancels or changes a booking.",
     inputSchema: {
       type: "object",
       properties: {
@@ -303,7 +301,6 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
               currency: { type: "string" },
               publicTotal: { type: "number" },
               federationTotal: { type: "number" },
-              federationDiscountPercent: { type: "number" },
             },
             additionalProperties: true,
           },

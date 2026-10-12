@@ -1,5 +1,7 @@
 # ADR 0004 - Agent Discovery and Packaging Lockstep
 
+> **Tool names updated 2026-10-11.** This record uses the tool names in force since the 2026-10-11 rename (product tools `hemmabo_`, protocol tools `vrp_`, every name verb_noun). On the record's own date the tools carried earlier names; those are in this file's git history. Nothing else in the record was changed.
+
 - **Status:** Proposed
 - **Date:** 2026-05-18
 - **Deciders:** HemmaBo core
@@ -14,7 +16,7 @@
 HemmaBo now has 13 MCP tools in the live runtime:
 
 1. `hemmabo_search_properties`
-2. `hemmabo_search_availability`
+2. `hemmabo_check_availability`
 3. `hemmabo_search_similar`
 4. `hemmabo_compare_properties`
 5. `hemmabo_booking_quote`
@@ -24,8 +26,8 @@ HemmaBo now has 13 MCP tools in the live runtime:
 9. `hemmabo_booking_cancel`
 10. `hemmabo_booking_status`
 11. `hemmabo_booking_reschedule`
-12. `verify_vacation_rental_node`
-13. `get_verified_stay_offer`
+12. `vrp_verify_node`
+13. `vrp_get_verified_stay_offer`
 
 The last two tools introduce the Vacation Rental Protocol (VRP) proof path:
 
@@ -33,8 +35,8 @@ The last two tools introduce the Vacation Rental Protocol (VRP) proof path:
 villaakerlyckan.se
 -> /.well-known/vacation-rental.json
 -> /.well-known/jwks.json
--> verify_vacation_rental_node
--> get_verified_stay_offer
+-> vrp_verify_node
+-> vrp_get_verified_stay_offer
 -> signed verified_stay_offer
 -> direct booking URL
 ```
@@ -356,8 +358,8 @@ Add or update a proof page on `villaakerlyckan.se` explaining:
 villaakerlyckan.se
 -> /.well-known/vacation-rental.json
 -> /.well-known/jwks.json
--> verify_vacation_rental_node
--> get_verified_stay_offer
+-> vrp_verify_node
+-> vrp_get_verified_stay_offer
 -> signed verified_stay_offer
 -> direct booking URL
 ```
@@ -401,7 +403,7 @@ The page must show Villa Åkerlyckan as a proof node, not as the whole standard.
 ADR 0004 may be marked **Accepted** when:
 
 - [ ] Every repo-owned public surface listed in Section 2.2 says HemmaBo + VRP, 13 tools, host-domain signed verified stay offers.
-- [ ] `glama.json` lists all 13 tools, including `verify_vacation_rental_node` and `get_verified_stay_offer`.
+- [ ] `glama.json` lists all 13 tools, including `vrp_verify_node` and `vrp_get_verified_stay_offer`.
 - [ ] `submission/chatgpt-app-submission.json` includes both VRP tools.
 - [ ] ChatGPT Apps positive and negative test prompts match Section 2.3.
 - [ ] `/.well-known/mcp.json` and `/.well-known/mcp/server-card.json` are verified live and list 13 tools.

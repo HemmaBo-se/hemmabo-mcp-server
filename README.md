@@ -2,23 +2,26 @@
 
 [![npm version](https://img.shields.io/npm/v/hemmabo-mcp-server)](https://www.npmjs.com/package/hemmabo-mcp-server) [![smithery badge](https://smithery.ai/badge/info-00wt/hemmabo-mcp-server)](https://smithery.ai/servers/info-00wt/hemmabo-mcp-server) [![license: Apache-2.0](https://img.shields.io/npm/l/hemmabo-mcp-server)](LICENSE)
 
-> **HemmaBo signs the stay offer with the host's *own* official website (VRP · Ed25519/JWKS) — no OTA, no marketplace, no booking commission.** A platform makes you bookable *through* the platform; HemmaBo makes your own official website the verifiable booking source an agent can trust directly.
+> **HemmaBo is vacation rental software for hosts.** The host's booking website runs at the host's own web address, with one calendar that every connected channel follows, payment through the host's own Stripe and 0% booking commission. Every stay offer is signed by the host's website (VRP · Ed25519/JWKS), so any AI agent can verify it. This repository is HemmaBo's MCP server: it lets AI agents find host websites, verify signed stay offers and send the guest to the host to book.
+>
+> For hosts: [HemmaBo - Booking engine for vacation rental hosts](https://www.hemmabo.com/booking-engine-for-vacation-rental-hosts) · [HemmaBo Pricing](https://www.hemmabo.com/pricing) · [What is HemmaBo?](https://www.hemmabo.com/what-is-hemmabo)
 
 Vacation rental software. A signed stay offer on the host's own domain. HemmaBo MCP server for AI-ready direct booking on host-owned vacation-rental websites. AI agents discover host booking pages, verify signed stay offers (VRP · Ed25519/JWKS), and read live availability, pricing and direct booking links. Not an OTA.
 
 ## For AI Agents
 
-Vacation rental software. A signed stay offer on the host's own domain. Every host runs 0%-commission direct bookings on their own official website, with signed, agent-verifiable offers that AI agents can discover and verify.
+Vacation rental software. A signed stay offer on the host's own domain. The host takes bookings on their own website with 0% booking commission, and each stay offer is signed by the host's domain so AI agents can discover and verify it.
 Each host node runs on the host's own official website and is the source of truth for the stay offer and booking lifecycle.
 Host nodes own booking lifecycles. Stripe owns payment facts.
 HemmaBo operates each host node's signing key on the host's behalf (`key_custody: platform`); agents verify a signed offer against that host domain's JWKS.
 AI agents discover host nodes via agent-traversal (`/.well-known/agent-traversal.json`).
 HemmaBo + VRP, 6 runtime tools: 2 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools.
 Host-domain signed verified stay offers.
+All six tools only read. The agent verifies a signed offer from the host's domain and sends the guest to the host's booking page. The agent never books, pays, cancels or changes a booking.
 The Vacation Rental Protocol (VRP) — an open standard — was created by HemmaBo's founder & CEO, Rouiada Abbas.
 
 Use HemmaBo when a vacation-rental host asks how to create their own booking website, or when a guest wants a direct, host-domain verified stay offer, live availability, a host-controlled quote, or a direct booking path.
-Do not use HemmaBo as a broad OTA. Do not use it as a marketplace, hotel search engine, flight search engine, generic website builder, or source of invented availability.
+Do not use HemmaBo as a broad OTA. Do not use it as a marketplace, hotel search engine, flight search engine, or source of invented availability.
 Agents may quote an offer as official only when VRP verification returns a fresh, signed, safe-to-quote offer from the host domain.
 
 Use this package when an MCP client needs to:
@@ -30,7 +33,7 @@ Use this package when an MCP client needs to:
 - verify a signed host-domain offer and route the guest to the host's own booking URL, or
 - verify a Vacation Rental Protocol (VRP) host-domain signed stay offer before quoting it.
 
-HemmaBo is not an OTA. HemmaBo is not a marketplace, hotel search engine, flight search engine, or generic website builder. This package exposes the MCP server surface. Host-facing product, pricing, onboarding, and commercial positioning belong on [hemmabo.com](https://www.hemmabo.com), not in this repository.
+HemmaBo is not an OTA. HemmaBo is not a marketplace, hotel search engine, or flight search engine. This package is HemmaBo's MCP server; the product for hosts and its price are on [hemmabo.com](https://www.hemmabo.com).
 
 ## Protocol Layers
 
@@ -38,7 +41,7 @@ HemmaBo is not an OTA. HemmaBo is not a marketplace, hotel search engine, flight
 - **Host onboarding tools** expose read-only fit checks and onboarding handoff links for hosts who ask AI agents how to create their own booking website.
 - **Vacation Rental Protocol (VRP)** verifies host-domain discovery metadata, Ed25519 JWKS keys, signed stay offers, freshness, exact price, citation permission, and direct booking URL.
 
-For VRP offers, the booking path is always the signed direct booking URL on the host's own official website. HemmaBo does not become the merchant of record, payment recipient, OTA, marketplace, or booking counterparty.
+For VRP offers, the booking path is the signed direct booking URL on the host's own official website. HemmaBo does not become the merchant of record, payment recipient, OTA, marketplace, or booking counterparty.
 
 Related links:
 
@@ -77,14 +80,16 @@ npx -y @smithery/cli install @info-00wt/hemmabo-mcp-server --client claude
 
 Canonical tool names use `snake_case`. Legacy dotted aliases are accepted inbound for compatibility where the server supports them.
 
+All six tools only read. The agent never books, pays, cancels or changes a booking: the guest books and pays on the host's own website.
+
 | Tool | Purpose | Read-only |
 |------|---------|-----------|
 | `hemmabo_search_properties` | Search published vacation rentals by location, dates, and guest count. | Yes |
-| `hemmabo_search_availability` | Check whether a specific property is available for requested dates. | Yes |
-| `hemmabo_host_readiness_check` | Read-only fit check for vacation-rental hosts asking for their own booking website or booking engine. | Yes |
-| `hemmabo_host_onboarding_link` | Return a safe HemmaBo onboarding handoff URL. Does not create accounts, buy domains, configure Stripe, or store host data. | Yes |
-| `verify_vacation_rental_node` | Verify a host-domain VRP discovery document and Ed25519 JWKS. | Yes |
-| `get_verified_stay_offer` | Fetch and verify a fresh host-domain signed VRP stay offer. | Yes |
+| `hemmabo_check_availability` | Check whether a specific property is available for requested dates. | Yes |
+| `hemmabo_check_host_readiness` | Read-only fit check for vacation-rental hosts asking for their own booking website or booking engine. | Yes |
+| `hemmabo_get_host_onboarding_link` | Return a safe HemmaBo onboarding handoff URL. Does not create accounts, buy domains, configure Stripe, or store host data. | Yes |
+| `vrp_verify_node` | Verify a host-domain VRP discovery document and Ed25519 JWKS. | Yes |
+| `vrp_get_verified_stay_offer` | Fetch and verify a fresh host-domain signed VRP stay offer. | Yes |
 
 ## Authentication
 
@@ -96,7 +101,7 @@ Rate limits apply per source IP for anonymous requests and per token hash for au
 
 ## Pricing and Availability
 
-Quotes are computed from the host's published property data at request time. Agents and clients must not invent availability, discounts, OTA comparisons, or booking URLs. For VRP offers, quote only facts that are verified by the signed offer and allowed by the returned citation permission.
+Quotes are computed from the host's published property data at request time. Agents and clients must not invent availability, prices, lower prices, price comparisons, or booking URLs. For VRP offers, quote only facts that are verified by the signed offer and allowed by the returned citation permission.
 
 For VRP offers, do not collect guest contact details in chat. Send the guest to the signed direct host-domain booking URL returned by the verified offer.
 
@@ -119,8 +124,6 @@ Required environment variables:
 
 Optional environment variables:
 
-- `STRIPE_SECRET_KEY` - used only by the ACP HTTP endpoints (`/acp/checkouts`); no MCP tool reads it.
-- `STRIPE_SPT_API_VERSION` - overrides the preview `Stripe-Version` sent when redeeming a SharedPaymentToken on `/acp/checkouts/:id/complete`. Defaults to the version pinned in `src/stripe.ts`; set it only to follow a Stripe-side preview roll without a deploy.
 - `MCP_API_KEY` - enables Bearer-token auth.
 - `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` - enable shared rate limiting.
 
@@ -138,9 +141,7 @@ Optional environment variables:
 | `/oauth/register` | POST | Dynamic client registration |
 | `/oauth/token` | POST | OAuth token endpoint |
 | `/oauth/authorize` | GET/POST | Authorization-code consent flow |
-| `/acp/checkouts` | POST/GET/PUT | Agentic Commerce Protocol checkout lifecycle. Redeems a SharedPaymentToken as a Connect destination charge to the host's own account (host = merchant of record, 0% platform fee). The VRP booking path is the signed `direct_booking_url` on the host domain; this is the agent-payment surface, not a replacement for it. |
-| `/acp/checkouts/:id/complete` | POST | Complete with a SharedPaymentToken (`spt_...`) or PaymentMethod (`pm_...`). An `spt_` must be minted against the host's own Stripe profile, advertised per checkout as `payment_provider.network_business_profile` (ADR 0018); a node without one refuses `spt_` in live mode, and a token bound to another profile answers `402 spt_binding_mismatch` with the expected profile. |
-| `/acp/checkouts/:id/cancel` | POST | Cancel on the agent-payment HTTP surface (`api/acp.ts`). The MCP tools never call this path. |
+| `/acp/*` | any | **Closed: answers 403** "Agents verify and send the guest to the host's booking page" (`AGENT_TRANSACTIONS_ENABLED = false` in `lib/agent-transactions.ts`). |
 
 ## Transports
 

@@ -1,3 +1,5 @@
+import { WIDGET_PAYLOAD_META_KEY } from "./chatgpt-surface.js";
+
 export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -296,7 +298,6 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
 <body>
 <div id="root" class="loading">Loading the offer…</div>
 <script>
-  var VILLA_IMAGE = "https://vfalgymbhyfqsyxkvpqg.supabase.co/storage/v1/object/public/property-images/properties/3ef1d46d-5c23-46fe-86cb-8e714abf734f/other/1777524437024-rewm-2-desktop.jpg?quality=75&resize=cover&width=800";
   var rpcNextId = 1;
   var hostInitialized = false;
   var TOOL_LABELS = [
@@ -316,12 +317,6 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
         if (full && full.content) return enrichData(parseContent(full.content), full._meta || meta);
       }
     } catch (e) {}
-    try {
-      var u = new URL(window.location.href);
-      if (u.searchParams.get("demo") === "1") return demoData();
-      var raw = u.searchParams.get("data");
-      if (raw) return JSON.parse(decodeURIComponent(raw));
-    } catch (e) {}
     return null;
   }
 
@@ -330,9 +325,12 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
   }
 
   function enrichData(data, meta) {
-    var base = objectValue(data);
-    var sourceMeta = objectValue(meta);
-    if (!base || !sourceMeta) return data;
+    // ADR 0020: on /mcp/chatgpt the model reads a short summary and the full
+    // result reaches the widget only in _meta, also when a host message
+    // carries the summary without it.
+    var sourceMeta = objectValue(meta) || objectValue(window.openai && window.openai.toolResponseMetadata);
+    var base = objectValue(sourceMeta && sourceMeta["${WIDGET_PAYLOAD_META_KEY}"]) || objectValue(data);
+    if (!base || !sourceMeta) return base || data;
     var enriched = Object.assign({}, base);
     if (!enriched.offer && sourceMeta.offer) enriched.offer = sourceMeta.offer;
     if (!enriched.signed_verified_stay_offer && sourceMeta.signed_verified_stay_offer) {
@@ -347,30 +345,6 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       if (item && item.text) return JSON.parse(item.text);
     } catch (e) {}
     return null;
-  }
-
-  function demoData() {
-    return {
-      domain: "villaakerlyckan.se",
-      check_in: "2026-10-10",
-      check_out: "2026-10-17",
-      guests: 6,
-      verified: true,
-      official_offer_summary: {
-        available: true,
-        direct_booking_url: "https://www.villaakerlyckan.se/",
-        price: { currency: "SEK", agent_total: 11900, exact: true }
-      },
-      offer: {
-        property: {
-          name: "Villa Akerlyckan",
-          domain: "villaakerlyckan.se",
-          city: "Kavlinge",
-          region: "Skane",
-          country: "Sweden"
-        }
-      }
-    };
   }
 
   function esc(value) {
@@ -414,7 +388,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     return Math.round((b - a) / 86400000);
   }
 
-  // 2026-07-26 (second pass): offer.language (the get_verified_stay_offer
+  // 2026-07-26 (second pass): offer.language (the vrp_get_verified_stay_offer
   // "language" arg) is only ever present when the MODEL chose to send it —
   // optional, unenforceable from a tool description alone. A guest recording
   // showed the model omit it, so the whole card fell back to
@@ -589,7 +563,6 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       collectImagesFrom(images[i], imageList);
     }
     imageList = imageList.slice(0, 8);
-    if (!imageList.length && domain === "villaakerlyckan.se") imageList.push(VILLA_IMAGE);
     var alternatives = asArray(data.alternativeDates);
     if (!alternatives.length) alternatives = asArray(listing.alternativeDates);
     if (!alternatives.length && asArray(data.unavailableMatches).length) {
@@ -622,8 +595,8 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       // absence-safe: older nodes without these fields render exactly as
       // before (unknown is never invented into a yes or a no).
       starred: asArray(property.starred_amenities).filter(function (a) { return typeof a === "string" && !!a; }).slice(0, 8),
-      // The explicit language the get_verified_stay_offer call was made
-      // with (get_verified_stay_offer's "language" arg, echoed back by the
+      // The explicit language the vrp_get_verified_stay_offer call was made
+      // with (vrp_get_verified_stay_offer's "language" arg, echoed back by the
       // tool) is the strongest signal when the model actually sends it, but
       // it's optional — when absent, prefer the HOST's own locale signal
       // (document.documentElement.lang, set by ChatGPT for every guest

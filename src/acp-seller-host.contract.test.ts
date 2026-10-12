@@ -35,8 +35,9 @@ async function discovery(path: string): Promise<MockRes> {
     json(body) { this.body = body; return this; },
     end() { return this; },
   };
+  // The router behind the S22 switch (closed in production; see agent-transactions-closed.contract.test.ts).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await mod.default({ method: "GET", url: path, headers: { host: "test.local" } } as any, res as any);
+  await mod.acpRouter({ method: "GET", url: path, headers: { host: "test.local" } } as any, res as any);
   return res;
 }
 

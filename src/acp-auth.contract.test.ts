@@ -84,7 +84,8 @@ function makeRes(): MockRes {
 
 async function callHandler(req: MockReq): Promise<MockRes> {
   const mod = await import("../api/acp.js");
-  const handler = mod.default;
+  // The router behind the S22 switch (closed in production; see agent-transactions-closed.contract.test.ts).
+  const handler = mod.acpRouter;
   const res = makeRes();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await handler(req as any, res as any);

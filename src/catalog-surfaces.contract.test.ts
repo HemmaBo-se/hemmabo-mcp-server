@@ -38,11 +38,11 @@ const COUNT_SENTENCE =
 
 const SIX_TOOLS = [
   "hemmabo_search_properties",
-  "hemmabo_search_availability",
-  "verify_vacation_rental_node",
-  "get_verified_stay_offer",
-  "hemmabo_host_readiness_check",
-  "hemmabo_host_onboarding_link",
+  "hemmabo_check_availability",
+  "vrp_verify_node",
+  "vrp_get_verified_stay_offer",
+  "hemmabo_check_host_readiness",
+  "hemmabo_get_host_onboarding_link",
 ];
 
 // The seven booking tools removed by ADR 0019 all carried this prefix.
@@ -118,11 +118,11 @@ describe("catalog surfaces contract", () => {
     assert.deepEqual([...fafTools].sort(), [...SIX_TOOLS].sort());
   });
 
-  it("the ACP paragraph in llms.txt is an HTTP surface, not an MCP tool", () => {
+  it("llms.txt says the agent never books, pays, cancels or changes a booking", () => {
     const llms = SURFACES["llms.txt"];
     assert.ok(
-      llms.includes("no MCP tool checks out, takes payment or cancels"),
-      "llms.txt must say the MCP tools do not check out, take payment or cancel",
+      llms.includes("The agent never books, pays, cancels or changes a booking."),
+      "llms.txt must say the agent never books, pays, cancels or changes a booking",
     );
   });
 

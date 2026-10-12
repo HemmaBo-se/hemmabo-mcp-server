@@ -16,9 +16,9 @@ const POSTGRES_LEAK_RE = /invalid input syntax|"undefined"|22P02|relation .* doe
 
 const REQUIRED_BY_TOOL: ReadonlyArray<{ tool: string; required: readonly string[] }> = [
   { tool: "hemmabo_search_properties",   required: ["guests", "checkIn", "checkOut"] },
-  { tool: "hemmabo_search_availability", required: ["propertyId", "checkIn", "checkOut"] },
-  { tool: "verify_vacation_rental_node", required: ["domain"] },
-  { tool: "get_verified_stay_offer",     required: ["domain", "checkIn", "checkOut", "guests"] },
+  { tool: "hemmabo_check_availability", required: ["propertyId", "checkIn", "checkOut"] },
+  { tool: "vrp_verify_node", required: ["domain"] },
+  { tool: "vrp_get_verified_stay_offer",     required: ["domain", "checkIn", "checkOut", "guests"] },
 ];
 
 describe("validateRequiredArgs unit", () => {

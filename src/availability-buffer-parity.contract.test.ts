@@ -9,7 +9,7 @@
  * tools therefore promised windows the node refused. Live case
  * (villaakerlyckan.se): channex block [2026-09-08, 2026-09-10) + buffer 1/1
  * ⇒ the night 09-07 is blocked ⇒ /api/availability says host_blocked for
- * 09-05→09-08 while hemmabo_search_availability said available.
+ * 09-05→09-08 while hemmabo_check_availability said available.
  *
  * The Supabase double applies eq/lt/gt/gte faithfully (or/neq stay no-ops,
  * same as the repo's other availability tests), so these tests also prove the

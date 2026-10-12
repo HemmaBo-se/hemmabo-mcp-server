@@ -10,7 +10,7 @@
  * Hole this pins shut (live 2026-08-29): the host opened ONE night by setting
  * custom_min_nights=1 on 2026-12-09; the node's /api/availability answered
  * available:true (3610 SEK) and Airbnb/Booking.com sold the night — but
- * hemmabo_search_availability still refused with min_nights_violation/2,
+ * hemmabo_check_availability still refused with min_nights_violation/2,
  * because the vendored effective-min core was the pre-3A five-parameter
  * version and resolveEffectiveMinNights never read the
  * `get_property_custom_min_nights` RPC. Search must never refuse a window the
@@ -126,11 +126,11 @@ function parsePayload(result: { content: Array<{ type: string; text: string }> }
   return JSON.parse(result.content[0].text) as Record<string, unknown>;
 }
 
-describe("search_availability honours the per-date custom_min_nights override (3A)", () => {
+describe("check_availability honours the per-date custom_min_nights override (3A)", () => {
   it("override 1 on the arrival day opens the one-night window the node sells", async () => {
     const clients = makeClients(fixtures);
     const result = await executeTool(
-      "hemmabo_search_availability",
+      "hemmabo_check_availability",
       { propertyId: PROP, checkIn: "2031-12-09", checkOut: "2031-12-10", guests: 6 },
       clients,
     );
@@ -142,7 +142,7 @@ describe("search_availability honours the per-date custom_min_nights override (3
   it("the day BEFORE the override date still refuses on the base minimum", async () => {
     const clients = makeClients(fixtures);
     const result = await executeTool(
-      "hemmabo_search_availability",
+      "hemmabo_check_availability",
       { propertyId: PROP, checkIn: "2031-12-08", checkOut: "2031-12-09", guests: 6 },
       clients,
     );
@@ -157,7 +157,7 @@ describe("search_availability honours the per-date custom_min_nights override (3
   it("the day AFTER the override date still refuses on the base minimum", async () => {
     const clients = makeClients(fixtures);
     const result = await executeTool(
-      "hemmabo_search_availability",
+      "hemmabo_check_availability",
       { propertyId: PROP, checkIn: "2031-12-10", checkOut: "2031-12-11", guests: 6 },
       clients,
     );
@@ -170,7 +170,7 @@ describe("search_availability honours the per-date custom_min_nights override (3
   it("no override anywhere ⇒ unchanged base-min behaviour", async () => {
     const clients = makeClients({ ...fixtures, customMinByDate: {} });
     const result = await executeTool(
-      "hemmabo_search_availability",
+      "hemmabo_check_availability",
       { propertyId: PROP, checkIn: "2031-12-09", checkOut: "2031-12-10", guests: 6 },
       clients,
     );
@@ -183,7 +183,7 @@ describe("search_availability honours the per-date custom_min_nights override (3
   it("an override may also RAISE the floor (host's explicit per-date choice)", async () => {
     const clients = makeClients({ ...fixtures, customMinByDate: { "2031-03-05": 4 } });
     const result = await executeTool(
-      "hemmabo_search_availability",
+      "hemmabo_check_availability",
       { propertyId: PROP, checkIn: "2031-03-05", checkOut: "2031-03-08", guests: 6 },
       clients,
     );

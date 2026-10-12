@@ -5,7 +5,7 @@
     "kingen1"
   ],
   "name": "HemmaBo",
-  "version": "5.0.0",
+  "version": "6.0.2",
   "license": "Apache-2.0",
   "description": "Vacation rental software. A signed stay offer on the host's own domain. Use this when a vacation rental host wants booking software on the host's own domain, or when a stay offer must be verified against that domain. Returns an Ed25519-signed offer (VRP) and the host's direct booking URL. The guest books and pays the host. Do not use to compare hosts or prices. Compatible agents can discover a host domain, verify a signed stay offer, and send the guest to that domain to book. Host nodes own booking lifecycles; Stripe owns payment facts. HemmaBo implements Vacation Rental Protocol (VRP). The spec lives at https://vacationrentalprotocol.com — not here. HemmaBo + VRP, 6 runtime tools: 2 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools. Host-domain signed verified stay offers. Not an OTA. Not a marketplace.",
   "homepage": "https://www.hemmabo.com",
@@ -19,37 +19,31 @@
     "short-term-rental",
     "booking-engine",
     "direct-booking",
-    "ai-booking",
     "autonomous-agents",
     "zero-commission",
     "host-payment-path",
     "host-onboarding",
     "ai-ready-booking-website",
     "booking-website",
-    "set-it-forget-it",
     "vrp",
     "vacation-rental-protocol",
     "verified-stay-offer",
-    "host-domain-signature",
-    "ap2",
-    "agent-payments-protocol",
-    "acp",
-    "agentic-commerce"
+    "host-domain-signature"
   ],
   "tools": [
     {
       "name": "hemmabo_search_properties",
-      "description": "Search available host-owned vacation rental properties by location, travel dates, and guest count. Use for initial discovery. Returns available properties with propertyId, host domain, live availability, final host-source pricing, and capacity info; after a result includes a host domain, use get_verified_stay_offer to fetch the signed VRP offer before quoting final details.",
+      "description": "Search available host-owned vacation rental properties by location, travel dates, and guest count. Use for initial discovery. Returns available properties with propertyId, host domain, live availability, final host-source pricing, and capacity info; after a result includes a host domain, use vrp_get_verified_stay_offer to fetch the signed VRP offer before quoting final details. Booking and payment happen only on the host's own domain, at the signed direct_booking_url. The agent never books, pays, cancels or changes a booking.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "region": {
             "type": "string",
-            "description": "Region, area, city, or destination to search within, e.g. Skane, Kavlinge, Toscana, or Bavaria. At least one of region or country should be provided."
+            "description": "Region, area, city, or destination to search within, e.g. Skane, Kavlinge, Toscana, or Bavaria. Optional — omit both region and country and the search spans every published property."
           },
           "country": {
             "type": "string",
-            "description": "Country name to filter by, e.g. Sweden or Italy. Use with region when the user gives both."
+            "description": "Country name to filter by, e.g. Sweden or Italy. Optional — omit both region and country and the search spans every published property."
           },
           "guests": {
             "type": "integer",
@@ -95,7 +89,7 @@
                 "propertyId": {
                   "type": "string",
                   "format": "uuid",
-                  "description": "Stable UUID. Pass to subsequent tools (availability)."
+                  "description": "Stable property UUID."
                 },
                 "name": {
                   "type": "string",
@@ -143,27 +137,19 @@
                 },
                 "publicTotal": {
                   "type": "integer",
-                  "description": "Standard website total for the date range, in minor currency units."
+                  "description": "Standard website total for the date range, in whole units of the property's currency (not minor units)."
                 },
                 "federationTotal": {
                   "type": "integer",
-                  "description": "Legacy field: direct host-source total, in minor currency units. Do not label this as a HemmaBo platform, federation, OTA, marketplace, comparison, discount, or savings price in user-facing copy."
-                },
-                "federationDiscountPercent": {
-                  "type": "integer",
-                  "description": "Legacy internal field. Do not present this as a guest-facing discount, savings, or comparison."
+                  "description": "Legacy field: the direct host-source total (the same value as directBookingTotal), in whole units of the property's currency (not minor units). Use directBookingTotal in user-facing copy."
                 },
                 "directBookingTotal": {
                   "type": "integer",
-                  "description": "Preferred field for user-facing copy: direct host-source total, in minor currency units."
+                  "description": "Preferred field for user-facing copy: direct host-source total, in whole units of the property's currency (not minor units)."
                 },
                 "hostSourcePublicTotal": {
                   "type": "integer",
-                  "description": "Preferred field for user-facing copy: public host-source total for the date range, in minor currency units."
-                },
-                "directBookingDiscountPercent": {
-                  "type": "integer",
-                  "description": "Legacy internal field. Do not present this as a guest-facing discount, savings, or comparison."
+                  "description": "Preferred field for user-facing copy: public host-source total for the date range, in whole units of the property's currency (not minor units)."
                 },
                 "packageApplied": {
                   "type": "string",
@@ -192,8 +178,8 @@
       }
     },
     {
-      "name": "hemmabo_search_availability",
-      "description": "Check whether a specific property is available for the requested dates. Returns available=true/false with conflict details if unavailable.",
+      "name": "hemmabo_check_availability",
+      "description": "Use this tool to answer \"is it free these dates?\" for one known propertyId — a yes/no with conflict details, no signed price. For the final quoted price and booking link, use vrp_get_verified_stay_offer with the host domain instead. Never present this tool's numbers as the final price. Check whether a specific property is available for the requested dates. Returns available=true/false with conflict details if unavailable. Booking and payment happen only on the host's own domain, at the signed direct_booking_url. The agent never books, pays, cancels or changes a booking.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -261,9 +247,6 @@
                 },
                 "federationTotal": {
                   "type": "number"
-                },
-                "federationDiscountPercent": {
-                  "type": "number"
                 }
               },
               "additionalProperties": true
@@ -281,8 +264,8 @@
       }
     },
     {
-      "name": "hemmabo_host_readiness_check",
-      "description": "Read-only fit check for vacation-rental hosts who ask an AI agent how to create their own booking website or booking engine. Returns whether HemmaBo is a fit, what the host gets, what setup inputs are needed, and the safe next step. Does not create an account, buy a domain, configure Stripe, write data, collect PII, or provision a website.",
+      "name": "hemmabo_check_host_readiness",
+      "description": "Use this tool when a host is still EVALUATING whether HemmaBo fits; use hemmabo_get_host_onboarding_link only when the host has decided and wants to start. Never call both in the same turn — this tool's next_step already contains the same onboarding URL. Read-only fit check for vacation-rental hosts who ask an AI agent how to create their own booking website or booking engine. Returns whether HemmaBo is a fit, what the host gets, what setup inputs are needed, and the safe next step. Does not create an account, buy a domain, configure Stripe, write data, collect PII, or provision a website. Booking and payment happen only on the host's own domain, at the signed direct_booking_url. The agent never books, pays, cancels or changes a booking.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -355,19 +338,16 @@
           "product": {
             "type": "object",
             "additionalProperties": true,
-            "description": "HemmaBo product, pricing, onboarding URL, and live proof URLs."
+            "description": "HemmaBo: the category sentence, the host's subscription price atom, and the onboarding URL."
           },
           "readiness": {
             "type": "object",
             "additionalProperties": true,
             "description": "Fit summary and boundaries for the host's described need."
           },
-          "capabilities": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Host-facing capabilities included in HemmaBo."
+          "agent_role": {
+            "type": "string",
+            "description": "What a compatible agent does: discover the host domain, verify the signed stay offer, send the guest to that domain to book. The agent does not book."
           },
           "setup_items": {
             "type": "array",
@@ -389,7 +369,7 @@
         "required": [
           "ok",
           "product",
-          "capabilities",
+          "agent_role",
           "setup_items",
           "next_step"
         ],
@@ -397,8 +377,8 @@
       }
     },
     {
-      "name": "hemmabo_host_onboarding_link",
-      "description": "Return a safe HemmaBo onboarding handoff URL for a vacation-rental host who wants their own booking website or booking engine. Does not create accounts, buy domains, configure Stripe, write data, or provision a booking site.",
+      "name": "hemmabo_get_host_onboarding_link",
+      "description": "Use this tool only when the host has already decided to start; if the host is still evaluating, use hemmabo_check_host_readiness instead — it returns the same onboarding URL in next_step. Never call both in the same turn. Return a safe HemmaBo onboarding handoff URL for a vacation-rental host who wants their own booking website or booking engine. Does not create accounts, buy domains, configure Stripe, write data, or provision a booking site. Booking and payment happen only on the host's own domain, at the signed direct_booking_url. The agent never books, pays, cancels or changes a booking.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -438,14 +418,11 @@
           "product": {
             "type": "object",
             "additionalProperties": true,
-            "description": "HemmaBo product, pricing, onboarding URL, and live proof URLs."
+            "description": "HemmaBo: the category sentence, the host's subscription price atom, and the onboarding URL."
           },
-          "capabilities": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Host-facing capabilities included in HemmaBo."
+          "agent_role": {
+            "type": "string",
+            "description": "What a compatible agent does: discover the host domain, verify the signed stay offer, send the guest to that domain to book. The agent does not book."
           },
           "setup_items": {
             "type": "array",
@@ -467,7 +444,7 @@
         "required": [
           "ok",
           "product",
-          "capabilities",
+          "agent_role",
           "setup_items",
           "next_step"
         ],
@@ -475,8 +452,8 @@
       }
     },
     {
-      "name": "verify_vacation_rental_node",
-      "description": "Verify that a vacation rental host domain is a valid Vacation Rental Protocol (VRP) node before trusting it. Reads the domain's .well-known/vacation-rental.json and JWKS, confirms protocol identity, host-domain control, Ed25519 signing keys, and the verified stay-offer endpoint. This read-only trust check does not check dates, price, booking rules, booking, or payment.",
+      "name": "vrp_verify_node",
+      "description": "Verify that a vacation rental host domain is a valid Vacation Rental Protocol (VRP) node before trusting it. Reads the domain's .well-known/vacation-rental.json and JWKS, confirms protocol identity, host-domain control, Ed25519 signing keys, and the verified stay-offer endpoint. This read-only trust check does not check dates, price, booking rules, booking, or payment. Booking and payment happen only on the host's own domain, at the signed direct_booking_url. The agent never books, pays, cancels or changes a booking.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -542,15 +519,15 @@
       }
     },
     {
-      "name": "get_verified_stay_offer",
-      "description": "Fetch, verify, and render a live host-domain signed VRP stay offer for exact dates and guest count. Verifies the Ed25519 compact JWS against the domain JWKS and returns the ChatGPT widget data, live availability, exact host-source price, booking rules, freshness status, citation permission, and signed direct host-domain booking URL. This is read-only and must not lock a quote, create a booking, collect guest details, or start checkout.",
+      "name": "vrp_get_verified_stay_offer",
+      "description": "Use this tool for the final, host-signed price and booking link for exact dates — the only numbers an agent may quote. For a bare availability yes/no on a propertyId, hemmabo_check_availability is lighter and sufficient. Fetch, verify, and render a live host-domain signed VRP stay offer for exact dates and guest count. Verifies the Ed25519 compact JWS against the domain JWKS and returns the ChatGPT widget data, live availability, exact host-source price, booking rules, freshness status, citation permission, and signed direct host-domain booking URL. This is read-only and must not lock a quote, create a booking or collect guest details. Booking and payment happen only on the host's own domain, at the signed direct_booking_url. The agent never books, pays, cancels or changes a booking.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "domain": {
             "type": "string",
             "pattern": "^(?!-)(?:[A-Za-z0-9-]{1,63}\\.)+[A-Za-z]{2,63}$",
-            "description": "Canonical public host-owned vacation-rental domain returned by search or verify_vacation_rental_node, without protocol, path, query string, or booking URL."
+            "description": "Canonical public host-owned vacation-rental domain returned by search or vrp_verify_node, without protocol, path, query string, or booking URL."
           },
           "checkIn": {
             "type": "string",
@@ -620,7 +597,7 @@
           },
           "official_offer_summary": {
             "type": "object",
-            "description": "Small signed-offer summary for agents to quote without inventing price, availability, discounts, savings, comparisons, or booking details.",
+            "description": "Small signed-offer summary for agents to quote without inventing a price, a lower price, savings, availability, comparisons, or booking details.",
             "additionalProperties": true
           },
           "widget_media": {

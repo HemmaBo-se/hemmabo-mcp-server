@@ -32,17 +32,17 @@ const callArgs = { domain: "villaakerlyckan.se", checkIn: "2026-09-02", checkOut
 
 test("MCP profile: assertion is deterministic and omits absent optional fields", () => {
   const a = buildMcpTransportAssertion({
-    tool: "get_verified_stay_offer",
+    tool: "vrp_get_verified_stay_offer",
     arguments: callArgs,
     served_at: servedAt,
     issuer: "villaakerlyckan.se",
   });
   assert.equal(a.type, VRP_MCP_ASSERTION_TYPE);
-  assert.equal(a.tool, "get_verified_stay_offer");
+  assert.equal(a.tool, "vrp_get_verified_stay_offer");
   assert.equal("offer_ref" in a, false);
   assert.equal("session_id" in a, false);
   assert.deepEqual(a, buildMcpTransportAssertion({
-    tool: "get_verified_stay_offer",
+    tool: "vrp_get_verified_stay_offer",
     arguments: { ...callArgs },
     served_at: servedAt,
     issuer: "villaakerlyckan.se",
@@ -61,19 +61,19 @@ test("MCP profile: a changed argument changes the hash", () => {
 
 test("MCP profile: assertionMatchesToolCall binds a verified assertion to an observed call", () => {
   const a = buildMcpTransportAssertion({
-    tool: "get_verified_stay_offer",
+    tool: "vrp_get_verified_stay_offer",
     arguments: callArgs,
     served_at: servedAt,
     issuer: "villaakerlyckan.se",
   });
-  assert.equal(assertionMatchesToolCall(a, { tool: "get_verified_stay_offer", arguments: { ...callArgs } }), true);
-  assert.equal(assertionMatchesToolCall(a, { tool: "get_verified_stay_offer", arguments: { ...callArgs, guests: 5 } }), false);
-  assert.equal(assertionMatchesToolCall(a, { tool: "verify_vacation_rental_node", arguments: callArgs }), false);
+  assert.equal(assertionMatchesToolCall(a, { tool: "vrp_get_verified_stay_offer", arguments: { ...callArgs } }), true);
+  assert.equal(assertionMatchesToolCall(a, { tool: "vrp_get_verified_stay_offer", arguments: { ...callArgs, guests: 5 } }), false);
+  assert.equal(assertionMatchesToolCall(a, { tool: "vrp_verify_node", arguments: callArgs }), false);
 });
 
 test("MCP profile: a node-signed transport attestation verifies inside a receipt (D6 → D1–D5)", () => {
   const assertion = buildMcpTransportAssertion({
-    tool: "get_verified_stay_offer",
+    tool: "vrp_get_verified_stay_offer",
     arguments: callArgs,
     served_at: servedAt,
     issuer: "villaakerlyckan.se",
@@ -109,7 +109,7 @@ test("MCP profile: a node-signed transport attestation verifies inside a receipt
 
 test("MCP profile: tampering the signed assertion fails transport verification", () => {
   const assertion = buildMcpTransportAssertion({
-    tool: "get_verified_stay_offer",
+    tool: "vrp_get_verified_stay_offer",
     arguments: callArgs,
     served_at: servedAt,
     issuer: "villaakerlyckan.se",

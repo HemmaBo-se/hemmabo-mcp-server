@@ -1,5 +1,7 @@
 # Smithery `info-00wt` republish receipt
 
+> **Tool names updated 2026-10-11.** This record uses the tool names in force since the 2026-10-11 rename (product tools `hemmabo_`, protocol tools `vrp_`, every name verb_noun). On the record's own date the tools carried earlier names; those are in this file's git history. Nothing else in the record was changed.
+
 Date: 2026-05-19
 Status: Production Smithery listing restored
 Scope: Smithery listing and registry packaging for `hemmabo-mcp-server` after ADR 0004
@@ -132,7 +134,7 @@ Expected and observed tools:
 | Tool | Belongs here | Auth | Notes |
 |---|---:|---|---|
 | `hemmabo_search_properties` | yes | none | Public read-only discovery. |
-| `hemmabo_search_availability` | yes | none | Public read-only availability check. |
+| `hemmabo_check_availability` | yes | none | Public read-only availability check. |
 | `hemmabo_search_similar` | yes | none | Public read-only alternatives. |
 | `hemmabo_compare_properties` | yes | none | Public read-only comparison. |
 | `hemmabo_booking_quote` | yes | none | Public read-only quote. |
@@ -142,8 +144,8 @@ Expected and observed tools:
 | `hemmabo_booking_cancel` | yes | bearer | Destructive cancellation/refund flow. |
 | `hemmabo_booking_status` | yes | bearer | Booking status can expose PII; auth required. |
 | `hemmabo_booking_reschedule` | yes | bearer | Destructive reschedule flow. |
-| `verify_vacation_rental_node` | yes | none | VRP read-only host-domain discovery/JWKS verification. |
-| `get_verified_stay_offer` | yes | none | VRP read-only signed verified stay offer verification. |
+| `vrp_verify_node` | yes | none | VRP read-only host-domain discovery/JWKS verification. |
+| `vrp_get_verified_stay_offer` | yes | none | VRP read-only signed verified stay offer verification. |
 
 Conclusion: no observed tool is out of scope or incorrectly listed on the HemmaBo Smithery server.
 
@@ -161,7 +163,7 @@ The expected names are snake_case:
 
 ```text
 hemmabo_search_properties
-hemmabo_search_availability
+hemmabo_check_availability
 hemmabo_search_similar
 hemmabo_compare_properties
 hemmabo_booking_quote
@@ -171,8 +173,8 @@ hemmabo_booking_checkout
 hemmabo_booking_cancel
 hemmabo_booking_status
 hemmabo_booking_reschedule
-verify_vacation_rental_node
-get_verified_stay_offer
+vrp_verify_node
+vrp_get_verified_stay_offer
 ```
 
 ## Known stale surface

@@ -6,7 +6,7 @@
  * and lib/pricing-core.ts; ADR 2026-08-19-effective-min-nights-live-everywhere,
  * CEO decision A). This contract enforces cross-repo BEHAVIOURAL parity: the
  * same inputs the smart-stays gate test uses must yield the same effective
- * minimum here — so `hemmabo_search_availability` and the quote path in this
+ * minimum here — so `hemmabo_check_availability` and the quote path in this
  * repo refuse on exactly the floor the node's /api/availability, the guest-UI
  * and the Deno agent path enforce ("identiskt utfall": UI = node = MCP).
  *

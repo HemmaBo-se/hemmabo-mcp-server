@@ -11,7 +11,7 @@ describe("MCP calendar freshness gate contract", () => {
   it("search availability blocks on stale OTA calendar sync", () => {
     assert.match(toolsBase, /from "\.\/ical-freshness\.js"/);
     assert.match(toolsBase, /calendarFreshnessToolBlock\(/);
-    assert.match(toolsBase, /case "hemmabo_search_availability"[\s\S]*calendarFreshnessToolBlock/);
+    assert.match(toolsBase, /case "hemmabo_check_availability"[\s\S]*calendarFreshnessToolBlock/);
   });
 });
 
@@ -33,14 +33,14 @@ describe("MCP channel-mirror field contract (OQ-3, ADR §6 alt 1)", () => {
   });
 
   it("search availability attaches channel_mirror on success and keeps it non-blocking", () => {
-    assert.match(toolsBase, /case "hemmabo_search_availability"[\s\S]*checkChannelMirrorState/);
+    assert.match(toolsBase, /case "hemmabo_check_availability"[\s\S]*checkChannelMirrorState/);
     // Informational only: the mirror result must never gate a return the way
     // the inbound block does (no `if (...channelMirror...) return`).
     assert.doesNotMatch(toolsBase, /if\s*\([^)]*channelMirror[^)]*\)\s*return/);
   });
 
   it("outputSchema declares calendar_freshness + channel_mirror for search availability", () => {
-    const tools = ["hemmabo_search_availability"];
+    const tools = ["hemmabo_check_availability"];
     for (const tool of tools) {
       const start = toolDefs.indexOf(`"${tool}"`);
       assert.ok(start > -1, `${tool} definition missing`);

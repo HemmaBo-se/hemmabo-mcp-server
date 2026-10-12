@@ -74,59 +74,44 @@ export const HEMMABO_ALL_WIDGET_URIS: readonly string[] = [
   HEMMABO_LEGACY_WIDGET_URI,
 ];
 
-const VILLA_AKERLYCKAN_SUPABASE_DOMAIN = "https://vfalgymbhyfqsyxkvpqg.supabase.co";
+const HEMMABO_IMAGE_STORAGE_ORIGIN = "https://vfalgymbhyfqsyxkvpqg.supabase.co";
 
-export function buildWidgetResourceMeta(mcpEndpointUrl: string) {
+// Widget CSP: exact hosts only. OpenAI's review held the render tool on
+// 2026-10-11 with "a CSP is either missing or too broad" (wildcards). The card
+// makes no fetch of its own, and its photos come from HemmaBo's image storage,
+// which holds every HemmaBo node's photos. No node domain is listed, so every
+// VRP node is treated the same; booking links open without a redirect allowlist.
+const WIDGET_CONNECT_DOMAINS = ["https://www.hemmabo.com", "https://hemmabo.com"];
+const WIDGET_RESOURCE_DOMAINS = [HEMMABO_IMAGE_STORAGE_ORIGIN, "https://www.hemmabo.com"];
+
+const WIDGET_DESCRIPTION =
+  "Renders a verified HemmaBo stay offer from MCP tool results with host-domain trust, live availability, final price, and the signed direct host-domain booking URL.";
+
+// ADR 0020: on /mcp/chatgpt the stay-offer result gives the model this one
+// line, and the widget resource describes itself with the same words, so the
+// model hears one voice: the widget presents the offer, the model does not.
+export const CHATGPT_WIDGET_MODEL_LINE =
+  "HemmaBo's widget shows this verified offer: the host's own photos, dates, guests, signed total and the booking button. Write at most two sentences. Do not repeat these details, and do not add images or a card of your own.";
+
+export function buildWidgetResourceMeta(mcpEndpointUrl: string, widgetDescription: string = WIDGET_DESCRIPTION) {
   const widgetOrigin = chatgptWidgetOriginFromMcpEndpoint(mcpEndpointUrl);
   const claudeDomain = claudeMcpAppDomain(mcpEndpointUrl);
 
   return {
-    "openai/widgetDescription":
-      "Renders a verified HemmaBo stay offer from MCP tool results with host-domain trust, live availability, final price, and the signed direct host-domain booking URL.",
+    "openai/widgetDescription": widgetDescription,
     "openai/widgetPrefersBorder": true,
     "openai/widgetDomain": widgetOrigin,
     "openai/widgetCSP": {
-      connect_domains: [
-        "https://hemmabo-mcp-server.vercel.app",
-        "https://www.hemmabo.com",
-        "https://hemmabo.com",
-        "https://*.supabase.co",
-      ],
-      resource_domains: [
-        VILLA_AKERLYCKAN_SUPABASE_DOMAIN,
-        "https://www.hemmabo.com",
-        "https://*.hemmabo.com",
-        "https://*.supabase.co",
-        "https://*.vercel.app",
-        "https://www.villaakerlyckan.se",
-        "https://villaakerlyckan.se",
-      ],
-      redirect_domains: [
-        "https://www.villaakerlyckan.se",
-        "https://villaakerlyckan.se",
-        "https://checkout.stripe.com",
-        "https://*.stripe.com",
-      ],
+      connect_domains: [...WIDGET_CONNECT_DOMAINS],
+      resource_domains: [...WIDGET_RESOURCE_DOMAINS],
+      redirect_domains: [] as string[],
     },
     ui: {
       prefersBorder: true,
       domain: claudeDomain,
       csp: {
-        connectDomains: [
-          "https://hemmabo-mcp-server.vercel.app",
-          "https://www.hemmabo.com",
-          "https://hemmabo.com",
-          "https://*.supabase.co",
-        ],
-        resourceDomains: [
-          VILLA_AKERLYCKAN_SUPABASE_DOMAIN,
-          "https://www.hemmabo.com",
-          "https://*.hemmabo.com",
-          "https://*.supabase.co",
-          "https://*.vercel.app",
-          "https://www.villaakerlyckan.se",
-          "https://villaakerlyckan.se",
-        ],
+        connectDomains: [...WIDGET_CONNECT_DOMAINS],
+        resourceDomains: [...WIDGET_RESOURCE_DOMAINS],
       },
     },
   } as const;
@@ -162,7 +147,7 @@ export function buildNativeWidgetResource(mcpEndpointUrl: string) {
     description:
       "ChatGPT Apps SDK widget that renders a host-domain verified stay offer with live availability, final price, and the signed direct host-domain booking URL, styled to ChatGPT's system look per the Apps design guidelines.",
     mimeType: HEMMABO_WIDGET_MIME_TYPE,
-    _meta: buildWidgetResourceMeta(mcpEndpointUrl),
+    _meta: buildWidgetResourceMeta(mcpEndpointUrl, CHATGPT_WIDGET_MODEL_LINE),
   };
 }
 
