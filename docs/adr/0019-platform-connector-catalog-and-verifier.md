@@ -68,6 +68,17 @@ the host domain is the only place a guest books, pays and manages a stay.
    ordered by name (then domain, then propertyId), never by price, and carry
    no score.
 
+   **Amendment 2026-10-12 (CEO order, 7.0.0): search is price-free.** The rule
+   of `hemmabo-smart-stays` ADR `2026-10-02-search-index-price-free` applies to
+   this catalog too: a price in a cross-host index invites ranking and price
+   shopping. A hit and an alternative window carry no `currency`,
+   `publicTotal`, `federationTotal`, `directBookingTotal`,
+   `hostSourcePublicTotal` or `packageApplied`, and the result carries no
+   `priceFieldGuidance`, on `/mcp` and `/mcp/chatgpt`. A stay the host cannot
+   price is still not a match. The price and the signed booking link come only
+   from `vrp_get_verified_stay_offer`. `hemmabo_check_availability` (one known
+   property) is unchanged.
+
 ## Consequences
 
 - `tools/list` on `/mcp` and the `tools` array of `/.well-known/mcp.json` list
