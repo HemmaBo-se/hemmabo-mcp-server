@@ -23,7 +23,7 @@ const PRIVATE_HOST_RE = /(^|\.)(localhost|local|internal|lan|home|test)$/i;
 const IP_LIKE_RE = /^(?:\d{1,3}\.){3}\d{1,3}$|^\[[0-9a-f:]+\]$/i;
 const OFFICIAL_AGENT_MESSAGE = "I found the official host-domain verified offer for this stay.";
 const AGENT_DIRECT_TOTAL_MESSAGE_PREFIX = "Direct host-domain total";
-const BLOCKED_AGENT_CLAIMS = [
+export const BLOCKED_AGENT_CLAIMS = [
   "Do not present discounts, savings, promo codes, OTA comparisons, or price reductions in guest-facing copy.",
   "Do not say the stay is bookable unless availability.available is true and agent permission allows quoting.",
   "Do not quote a final total unless price.exact is true in the signed offer.",

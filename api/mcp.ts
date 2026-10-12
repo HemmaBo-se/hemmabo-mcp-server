@@ -30,6 +30,7 @@ import {
   SERVER_VERSION,
 } from "../lib/server-metadata.js";
 import {
+  CHATGPT_WIDGET_MODEL_LINE,
   HEMMABO_ALL_WIDGET_URIS,
   HEMMABO_CANONICAL_MCP_ENDPOINT,
   HEMMABO_NATIVE_WIDGET_TOOL_META,
@@ -41,6 +42,7 @@ import {
   mcpEndpointFromBaseUrl,
 } from "../lib/apps-widget.js";
 import { VERIFIED_STAY_OFFER_HTML, VERIFIED_STAY_OFFER_NATIVE_HTML } from "../lib/apps-widget-html.js";
+import { chatgptToolDefinition, shapeChatgptToolResult } from "../lib/chatgpt-surface.js";
 
 export { SERVER_DESCRIPTION, SERVER_INSTRUCTIONS } from "../lib/server-metadata.js";
 
@@ -192,10 +194,11 @@ export const RESOURCES = [buildWidgetResource(HEMMABO_CANONICAL_MCP_ENDPOINT)];
 
 export function readResource(
   uri: string,
-  mcpEndpointUrl: string = HEMMABO_CANONICAL_MCP_ENDPOINT
+  mcpEndpointUrl: string = HEMMABO_CANONICAL_MCP_ENDPOINT,
+  widgetDescription?: string
 ): { contents: { uri: string; mimeType: string; text: string; _meta?: Record<string, unknown> }[] } | null {
   if (HEMMABO_ALL_WIDGET_URIS.includes(uri)) {
-    const meta = buildWidgetResourceMeta(mcpEndpointUrl);
+    const meta = buildWidgetResourceMeta(mcpEndpointUrl, widgetDescription);
     return {
       contents: [
         {
@@ -324,7 +327,7 @@ export async function handleJsonRpc(
                       _meta: { ...t._meta, ...HEMMABO_NATIVE_WIDGET_TOOL_META },
                     }
                   : t
-              )
+              ).map(chatgptToolDefinition)
             : TOOLS,
         },
       };
@@ -383,7 +386,7 @@ export async function handleJsonRpc(
           };
         }
 
-        const result = isVrpToolName(toolName) || isHostOnboardingToolName(toolName)
+        const rawResult = isVrpToolName(toolName) || isHostOnboardingToolName(toolName)
           ? await executeTool(toolName, toolArgs, {
               supabase: null as never,
               reader: null as never,
@@ -392,6 +395,9 @@ export async function handleJsonRpc(
               supabase: getSupabase(),
               reader: getSupabaseReader(),
             });
+        // ADR 0020: on /mcp/chatgpt the model reads a short summary; the
+        // widget reads the full result from _meta.
+        const result = surface === "chatgpt" ? shapeChatgptToolResult(toolName, rawResult) : rawResult;
         if (
           surface === "chatgpt" &&
           toolName === "vrp_get_verified_stay_offer" &&
@@ -458,7 +464,7 @@ export async function handleJsonRpc(
 
     case "resources/read": {
       const uri = (params as { uri?: string })?.uri ?? "";
-      const result = readResource(uri, ctx.mcpEndpointUrl);
+      const result = readResource(uri, ctx.mcpEndpointUrl, surface === "chatgpt" ? CHATGPT_WIDGET_MODEL_LINE : undefined);
       if (!result) {
         return { jsonrpc: "2.0", id, error: { code: -32602, message: `Unknown resource URI: ${uri}` } };
       }
