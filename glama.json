@@ -5,7 +5,7 @@
     "kingen1"
   ],
   "name": "HemmaBo",
-  "version": "6.0.0",
+  "version": "6.0.1",
   "license": "Apache-2.0",
   "description": "Vacation rental software. A signed stay offer on the host's own domain. Use this when a vacation rental host wants booking software on the host's own domain, or when a stay offer must be verified against that domain. Returns an Ed25519-signed offer (VRP) and the host's direct booking URL. The guest books and pays the host. Do not use to compare hosts or prices. Compatible agents can discover a host domain, verify a signed stay offer, and send the guest to that domain to book. Host nodes own booking lifecycles; Stripe owns payment facts. HemmaBo implements Vacation Rental Protocol (VRP). The spec lives at https://vacationrentalprotocol.com — not here. HemmaBo + VRP, 6 runtime tools: 2 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools. Host-domain signed verified stay offers. Not an OTA. Not a marketplace.",
   "homepage": "https://www.hemmabo.com",
@@ -89,7 +89,7 @@
                 "propertyId": {
                   "type": "string",
                   "format": "uuid",
-                  "description": "Stable UUID. Pass to subsequent tools (hemmabo_check_availability)."
+                  "description": "Stable property UUID."
                 },
                 "name": {
                   "type": "string",
@@ -137,19 +137,19 @@
                 },
                 "publicTotal": {
                   "type": "integer",
-                  "description": "Standard website total for the date range, in minor currency units."
+                  "description": "Standard website total for the date range, in whole units of the property's currency (not minor units)."
                 },
                 "federationTotal": {
                   "type": "integer",
-                  "description": "Legacy field: the direct host-source total (the same value as directBookingTotal), in minor currency units. Use directBookingTotal in user-facing copy."
+                  "description": "Legacy field: the direct host-source total (the same value as directBookingTotal), in whole units of the property's currency (not minor units). Use directBookingTotal in user-facing copy."
                 },
                 "directBookingTotal": {
                   "type": "integer",
-                  "description": "Preferred field for user-facing copy: direct host-source total, in minor currency units."
+                  "description": "Preferred field for user-facing copy: direct host-source total, in whole units of the property's currency (not minor units)."
                 },
                 "hostSourcePublicTotal": {
                   "type": "integer",
-                  "description": "Preferred field for user-facing copy: public host-source total for the date range, in minor currency units."
+                  "description": "Preferred field for user-facing copy: public host-source total for the date range, in whole units of the property's currency (not minor units)."
                 },
                 "packageApplied": {
                   "type": "string",

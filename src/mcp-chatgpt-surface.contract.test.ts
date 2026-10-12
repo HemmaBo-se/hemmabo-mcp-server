@@ -73,6 +73,28 @@ describe("ChatGPT MCP surface", () => {
     assert.match(text, /host's own website/i, "rejection must route the user to the host's own website");
   });
 
+  it("tools/list names no tool this surface does not serve", async () => {
+    const chatgpt = await handleJsonRpc({ jsonrpc: "2.0", method: "tools/list", id: 6 }, CTX_CHATGPT);
+    const served = JSON.stringify(chatgpt);
+    for (const name of await toolNames(CTX_FULL)) {
+      if (CHATGPT_TOOL_NAMES.has(name)) continue;
+      assert.ok(!served.includes(name), `ChatGPT-surface tools/list must not name ${name}`);
+    }
+  });
+
+  it("an old tool name reaches its renamed tool on this surface, and stays rejected when that tool is off-surface", async () => {
+    const callText = async (name: string) => {
+      const res = (await handleJsonRpc(
+        { jsonrpc: "2.0", method: "tools/call", id: 7, params: { name, arguments: {} } },
+        CTX_CHATGPT,
+      )) as unknown as CallResult;
+      return res.result?.content?.[0]?.text ?? "";
+    };
+    // Empty arguments fail validation before any fetch: proof the call passed the surface gate.
+    assert.doesNotMatch(await callText("get_verified_stay_offer"), /Tool not available in ChatGPT/);
+    assert.match(await callText("hemmabo_search_availability"), /Tool not available in ChatGPT/);
+  });
+
   it("prompts/list hides the host onboarding prompt", async () => {
     const res = (await handleJsonRpc({ jsonrpc: "2.0", method: "prompts/list", id: 3 }, CTX_CHATGPT)) as unknown as PromptsListResult;
     const names = (res.result?.prompts ?? []).map((p) => p.name);

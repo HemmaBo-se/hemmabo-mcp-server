@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { ANON_TOOLS, isAuthRequiredMessage, TOOLS } from "../api/mcp.js";
+import { normalizeToolName } from "../lib/tools.js";
 
 const ANON_CANONICAL_NAMES = [
   "hemmabo_search_properties",
@@ -14,6 +15,12 @@ const ANON_CANONICAL_NAMES = [
 const ANON_ALIASES = [
   "search.properties",
   "search.availability",
+  // Names before the 6.0.0 rename (ADR 0001 amendment 2026-10-11)
+  "hemmabo_search_availability",
+  "hemmabo_host_readiness_check",
+  "hemmabo_host_onboarding_link",
+  "verify_vacation_rental_node",
+  "get_verified_stay_offer",
 ] as const;
 
 // The booking tools removed from the platform connector (ADR 0019), canonical
@@ -36,10 +43,19 @@ const REMOVED_TOOL_NAMES = [
 ] as const;
 
 describe("anonymous tool allowlist contract", () => {
-  it("ANON_TOOLS contains exactly the 6 read-only canonical names plus 2 aliases", () => {
-    assert.equal(ANON_TOOLS.size, 8);
+  it("ANON_TOOLS contains exactly the 6 read-only canonical names plus 7 aliases", () => {
+    assert.equal(ANON_TOOLS.size, 13);
     for (const n of [...ANON_CANONICAL_NAMES, ...ANON_ALIASES]) {
       assert.ok(ANON_TOOLS.has(n), `expected ANON_TOOLS to contain ${n}`);
+    }
+  });
+
+  it("every alias resolves to a canonical read-only tool and is never listed in tools/list", () => {
+    const listed = TOOLS.map((t) => t.name);
+    for (const alias of ANON_ALIASES) {
+      const canonical = normalizeToolName(alias);
+      assert.ok((ANON_CANONICAL_NAMES as readonly string[]).includes(canonical), `${alias} must resolve to a canonical tool, got ${canonical}`);
+      assert.ok(!listed.includes(alias), `${alias} must not be listed in tools/list`);
     }
   });
 

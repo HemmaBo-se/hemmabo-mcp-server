@@ -193,7 +193,7 @@ const COUNTRY = {
 const PROPERTY_LISTING_ITEM: JsonSchemaField = {
   type: "object",
   properties: {
-    propertyId: { type: "string", format: "uuid", description: "Stable UUID. Pass to subsequent tools (hemmabo_check_availability)." },
+    propertyId: { type: "string", format: "uuid", description: "Stable property UUID." },
     name: { type: "string", description: "Property display name." },
     domain: { type: "string", description: "Host-owned domain for this property." },
     booking_url: { type: ["string", "null"], format: "uri", description: "The host's own booking URL: https:// plus the host-owned domain. Null when the property has no domain." },
@@ -204,10 +204,10 @@ const PROPERTY_LISTING_ITEM: JsonSchemaField = {
     propertyType: { type: "string", description: "Property type classification." },
     currency: { type: "string", description: "ISO 4217 currency code (e.g. 'SEK', 'EUR')." },
     nights: { type: "integer", description: "Number of nights between check-in and check-out." },
-    publicTotal: { type: "integer", description: "Standard website total for the date range, in minor currency units." },
-    federationTotal: { type: "integer", description: "Legacy field: the direct host-source total (the same value as directBookingTotal), in minor currency units. Use directBookingTotal in user-facing copy." },
-    directBookingTotal: { type: "integer", description: "Preferred field for user-facing copy: direct host-source total, in minor currency units." },
-    hostSourcePublicTotal: { type: "integer", description: "Preferred field for user-facing copy: public host-source total for the date range, in minor currency units." },
+    publicTotal: { type: "integer", description: "Standard website total for the date range, in whole units of the property's currency (not minor units)." },
+    federationTotal: { type: "integer", description: "Legacy field: the direct host-source total (the same value as directBookingTotal), in whole units of the property's currency (not minor units). Use directBookingTotal in user-facing copy." },
+    directBookingTotal: { type: "integer", description: "Preferred field for user-facing copy: direct host-source total, in whole units of the property's currency (not minor units)." },
+    hostSourcePublicTotal: { type: "integer", description: "Preferred field for user-facing copy: public host-source total for the date range, in whole units of the property's currency (not minor units)." },
     packageApplied: { type: "string", description: "Package applied (e.g. week or two_weeks), if any." },
     available: { type: "boolean", description: "Always true in search results because unavailable properties are filtered out." },
     signals: {
