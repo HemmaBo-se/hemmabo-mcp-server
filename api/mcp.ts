@@ -17,7 +17,7 @@ import { validateAuth } from "../src/auth.js";
 import { anonIdentifier, bearerIdentifier, checkRateLimit } from "../lib/rate-limit.js";
 import { sanitizeParams, redactMessage } from "../lib/log-redact.js";
 import { registerToolSchemas, validateToolArgs } from "../lib/validate-args.js";
-import { TOOL_SPECS } from "../lib/tool-definitions.js";
+import { OFFER_CHECK_AVAILABILITY_SENTENCE, TOOL_SPECS } from "../lib/tool-definitions.js";
 import { baseUrl } from "../lib/base-url.js";
 import { isVrpToolName } from "../lib/vrp.js";
 import {
@@ -315,8 +315,14 @@ export async function handleJsonRpc(
             ? TOOLS.filter((t) => CHATGPT_TOOL_NAMES.has(t.name)).map((t) =>
                 // ChatGPT renders the design-guidelines-native template
                 // variant; every other surface keeps the premium v9 template.
+                // The description drops its pointer to
+                // hemmabo_check_availability, which this surface does not serve.
                 t.name === "vrp_get_verified_stay_offer"
-                  ? { ...t, _meta: { ...t._meta, ...HEMMABO_NATIVE_WIDGET_TOOL_META } }
+                  ? {
+                      ...t,
+                      description: t.description.replace(OFFER_CHECK_AVAILABILITY_SENTENCE, ""),
+                      _meta: { ...t._meta, ...HEMMABO_NATIVE_WIDGET_TOOL_META },
+                    }
                   : t
               )
             : TOOLS,
@@ -490,8 +496,9 @@ registerToolSchemas(TOOLS);
 //
 // Tools that may be invoked without a Bearer token. These are pure read-only
 // discovery and pricing helpers; they perform no writes, no Stripe calls, and
-// return no PII. Canonical snake_case names are exposed via tools/list; legacy
-// dotted aliases from lib/tools.ts TOOL_NAME_ALIASES stay accepted inbound.
+// return no PII. Canonical snake_case names are exposed via tools/list; the
+// aliases in lib/tools.ts TOOL_NAME_ALIASES (dotted names, and the names before
+// the 6.0.0 rename) stay accepted inbound.
 //
 // Since ADR 0019 every tool in tools/list is in this set: the platform
 // connector writes no bookings and moves no money. Any name NOT in this set
@@ -508,6 +515,12 @@ export const ANON_TOOLS: ReadonlySet<string> = new Set([
   // Legacy dotted aliases (inbound compatibility — TOOL_NAME_ALIASES)
   "search.properties",
   "search.availability",
+  // Names before the 6.0.0 rename (inbound compatibility — TOOL_NAME_ALIASES)
+  "hemmabo_search_availability",
+  "hemmabo_host_readiness_check",
+  "hemmabo_host_onboarding_link",
+  "verify_vacation_rental_node",
+  "get_verified_stay_offer",
 ]);
 
 /**

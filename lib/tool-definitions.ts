@@ -231,6 +231,12 @@ const HOST_ONBOARDING_TOOL_SPECS: readonly ToolSpecType[] = [
   },
 ];
 
+// A sentence in vrp_get_verified_stay_offer's description that names
+// hemmabo_check_availability. /mcp/chatgpt does not serve that tool, so
+// api/mcp.ts drops this sentence on that surface.
+export const OFFER_CHECK_AVAILABILITY_SENTENCE =
+  " For a bare availability yes/no on a propertyId, hemmabo_check_availability is lighter and sufficient.";
+
 const VRP_TOOL_SPECS: readonly ToolSpecType[] = [
   {
     name: "vrp_verify_node",
