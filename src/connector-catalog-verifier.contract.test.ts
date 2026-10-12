@@ -262,7 +262,7 @@ function searchClients(): ToolClients {
 }
 
 describe("hemmabo_search_properties hits carry the node's own booking_url", () => {
-  it("booking_url is https:// + the trimmed, lower-cased domain, or null without a domain; order is by name, not price", async () => {
+  it("booking_url is https:// + the trimmed, lower-cased domain, or null without a domain; order is by name; no price", async () => {
     const result = await executeTool(
       "hemmabo_search_properties",
       { guests: 2, checkIn: "2031-09-03", checkOut: "2031-09-06" },
@@ -278,12 +278,16 @@ describe("hemmabo_search_properties hits carry the node's own booking_url", () =
     assert.equal(second.name, "Beta Villa");
     assert.equal(second.booking_url, null);
 
-    // Not sorted by price: the more expensive node comes first because of its name.
-    assert.ok(first.directBookingTotal > second.directBookingTotal, "fixture must put the dearer node first");
+    // Price-free (smart-stays ADR 2026-10-02): a hit carries no price, so
+    // nothing in it can be ranked or compared on price.
     for (const hit of payload.properties) {
       assert.equal("score" in hit, false, "no score on a search hit");
       assert.equal("ota_comparison_total" in hit, false, "no OTA comparison on a search hit");
+      for (const key of ["currency", "publicTotal", "federationTotal", "directBookingTotal", "hostSourcePublicTotal", "packageApplied"]) {
+        assert.equal(key in hit, false, `no ${key} on a search hit`);
+      }
     }
+    assert.doesNotMatch(result.content[0].text, /priceFieldGuidance|directBookingTotal|publicTotal/);
     assert.match(payload.agentGuidance, /booking_url/);
     assert.doesNotMatch(payload.agentGuidance, /does not return a booking URL/);
   });

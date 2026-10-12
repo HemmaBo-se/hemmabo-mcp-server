@@ -725,6 +725,15 @@ async function findAlternativeDates(
 
 // ── Direct host-source price fields ───────────────────────────────────────────
 
+const PRICE_KEYS = ["currency", "publicTotal", "federationTotal", "directBookingTotal", "hostSourcePublicTotal", "packageApplied"] as const;
+
+/** A search window without its price: search is price-free. */
+function withoutPrice(window: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...window };
+  for (const key of PRICE_KEYS) delete out[key];
+  return out;
+}
+
 function directBookingPriceFields(quote: {
   publicTotal: number;
   federationTotal: number;
@@ -837,7 +846,7 @@ export async function executeTool(
             propertyType: prop.property_type,
             available: false,
             reason: avail.reason ?? "Requested dates are not available",
-            alternativeDates: await findAlternativeDates(
+            alternativeDates: (await findAlternativeDates(
               supabase,
               prop.id,
               checkIn,
@@ -846,10 +855,13 @@ export async function executeTool(
               prop.max_guests,
               3,
               { minNights: prop.min_nights, buffers: propBuffers },
-            ),
+            )).map(withoutPrice),
           });
           continue;
         }
+        // A stay the host cannot price is not a match; the price itself is
+        // never part of a search hit (price-free catalog, smart-stays ADR
+        // 2026-10-02-search-index-price-free).
         const quote = await resolveQuote(supabase, prop.id, checkIn, checkOut, guests);
         if ("error" in quote) continue;
         results.push({
@@ -861,11 +873,7 @@ export async function executeTool(
           region: prop.region, city: prop.city, country: prop.country,
           maxGuests: prop.max_guests, propertyType: prop.property_type,
           minNights: prop.min_nights ?? DEFAULT_MIN_NIGHTS,
-          currency: quote.currency, nights: quote.nights,
-          publicTotal: quote.publicTotal,
-          ...directBookingPriceFields(quote),
-          federationTotal: quote.federationTotal,
-          packageApplied: quote.packageApplied, available: true,
+          nights: quote.nights, available: true,
           ...(signalsById.get(prop.id) ? { signals: signalsById.get(prop.id) } : {}),
         });
       }
@@ -898,12 +906,6 @@ export async function executeTool(
             guests,
             properties: results,
             unavailableMatches,
-            priceFieldGuidance: {
-              preferredTotalField: "directBookingTotal",
-              preferredPublicTotalField: "hostSourcePublicTotal",
-              legacyTotalField: "federationTotal",
-              userFacingRule: "Describe directBookingTotal as the direct host-source total. Do not present discounts, savings, percentage comparisons, HemmaBo platform prices, federation prices, OTA prices, marketplace prices, or comparison prices.",
-            },
             agentGuidance: results.length > 0
               ? "Each result is a matching host domain; return them as given and do not rank them or compare their prices. When a host domain is known, call vrp_get_verified_stay_offer with the same check-in, check-out, and guest count so the client can render the verified stay offer widget. Do not present discounts, savings, percentage comparisons, HemmaBo platform prices, OTA comparisons, or marketplace discounts. Each result carries booking_url on the host's own domain — the signed direct host-domain booking URL comes from the verified offer. If the guest wants to book, route only to that URL; do not collect contact details or take payment in chat."
               : anyMinNightsViolation

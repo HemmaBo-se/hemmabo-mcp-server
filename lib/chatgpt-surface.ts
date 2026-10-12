@@ -82,16 +82,6 @@ export function shapeChatgptToolResult(toolName: string, result: ToolResult): To
     };
   }
 
-  // Search is discovery: it gives no order on how to present a price.
-  if (toolName === "hemmabo_search_properties" && "priceFieldGuidance" in structured) {
-    const { priceFieldGuidance: _dropped, ...rest } = structured;
-    return {
-      ...result,
-      content: [{ type: "text", text: JSON.stringify(rest, null, 2) }],
-      structuredContent: rest,
-    };
-  }
-
   return result;
 }
 
@@ -121,18 +111,8 @@ const OFFER_MODEL_OUTPUT_SCHEMA = {
   additionalProperties: true,
 } as const;
 
-function withoutUserFacingCopyOrders(schema: unknown): unknown {
-  const text = JSON.stringify(schema)
-    .replace(/Preferred field for user-facing copy: (\w)/g, (_match, first: string) => first.toUpperCase())
-    .replace(/ Use \w+ in user-facing copy\./g, "");
-  return JSON.parse(text);
-}
-
 /** The tool definition as tools/list shows it on this surface. */
 export function chatgptToolDefinition<T extends { name: string; outputSchema?: unknown }>(tool: T): T {
   if (tool.name === "vrp_get_verified_stay_offer") return { ...tool, outputSchema: OFFER_MODEL_OUTPUT_SCHEMA };
-  if (tool.name === "hemmabo_search_properties" && tool.outputSchema) {
-    return { ...tool, outputSchema: withoutUserFacingCopyOrders(tool.outputSchema) };
-  }
   return tool;
 }

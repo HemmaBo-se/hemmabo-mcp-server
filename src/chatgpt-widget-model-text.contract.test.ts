@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync, sign, type KeyObject } from "node:crypto";
 import { handleJsonRpc } from "../api/mcp.js";
 import { CHATGPT_WIDGET_MODEL_LINE, HEMMABO_ALL_WIDGET_URIS, HEMMABO_NATIVE_WIDGET_URI } from "../lib/apps-widget.js";
-import { CHATGPT_WIDGET_TOOL_NAMES, WIDGET_PAYLOAD_META_KEY, shapeChatgptToolResult } from "../lib/chatgpt-surface.js";
+import { CHATGPT_WIDGET_TOOL_NAMES, WIDGET_PAYLOAD_META_KEY } from "../lib/chatgpt-surface.js";
 import { BLOCKED_AGENT_CLAIMS } from "../lib/vrp.js";
 
 // ADR 0020. A tool result outranks the server instructions, so on
@@ -189,26 +189,14 @@ describe("ChatGPT widget surface: what the model reads (ADR 0020)", () => {
     for (const name of widgetTools) assert.ok(CHATGPT_WIDGET_TOOL_NAMES.has(name), `${name} renders a widget but has no model view`);
   });
 
-  it("tools/list on /mcp/chatgpt gives no order on how to present a price; /mcp keeps its text", async () => {
-    const list = async (ctx: typeof CTX_CHATGPT | typeof CTX_FULL) =>
-      ((await handleJsonRpc({ jsonrpc: "2.0", id: 3, method: "tools/list" }, ctx)) as unknown as {
-        result: { tools: Array<{ name: string; outputSchema?: unknown }> };
-      }).result.tools;
-    const chatgpt = await list(CTX_CHATGPT);
-    assert.doesNotMatch(JSON.stringify(chatgpt.map((t) => t.outputSchema)), /user-facing copy|Describe directBookingTotal/);
-    const offerSchema = JSON.stringify(chatgpt.find((t) => t.name === "vrp_get_verified_stay_offer")?.outputSchema);
+  it("tools/list on /mcp/chatgpt gives no order on how to present a price", async () => {
+    const res = (await handleJsonRpc({ jsonrpc: "2.0", id: 3, method: "tools/list" }, CTX_CHATGPT)) as unknown as {
+      result: { tools: Array<{ name: string; outputSchema?: unknown }> };
+    };
+    const tools = res.result.tools;
+    assert.doesNotMatch(JSON.stringify(tools.map((t) => t.outputSchema)), /user-facing copy|Describe directBookingTotal/);
+    const offerSchema = JSON.stringify(tools.find((t) => t.name === "vrp_get_verified_stay_offer")?.outputSchema);
     assert.doesNotMatch(offerSchema, PRESENTATION_ORDER);
-    assert.match(JSON.stringify((await list(CTX_FULL)).map((t) => t.outputSchema)), /user-facing copy/);
-  });
-
-  it("search on /mcp/chatgpt drops priceFieldGuidance and keeps the rest", () => {
-    const value = { checkIn: "2027-02-14", properties: [], priceFieldGuidance: { userFacingRule: "Describe directBookingTotal as the direct host-source total." } };
-    const shaped = shapeChatgptToolResult("hemmabo_search_properties", {
-      content: [{ type: "text", text: JSON.stringify(value) }],
-      structuredContent: value,
-    });
-    assert.deepEqual(shaped.structuredContent, { checkIn: "2027-02-14", properties: [] });
-    assert.doesNotMatch(shaped.content[0].text, /priceFieldGuidance|Describe directBookingTotal/);
   });
 
   it("the widget resource on /mcp/chatgpt describes itself with the same line; /mcp keeps its own", async () => {

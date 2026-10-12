@@ -252,3 +252,23 @@ describe("findFreeWindowsInMonth no longer feeds the tools on a closed stay", ()
     assert.ok(/nodeNextAvailableAlternatives\(/.test(src), "alternatives come from the node's nextAvailable");
   });
 });
+
+describe("hemmabo_search_properties — the node's window, without its price", () => {
+  it("unavailableMatches carry the node's nextAvailable window and no price (search is price-free)", async () => {
+    const { clients } = makeClients();
+    const result = await executeTool(
+      "hemmabo_search_properties",
+      { checkIn: ARGS.checkIn, checkOut: ARGS.checkOut, guests: ARGS.guests },
+      clients,
+    );
+    const { text, json } = payloadOf(result);
+    assert.equal(json.properties.length, 0);
+    const alt = json.unavailableMatches[0].alternativeDates[0];
+    assert.equal(alt.checkIn, "2026-10-26");
+    assert.equal(alt.checkOut, "2026-10-27");
+    for (const key of ["currency", "publicTotal", "federationTotal", "directBookingTotal", "hostSourcePublicTotal", "packageApplied"]) {
+      assert.equal(key in alt, false, `no ${key} on a search window`);
+    }
+    assert.ok(!text.includes("3800"), "the node's price never reaches a search answer");
+  });
+});

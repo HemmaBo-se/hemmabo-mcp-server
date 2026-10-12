@@ -49,9 +49,8 @@ On `/mcp/chatgpt`, for every tool that renders a widget:
 4. A widget tool has a model view in `lib/chatgpt-surface.ts`
    (`WIDGET_TOOL_MODEL_VIEW`), or the contract test fails.
 
-Search follows the same rule on this surface: `hemmabo_search_properties`
-returns no `priceFieldGuidance`, and its output schema says nothing about
-"user-facing copy".
+Search gives the model no price at all: since 7.0.0 `hemmabo_search_properties`
+is price-free on every surface (ADR 0019, amendment 2026-10-12).
 
 `guest_welcome` is CEO-locked copy and is unchanged. It stays on the node and
 in the widget payload; the model on this surface is no longer ordered to say

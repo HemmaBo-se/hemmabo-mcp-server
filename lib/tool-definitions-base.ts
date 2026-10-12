@@ -202,13 +202,7 @@ const PROPERTY_LISTING_ITEM: JsonSchemaField = {
     country: { type: "string", description: "Country." },
     maxGuests: { type: "integer", description: "Maximum guest capacity." },
     propertyType: { type: "string", description: "Property type classification." },
-    currency: { type: "string", description: "ISO 4217 currency code (e.g. 'SEK', 'EUR')." },
     nights: { type: "integer", description: "Number of nights between check-in and check-out." },
-    publicTotal: { type: "integer", description: "Standard website total for the date range, in whole units of the property's currency (not minor units)." },
-    federationTotal: { type: "integer", description: "Legacy field: the direct host-source total (the same value as directBookingTotal), in whole units of the property's currency (not minor units). Use directBookingTotal in user-facing copy." },
-    directBookingTotal: { type: "integer", description: "Preferred field for user-facing copy: direct host-source total, in whole units of the property's currency (not minor units)." },
-    hostSourcePublicTotal: { type: "integer", description: "Preferred field for user-facing copy: public host-source total for the date range, in whole units of the property's currency (not minor units)." },
-    packageApplied: { type: "string", description: "Package applied (e.g. week or two_weeks), if any." },
     available: { type: "boolean", description: "Always true in search results because unavailable properties are filtered out." },
     signals: {
       type: "object",
@@ -216,7 +210,7 @@ const PROPERTY_LISTING_ITEM: JsonSchemaField = {
       additionalProperties: true,
     },
   },
-  required: ["propertyId", "name", "maxGuests", "federationTotal"],
+  required: ["propertyId", "name", "maxGuests"],
   additionalProperties: true,
 };
 
@@ -226,7 +220,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_search_properties",
     description:
-      "Search available vacation rental properties by location and travel dates. Use when the user wants to find or browse places to stay. Discovery only — call vrp_get_verified_stay_offer with the host domain and same dates before the final answer so the client can render the verified stay offer widget; never quote a final price or booking link from search alone. Do NOT use when the user already has a propertyId or host domain. Returns propertyId, host domain, live availability, host-source pricing, and capacity. Parameters combine as one filter with guests and the checkIn/checkOut range (checkIn strictly before checkOut): region matches broadly against region, city, and country names, while country matches the country field alone — omit both and the search spans every published property. Capacity misses are excluded; date-unavailable matches return separately in unavailableMatches with up to three alternative windows. Booking and payment happen only on the host's own domain, at the signed direct_booking_url. The agent never books, pays, cancels or changes a booking.",
+      "Search available vacation rental properties by location and travel dates. Use when the user wants to find or browse places to stay. Discovery only, and price-free: call vrp_get_verified_stay_offer with the host domain and same dates before the final answer so the client can render the verified stay offer widget; the price and the signed booking link come only from that offer. Do NOT use when the user already has a propertyId or host domain. Returns propertyId, host domain, the host's booking_url, live availability and capacity. Parameters combine as one filter with guests and the checkIn/checkOut range (checkIn strictly before checkOut): region matches broadly against region, city, and country names, while country matches the country field alone — omit both and the search spans every published property. Capacity misses are excluded; date-unavailable matches return separately in unavailableMatches with up to three alternative windows. Booking and payment happen only on the host's own domain, at the signed direct_booking_url. The agent never books, pays, cancels or changes a booking.",
     inputSchema: {
       type: "object",
       properties: {
@@ -247,7 +241,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         guests: { type: "integer", description: "Echoed guest count." },
         properties: {
           type: "array",
-          description: "Available properties matching the search criteria, with live host-source pricing.",
+          description: "Available properties matching the search criteria: each host domain and its own booking URL, without a price.",
           items: PROPERTY_LISTING_ITEM,
         },
         error: { type: "string", description: "Present only when isError=true." },
