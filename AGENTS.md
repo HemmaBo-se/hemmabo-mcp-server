@@ -59,3 +59,36 @@ read source to make a claim, or start building:
 - Don't confuse repos: `vrp-spec` = CC0 (spec text); `hemmabo-mcp-server` =
   Apache-2.0 (reference code). Different licenses, different layers.
 - **Canonical URLs:** platform navigable URLs are `https://www.hemmabo.com` (with www); node domains stay apex; `/ns/` URIs are apex-locked identifiers. See `docs/adr/0013-canonical-urls-apex-vs-www.md`. Enforced by `scripts/check-facts-drift.sh`.
+
+## A version change is done when it is released
+
+The version in the lockstep files (`package.json`, `package-lock.json`,
+`server.json`, `glama.json`, `.plugin/plugin.json`, `project.faf`) is not a
+release. npm and the MCP Registry get nothing until a GitHub release exists.
+The release was missed after the merge three times: May (npm on 3.2.8, repo on
+3.2.15), October 5.0.1 (three days late) and 6.0.1 (never released; 6.0.2
+carries it).
+
+- **Before you build:** compare `package.json` on origin/main with the
+  [latest release](https://github.com/HemmaBo-se/hemmabo-mcp-server/releases/latest)
+  and npm (`npm view hemmabo-mcp-server version`). If main carries a version
+  without a release, tell the CEO first and give the release link below.
+- **A PR that changes the version** fills in "After merge" from
+  `.github/pull_request_template.md`, with the version in every link.
+- **After merge, in this order.** The CEO does the steps marked CEO; the agent
+  gives the direct link and measures.
+  1. Deploy: Vercel deploys main. Measure `initialize` on
+     `https://www.hemmabo.com/mcp` and `/mcp/chatgpt`: `serverInfo.version` is
+     the new version.
+  2. CEO, the release, one link with tag, target and title filled in:
+     `https://github.com/HemmaBo-se/hemmabo-mcp-server/releases/new?tag=vX.Y.Z&target=main&title=vX.Y.Z`
+     → "Set as the latest release" ticked → **Publish release**. It runs
+     `npm-publish.yml` and `mcp-registry-publish.yml`.
+  3. CEO, when tools or tool text on `/mcp/chatgpt` changed: OpenAI Rescan on
+     the app's MCPs tab. The page's link is not recorded yet.
+  4. CEO, when Glama's builder answers: **Build & Release** on
+     [Glama's Dockerfile page](https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server/admin/dockerfile).
+  5. Agent: measure npm and the MCP Registry at the new version.
+- Every catalog surface and the full chain: `hemmabo-smart-stays`
+  `docs/OPERATIONS/CATALOG-SURFACES.md`, «Kedjan när verktyg eller
+  verktygstext ändras».
