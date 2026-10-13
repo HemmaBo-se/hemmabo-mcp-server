@@ -1,6 +1,6 @@
 # HemmaBo MCP Server
 
-[![npm version](https://img.shields.io/npm/v/hemmabo-mcp-server)](https://www.npmjs.com/package/hemmabo-mcp-server) [![smithery badge](https://smithery.ai/badge/info-00wt/hemmabo-mcp-server)](https://smithery.ai/servers/info-00wt/hemmabo-mcp-server) [![license: Apache-2.0](https://img.shields.io/npm/l/hemmabo-mcp-server)](LICENSE)
+[![npm version](https://img.shields.io/npm/v/hemmabo-mcp-server)](https://www.npmjs.com/package/hemmabo-mcp-server) [![smithery badge](https://smithery.ai/badge/info-00wt/hemmabo-mcp-server)](https://smithery.ai/servers/info-00wt/hemmabo-mcp-server) [![license: Apache-2.0](https://img.shields.io/npm/l/hemmabo-mcp-server)](LICENSE) [![HemmaBo MCP server – quality and maintenance score on Glama](https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server/badges/score.svg)](https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server)
 
 > **HemmaBo is vacation rental software for hosts.** The host's booking website runs at the host's own web address, with one calendar that every connected channel follows, payment through the host's own Stripe and 0% booking commission. Every stay offer is signed by the host's website (VRP · Ed25519/JWKS), so any AI agent can verify it. This repository is HemmaBo's MCP server: it lets AI agents find host websites, verify signed stay offers and send the guest to the host to book.
 >
