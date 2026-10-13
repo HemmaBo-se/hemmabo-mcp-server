@@ -1,0 +1,72 @@
+name: Release chain
+
+# A version change is done when it is released, and a release is done when
+# every surface that agents and directories read carries it (AGENTS.md,
+# «A version change is done when it is released»). npm-publish.yml and
+# mcp-registry-publish.yml follow the release by machine; Glama, Smithery,
+# mcp.so, Docker Hub, the GitHub MCP Registry and the OpenAI app each have
+# their own path, and the chain has stopped at one of them more than once.
+#
+# On every published release this workflow measures every surface
+# (scripts/release-chain-measure.mjs), waits up to 15 minutes for npm and
+# the MCP Registry, and keeps the result in one issue per version,
+# «Release vX.Y.Z: the chain», with a direct link for every hand step. Run it
+# again by hand (Run workflow, same version) after a hand step: the issue is
+# updated in place. The run is red while an automatic surface (production,
+# npm, the MCP Registry) is not at the version.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to measure, e.g. 7.0.0 (default: package.json on the checked-out ref)"
+        required: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "20"
+
+      - name: Measure every surface (waits up to 15 min for npm and the MCP Registry)
+        id: measure
+        env:
+          VERSION_INPUT: ${{ inputs.version }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="${VERSION_INPUT:-${RELEASE_TAG#v}}"
+          args=(--out chain --wait 15)
+          if [ -n "$version" ]; then args+=(--version "$version"); fi
+          set +e
+          node scripts/release-chain-measure.mjs "${args[@]}"
+          echo "status=$?" >> "$GITHUB_OUTPUT"
+          set -e
+          cat chain/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open or update the issue for this version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          title=$(head -n 1 chain/title.txt)
+          number=$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+            --jq ".[] | select(.title == \"$title\") | .number" | head -n 1)
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --body-file chain/report.md
+            echo "Updated issue #$number: $title"
+          else
+            gh issue create --title "$title" --body-file chain/report.md
+          fi
+
+      - name: Red while an automatic surface is not at the version
+        run: test "${{ steps.measure.outputs.status }}" = "0"
