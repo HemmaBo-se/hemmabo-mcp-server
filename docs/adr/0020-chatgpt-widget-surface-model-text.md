@@ -52,6 +52,15 @@ On `/mcp/chatgpt`, for every tool that renders a widget:
 Search gives the model no price at all: since 7.0.0 `hemmabo_search_properties`
 is price-free on every surface (ADR 0019, amendment 2026-10-12).
 
+Amendment 2026-10-13 (CEO decision): on `/mcp/chatgpt` the search result also
+carries no `signalsGuidance`. That key told the model how to speak ("relay
+those as a clear, friendly no", "warm and plain", "never call it a perfect
+match"): a presentation order, not a fact, and the last thing the model read
+after the server instructions. The `signals` themselves stay on every
+property, and `agentGuidance` stays: it carries the no-ranking rule and the
+next tool call. `/mcp` is not shaped (`shapeChatgptToolResult`,
+`lib/chatgpt-surface.ts`, `SEARCH_MODEL_OMIT`).
+
 `guest_welcome` is CEO-locked copy and is unchanged. It stays on the node and
 in the widget payload; the model on this surface is no longer ordered to say
 it. Its "this page" is the host's page, which the guest reaches through the
