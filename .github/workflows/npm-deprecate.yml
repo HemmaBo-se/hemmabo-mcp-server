@@ -1,0 +1,53 @@
+name: npm deprecate old versions
+
+# One button for the CEO: Actions → "npm deprecate old versions" → Run workflow.
+# Marks the old package versions on npm as superseded (a red notice on each
+# version page and a warning on install). It changes nothing on jsDelivr,
+# whose pinned files are immutable, and nothing on the current release.
+#
+# Needs the repository secret NPM_DEPRECATE_TOKEN: a granular npm access token
+# with read and write on the package hemmabo-mcp-server. OIDC trusted
+# publishing (npm-publish.yml) covers `npm publish` only, not `npm deprecate`.
+
+on:
+  workflow_dispatch:
+    inputs:
+      range:
+        description: "Versions to deprecate (semver range)"
+        required: true
+        default: "<5.0.0"
+      message:
+        description: "Deprecation message shown on npm (empty string undeprecates)"
+        required: true
+        default: "Superseded by 7.0.0: six read-only tools, agents never book or pay. https://github.com/HemmaBo-se/hemmabo-mcp-server"
+
+permissions:
+  contents: read
+
+jobs:
+  deprecate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Deprecate the range
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_DEPRECATE_TOKEN }}
+          RANGE: ${{ inputs.range }}
+          MESSAGE: ${{ inputs.message }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::error::Repository secret NPM_DEPRECATE_TOKEN is not set (npmjs.com → Access Tokens → Generate New Token → Granular, read and write on hemmabo-mcp-server; GitHub → Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+          npm whoami
+          npm deprecate "hemmabo-mcp-server@${RANGE}" "${MESSAGE}"
+
+      - name: Measure (the oldest and the newest version in the range, and latest)
+        run: |
+          echo "3.1.2:  $(npm view hemmabo-mcp-server@3.1.2 deprecated)"
+          echo "4.0.9:  $(npm view hemmabo-mcp-server@4.0.9 deprecated)"
+          echo "latest: $(npm view hemmabo-mcp-server version) deprecated='$(npm view hemmabo-mcp-server deprecated)'"
