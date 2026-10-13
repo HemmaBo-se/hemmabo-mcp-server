@@ -93,15 +93,28 @@ function retiredToolNames() {
 }
 
 /**
- * The page's readable text: script bodies (page data that may name every tool
- * ever listed) and tags dropped, whitespace folded. Measurement only; the
- * text is never rendered or executed.
+ * The page without its script bodies: a catalog page's script data names
+ * every tool it has ever known, and only the readable text counts. A scan,
+ * not a regex, so any case and any spacing of the tags is handled. The
+ * result is measured, never rendered or executed.
  */
-const visible = (html) =>
-  html
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ");
+function withoutScripts(html) {
+  const lower = html.toLowerCase();
+  let out = "";
+  let i = 0;
+  for (;;) {
+    const open = lower.indexOf("<script", i);
+    if (open === -1) return out + html.slice(i);
+    out += html.slice(i, open);
+    const close = lower.indexOf("</script", open);
+    if (close === -1) return out;
+    const end = lower.indexOf(">", close);
+    i = end === -1 ? lower.length : end + 1;
+  }
+}
+
+/** The page's readable text: scripts and tags dropped, whitespace folded. */
+const visible = (html) => withoutScripts(html).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 const has = (text, needle) => text.includes(needle);
 const missing = (text, names) => names.filter((n) => !has(text, n));
 const present = (text, names) => names.filter((n) => has(text, n));
