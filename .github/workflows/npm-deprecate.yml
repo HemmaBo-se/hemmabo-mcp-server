@@ -5,9 +5,11 @@ name: npm deprecate old versions
 # version page and a warning on install). It changes nothing on jsDelivr,
 # whose pinned files are immutable, and nothing on the current release.
 #
-# Needs the repository secret NPM_DEPRECATE_TOKEN: a granular npm access token
-# with read and write on the package hemmabo-mcp-server. OIDC trusted
-# publishing (npm-publish.yml) covers `npm publish` only, not `npm deprecate`.
+# Needs an npm token with write access to hemmabo-mcp-server: the repository
+# secret NPM_DEPRECATE_TOKEN (a granular token), or, as a fallback, the older
+# NPM_TOKEN if it still exists and has not expired. `npm whoami` runs first:
+# a dead token stops the run there. OIDC trusted publishing (npm-publish.yml)
+# covers `npm publish` only, not `npm deprecate`.
 
 on:
   workflow_dispatch:
@@ -35,15 +37,15 @@ jobs:
 
       - name: Deprecate the range
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_DEPRECATE_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_DEPRECATE_TOKEN || secrets.NPM_TOKEN }}
           RANGE: ${{ inputs.range }}
           MESSAGE: ${{ inputs.message }}
         run: |
           if [ -z "$NODE_AUTH_TOKEN" ]; then
-            echo "::error::Repository secret NPM_DEPRECATE_TOKEN is not set (npmjs.com → Access Tokens → Generate New Token → Granular, read and write on hemmabo-mcp-server; GitHub → Settings → Secrets and variables → Actions)."
+            echo "::error::No npm token: neither NPM_DEPRECATE_TOKEN nor NPM_TOKEN is set (npmjs.com → Access Tokens → Generate New Token → Granular, read and write on hemmabo-mcp-server; GitHub → Settings → Secrets and variables → Actions)."
             exit 1
           fi
-          npm whoami
+          npm whoami || { echo "::error::The npm token is invalid or expired. Create a new granular token and store it as NPM_DEPRECATE_TOKEN."; exit 1; }
           npm deprecate "hemmabo-mcp-server@${RANGE}" "${MESSAGE}"
 
       - name: Measure (the oldest and the newest version in the range, and latest)
