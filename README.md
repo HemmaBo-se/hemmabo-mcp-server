@@ -125,6 +125,7 @@ Required environment variables:
 Optional environment variables:
 
 - `MCP_API_KEY` - enables Bearer-token auth.
+- `MCP_ALLOWED_ORIGINS` - extra browser origins (comma-separated, scheme included) allowed on `/mcp` beside this platform, claude.ai, claude.com, chatgpt.com, chat.openai.com and loopback.
 - `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` - enable shared rate limiting.
 
 ## HTTP Endpoints
@@ -132,7 +133,7 @@ Optional environment variables:
 | Path | Method | Purpose |
 |------|--------|---------|
 | `/mcp` | POST | MCP Streamable HTTP endpoint |
-| `/mcp` | GET | Transport information |
+| `/mcp` | GET | Transport information (`Accept: text/event-stream` answers 405: no server-initiated stream) |
 | `/health` | GET | Health check |
 | `/.well-known/mcp.json` | GET | MCP discovery metadata |
 | `/.well-known/mcp/server-card.json` | GET | Server card metadata |
@@ -145,7 +146,7 @@ Optional environment variables:
 
 ## Transports
 
-- Streamable HTTP: hosted `/mcp` endpoint (remote-only).
+- Streamable HTTP: hosted `/mcp` endpoint (remote-only). Protocol versions 2025-06-18, 2025-03-26 and 2024-11-05: `initialize` answers in the client's version, an unknown one gets 2025-06-18; an unsupported `MCP-Protocol-Version` header is 400; a browser `Origin` outside the allow list is 403; a body that is not JSON-RPC 2.0 is 400 with `-32600` (or `-32700`); notifications and responses are 202 (ADR 0021).
 
 ## Development
 
