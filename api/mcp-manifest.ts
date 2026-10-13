@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from "./_types.js";
 import { ANON_TOOLS } from "./mcp.js";
 import { baseUrl } from "../lib/base-url.js";
 import { readPackageJson } from "../lib/read-package-json.js";
+import { MCP_LATEST_PROTOCOL_VERSION } from "../lib/mcp-transport.js";
 import { SERVER_DESCRIPTION, SERVER_ICON_URL, SERVER_TITLE } from "../lib/server-metadata.js";
 import { TOOL_NAMES } from "../lib/tool-definitions.js";
 
@@ -56,7 +57,9 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   res.json({
     schema_version: "1.1",
     protocol: "mcp",
-    protocol_version: "2025-03-26",
+    // The newest MCP protocol version the endpoint speaks (ADR 0021); older
+    // clients are answered in their own version at initialize.
+    protocol_version: MCP_LATEST_PROTOCOL_VERSION,
     // Canonical display name — must stay character-identical with server.json
     // `title` (official MCP registry) and oauth-protected-resource
     // `resource_name`. CEO decision 2026-08-18: one outward name everywhere.

@@ -6,8 +6,13 @@
  *
  * Endpoints:
  *   POST /mcp  — JSON-RPC (initialize, tools/list, tools/call, prompts/list, prompts/get)
- *   GET  /mcp  — transport info
+ *   GET  /mcp  — transport info; 405 when the client asks for an SSE stream
  *   HEAD /mcp  — transport liveness for uptime monitors
+ *
+ * Transport contract (ADR 0021, MCP Streamable HTTP): the Origin header is
+ * validated on every request, the MCP-Protocol-Version header on every
+ * non-preflight request, and every JSON-RPC envelope before dispatch. The
+ * rules live in lib/mcp-transport.ts.
  */
 
 import type { VercelRequest, VercelResponse } from "./_types.js";
@@ -43,6 +48,15 @@ import {
 } from "../lib/apps-widget.js";
 import { VERIFIED_STAY_OFFER_HTML, VERIFIED_STAY_OFFER_NATIVE_HTML } from "../lib/apps-widget-html.js";
 import { chatgptToolDefinition, shapeChatgptToolResult } from "../lib/chatgpt-surface.js";
+import {
+  MCP_ASSUMED_PROTOCOL_VERSION,
+  MCP_PROTOCOL_VERSIONS,
+  acceptsEventStream,
+  checkOrigin,
+  isSupportedProtocolVersion,
+  negotiateProtocolVersion,
+  parseJsonRpcBody,
+} from "../lib/mcp-transport.js";
 
 export { SERVER_DESCRIPTION, SERVER_INSTRUCTIONS } from "../lib/server-metadata.js";
 
@@ -289,7 +303,9 @@ export async function handleJsonRpc(
       return {
         jsonrpc: "2.0", id,
         result: {
-          protocolVersion: "2025-03-26",
+          // Echo the client's version when we speak it, else offer the latest
+          // (lib/mcp-transport.ts, ADR 0021).
+          protocolVersion: negotiateProtocolVersion(params?.protocolVersion),
           capabilities: {
             tools: { listChanged: false },
             prompts: { listChanged: false },
@@ -551,22 +567,80 @@ export function isAuthRequiredMessage(msg: unknown): boolean {
 // ── HTTP handler ─────────────────────────────────────────────────
 
 export async function serve(req: VercelRequest, res: VercelResponse, surface: McpSurface = "full") {
-  // Origin is intentionally unrestricted — MCP clients (Claude Desktop, Smithery,
-  // Glama) are not browsers and do not send an Origin header. Browser-based CSRF
-  // is mitigated by requiring the Authorization header on all POST requests:
-  // browsers cannot send custom headers cross-origin without a preflight, and the
-  // preflight response does not grant credentials, so unauthenticated cross-site
-  // POSTs are blocked at the browser level.
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  // Origin first (MCP Streamable HTTP: "Servers MUST validate the Origin
+  // header on all incoming connections"). Non-browser clients (Claude Desktop,
+  // Smithery, Glama, registries) send no Origin and pass. A browser may open
+  // the endpoint from this platform, the assistants' web apps, a loopback
+  // address or an operator-listed origin (lib/mcp-transport.ts); anything else
+  // is refused before any header, body or tool is touched.
+  const origin = checkOrigin(req.headers["origin"], req.headers["x-forwarded-host"] ?? req.headers["host"]);
+  if (!origin.ok) {
+    return res.status(403).json({
+      jsonrpc: "2.0",
+      id: null,
+      error: { code: -32600, message: `Origin not allowed (${origin.reason})` },
+    });
+  }
+  // Browser-based CSRF against the Bearer gate is further mitigated by the
+  // Authorization header: a browser cannot send it cross-origin without a
+  // preflight, and the preflight grants no credentials.
+  res.setHeader("Access-Control-Allow-Origin", origin.origin ?? "*");
+  if (origin.origin) res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS, DELETE");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept, Mcp-Session-Id, Authorization");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept, Mcp-Session-Id, Mcp-Protocol-Version, Authorization");
   res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
 
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method === "HEAD") return res.status(200).end();
-  if (req.method === "GET") return res.json({ status: "ok", transport: "streamable-http", version: SERVER_VERSION });
+
+  // MCP-Protocol-Version: absent means the spec's assumed 2025-03-26 (no
+  // behaviour depends on it here, the server is stateless); present and
+  // unknown is a 400 ("the server MUST respond with 400 Bad Request").
+  const declaredVersion = Array.isArray(req.headers["mcp-protocol-version"])
+    ? req.headers["mcp-protocol-version"][0]
+    : req.headers["mcp-protocol-version"];
+  if (declaredVersion !== undefined && !isSupportedProtocolVersion(declaredVersion)) {
+    return res.status(400).json({
+      jsonrpc: "2.0",
+      id: null,
+      error: {
+        code: -32600,
+        message: `Unsupported MCP-Protocol-Version "${String(declaredVersion).slice(0, 64)}". Supported: ${MCP_PROTOCOL_VERSIONS.join(", ")}.`,
+      },
+    });
+  }
+
+  if (req.method === "GET") {
+    // A GET that asks for text/event-stream wants a server-initiated SSE
+    // stream. This server opens none: "the server MUST either return
+    // Content-Type: text/event-stream ... or else return HTTP 405".
+    if (acceptsEventStream(req.headers["accept"])) {
+      res.setHeader("Allow", "POST, HEAD, OPTIONS, DELETE");
+      return res.status(405).json({
+        error: "Method not allowed",
+        detail: "This server opens no server-initiated SSE stream. Send JSON-RPC over POST.",
+      });
+    }
+    // Plain GET keeps the transport-info body uptime monitors and docs rely on.
+    return res.json({
+      status: "ok",
+      transport: "streamable-http",
+      version: SERVER_VERSION,
+      protocolVersions: [...MCP_PROTOCOL_VERSIONS],
+      assumedProtocolVersion: MCP_ASSUMED_PROTOCOL_VERSION,
+    });
+  }
   if (req.method === "DELETE") return res.status(202).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  // The envelope before anything else reads it: a JSON-RPC 2.0 request,
+  // notification or response, or a non-empty array of them. Anything else is
+  // 400 with a JSON-RPC error and no id (-32600 Invalid Request, -32700
+  // Parse error). Client responses are accepted and not dispatched.
+  const envelope = parseJsonRpcBody(req.body);
+  if (!envelope.ok) {
+    return res.status(400).json({ jsonrpc: "2.0", id: null, error: { code: envelope.code, message: envelope.message } });
+  }
 
   // Auth model: public read; every listed tool is read-only (ADR 0019).
   // - initialize / tools/list / prompts/* / ping: anonymous (registry discovery).
@@ -577,7 +651,7 @@ export async function serve(req: VercelRequest, res: VercelResponse, surface: Mc
   //   boolean availability + blocked-date ranges, never PII.
   // - tools/call for any name not in ANON_TOOLS (unknown or removed tools):
   //   requires a Bearer token (MCP_API_KEY or OAuth access token) — fail closed.
-  const requestMessages = Array.isArray(req.body) ? req.body : [req.body];
+  const requestMessages = envelope.requests;
   // ChatGPT surface: the only callable tools are the three anonymous read-only
   // ones; every other tool is rejected in handleJsonRpc before any execution,
   // so the Bearer gate is unnecessary here (the allowlist replaces it).
@@ -648,23 +722,18 @@ export async function serve(req: VercelRequest, res: VercelResponse, surface: Mc
   };
 
   try {
-    const body = req.body;
-
-    if (Array.isArray(body)) {
-      const results = [];
-      for (const msg of body) {
-        const result = await handleJsonRpc(msg, ctx);
-        if (result !== null) results.push(result);
-      }
-      if (results.length === 0) return res.status(202).end();
-      return res.json(results);
+    // Requests are answered; notifications and client responses are not
+    // ("the server MUST return HTTP status code 202 Accepted with no body").
+    // A batch is answered with a batch.
+    const results: Record<string, unknown>[] = [];
+    for (const msg of envelope.requests) {
+      const result = await handleJsonRpc(msg, ctx);
+      if (result !== null && msg.id !== undefined) results.push(result);
     }
-
-    const result = await handleJsonRpc(body, ctx);
-    if (result === null) return res.status(202).end();
+    if (results.length === 0) return res.status(202).end();
 
     res.setHeader("Content-Type", "application/json");
-    return res.json(result);
+    return res.json(envelope.batch ? results : results[0]);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal error";
     console.error("MCP handler error:", message);
