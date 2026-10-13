@@ -92,7 +92,16 @@ function retiredToolNames() {
   return [...block.matchAll(/"([a-z_]+)":/g)].map((m) => m[1]);
 }
 
-const visible = (html) => html.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+/**
+ * The page's readable text: script bodies (page data that may name every tool
+ * ever listed) and tags dropped, whitespace folded. Measurement only; the
+ * text is never rendered or executed.
+ */
+const visible = (html) =>
+  html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ");
 const has = (text, needle) => text.includes(needle);
 const missing = (text, names) => names.filter((n) => !has(text, n));
 const present = (text, names) => names.filter((n) => has(text, n));
