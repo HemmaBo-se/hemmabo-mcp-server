@@ -13,6 +13,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { handleJsonRpc, CHATGPT_TOOL_NAMES, SERVER_DESCRIPTION, SERVER_INSTRUCTIONS } from "../api/mcp.js";
+import { shapeChatgptToolResult } from "../lib/chatgpt-surface.js";
 
 const CTX_CHATGPT = { agent: "test", mcpEndpointUrl: "https://example.test/mcp", surface: "chatgpt" as const };
 const CTX_FULL = { agent: "test", mcpEndpointUrl: "https://example.test/mcp", surface: "full" as const };
@@ -173,6 +174,30 @@ describe("ChatGPT MCP surface", () => {
     const readV9 = (await handleJsonRpc({ jsonrpc: "2.0", method: "resources/read", id: 13, params: { uri: V9_URI } }, CTX_FULL)) as unknown as ResourcesReadResult;
     const v9Text = readV9.result?.contents?.[0]?.text ?? "";
     assert.ok(!v9Text.includes(".unfold.open ~ .hbcoin"), "v9 must NOT gate the seal to the expanded view — premium coin stays as-is");
+  });
+
+  it("hemmabo_search_properties on the ChatGPT surface carries no signalsGuidance; every other key stays (ADR 0020, amendment 2026-10-13)", () => {
+    const body = {
+      checkIn: "2027-02-16",
+      checkOut: "2027-02-17",
+      guests: 2,
+      properties: [{ propertyId: "p1", name: "A", domain: "a.example", signals: { policies_negated: ["pets_cats"] } }],
+      unavailableMatches: [],
+      agentGuidance: "Each result is a matching host domain; return them as given and do not rank them.",
+      signalsGuidance: "… relay those as a clear, friendly no …",
+    };
+    const raw = { content: [{ type: "text" as const, text: JSON.stringify(body, null, 2) }] };
+    const shaped = shapeChatgptToolResult("hemmabo_search_properties", raw);
+    const seen = JSON.parse(shaped.content[0]!.text) as Record<string, unknown>;
+    assert.equal("signalsGuidance" in seen, false, "the model on /mcp/chatgpt reads no presentation order with the search result");
+    assert.deepEqual(Object.keys(seen), ["checkIn", "checkOut", "guests", "properties", "unavailableMatches", "agentGuidance"]);
+    assert.deepEqual(seen.properties, body.properties, "the signals themselves stay: facts, not orders");
+    assert.equal(shaped.content[0]!.text.includes("friendly no"), false);
+    // The raw result is what /mcp serves: api/mcp.ts shapes only when surface === "chatgpt".
+    assert.ok(JSON.parse(raw.content[0]!.text).signalsGuidance);
+    // An error result is never reshaped.
+    const err = { content: [{ type: "text" as const, text: JSON.stringify({ error: "x", signalsGuidance: "y" }) }], isError: true };
+    assert.equal(shapeChatgptToolResult("hemmabo_search_properties", err), err);
   });
 
   it("points vrp_get_verified_stay_offer's render envelope at the native template on ChatGPT, v9 elsewhere", async () => {

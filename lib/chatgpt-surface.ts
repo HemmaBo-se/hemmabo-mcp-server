@@ -68,9 +68,36 @@ const WIDGET_TOOL_MODEL_VIEW: Readonly<Record<string, (full: JsonRecord) => Json
 
 export const CHATGPT_WIDGET_TOOL_NAMES: ReadonlySet<string> = new Set(Object.keys(WIDGET_TOOL_MODEL_VIEW));
 
+/**
+ * Keys of the search result the model on this surface does not read (ADR 0020,
+ * amendment 2026-10-13): a presentation order, not a fact. `agentGuidance`
+ * stays: it carries the no-ranking rule and the next tool call.
+ */
+const SEARCH_MODEL_OMIT: readonly string[] = ["signalsGuidance"];
+
+/** The search result as the model sees it on this surface: the same JSON without the omitted keys. */
+function shapeSearchResult(result: ToolResult): ToolResult {
+  const [first, ...rest] = result.content;
+  if (!first || first.type !== "text") return result;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(first.text);
+  } catch {
+    return result;
+  }
+  const body = record(parsed);
+  if (!body) return result;
+  const shaped: JsonRecord = { ...body };
+  for (const key of SEARCH_MODEL_OMIT) delete shaped[key];
+  return { ...result, content: [{ type: "text", text: JSON.stringify(shaped, null, 2) }, ...rest] };
+}
+
 export function shapeChatgptToolResult(toolName: string, result: ToolResult): ToolResult {
+  if (result.isError) return result;
+  if (toolName === "hemmabo_search_properties") return shapeSearchResult(result);
+
   const structured = record(result.structuredContent);
-  if (result.isError || !structured) return result;
+  if (!structured) return result;
 
   const modelView = WIDGET_TOOL_MODEL_VIEW[toolName];
   if (modelView) {
