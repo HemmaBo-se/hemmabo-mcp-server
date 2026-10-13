@@ -86,9 +86,23 @@ carries it).
      `npm-publish.yml` and `mcp-registry-publish.yml`.
   3. CEO, when tools or tool text on `/mcp/chatgpt` changed: OpenAI Rescan on
      the app's MCPs tab. The page's link is not recorded yet.
-  4. CEO, when Glama's builder answers: **Build & Release** on
-     [Glama's Dockerfile page](https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server/admin/dockerfile).
-  5. Agent: measure npm and the MCP Registry at the new version.
+  4. CEO, Glama. A green build plus the GitHub release is Glama's
+     Auto-Release. When the server page is stale (retired tool names, an old
+     version in the changelog) or the build is red:
+     [Repository → **Sync Server**](https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server/admin/repository)
+     until «Current head commit» is main's head, then
+     [Dockerfile → **Build & Release**](https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server/admin/dockerfile)
+     with the pinned SHA empty. 6.0.0 to 7.0.0 went by without a sync: the
+     page listed the five retired names and v5.0.0 until 2026-10-13.
+  5. The release runs `release-chain.yml`: it measures every surface
+     (production, the manifest, npm, the MCP Registry, Glama's connector and
+     server page, Smithery, mcp.so, Docker Hub) with
+     `scripts/release-chain-measure.mjs` and opens the issue
+     «Release vX.Y.Z: the chain», one row per surface, a direct link for every
+     hand step. The agent reads the issue, gives the CEO the links for the
+     rows that are ❌, and re-runs the workflow (Actions → Release chain →
+     Run workflow, same version) after each hand step until every row is ✅.
+     The release is done when the issue can be closed.
 - Every catalog surface and the full chain: `hemmabo-smart-stays`
   `docs/OPERATIONS/CATALOG-SURFACES.md`, «Kedjan när verktyg eller
   verktygstext ändras».
