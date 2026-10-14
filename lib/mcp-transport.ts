@@ -8,7 +8,7 @@
  * dispatched. api/mcp.ts applies them in this order: Origin, method, the
  * MCP-Protocol-Version header, the envelope.
  *
- * Spec: https://modelcontextprotocol.io/specification/2025-06-18/basic/transports
+ * Spec: https://modelcontextprotocol.io/specification/2025-11-25/basic/transports
  */
 
 // ── Protocol versions ────────────────────────────────────────────
@@ -16,9 +16,12 @@
 /**
  * Newest first. The first entry is what the server offers a client whose
  * requested version it does not speak ("the server SHOULD respond with the
- * latest version it supports").
+ * latest version it supports"). 2025-11-25 added nothing a server of this
+ * shape must change (ADR 0021, amendment 2026-10-14); a client that sends it
+ * as the MCP-Protocol-Version header before initialize was answered 400 until
+ * 7.0.3.
  */
-export const MCP_PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"] as const;
+export const MCP_PROTOCOL_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"] as const;
 
 export type McpProtocolVersion = (typeof MCP_PROTOCOL_VERSIONS)[number];
 

@@ -146,7 +146,7 @@ Optional environment variables:
 
 ## Transports
 
-- Streamable HTTP: hosted `/mcp` endpoint (remote-only). Protocol versions 2025-06-18, 2025-03-26 and 2024-11-05: `initialize` answers in the client's version, an unknown one gets 2025-06-18; an unsupported `MCP-Protocol-Version` header is 400; a browser `Origin` outside the allow list is 403; a body that is not JSON-RPC 2.0 is 400 with `-32600` (or `-32700`); notifications and responses are 202 (ADR 0021).
+- Streamable HTTP: hosted `/mcp` endpoint (remote-only). Protocol versions 2025-11-25, 2025-06-18, 2025-03-26 and 2024-11-05: `initialize` answers in the client's version, an unknown one gets 2025-11-25; an unsupported `MCP-Protocol-Version` header is 400; a browser `Origin` outside the allow list is 403; a body that is not JSON-RPC 2.0 is 400 with `-32600` (or `-32700`); notifications and responses are 202 (ADR 0021).
 
 ## Development
 

@@ -70,7 +70,8 @@ async function http(url, init = {}) {
 async function rpc(url, method, params = {}) {
   const { status, text } = await http(url, {
     method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+    headers: { "content-type": "application/json", accept: "application/json, text/event-stream",
+      "mcp-protocol-version": "2025-11-25" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
   });
   if (status !== 200) throw new Error(`HTTP ${status}`);
@@ -79,7 +80,7 @@ async function rpc(url, method, params = {}) {
 }
 
 const INIT_PARAMS = {
-  protocolVersion: "2025-06-18",
+  protocolVersion: "2025-11-25",
   capabilities: {},
   clientInfo: { name: "hemmabo-release-chain", version: "1" },
 };
