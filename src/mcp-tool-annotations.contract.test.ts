@@ -31,6 +31,9 @@ describe("mcp tool annotations contract", () => {
       assert.equal(a.readOnlyHint, expected.readOnlyHint, `${toolName}.readOnlyHint drifted`);
       assert.equal(a.openWorldHint, expected.openWorldHint, `${toolName}.openWorldHint drifted`);
       assert.equal(a.destructiveHint, expected.destructiveHint, `${toolName}.destructiveHint drifted`);
+      // 2025-11-25 schema: idempotentHint "is meaningful only when readOnlyHint == false".
+      // All six tools are read-only, so 7.0.4 dropped the field; it must not come back.
+      assert.equal("idempotentHint" in a, false, `${toolName}: idempotentHint is meaningless on a read-only tool`);
     });
   }
 

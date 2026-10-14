@@ -66,7 +66,6 @@ export interface ToolAnnotations {
   title: string;
   readOnlyHint: boolean;
   destructiveHint: boolean;
-  idempotentHint: boolean;
   openWorldHint: boolean;
 }
 
@@ -252,7 +251,6 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       title: "Search Properties",
       readOnlyHint: true,
       destructiveHint: false,
-      idempotentHint: true,
       openWorldHint: false,
     },
   },
@@ -320,7 +318,6 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
       title: "Check Availability",
       readOnlyHint: true,
       destructiveHint: false,
-      idempotentHint: true,
       openWorldHint: false,
     },
   },
