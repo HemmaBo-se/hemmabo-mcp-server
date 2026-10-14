@@ -1,7 +1,7 @@
 /**
  * Contract test for the MCP Streamable HTTP transport (ADR 0021).
  *
- * The spec (2025-06-18, basic/transports) on the four points 7.0.1 fixes:
+ * The spec (basic/transports; 2025-06-18 for 7.0.1, 2025-11-25 since 7.0.3) on the four points 7.0.1 fixes:
  *   - initialize: echo the client's protocolVersion when supported, else answer
  *     with a version the server supports (the latest).
  *   - MCP-Protocol-Version header: absent → assume 2025-03-26; invalid or
@@ -75,9 +75,9 @@ type InitResult = { result: { protocolVersion: string } };
 const SURFACES = ["full", "chatgpt"] as const;
 
 describe("protocol version negotiation (initialize)", () => {
-  it("lists the supported versions newest first, 2025-06-18 on top", () => {
-    assert.deepEqual([...MCP_PROTOCOL_VERSIONS], ["2025-06-18", "2025-03-26", "2024-11-05"]);
-    assert.equal(MCP_LATEST_PROTOCOL_VERSION, "2025-06-18");
+  it("lists the supported versions newest first, 2025-11-25 on top", () => {
+    assert.deepEqual([...MCP_PROTOCOL_VERSIONS], ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"]);
+    assert.equal(MCP_LATEST_PROTOCOL_VERSION, "2025-11-25");
     assert.equal(MCP_ASSUMED_PROTOCOL_VERSION, "2025-03-26");
   });
 
@@ -89,7 +89,7 @@ describe("protocol version negotiation (initialize)", () => {
   });
 
   for (const surface of SURFACES) {
-    it(`${surface}: initialize echoes 2025-06-18, 2025-03-26 and 2024-11-05`, async () => {
+    it(`${surface}: initialize echoes 2025-11-25, 2025-06-18, 2025-03-26 and 2024-11-05`, async () => {
       for (const v of MCP_PROTOCOL_VERSIONS) {
         const r = await request(surface, { method: "POST", body: initialize(v) });
         assert.equal(r.status, 200);
@@ -126,7 +126,7 @@ describe("MCP-Protocol-Version header", () => {
       assert.equal(err.id, null);
       assert.equal(err.error.code, -32600);
       assert.match(err.error.message, /Unsupported MCP-Protocol-Version/);
-      assert.match(err.error.message, /2025-06-18, 2025-03-26, 2024-11-05/);
+      assert.match(err.error.message, /2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05/);
     });
 
     it(`${surface}: no header is the spec's assumed version — the request is served`, async () => {
@@ -140,6 +140,68 @@ describe("MCP-Protocol-Version header", () => {
     const r = await request("full", { method: "OPTIONS" });
     assert.equal(r.status, 204);
     assert.match(r.headers["access-control-allow-headers"], /\bMcp-Protocol-Version\b/);
+  });
+});
+
+describe("the 2025-11-25 revision (7.0.3): the signature Smithery's gateway left in the log", () => {
+  // Measured 2026-10-14 07:27 UTC on 7.0.2: a client that sends the header
+  // 2025-11-25 before initialize was 400 on GET and on POST, before the
+  // envelope was read (ADR 0021, amendment 2026-10-14).
+  for (const surface of SURFACES) {
+    it(`${surface}: GET with the 2025-11-25 header is 405, not 400`, async () => {
+      const r = await request(surface, {
+        method: "GET",
+        headers: { accept: "text/event-stream", "mcp-protocol-version": "2025-11-25" },
+      });
+      assert.equal(r.status, 405);
+    });
+
+    it(`${surface}: initialize with the 2025-11-25 header is 200 and echoes 2025-11-25`, async () => {
+      const r = await request(surface, {
+        method: "POST",
+        headers: { "mcp-protocol-version": "2025-11-25" },
+        body: initialize("2025-11-25"),
+      });
+      assert.equal(r.status, 200);
+      assert.equal((r.body as InitResult).result.protocolVersion, "2025-11-25");
+    });
+
+    it(`${surface}: ping with the 2025-11-25 header is served`, async () => {
+      const r = await request(surface, {
+        method: "POST",
+        headers: { "mcp-protocol-version": "2025-11-25" },
+        body: { jsonrpc: "2.0", id: 3, method: "ping" },
+      });
+      assert.equal(r.status, 200);
+      assert.equal((r.body as { id: number }).id, 3);
+    });
+  }
+
+  for (const surface of SURFACES) {
+    it(`${surface}: a 2026-07-28 header is 400 with -32600 and the supported list, so a dual-era client falls back to initialize`, async () => {
+      // 2026-07-28 (basic/transports, Backward Compatibility): on 400 the
+      // client inspects the body; a recognised modern error (-32020..-32022)
+      // means a modern server, anything else means a legacy server and the
+      // client retries with initialize. -32600 is that "anything else".
+      const r = await request(surface, {
+        method: "POST",
+        headers: { "mcp-protocol-version": "2026-07-28" },
+        body: { jsonrpc: "2.0", id: 1, method: "server/discover" },
+      });
+      assert.equal(r.status, 400);
+      const err = r.body as RpcError;
+      assert.equal(err.error.code, -32600);
+      assert.match(err.error.message, /Supported: 2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05/);
+    });
+  }
+
+  it("the manifest's protocol_version is the newest version the server speaks", async () => {
+    const mod = await import("../api/mcp-manifest.js");
+    const captured: Record<string, unknown> = {};
+    const res = { setHeader: () => {}, json: (body: Record<string, unknown>) => Object.assign(captured, body) };
+    await mod.default({} as never, res as never);
+    assert.equal(captured.protocol_version, MCP_LATEST_PROTOCOL_VERSION);
+    assert.equal(captured.protocol_version, "2025-11-25");
   });
 });
 

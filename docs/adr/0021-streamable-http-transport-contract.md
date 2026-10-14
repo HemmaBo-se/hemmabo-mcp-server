@@ -67,3 +67,59 @@ is the catalog's front door.
   now reads it back; its check is on `serverInfo.version` and is unchanged.
 - `src/mcp-transport.contract.test.ts` holds every row above on both
   surfaces. Measurement before and after lives in the 7.0.1 PR.
+
+## Amendment 2026-10-14 (7.0.3): the 2025-11-25 revision is spoken
+
+Measured 2026-10-14 07:27 UTC on production (7.0.2): a client that sends
+`MCP-Protocol-Version: 2025-11-25`, the newest initialize-handshake revision
+and the TypeScript SDK 1.x `LATEST_PROTOCOL_VERSION`, was answered 400 on GET, POST and DELETE, before the envelope
+was read (OPTIONS and HEAD are answered earlier), because the list in decision 1 ended at 2025-06-18. The Vercel request log shows
+the signature as pairs of `GET /mcp 400` and `POST /mcp 400` two minutes
+apart, a client that sends the header before `initialize`; at the same time
+the HemmaBo connector in a Smithery toolbox showed «No tools available».
+Smithery's gateway is the attributed sender, not a captured one (its console
+logs tool calls only); the after-measurement is the toolbox showing the six
+tools once 7.0.3 is live. The conformance suite negotiates first and did not
+see it.
+
+Decision 1 now reads: the server speaks `2025-11-25`, `2025-06-18`,
+`2025-03-26` and `2024-11-05`; the newest is offered to a client whose version
+the server does not speak, and the manifest's `protocol_version` follows it.
+Everything the 2025-11-25 revision adds (icons, tasks, URL-mode elicitation,
+tools in sampling, OAuth discovery additions, SSE polling, elicitation
+defaults) is optional for a server of this shape; the one MUST that touches
+this transport, 403 for an invalid Origin, decision 4 already keeps. The one
+MUST outside the transport, JSON Schema 2020-12 as the default dialect for a
+schema without `$schema` (SEP-1613), the server already meets: its twelve tool
+schemas use only `type`, `properties`, `required`, `additionalProperties`,
+`items` (object form), `maxItems`, `minimum`, `pattern`, `enum`, `format` and
+`description`, whose meaning is the same in draft-07 and 2020-12, so the
+draft-07 Ajv validator in `lib/validate-args.ts` gives the same verdicts
+(measured in the 7.0.3 review: all twelve compile under strict Ajv 2020-12 and
+strict draft-07, fifteen sample argument sets with no difference). A schema
+that adds a 2020-12-only keyword (`prefixItems`, `dependentRequired`,
+`unevaluatedProperties`) moves the validator to Ajv 2020-12 first. The assumed
+version without a header stays `2025-03-26` (the spec's rule).
+`scripts/release-chain-measure.mjs` initializes with `2025-11-25` since 7.0.3
+and sends the header on every call, so the production row is red on a server
+that refuses the revision; its check on `serverInfo.version` is unchanged.
+The manifest's `protocol_version` follows the list; the www mirror
+`/.well-known/mcp` and `/.well-known/mcp-server` (hemmabo-smart-stays
+`api/mcp-json.js`) carries its own value and follows in a separate
+smart-stays PR. `src/mcp-transport.contract.test.ts` holds the Smithery
+signature: the header `2025-11-25` on GET is 405 and on `initialize` is 200
+with the same version echoed.
+
+The specification's current revision is `2026-07-28`, a different era: no
+`initialize`, the version and the client's capabilities in every request's
+`_meta`, a mandatory `server/discover`, `Mcp-Method` and `Mcp-Name` headers,
+no GET endpoint, `UnsupportedProtocolVersionError` (`-32022`) for a version
+the server does not speak. This server stays in the handshake era and is not a
+"dual-era" server; that is a separate decision. What 7.0.3 guarantees for a
+2026-07-28 client is the fallback its own specification prescribes: a
+`2026-07-28` header is answered 400 with the JSON-RPC error `-32600` and the
+supported list, which is not a recognised modern error, so a dual-era client
+reads a legacy server and retries with `initialize`, now landing on
+`2025-11-25`. A modern-only client fails against every handshake-era server,
+as the specification's compatibility matrix says. The contract test holds
+this fallback signature too.
