@@ -771,7 +771,12 @@ export async function executeTool(
         .gte("max_guests", guests);
 
       const { data: properties, error } = await query;
-      if (error) return { content: [{ type: "text", text: JSON.stringify({ error: error.message }) }], isError: true };
+      if (error) {
+        // The database's own error text stays in the log; the caller gets a
+        // plain sentence (the message named table and column internals).
+        console.error("[search] properties query error:", error.message);
+        return toolError("Property search is temporarily unavailable. Try again shortly.");
+      }
 
       const matchedProperties = (properties ?? []).filter((prop: SearchPropertyRow) =>
         propertyMatchesLocation(prop, region, country)
