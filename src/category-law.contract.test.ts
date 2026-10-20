@@ -143,6 +143,15 @@ describe("category law contract", () => {
     }
   });
 
+  it("initialize on /mcp carries the icon and the website, the same as server.json", async () => {
+    const res = await initialize(CTX_FULL);
+    const serverInfo = res.result?.serverInfo ?? {};
+    const serverJson = JSON.parse(read("server.json")) as { icons: unknown; websiteUrl: unknown };
+    assert.deepEqual(serverInfo.icons, serverJson.icons);
+    assert.equal(serverInfo.websiteUrl, serverJson.websiteUrl);
+    assert.equal(serverInfo.websiteUrl, "https://www.hemmabo.com");
+  });
+
   it("none of the removed wording survives on the description surfaces", async () => {
     const surfaces: Record<string, string> = {
       SERVER_DESCRIPTION,
