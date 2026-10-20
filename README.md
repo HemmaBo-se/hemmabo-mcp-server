@@ -70,12 +70,6 @@ Connect an MCP client to the hosted Streamable HTTP endpoint:
 
 > HemmaBo is a hosted, remote-only MCP server. Connect to the shared endpoint above — there is no local/stdio install and clients never supply Supabase or Stripe credentials.
 
-### Install via Smithery
-
-```bash
-npx -y @smithery/cli install @info-00wt/hemmabo-mcp-server --client claude
-```
-
 ## Tools
 
 Canonical tool names use `snake_case`. Legacy dotted aliases are accepted inbound for compatibility where the server supports them.

@@ -212,12 +212,32 @@ const ROWS = [
     id: "smithery",
     label: `[Smithery](${LINKS.smithery})`,
     kind: "catalog",
-    who: `\`smithery.yaml\` + Smithery's scan; stale: [the listing](${LINKS.smithery}) → Publish`,
+    who: `\`smithery.yaml\` + Smithery's scan; stale: [the listing](${LINKS.smithery}) → Publish. Smithery closes its run.tools proxy, API and CLI on 2026-10-31; the listing must show ${PLATFORM}/mcp: [Settings → Verification](${LINKS.smithery}/settings/verification)`,
     async check(ctx) {
-      const { status, text } = await http(LINKS.smitheryApi);
-      const names = (JSON.parse(text).tools ?? []).map((t) => t.name).sort();
+      // The registry API while it answers; after 2026-10-31 the listing page's own data.
+      const api = await http(LINKS.smitheryApi);
+      let names = null;
+      let proxied = false;
+      try {
+        const record = JSON.parse(api.text);
+        names = (record.tools ?? []).map((t) => t.name).sort();
+        proxied = JSON.stringify([record.deploymentUrl, record.connections]).includes(".run.tools");
+      } catch {
+        names = null;
+      }
+      let source = "registry API";
+      let status = api.status;
+      if (status !== 200 || !names) {
+        const page = await http(LINKS.smithery);
+        status = page.status;
+        names = ctx.toolNames.filter((n) => has(page.text, n));
+        proxied = has(page.text, ".run.tools");
+        source = "listing page";
+      }
       const same = names.length === ctx.toolNames.length && names.every((n, i) => n === ctx.toolNames[i]);
-      return { ok: status === 200 && same, detail: same ? `${names.length} tools, same names as production` : `tools ${names.join(", ") || "none"}` };
+      const tools = same ? `${names.length} tools, same names as production` : `tools ${names.join(", ") || "none"}`;
+      const url = proxied ? "connects through the run.tools proxy, which closes 2026-10-31" : `no run.tools proxy`;
+      return { ok: status === 200 && same && !proxied, detail: `${source}: ${tools}; ${url}` };
     },
   },
   {

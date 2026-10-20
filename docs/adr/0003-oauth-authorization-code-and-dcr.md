@@ -59,7 +59,7 @@ Two new public, unauthenticated endpoints:
 - `GET /.well-known/oauth-authorization-server` (RFC 8414) — advertises `authorization_endpoint`, `token_endpoint`, `registration_endpoint`, `revocation_endpoint`, supported grants, supported challenge methods (`S256` only), `token_endpoint_auth_methods_supported`.
 - `GET /.well-known/oauth-protected-resource` (RFC 9728) — declares this MCP server as a resource and points at the AS metadata URL above.
 
-`POST /mcp` returns `401 + WWW-Authenticate: Bearer resource_metadata="<base>/.well-known/oauth-protected-resource"` when no/invalid token is supplied, so Claude.ai can discover the AS without prior configuration (RFC 9728 §5.1).
+`POST /mcp` returns `401 + WWW-Authenticate: Bearer resource_metadata="<base>/.well-known/oauth-protected-resource"` when no/invalid token is supplied, so Claude.ai can discover the AS without prior configuration (RFC 9728 §5.1). Since 7.0.5 the challenge also names `scope="mcp"` (MCP 2025-11-25), and carries `error="invalid_token"` only when a Bearer token was sent and rejected, not when none was sent (RFC 6750 §3.1).
 
 ### 2.6 New endpoints (scope of upcoming PRs)
 

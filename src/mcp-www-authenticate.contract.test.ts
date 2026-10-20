@@ -31,7 +31,7 @@ after(() => {
   else process.env.MCP_API_KEY = prevApiKey;
 });
 
-async function postUnauthenticatedToolsCall() {
+async function postUnauthenticatedToolsCall(authorization?: string) {
   const mod = await import("../api/mcp.js");
   const captured = {
     status: 200,
@@ -50,6 +50,7 @@ async function postUnauthenticatedToolsCall() {
       "x-forwarded-proto": "https",
       "x-forwarded-host": "example.test",
       "content-type": "application/json",
+      ...(authorization ? { authorization } : {}),
     },
     // tools/call for a name outside ANON_TOOLS → requires auth (fail closed).
     body: {
@@ -80,5 +81,20 @@ describe("WWW-Authenticate header on /mcp 401 (RFC 9728 §5.1)", () => {
       "resource_metadata must be the absolute URL of the protected-resource metadata document."
     );
     assert.match(header, /realm="hemmabo-mcp"/, "realm should identify this MCP server.");
+  });
+
+  it("names the scope and carries no error code when no token was sent (MCP 2025-11-25, RFC 6750 §3.1)", async () => {
+    const r = await postUnauthenticatedToolsCall();
+    const header = r.headers["www-authenticate"];
+    assert.match(header, /scope="mcp"/, "The challenge SHOULD name the scope (scopes_supported: mcp).");
+    assert.doesNotMatch(header, /error=/, "A request without credentials gets no error code.");
+  });
+
+  it("carries error=\"invalid_token\" and the scope when a Bearer token was sent and rejected", async () => {
+    const r = await postUnauthenticatedToolsCall("Bearer not-a-valid-token");
+    assert.equal(r.status, 401);
+    const header = r.headers["www-authenticate"];
+    assert.match(header, /error="invalid_token"/);
+    assert.match(header, /scope="mcp"/);
   });
 });

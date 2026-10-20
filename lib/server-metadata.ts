@@ -17,6 +17,14 @@ export const SERVER_VERSION = pkg.version;
 export const SERVER_ICON_URL = "https://www.hemmabo.com/hemmabo-icon-512.png";
 
 /**
+ * serverInfo.icons and serverInfo.websiteUrl on the full /mcp surface (MCP
+ * 2025-11-25 `Implementation`), the same entry and site as server.json. The
+ * /mcp/chatgpt surface keeps the serverInfo OpenAI reviewed and carries neither.
+ */
+export const SERVER_ICONS = [{ src: SERVER_ICON_URL, mimeType: "image/png", sizes: ["512x512"] }];
+export const SERVER_WEBSITE_URL = "https://www.hemmabo.com";
+
+/**
  * The one outward display name (CEO decision 2026-08-18): serverInfo.title on
  * the full /mcp surface and the server card, the mcp.json manifest `name`, and
  * server.json `title`.

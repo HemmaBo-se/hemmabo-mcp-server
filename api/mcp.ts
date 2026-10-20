@@ -29,10 +29,12 @@ import {
   CHATGPT_SERVER_DESCRIPTION,
   CHATGPT_SERVER_INSTRUCTIONS,
   SERVER_DESCRIPTION,
+  SERVER_ICONS,
   SERVER_INSTRUCTIONS,
   SERVER_NAME,
   SERVER_TITLE,
   SERVER_VERSION,
+  SERVER_WEBSITE_URL,
 } from "../lib/server-metadata.js";
 import {
   CHATGPT_WIDGET_MODEL_LINE,
@@ -317,6 +319,7 @@ export async function handleJsonRpc(
             ...(surface === "chatgpt" ? {} : { title: SERVER_TITLE }),
             version: SERVER_VERSION,
             description: surface === "chatgpt" ? CHATGPT_SERVER_DESCRIPTION : SERVER_DESCRIPTION,
+            ...(surface === "chatgpt" ? {} : { icons: SERVER_ICONS, websiteUrl: SERVER_WEBSITE_URL }),
           },
           configSchema: CONFIG_SCHEMA,
           instructions: surface === "chatgpt" ? CHATGPT_SERVER_INSTRUCTIONS : SERVER_INSTRUCTIONS,
@@ -657,20 +660,24 @@ export async function serve(req: VercelRequest, res: VercelResponse, surface: Mc
   // so the Bearer gate is unnecessary here (the allowlist replaces it).
   const requiresAuth = surface === "chatgpt" ? false : requestMessages.some(isAuthRequiredMessage);
   if (requiresAuth) {
-    const authErr = await validateAuth(
-      Array.isArray(req.headers["authorization"])
-        ? req.headers["authorization"][0]
-        : req.headers["authorization"],
-    );
+    const authorization = Array.isArray(req.headers["authorization"])
+      ? req.headers["authorization"][0]
+      : req.headers["authorization"];
+    const authErr = await validateAuth(authorization);
     if (authErr) {
       // RFC 9728 §5.1 — point the client at the protected-resource metadata
       // so it can discover the authorization server without prior
       // configuration. Claude.ai depends on this header to start the
-      // authorization_code flow.
+      // authorization_code flow. MCP 2025-11-25: the challenge SHOULD name the
+      // scope (`mcp`, the metadata's scopes_supported). RFC 6750 §3.1: a
+      // request that carried no Bearer token gets no error code; only a token
+      // that was sent and rejected gets error="invalid_token".
       const resourceMetadataUrl = `${baseUrl(req)}/.well-known/oauth-protected-resource`;
+      const sentBearerToken = typeof authorization === "string" && /^Bearer\s+\S/.test(authorization);
       res.setHeader(
         "WWW-Authenticate",
-        `Bearer realm="hemmabo-mcp", resource_metadata="${resourceMetadataUrl}", error="invalid_token"`
+        `Bearer realm="hemmabo-mcp", resource_metadata="${resourceMetadataUrl}", scope="mcp"` +
+          (sentBearerToken ? `, error="invalid_token"` : "")
       );
       return res.status(401).json({
         jsonrpc: "2.0",
