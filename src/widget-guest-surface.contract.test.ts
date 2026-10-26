@@ -122,9 +122,9 @@ describe("widget mobile behaviour", () => {
 });
 
 describe("widget URI bumped so connected hosts refetch the fixed HTML", () => {
-  it("current is v9, previous is v8", () => {
-    assert.equal(HEMMABO_WIDGET_URI, "ui://hemmabo/verified-stay-offer-v9.html");
-    assert.equal(HEMMABO_PREVIOUS_WIDGET_URI, "ui://hemmabo/verified-stay-offer-v8.html");
+  it("current is v10, previous is v9", () => {
+    assert.equal(HEMMABO_WIDGET_URI, "ui://hemmabo/verified-stay-offer-v10.html");
+    assert.equal(HEMMABO_PREVIOUS_WIDGET_URI, "ui://hemmabo/verified-stay-offer-v9.html");
   });
 });
 
@@ -351,9 +351,9 @@ describe("the widget opens the host's booking page on every host", () => {
   // ChatGPT injects window.openai.openExternal; Claude (MCP Apps) does not,
   // and the documented route there is the ui/open-link request. Measured
   // 2026-10-26 in Claude: the "Continue on the host's site" button did nothing.
-  it("falls back to ui/open-link over postMessage once the host has initialized", () => {
+  it("sends ui/open-link over postMessage whenever it runs inside a host frame", () => {
     assert.match(VERIFIED_STAY_OFFER_HTML, /window\.openai\.openExternal\(\{ href: href, redirectUrl: false \}\)/);
-    assert.match(VERIFIED_STAY_OFFER_HTML, /if \(hostInitialized\) \{\s*postToHost\(\{ jsonrpc: "2\.0", id: rpcNextId\+\+, method: "ui\/open-link", params: \{ url: href \} \}\);\s*return true;/);
+    assert.match(VERIFIED_STAY_OFFER_HTML, /if \(window\.parent && window\.parent !== window\) \{\s*postToHost\(\{ jsonrpc: "2\.0", id: rpcNextId\+\+, method: "ui\/open-link", params: \{ url: href \} \}\);\s*return hostInitialized;/);
   });
 
   it("the booking link and the seal both route through tryHostOpen on click", () => {

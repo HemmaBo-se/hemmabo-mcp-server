@@ -27,7 +27,7 @@ type ResourcesReadResult = { result?: { contents?: Array<{ uri: string; text?: s
 type ToolsListMetaResult = { result?: { tools?: Array<{ name: string; _meta?: Record<string, unknown> }> } };
 
 const NATIVE_URI = "ui://hemmabo/verified-stay-offer-native-v1.html";
-const V9_URI = "ui://hemmabo/verified-stay-offer-v9.html";
+const V9_URI = "ui://hemmabo/verified-stay-offer-v10.html"; // the full surface's current template (v10 since 7.0.8)
 
 async function toolNames(ctx: typeof CTX_CHATGPT | typeof CTX_FULL): Promise<string[]> {
   const res = (await handleJsonRpc({ jsonrpc: "2.0", method: "tools/list", id: 1 }, ctx)) as unknown as ToolsListResult;
@@ -149,7 +149,7 @@ describe("ChatGPT MCP surface", () => {
     assert.deepEqual((list.result?.resources ?? []).map((r) => r.uri), [NATIVE_URI], "ChatGPT resources/list must advertise exactly the native template");
 
     const full = (await handleJsonRpc({ jsonrpc: "2.0", method: "resources/list", id: 7 }, CTX_FULL)) as unknown as ResourcesListResult;
-    assert.deepEqual((full.result?.resources ?? []).map((r) => r.uri), [V9_URI], "full surface must keep advertising the premium v9 template — /mcp is unchanged");
+    assert.deepEqual((full.result?.resources ?? []).map((r) => r.uri), [V9_URI], "full surface must keep advertising the premium template — /mcp is unchanged");
 
     const read = (await handleJsonRpc({ jsonrpc: "2.0", method: "resources/read", id: 8, params: { uri: NATIVE_URI } }, CTX_CHATGPT)) as unknown as ResourcesReadResult;
     const nativeText = read.result?.contents?.[0]?.text ?? "";
@@ -208,6 +208,6 @@ describe("ChatGPT MCP surface", () => {
 
     const resFull = (await handleJsonRpc({ jsonrpc: "2.0", method: "tools/list", id: 11 }, CTX_FULL)) as unknown as ToolsListMetaResult;
     const offerFull = (resFull.result?.tools ?? []).find((t) => t.name === "vrp_get_verified_stay_offer");
-    assert.equal(offerFull?._meta?.["openai/outputTemplate"], V9_URI, "full-surface tools/list _meta must stay on v9 — /mcp is unchanged");
+    assert.equal(offerFull?._meta?.["openai/outputTemplate"], V9_URI, "full-surface tools/list _meta must stay on the premium template — /mcp is unchanged");
   });
 });
