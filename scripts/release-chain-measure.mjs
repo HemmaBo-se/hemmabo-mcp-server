@@ -116,7 +116,12 @@ function withoutScripts(html) {
 
 /** The page's readable text: scripts and tags dropped, whitespace folded. */
 const visible = (html) => withoutScripts(html).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-const has = (text, needle) => text.includes(needle);
+// A name counts only as a whole token: `get_verified_stay_offer` (retired) is
+// a substring of `vrp_get_verified_stay_offer` (current), and a substring test
+// reported the Glama server page and mcp.so as listing the retired name from
+// 7.0.5 on, when neither did (measured 2026-10-26: zero whole-token matches).
+const has = (text, needle) =>
+  new RegExp(`(?<![A-Za-z0-9_])${needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9_])`).test(text);
 const missing = (text, names) => names.filter((n) => !has(text, n));
 const present = (text, names) => names.filter((n) => has(text, n));
 
