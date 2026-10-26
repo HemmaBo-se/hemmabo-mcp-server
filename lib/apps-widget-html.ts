@@ -644,13 +644,15 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     // MCP Apps host (Claude): no window.openai. The documented way to open a
     // link is the ui/open-link request, JSON-RPC over postMessage; the host
     // opens the URL in a new tab, behind a confirmation modal unless the
-    // origin is on the listing's allowed link URIs. Only once the host has
-    // answered ui/initialize; standalone in a browser the anchor's own
-    // target="_blank" stays in charge. Measured 2026-10-26 in Claude: the
-    // button did nothing before this branch existed.
-    if (hostInitialized) {
+    // origin is on the listing's allowed link URIs. Sent whenever the widget
+    // runs inside a host frame, whether or not the host has answered
+    // ui/initialize: a host that ignores it loses nothing. The anchor's own
+    // target="_blank" is prevented only when the host is known to be there,
+    // so a host opens the link once; a sandboxed frame blocks the anchor
+    // anyway (measured 2026-10-26 in Claude: the button did nothing).
+    if (window.parent && window.parent !== window) {
       postToHost({ jsonrpc: "2.0", id: rpcNextId++, method: "ui/open-link", params: { url: href } });
-      return true;
+      return hostInitialized;
     }
     return false;
   }
