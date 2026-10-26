@@ -354,32 +354,66 @@ function exactPrice(offer: JsonRecord, response: JsonRecord): boolean {
   );
 }
 
+// A signed amount in minor units (`price.minor_unit: true`, the form the
+// spec's implement page instructs: 120000 = 1200.00) becomes whole currency
+// units; `minor_unit: false` (the reference node: whole SEK) stays as signed.
+function majorUnits(value: number | null, minorUnit: boolean): number | null {
+  if (value === null) return null;
+  return minorUnit ? Math.round(value) / 100 : value;
+}
+
+// The same conversion on the named integer fields of a signed record (a
+// breakdown row, an adjustment line, the reconciliation block), so the
+// summary's lines and totals stay in one unit.
+function majorUnitsIn(value: unknown, fields: readonly string[], minorUnit: boolean): unknown {
+  const record = asRecord(value);
+  if (!record || !minorUnit) return value;
+  const out: JsonRecord = { ...record };
+  for (const field of fields) {
+    const amount = numberValue(record[field]);
+    if (amount !== null) out[field] = majorUnits(amount, minorUnit);
+  }
+  return out;
+}
+
+// Every amount in the summary is in whole units of `currency`: it is what the
+// agent quotes, what agent_message prints, what the widget shows and what the
+// ≈ guest-currency block converts. The signed payload keeps its own unit in
+// _meta.offer, and the summary says its unit explicitly (`minor_unit: false`).
+// Measured 2026-10-26: apartmamatevz.si signs 29100 EUR cents with
+// minor_unit: true, and the app said "Direct host-domain total: 29100 EUR".
 function priceSummary(offer: JsonRecord, response: JsonRecord): JsonRecord {
   const price = priceRecordFrom(offer, response);
+  const minorUnit = booleanValue(price?.minor_unit) === true;
   const publicTotal =
-    numberValue(price?.public_total) ??
-    numberValue(price?.total) ??
+    majorUnits(numberValue(price?.public_total) ?? numberValue(price?.total), minorUnit) ??
     numberValue(offer.total_price);
-  const agentTotal = numberValue(price?.agent_total);
+  const agentTotal = majorUnits(numberValue(price?.agent_total), minorUnit);
   // P5: `total` is the channel-resolved total the agent quotes — agent_total
   // when present, then the signed `total`, then public_total. Mirrors the
   // signed payload's `total` and the widget's agent_total-first preference, so
   // payload, widget, required_phrase and this summary all agree on one meaning.
   const resolvedTotal =
-    agentTotal ?? numberValue(price?.total) ?? publicTotal;
+    agentTotal ?? majorUnits(numberValue(price?.total), minorUnit) ?? publicTotal;
   return {
     currency: stringValue(price?.currency) ?? stringValue(offer.currency) ?? null,
     total: resolvedTotal,
     public_total: publicTotal,
     agent_total: agentTotal,
+    minor_unit: false,
     exact: exactPrice(offer, response),
     no_add_on_fees: booleanValue(price?.no_add_on_fees),
     package_applied: price?.package_applied ?? null,
-    breakdown: Array.isArray(price?.breakdown) ? price.breakdown : null,
+    breakdown: Array.isArray(price?.breakdown)
+      ? price.breakdown.map((row: unknown) => majorUnitsIn(row, ["nightly_rate"], minorUnit))
+      : null,
     // Pass through the signed neutral adjustment lines + reconciliation block
     // so an agent/verifier sees that Σ breakdown + Σ adjustments === total.
-    adjustments: Array.isArray(price?.adjustments) ? price.adjustments : null,
-    reconciliation: asRecord(price?.reconciliation) ?? null,
+    adjustments: Array.isArray(price?.adjustments)
+      ? price.adjustments.map((line: unknown) => majorUnitsIn(line, ["amount"], minorUnit))
+      : null,
+    reconciliation:
+      asRecord(majorUnitsIn(price?.reconciliation, ["nightly_subtotal", "adjustments_total", "computed_total"], minorUnit)) ?? null,
   };
 }
 
@@ -679,14 +713,19 @@ function formatMoney(amount: unknown, currency: unknown, language?: string): str
   const numeric = numberValue(amount);
   if (numeric === null) return null;
   const currencyCode = stringValue(currency);
-  if (!currencyCode) return String(numeric);
+  // Whole units print without decimals (unchanged for every existing node);
+  // a converted minor-unit amount with a fraction keeps its two decimals.
+  const fractionDigits = Number.isInteger(numeric) ? 0 : 2;
+  const plain = fractionDigits ? numeric.toFixed(2) : String(numeric);
+  if (!currencyCode) return plain;
   const locale = localeForLanguage(language);
-  if (!locale) return `${numeric} ${currencyCode}`;
+  if (!locale) return `${plain} ${currencyCode}`;
   try {
     return new Intl.NumberFormat(locale, {
       style: "currency",
       currency: currencyCode,
-      maximumFractionDigits: 0,
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
     }).format(numeric);
   } catch {
     return `${numeric} ${currencyCode}`;

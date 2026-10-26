@@ -2,7 +2,7 @@ faf_version: "3.0"
 
 project:
   name: "hemmabo-mcp-server"
-  version: "7.0.5"
+  version: "7.0.6"
   tagline: "Vacation rental software. A signed stay offer on the host's own domain."
   website: "https://www.hemmabo.com"
   repo: "https://github.com/HemmaBo-se/hemmabo-mcp-server"

@@ -443,27 +443,28 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     return null;
   }
 
-  function normalizeAmount(n, currency) {
+  // A signed amount is in minor units only when the price record says so
+  // (price.minor_unit: true, e.g. 29100 = 291.00). The server's summary is
+  // always in whole units (minor_unit: false); the raw offer's price keeps
+  // the node's own flag. No guessing from the size of the number.
+  function normalizeAmount(n, minorUnit) {
     if (n == null) return null;
-    var code = String(currency || "").toUpperCase();
-    if ((code === "SEK" || code === "NOK" || code === "DKK" || code === "EUR" || code === "USD") && n >= 200000 && n % 100 === 0) {
-      return n / 100;
-    }
-    return n;
+    return minorUnit === true ? Math.round(n) / 100 : n;
   }
 
   function money(amount, currency, lang) {
-    var normalized = normalizeAmount(amount, currency);
-    if (normalized == null) return "Final price pending";
+    if (amount == null) return "Final price pending";
+    var digits = Math.round(amount) === amount ? 0 : 2;
     var locale = localeForLanguage(lang);
     try {
       return new Intl.NumberFormat(locale, {
         style: "currency",
         currency: currency || "SEK",
-        maximumFractionDigits: 0
-      }).format(normalized);
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits
+      }).format(amount);
     } catch (e) {
-      return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(normalized) + " " + (currency || "");
+      return new Intl.NumberFormat(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(amount) + " " + (currency || "");
     }
   }
 
@@ -525,9 +526,8 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     var checkOut = data.checkOut || data.check_out || offer.check_out || (offer.request && offer.request.check_out) || listing.checkOut || listing.check_out;
     var guests = data.guests || offer.guests || (offer.request && offer.request.guests) || listing.guests;
     var currency = price.currency || data.currency || listing.currency || "SEK";
-    var finalAmount = pickAmount([
-      price.agent_total,
-      price.total,
+    var signedAmount = normalizeAmount(pickAmount([price.agent_total, price.total]), price.minor_unit);
+    var finalAmount = signedAmount != null ? signedAmount : pickAmount([
       data.finalTotal,
       data.totalPrice,
       data.gapTotal,
