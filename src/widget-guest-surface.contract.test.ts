@@ -328,3 +328,20 @@ describe("agent payload carries the locked welcome with a verbatim rule", () => 
     assert.match(vrpSource, /VERBATIM \(fallback: en\)\. Never rewrite, shorten, paraphrase, or machine-translate/);
   });
 });
+
+describe("the widget reads the signed price's unit instead of guessing it", () => {
+  // Until 2026-10-26 money() divided any amount >= 200000 by 100 when the
+  // currency was SEK/NOK/DKK/EUR/USD — a guess from the size of the number.
+  // A signed 29100 (EUR cents, minor_unit: true) rendered as €29,100, and a
+  // genuine 250 000 SEK stay would have rendered as 2 500 kr.
+  it("normalizes by price.minor_unit, never by the size of the amount", () => {
+    assert.match(VERIFIED_STAY_OFFER_HTML, /function normalizeAmount\(n, minorUnit\) \{\s*if \(n == null\) return null;\s*return minorUnit === true \? Math\.round\(n\) \/ 100 : n;/);
+    assert.match(VERIFIED_STAY_OFFER_HTML, /var signedAmount = normalizeAmount\(pickAmount\(\[price\.agent_total, price\.total\]\), price\.minor_unit\);/);
+    assert.doesNotMatch(VERIFIED_STAY_OFFER_HTML, /n >= 200000/);
+  });
+
+  it("prints whole units without decimals and a converted fraction with two", () => {
+    assert.match(VERIFIED_STAY_OFFER_HTML, /var digits = Math\.round\(amount\) === amount \? 0 : 2;/);
+    assert.match(VERIFIED_STAY_OFFER_HTML, /minimumFractionDigits: digits,\s*maximumFractionDigits: digits/);
+  });
+});

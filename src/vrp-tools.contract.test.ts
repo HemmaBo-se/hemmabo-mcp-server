@@ -685,6 +685,106 @@ describe("VRP MCP tools", () => {
     );
   });
 
+  // A node that signs its amounts in minor units, exactly as the spec's
+  // implement page instructs ("Total price (minor units — 120000 = 1200.00)")
+  // and as the independent node apartmamatevz.si does (measured 2026-10-26:
+  // 29100 EUR cents, minor_unit: true). Before this test the app quoted it as
+  // "Direct host-domain total: 29100 EUR" — a hundred times the price.
+  for (const [signedTotal, nightly, plainText, englishAmount] of [
+    [29100, 9700, "291 EUR", 291],
+    [29150, 9716.6, "291.50 EUR", 291.5],
+  ] as const) {
+    it(`vrp_get_verified_stay_offer quotes a minor-unit offer (${signedTotal} cents, minor_unit: true) in whole currency units`, async () => {
+      const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+      const jwk = publicKey.export({ format: "jwk" }) as Record<string, unknown>;
+      jwk.kid = "vrp-test-key"; // compactJws signs with this kid
+      jwk.alg = "EdDSA";
+      jwk.use = "sig";
+
+      const offer = {
+        kind: "verified_stay_offer",
+        protocol_version: "0.1",
+        canonical_domain: "apartmamatevz.si",
+        node_id: "apartmamatevz.si",
+        generated_at: new Date().toISOString(),
+        valid_until: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        request: { check_in: "2027-03-10", check_out: "2027-03-13", guests: 2, nights: 3 },
+        property: { name: "Apartma A1 – terasa", domain: "apartmamatevz.si" },
+        availability: { available: true, source: "official_host_domain" },
+        price: {
+          currency: "EUR",
+          public_total: signedTotal,
+          agent_total: signedTotal,
+          minor_unit: true,
+          exact: true,
+          breakdown: [{ date: "2027-03-10", nightly_rate: Math.round(nightly) }],
+          adjustments: [{ code: "stay", label: "Stay rate", amount: -100, scope: "stay" }],
+          reconciliation: { nightly_subtotal: signedTotal + 100, adjustments_total: -100, computed_total: signedTotal, matches_quoted_total: true },
+        },
+        booking: { direct_booking_url: "https://apartmamatevz.si/app/public/offer.php?unit=A1&from=2027-03-10&to=2027-03-13" },
+        agent_permission: { may_quote_as_official_direct_offer: true, must_not_claim_ota_comparison_without_signed_ota_price: true },
+      };
+      const jws = compactJws(offer, privateKey);
+
+      mock.method(globalThis, "fetch", async (input: string | URL | Request) => {
+        const url = new URL(String(input));
+        if (url.pathname === "/.well-known/vacation-rental.json") {
+          return jsonResponse({
+            protocol: "vacation-rental-protocol",
+            protocol_version: "0.1",
+            canonical_domain: "apartmamatevz.si",
+            jwks_uri: "https://apartmamatevz.si/.well-known/jwks.json",
+            verified_stay_offer_endpoint: "https://apartmamatevz.si/app/public/api/vrp_offer.php",
+          });
+        }
+        if (url.pathname === "/.well-known/jwks.json") return jsonResponse({ keys: [jwk] });
+        if (url.pathname === "/app/public/api/vrp_offer.php") {
+          return jsonResponse({
+            kind: "signed_verified_stay_offer",
+            protocol_version: "0.1",
+            offer,
+            signature: { format: "jws_compact", alg: "EdDSA", kid: jwk.kid, jws },
+          });
+        }
+        return new Response("not found", { status: 404 });
+      });
+
+      const args = { domain: "apartmamatevz.si", checkIn: "2027-03-10", checkOut: "2027-03-13", guests: 2 };
+      const plain = JSON.parse((await executeTool("vrp_get_verified_stay_offer", args, clients)).content[0].text);
+      assert.equal(plain.verified, true);
+      assert.equal(plain.agent_citation.safe_to_quote_as_official_direct_offer, true);
+      assert.equal(
+        plain.agent_citation.agent_message,
+        `I found the official host-domain verified offer for this stay. Direct host-domain total: ${plainText}.`,
+      );
+      // The summary is in whole units of the currency and says so.
+      const price = plain.official_offer_summary.price;
+      assert.equal(price.currency, "EUR");
+      assert.equal(price.total, englishAmount);
+      assert.equal(price.public_total, englishAmount);
+      assert.equal(price.agent_total, englishAmount);
+      assert.equal(price.minor_unit, false);
+      assert.equal(price.exact, true);
+      // The signed lines follow the same unit, so Σ still reconciles.
+      assert.equal(price.breakdown[0].nightly_rate, Math.round(nightly) / 100);
+      assert.equal(price.adjustments[0].amount, -1);
+      assert.equal(price.reconciliation.computed_total, englishAmount);
+      assert.equal(price.reconciliation.nightly_subtotal, englishAmount + 1);
+      assert.equal(price.reconciliation.matches_quoted_total, true);
+
+      // With the guest's language the amount is formatted by Intl, in whole
+      // units: the same call the widget's money() makes.
+      const english = JSON.parse((await executeTool("vrp_get_verified_stay_offer", { ...args, language: "en" }, clients)).content[0].text);
+      const digits = Number.isInteger(englishAmount) ? 0 : 2;
+      const widgetFormatted = new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR", minimumFractionDigits: digits, maximumFractionDigits: digits }).format(englishAmount);
+      assert.equal(
+        english.agent_citation.agent_message,
+        `I found the official host-domain verified offer for this stay. Direct host-domain total: ${widgetFormatted}.`,
+      );
+      assert.doesNotMatch(english.agent_citation.agent_message, /29[,.]?1[05]0/);
+    });
+  }
+
   it("vrp_get_verified_stay_offer refuses quoteable status for signed but unavailable offers", async () => {
     const { publicKey, privateKey } = generateKeyPairSync("ed25519");
     const jwk = publicKey.export({ format: "jwk" }) as Record<string, unknown>;
