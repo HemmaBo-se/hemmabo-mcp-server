@@ -345,3 +345,19 @@ describe("the widget reads the signed price's unit instead of guessing it", () =
     assert.match(VERIFIED_STAY_OFFER_HTML, /minimumFractionDigits: digits,\s*maximumFractionDigits: digits/);
   });
 });
+
+
+describe("the widget opens the host's booking page on every host", () => {
+  // ChatGPT injects window.openai.openExternal; Claude (MCP Apps) does not,
+  // and the documented route there is the ui/open-link request. Measured
+  // 2026-10-26 in Claude: the "Continue on the host's site" button did nothing.
+  it("falls back to ui/open-link over postMessage once the host has initialized", () => {
+    assert.match(VERIFIED_STAY_OFFER_HTML, /window\.openai\.openExternal\(\{ href: href, redirectUrl: false \}\)/);
+    assert.match(VERIFIED_STAY_OFFER_HTML, /if \(hostInitialized\) \{\s*postToHost\(\{ jsonrpc: "2\.0", id: rpcNextId\+\+, method: "ui\/open-link", params: \{ url: href \} \}\);\s*return true;/);
+  });
+
+  it("the booking link and the seal both route through tryHostOpen on click", () => {
+    assert.match(VERIFIED_STAY_OFFER_HTML, /if \(tryHostOpen\(bookUrl\)\) e\.preventDefault\(\);/);
+    assert.match(VERIFIED_STAY_OFFER_HTML, /if \(tryHostOpen\(verifyUrl\)\) e\.preventDefault\(\);/);
+  });
+});

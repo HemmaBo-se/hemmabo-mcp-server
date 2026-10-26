@@ -641,6 +641,17 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
         return true;
       }
     } catch (e) {}
+    // MCP Apps host (Claude): no window.openai. The documented way to open a
+    // link is the ui/open-link request, JSON-RPC over postMessage; the host
+    // opens the URL in a new tab, behind a confirmation modal unless the
+    // origin is on the listing's allowed link URIs. Only once the host has
+    // answered ui/initialize; standalone in a browser the anchor's own
+    // target="_blank" stays in charge. Measured 2026-10-26 in Claude: the
+    // button did nothing before this branch existed.
+    if (hostInitialized) {
+      postToHost({ jsonrpc: "2.0", id: rpcNextId++, method: "ui/open-link", params: { url: href } });
+      return true;
+    }
     return false;
   }
 
