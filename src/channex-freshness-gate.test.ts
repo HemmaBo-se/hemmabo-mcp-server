@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  CALENDAR_FRESHNESS_MAX_MINUTES,
   checkIcalImportFreshness,
   CHANNEX_FRESHNESS_MAX_MINUTES,
   CHANNEL_MANAGER_SOURCE_LABEL,
@@ -12,31 +13,28 @@ import {
  *
  * Guards, mirrored from smart-stays test/channex-freshness-gate.test.ts:
  *  - unmapped node untouched (R6);
- *  - mapped node gates even with zero iCal feeds, fail-closed;
+ *  - mapped node gates on the channel manager's sync state, fail-closed;
  *  - own 20-min window (pull cadence 15 min);
  *  - R5: the outward-shipped result never contains the vendor name;
- *  - checked_sources de-dup parity (the 2026-07-02 villaakerlyckan fix,
- *    which had drifted between the repos before this mirror).
+ *  - the iCal import is retired (smart-stays ADR 2026-10-26-ical-retired,
+ *    step 2c): the check never reads property_ical_imports.
  */
 
 type ChannexState = { sync_status: string; last_synced_at: string | null } | null;
-type IcalRow = {
-  id: string; name: string | null; platform_source: string | null;
-  sync_status: string | null; last_synced_at: string | null; error_message: string | null;
-};
+
+const tablesRead: string[] = [];
 
 function fakeSupabase(opts: {
-  icalRows?: IcalRow[];
   channexPropertyId?: string | null;
   channexState?: ChannexState;
 }) {
   const tables: Record<string, unknown> = {
-    property_ical_imports: opts.icalRows ?? [],
     properties: { channex_property_id: opts.channexPropertyId ?? null },
     property_channex_sync_state: opts.channexState ?? null,
   };
   return {
     from: (table: string) => {
+      tablesRead.push(table);
       const data = tables[table];
       const result = Promise.resolve({ data, error: null });
       const builder = {
@@ -61,7 +59,7 @@ describe("channex heartbeat in checkIcalImportFreshness (MCP mirror)", () => {
     assert.ok(!result.checked_sources.includes(CHANNEL_MANAGER_SOURCE_LABEL));
   });
 
-  it("FAIL-CLOSED: mapped node with no sync-state row blocks even with zero iCal feeds", async () => {
+  it("FAIL-CLOSED: mapped node with no sync-state row blocks", async () => {
     const result = await checkIcalImportFreshness(
       fakeSupabase({ channexPropertyId: "cx-1", channexState: null }), "prop-2", CHECKED_AT);
     assert.equal(result.safe, false);
@@ -109,14 +107,19 @@ describe("channex heartbeat in checkIcalImportFreshness (MCP mirror)", () => {
     }
   });
 
-  it("PARITY (2026-07-02 fix): two same-platform calendars de-dupe checked_sources", async () => {
-    const row = (id: string): IcalRow => ({
-      id, name: "A", platform_source: "airbnb", sync_status: "success",
-      last_synced_at: minutesBefore(2), error_message: null,
-    });
+  it("reads no iCal table and reports the same max_age_minutes as before", async () => {
+    tablesRead.length = 0;
     const result = await checkIcalImportFreshness(
-      fakeSupabase({ icalRows: [row("a1"), row("a2")] }), "prop-6", CHECKED_AT);
-    assert.deepEqual(result.checked_sources, ["airbnb"]);
-    assert.equal(result.active_import_count, 2);
+      fakeSupabase({
+        channexPropertyId: "cx-1",
+        channexState: { sync_status: "success", last_synced_at: minutesBefore(45) },
+      }), "prop-6", CHECKED_AT);
+    assert.deepEqual(tablesRead, ["properties", "property_channex_sync_state"]);
+    assert.equal(result.max_age_minutes, CALENDAR_FRESHNESS_MAX_MINUTES);
+    assert.equal(CALENDAR_FRESHNESS_MAX_MINUTES, 10);
+    assert.equal(result.safe, false);
+    assert.deepEqual(result.checked_sources, [CHANNEL_MANAGER_SOURCE_LABEL]);
+    assert.equal(result.active_import_count, 1);
+    assert.deepEqual(result.stale_sources, [`${CHANNEL_MANAGER_SOURCE_LABEL}:45m_old`]);
   });
 });

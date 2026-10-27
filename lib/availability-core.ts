@@ -9,7 +9,7 @@
  * The two runtime wrappers still exist because they need a runtime-
  * specific Supabase client (Node: `@supabase/supabase-js` typed; Deno:
  * `any`-typed import) and runtime-specific query helpers (booking lock
- * acquisition, ICS cache). The wrappers must NOT redeclare any constant,
+ * acquisition). The wrappers must NOT redeclare any constant,
  * type, or pure helper that lives in this file — they import from here.
  *
  * Established by:
@@ -215,18 +215,6 @@ export function blockedRangeOverlaps(
   blockEnd: string,
 ): boolean {
   return overlapsHalfOpen(checkIn, checkOut, blockStart, blockedEndExclusive(blockStart, blockEnd));
-}
-
-/**
- * True when a blocked-date row originates from an imported external calendar
- * (Airbnb/Booking/Vrbo iCal), as opposed to a manual host block. Retained for
- * labeling/diagnostics. NOTE: legacy iCal imports are NOT prep-buffered
- * (2026-06-24 decision); channel-manager rows (source='channex') ARE, since
- * 2026-08-12 — see effectiveBlockedRangeForAvailability below.
- */
-export function isExternalCalendarBlockSource(source?: string | null): boolean {
-  const normalized = (source || "").toLowerCase();
-  return normalized === "ical" || normalized === "ical_import" || normalized.startsWith("ical:");
 }
 
 /**
