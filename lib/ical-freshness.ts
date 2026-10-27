@@ -1,39 +1,34 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+/**
+ * The `max_age_minutes` every result reports. It was the iCal import's
+ * window; the iCal import is retired (ADR 2026-10-26-ical-retired) and the
+ * channel manager is the only external calendar source. The value stays 10
+ * so the node (smart-stays api/_lib/ical-freshness.ts) and this MCP server
+ * answer the same until both change together.
+ */
 export const CALENDAR_FRESHNESS_MAX_MINUTES = 10;
 
 /**
  * Channex has its own freshness window: the pull reconcile runs every 15
- * minutes (Channex best-practice floor; webhooks only accelerate), so the
- * iCal 10-minute window would mark a healthy Channex node stale between
- * pulls. 20 = cadence + margin.
+ * minutes (Channex best-practice floor; webhooks only accelerate). 20 =
+ * cadence + margin.
  */
 export const CHANNEX_FRESHNESS_MAX_MINUTES = 20;
 
 /**
  * Outward label for the Channex source in checked_sources/stale_sources/
- * error_sources. The freshness result ships inside tool responses and
- * signed offers (agent-facing, machine-readable), and R5 forbids any
- * vendor mention there — the label is therefore neutral. Internal
+ * error_sources. The freshness result ships inside signed offers and
+ * availability responses (agent-facing, machine-readable), and R5 forbids
+ * any vendor mention there — the label is therefore neutral. Internal
  * tables/columns keep the vendor name; they never leave the server.
  *
  * Mirror of smart-stays api/_lib/ical-freshness.ts (PR-2 / PR-2b lockstep,
- * 2026-07-29) — keep the two files in parity apart from the
- * calendarFreshnessUnavailablePayload export below, which is MCP-only.
- * This mirror also brings over the checked_sources de-dup fix
- * (villaakerlyckan 2026-07-02: two Airbnb listings must not ship
- * ["airbnb","airbnb"]), which had drifted between the repos.
+ * 2026-07-29; iCal retired 2026-10-27, step 2c) — keep the two files in
+ * parity apart from the MCP-only exports below (the unavailable payload and
+ * the outbound channel-mirror reader).
  */
 export const CHANNEL_MANAGER_SOURCE_LABEL = "channel_manager";
-
-export type IcalImportRow = {
-  id: string;
-  name: string | null;
-  platform_source: string | null;
-  sync_status: string | null;
-  last_synced_at: string | null;
-  error_message: string | null;
-};
 
 export type CalendarFreshnessResult = {
   safe: boolean;
@@ -46,10 +41,6 @@ export type CalendarFreshnessResult = {
   error_sources: string[];
   latest_synced_at: string | null;
 };
-
-function importLabel(row: IcalImportRow) {
-  return row.platform_source || row.name || row.id || "ical_import";
-}
 
 export async function checkIcalImportFreshness(
   supabase: SupabaseClient,
@@ -67,65 +58,18 @@ export async function checkIcalImportFreshness(
     latest_synced_at: null as string | null,
   };
 
-  const { data, error } = await supabase
-    .from("property_ical_imports")
-    .select("id,name,platform_source,sync_status,last_synced_at,error_message")
-    .eq("property_id", propertyId);
-
-  if (error) {
-    return {
-      ...base,
-      safe: false,
-      reason: "calendar_sync_unverified",
-      error_sources: ["property_ical_imports_query_failed"],
-    };
-  }
-
-  const activeImports = ((data || []) as IcalImportRow[]).filter(
-    (row) => row.sync_status !== "disabled",
-  );
-
   const staleSources: string[] = [];
   const errorSources: string[] = [];
-  // Distinct source PLATFORMS we checked freshness against. A host can run more
-  // than one calendar on the same platform (villaakerlyckan.se has two separate
-  // Airbnb listings + one Booking.com) — every calendar is counted in
-  // `active_import_count`, but `checked_sources` reports the platform SET, so it
-  // must not repeat "airbnb". De-dupe while preserving first-seen order.
-  const checkedSources = [...new Set(activeImports.map(importLabel))];
-  let activeImportCount = activeImports.length;
+  const checkedSources: string[] = [];
+  let activeImportCount = 0;
   let latestSyncedAt: string | null = null;
 
-  for (const row of activeImports) {
-    const label = importLabel(row);
-    if (row.last_synced_at && (!latestSyncedAt || row.last_synced_at > latestSyncedAt)) {
-      latestSyncedAt = row.last_synced_at;
-    }
-
-    if (row.sync_status && row.sync_status !== "success") {
-      errorSources.push(`${label}:${row.sync_status}`);
-      continue;
-    }
-
-    if (!row.last_synced_at) {
-      staleSources.push(`${label}:never_synced`);
-      continue;
-    }
-
-    const ageMs = checkedAt.getTime() - new Date(row.last_synced_at).getTime();
-    const ageMinutes = ageMs / 60000;
-    if (!Number.isFinite(ageMinutes) || ageMinutes > CALENDAR_FRESHNESS_MAX_MINUTES) {
-      staleSources.push(`${label}:${Math.round(ageMinutes)}m_old`);
-    }
-  }
-
-  // ── Channex heartbeat (PR-2b, 2026-07-29) ────────────────────────────────
+  // ── Channex heartbeat (PR-2, 2026-07-29) ─────────────────────────────────
   // A node mapped to a Channex property (properties.channex_property_id set)
-  // gates on property_channex_sync_state exactly like iCal feeds gate on
-  // property_ical_imports — including when the node has ZERO iCal feeds, so
-  // this runs before any "no active imports" shortcut. Unmapped nodes are
-  // untouched (per-node isolation, R6). Fail-closed throughout: an
-  // unanswerable question about calendar truth blocks agent booking (R1).
+  // gates on property_channex_sync_state. Unmapped nodes have no external
+  // calendar source and are safe (per-node isolation, R6). Fail-closed
+  // throughout: an unanswerable question about calendar truth blocks agent
+  // booking (R1).
   const { data: propertyRow, error: propertyError } = await supabase
     .from("properties")
     .select("channex_property_id")
