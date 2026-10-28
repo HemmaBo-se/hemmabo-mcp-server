@@ -4,6 +4,11 @@ import { generateKeyPairSync, sign, type KeyObject } from "node:crypto";
 import { executeTool } from "../lib/tools.js";
 import { VRP_FETCH_TIMEOUT_MS } from "../lib/vrp.js";
 import { HEMMABO_WIDGET_URI } from "../lib/apps-widget.js";
+import { primeHostOwnedLists } from "../lib/host-owned-lists.js";
+
+// VRP Core §2: the verifier reads the Public Suffix List and ICANN's gTLD list;
+// these fetch mocks answer 404 for them, so the lists are seeded here.
+primeHostOwnedLists({ icannRules: ["com", "se", "si"], specification13Tlds: [] });
 
 afterEach(() => mock.restoreAll());
 

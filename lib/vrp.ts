@@ -1,6 +1,8 @@
 import { createPublicKey, verify as cryptoVerify } from "node:crypto";
 import { formatAmenityLabel } from "./tools-base.js";
 import { guestWelcomeByLocale } from "./vrp-trust-copy.js";
+import { checkHostOwned } from "./host-owned-domain.js";
+import { loadHostOwnedLists } from "./host-owned-lists.js";
 import {
   buildApproxGuestPrice,
   fetchDisplayRate,
@@ -12,6 +14,8 @@ export const VRP_PROTOCOL = "vacation-rental-protocol";
 export const VRP_PROTOCOL_VERSION = "0.1";
 export const VRP_JWS_ALG = "EdDSA";
 export const VRP_FETCH_TIMEOUT_MS = 8_000;
+/** Core §2: a fetch MAY follow a redirect only to a node URL; this bounds the chain. */
+export const VRP_MAX_REDIRECTS = 3;
 export const VRP_TOOL_NAMES = [
   "vrp_verify_node",
   "vrp_get_verified_stay_offer",
@@ -144,6 +148,9 @@ function normalizeVrpDomain(input: string): string {
     raw = url.hostname;
   }
   raw = raw.replace(/\.$/, "");
+  // A typed "www." names the node's domain (Core §2: www. is a node URL host,
+  // never the canonical_domain), the same as the spec's own verify page.
+  raw = raw.replace(/^www\./, "");
   if (!DOMAIN_RE.test(raw)) throw new Error(`Invalid public domain: ${input}`);
   if (PRIVATE_HOST_RE.test(raw) || IP_LIKE_RE.test(raw) || raw.includes(":")) {
     throw new Error(`Refusing to verify non-public host: ${input}`);
@@ -151,30 +158,51 @@ function normalizeVrpDomain(input: string): string {
   return raw;
 }
 
+// Core §2: jwks_url and verified_stay_offer_endpoint MUST be node URLs of the
+// domain the discovery document was fetched from.
 function sameDomainUrl(value: string | null, domain: string, fallbackPath: string, fieldName: string): string {
   const url = new URL(value ?? fallbackPath, `https://${domain}`);
   if (url.protocol !== "https:") throw new Error(`${fieldName} must be https`);
-  const host = normalizeVrpDomain(url.hostname);
-  if (host !== domain) throw new Error(`${fieldName} must stay on the verified host domain`);
+  if (!isNodeUrl(url.toString(), domain)) {
+    throw new Error(`${fieldName} must be a node URL of ${domain} (VRP §2): https, on ${domain} or www.${domain}, no userinfo, default port`);
+  }
   return url.toString();
 }
 
-async function fetchJson(url: string): Promise<unknown> {
-  let res: Response;
-  try {
-    res = await fetch(url, {
-      headers: { Accept: "application/json" },
-      cache: "no-store",
-      signal: AbortSignal.timeout(VRP_FETCH_TIMEOUT_MS),
-    });
-  } catch (error) {
-    if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
-      throw new Error(`VRP fetch timed out for ${url} after ${VRP_FETCH_TIMEOUT_MS}ms`);
+// Core §2 "Fetching": a verifier MAY follow a redirect only when its target is
+// a node URL of the domain being verified; any other redirect is a failure.
+// Redirects are therefore handled here, hop by hop, never by fetch itself.
+async function fetchJson(url: string, domain: string): Promise<unknown> {
+  let current = url;
+  for (let hop = 0; ; hop += 1) {
+    let res: Response;
+    try {
+      res = await fetch(current, {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(VRP_FETCH_TIMEOUT_MS),
+      });
+    } catch (error) {
+      if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+        throw new Error(`VRP fetch timed out for ${current} after ${VRP_FETCH_TIMEOUT_MS}ms`);
+      }
+      throw error;
     }
-    throw error;
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get("location");
+      if (!location) throw new Error(`Fetch failed for ${current}: HTTP ${res.status} without Location`);
+      const target = new URL(location, current).toString();
+      if (!isNodeUrl(target, domain)) {
+        throw new Error(`Redirect from ${current} leaves the node: ${target} is not a node URL of ${domain} (VRP §2)`);
+      }
+      if (hop + 1 > VRP_MAX_REDIRECTS) throw new Error(`Too many redirects fetching ${url} (max ${VRP_MAX_REDIRECTS})`);
+      current = target;
+      continue;
+    }
+    if (!res.ok) throw new Error(`Fetch failed for ${current}: HTTP ${res.status}`);
+    return res.json() as Promise<unknown>;
   }
-  if (!res.ok) throw new Error(`Fetch failed for ${url}: HTTP ${res.status}`);
-  return res.json() as Promise<unknown>;
 }
 
 function firstEd25519Key(jwks: JsonRecord): JsonRecord {
@@ -190,8 +218,19 @@ function firstEd25519Key(jwks: JsonRecord): JsonRecord {
 
 async function verifyVacationRentalNode(domainInput: string): Promise<VerifiedNode> {
   const domain = normalizeVrpDomain(domainInput);
+  // Core §2 host-owned domain: the host's own registrable domain under the
+  // ICANN section of the Public Suffix List, not a closed top-level domain.
+  // The lists unreadable = unknown (§9): nothing is verified.
+  const hostOwnedLists = await loadHostOwnedLists();
+  if (!hostOwnedLists) {
+    throw new Error("Node unknown: the Public Suffix List or ICANN's gTLD list could not be read, so canonical_domain cannot be checked (VRP §2, §9)");
+  }
+  const hostOwnedReason = checkHostOwned(domain, hostOwnedLists);
+  if (hostOwnedReason) {
+    throw new Error(`${domain} is not a host-owned domain (${hostOwnedReason}): a VRP node is a domain registered for the host, never a name under another party's domain (VRP §2)`);
+  }
   const discoveryUrl = `https://${domain}/.well-known/vacation-rental.json`;
-  const discovery = asRecord(await fetchJson(discoveryUrl));
+  const discovery = asRecord(await fetchJson(discoveryUrl, domain));
   if (!discovery) throw new Error("vacation-rental.json must be a JSON object");
 
   if (discovery.protocol !== VRP_PROTOCOL) {
@@ -226,7 +265,7 @@ async function verifyVacationRentalNode(domainInput: string): Promise<VerifiedNo
     "verified_stay_offer_endpoint"
   );
 
-  const jwks = asRecord(await fetchJson(jwksUrl));
+  const jwks = asRecord(await fetchJson(jwksUrl, domain));
   if (!jwks) throw new Error("JWKS must be a JSON object");
   const signingKey = firstEd25519Key(jwks);
 
@@ -977,11 +1016,19 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
   const language = stringValue(args.language);
   if (language) offerUrl.searchParams.set("language", language);
 
-  const response = asRecord(await fetchJson(offerUrl.toString()));
+  const response = asRecord(await fetchJson(offerUrl.toString(), node.domain));
   if (!response) throw new Error("Offer response must be a JSON object");
   const signedOffer = extractSignedOffer(response);
   const verified = verifyCompactJws(signedOffer, node.jwks);
   const offer = extractOfferPayload(verified.payload);
+  // Core §7 (ADR 0009): the signed offer names the domain it was fetched from.
+  // A valid signature over an offer naming another domain is that node's
+  // signature, not that other domain's offer.
+  const offerDomainRaw = stringValue(offer.canonical_domain);
+  if (!offerDomainRaw) throw new Error("Signed offer has no canonical_domain (VRP §5)");
+  if (normalizeVrpDomain(offerDomainRaw) !== node.domain) {
+    throw new Error(`Signed offer names ${offerDomainRaw}, not ${node.domain} it was fetched from: not this node's offer (VRP §7)`);
+  }
   const responseOffer = asRecord(response.offer);
   const payloadMatchesOffer = responseOffer ? stableStringify(responseOffer) === stableStringify(offer) : true;
   if (!payloadMatchesOffer) throw new Error("Signed payload does not match returned offer");
