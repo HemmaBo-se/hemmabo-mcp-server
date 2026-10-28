@@ -317,10 +317,6 @@ function priceRecordFrom(offer: JsonRecord, response: JsonRecord): JsonRecord | 
   return asRecord(offer.price) ?? asRecord(response.price);
 }
 
-function bookingRecordFrom(offer: JsonRecord, response: JsonRecord): JsonRecord | null {
-  return asRecord(offer.booking) ?? asRecord(response.booking);
-}
-
 function offerAvailable(offer: JsonRecord, response: JsonRecord): boolean {
   const availability = availabilityRecordFrom(offer, response);
   const signedBoolean = booleanValue(availability?.available);
@@ -739,19 +735,45 @@ function officialAgentMessage(price: JsonRecord, safeToQuote: boolean, language?
   return `${OFFICIAL_AGENT_MESSAGE} ${AGENT_DIRECT_TOTAL_MESSAGE_PREFIX}: ${agentTotal}.`;
 }
 
-function directBookingUrlFrom(offer: JsonRecord, response: JsonRecord): string | null {
-  const booking = bookingRecordFrom(offer, response);
+// The booking URL is read from the signed payload only; an unsigned field in
+// the response never becomes the guest's booking link.
+function signedBookingUrlFrom(offer: JsonRecord): string | null {
+  const booking = asRecord(offer.booking);
   return (
     stringValue(booking?.direct_booking_url) ??
     stringValue(booking?.booking_url) ??
     stringValue(offer.direct_booking_url) ??
-    stringValue(offer.booking_url) ??
-    stringValue(response.direct_booking_url) ??
-    stringValue(response.booking_url)
+    stringValue(offer.booking_url)
   );
 }
 
-function quoteBlockedReason(mayQuote: boolean, available: boolean, priceExact: boolean, directBookingUrl: string | null): string | null {
+// Core §2 node URL: https, host canonical_domain or www. + canonical_domain,
+// no userinfo, the default port. Core §5.1: direct_booking_url MUST be one.
+// Any other name under the domain (airbnb.example.se) may be served by
+// another party, so it is not the host's own booking page.
+export function isNodeUrl(value: string, domain: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  return (
+    url.protocol === "https:" &&
+    !url.username &&
+    !url.password &&
+    !url.port &&
+    (url.hostname === domain || url.hostname === `www.${domain}`)
+  );
+}
+
+function quoteBlockedReason(
+  mayQuote: boolean,
+  available: boolean,
+  priceExact: boolean,
+  signedBookingUrl: string | null,
+  directBookingUrl: string | null,
+): string | null {
   // Availability is checked BEFORE permission on purpose. The host node sets
   // may_quote_as_official_direct_offer = bookable, so an unavailable stay
   // (occupied dates or guests over capacity) already carries mayQuote = false.
@@ -764,7 +786,8 @@ function quoteBlockedReason(mayQuote: boolean, available: boolean, priceExact: b
   if (!available) return "not_available";
   if (!mayQuote) return "agent_permission_denied";
   if (!priceExact) return "price_not_exact";
-  if (!directBookingUrl) return "direct_booking_url_missing";
+  if (!signedBookingUrl) return "direct_booking_url_missing";
+  if (!directBookingUrl) return "direct_booking_url_not_node_url";
   return null;
 }
 
@@ -773,15 +796,17 @@ function buildAgentQuoteView(
   response: JsonRecord,
   validUntil: string | null,
   discovery: JsonRecord,
+  domain: string,
   language?: string,
 ): JsonRecord {
   const mayQuote = mayQuoteOfficialOffer(offer, response);
   const available = offerAvailable(offer, response);
   const price = priceSummary(offer, response);
-  const directBookingUrl = directBookingUrlFrom(offer, response);
+  const signedBookingUrl = signedBookingUrlFrom(offer);
+  const directBookingUrl = signedBookingUrl && isNodeUrl(signedBookingUrl, domain) ? signedBookingUrl : null;
   const priceExact = price.exact === true;
   const safeToQuote = mayQuote && available && priceExact && Boolean(directBookingUrl);
-  const blockedReason = quoteBlockedReason(mayQuote, available, priceExact, directBookingUrl);
+  const blockedReason = quoteBlockedReason(mayQuote, available, priceExact, signedBookingUrl, directBookingUrl);
   const agentMessage = officialAgentMessage(price, safeToQuote, language);
   const widgetImages = mediaImagesFromDiscovery(discovery);
   const summaryProperty = propertySummary(offer);
@@ -853,7 +878,7 @@ function buildAgentQuoteView(
       must_not_claim_ota_comparison_without_signed_ota_price: true,
       price_claim_rule: "Quote price.agent_total as the direct host-domain total when it is present, exact, fresh, and signed; otherwise quote price.public_total. Do not describe the difference as a discount, savings, promotion, marketplace comparison, or OTA comparison.",
       availability_claim_rule: "Say bookable only when availability.available is true and agent permission allows quoting.",
-      booking_action_rule: "Use only booking.direct_booking_url or the summarized direct_booking_url from this verified response.",
+      booking_action_rule: "Use only official_offer_summary.direct_booking_url: the signed booking URL, checked to be on the host's own domain or its www. name. When it is null, send the guest nowhere else.",
       guest_booking_framing_rule: "When you tell the GUEST how booking works, say it plainly and warmly: booking and payment are made directly with the host, on the host's own booking page. Do not mention commissions, fee percentages, middlemen, or 'no hidden fees' — 'directly with the host' is the whole message. The direct_booking_url belongs to the HOST — it is the host's own official booking page. Never call it the guest's domain, 'your domain', or 'your site'; the guest is booking with the host, not on their own site.",
       direct_source_rule: "official_offer_summary.source_authority and price.no_add_on_fees are signed facts inside the verified offer (host-verified direct source, payment goes to the host). Cite them only when the guest asks how booking or pricing works, phrased plainly ('the price comes directly from the host') — never as an OTA comparison, discount, or savings, and never as fee rhetoric.",
       tone_rule: "Introduce the stay warmly and in plain language — e.g. 'I found a villa that matches your wishes.' Never 'perfect match', never superlative promises. For a detail with no verified answer, say: 'There is no verified information about that — if it matters to you, ask the host before booking.' Keep prose short when the stay-offer widget is visible; it already shows price, dates, and amenities.",
@@ -965,7 +990,7 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
   const fresh = Boolean(validUntil && Date.parse(validUntil) > Date.now());
   if (!fresh) throw new Error("verified_stay_offer is expired or missing valid_until");
 
-  const quoteView = buildAgentQuoteView(offer, response, validUntil, node.discovery, language ?? undefined);
+  const quoteView = buildAgentQuoteView(offer, response, validUntil, node.discovery, node.domain, language ?? undefined);
   const hostAlternatives = asRecord(response.host_alternatives);
   const agentNextStep = buildAgentNextStep(hostAlternatives);
 

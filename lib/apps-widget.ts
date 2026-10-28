@@ -33,18 +33,21 @@ export const HEMMABO_CHATGPT_WIDGET_DOMAIN = chatgptWidgetOriginFromMcpEndpoint(
   HEMMABO_CANONICAL_MCP_ENDPOINT
 );
 
-// v10 (2026-10-26): the booking button opens the host's page in an MCP Apps
+// v11 (2026-10-28): a verified offer's button uses only the server-checked
+// booking URL (host's domain or www.), never the raw offer's. v10
+// (2026-10-26): the booking button opens the host's page in an MCP Apps
 // host (ui/open-link); a connected host caches the HTML per URI, so the bump
 // makes Claude refetch it. v9 (W5c villkorssymmetrin): starred "Det lilla
 // extra" + cancellation line on the compact card; What's included / Good to
 // know / Terms groups in the unfolded view. URI bump = cache bust, same
 // pattern as every prior widget revision.
-export const HEMMABO_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v10.html";
+export const HEMMABO_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v11.html";
 // ChatGPT-native styling variant (Apps design guidelines: system fonts/colors,
 // brand gold only on the CTA). Served ONLY on the /mcp/chatgpt surface; the
 // Claude/MCP-Apps surface keeps v9 byte-identical.
 export const HEMMABO_NATIVE_WIDGET_URI = "ui://hemmabo/verified-stay-offer-native-v1.html";
-export const HEMMABO_PREVIOUS_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v9.html";
+export const HEMMABO_PREVIOUS_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v10.html";
+export const HEMMABO_V9_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v9.html";
 export const HEMMABO_V8_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v8.html";
 export const HEMMABO_V7_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v7.html";
 export const HEMMABO_V6_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v6.html";
@@ -67,6 +70,7 @@ export const HEMMABO_ALL_WIDGET_URIS: readonly string[] = [
   HEMMABO_WIDGET_URI,
   HEMMABO_NATIVE_WIDGET_URI,
   HEMMABO_PREVIOUS_WIDGET_URI,
+  HEMMABO_V9_WIDGET_URI,
   HEMMABO_V8_WIDGET_URI,
   HEMMABO_V7_WIDGET_URI,
   HEMMABO_V6_WIDGET_URI,

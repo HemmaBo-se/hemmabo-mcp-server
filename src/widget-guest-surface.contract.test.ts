@@ -122,9 +122,9 @@ describe("widget mobile behaviour", () => {
 });
 
 describe("widget URI bumped so connected hosts refetch the fixed HTML", () => {
-  it("current is v10, previous is v9", () => {
-    assert.equal(HEMMABO_WIDGET_URI, "ui://hemmabo/verified-stay-offer-v10.html");
-    assert.equal(HEMMABO_PREVIOUS_WIDGET_URI, "ui://hemmabo/verified-stay-offer-v9.html");
+  it("current is v11, previous is v10", () => {
+    assert.equal(HEMMABO_WIDGET_URI, "ui://hemmabo/verified-stay-offer-v11.html");
+    assert.equal(HEMMABO_PREVIOUS_WIDGET_URI, "ui://hemmabo/verified-stay-offer-v10.html");
   });
 });
 
@@ -354,6 +354,16 @@ describe("the widget opens the host's booking page on every host", () => {
   it("sends ui/open-link over postMessage whenever it runs inside a host frame", () => {
     assert.match(VERIFIED_STAY_OFFER_HTML, /window\.openai\.openExternal\(\{ href: href, redirectUrl: false \}\)/);
     assert.match(VERIFIED_STAY_OFFER_HTML, /if \(window\.parent && window\.parent !== window\) \{\s*postToHost\(\{ jsonrpc: "2\.0", id: rpcNextId\+\+, method: "ui\/open-link", params: \{ url: href \} \}\);\s*return hostInitialized;/);
+  });
+
+  // Core §5.1 (ADR 0009): a verified offer's button uses only the link the
+  // server checked (host's domain or www.), else the host's own domain; the
+  // raw offer's booking URL is never its fallback.
+  it("a verified offer's button never falls back to the raw offer's booking URL", () => {
+    assert.match(
+      VERIFIED_STAY_OFFER_HTML,
+      /var directUrl = data\.official_offer_summary\s*\? \(summary\.direct_booking_url \|\| hostUrl\(cleanDomain\(data\.domain\) \|\| domain\)\)\s*:/,
+    );
   });
 
   it("the booking link and the seal both route through tryHostOpen on click", () => {

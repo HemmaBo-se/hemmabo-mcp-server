@@ -545,11 +545,16 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     if (available === undefined) available = data.available;
     if (available === undefined) available = listing.available;
     if (available === undefined) available = true;
-    var directUrl = summary.direct_booking_url ||
-      (offer.booking && (offer.booking.direct_booking_url || offer.booking.booking_url)) ||
-      data.paymentUrl ||
-      data.direct_booking_url ||
-      (domain ? hostUrl(domain) : "");
+    // A verified offer's link is the summary's only: the server sets it when
+    // the signed URL is on the host's domain or its www. name, else null, and
+    // the card then opens the host's own domain. The raw offer's URL is never
+    // a fallback here.
+    var directUrl = data.official_offer_summary
+      ? (summary.direct_booking_url || hostUrl(cleanDomain(data.domain) || domain))
+      : ((offer.booking && (offer.booking.direct_booking_url || offer.booking.booking_url)) ||
+        data.paymentUrl ||
+        data.direct_booking_url ||
+        (domain ? hostUrl(domain) : ""));
     var images = [
       data.widget_media && data.widget_media.images,
       data.media && data.media.images,

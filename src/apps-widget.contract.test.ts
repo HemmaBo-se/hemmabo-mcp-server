@@ -75,10 +75,10 @@ describe("ChatGPT Apps verified stay widget", () => {
   });
 
   it("serves EVERY historical widget URI (frozen app snapshots depend on it)", () => {
-    // v1..v10 without holes plus the legacy alias: a published ChatGPT app is
+    // v1..v11 without holes plus the legacy alias: a published ChatGPT app is
     // frozen on the URI it was approved with — a missing version = red
     // "Failed to fetch template" for real users (observed live 2026-07-25).
-    for (let v = 1; v <= 10; v += 1) {
+    for (let v = 1; v <= 11; v += 1) {
       assert.ok(
         HEMMABO_ALL_WIDGET_URIS.includes(`ui://hemmabo/verified-stay-offer-v${v}.html`),
         `v${v} must stay readable forever`
