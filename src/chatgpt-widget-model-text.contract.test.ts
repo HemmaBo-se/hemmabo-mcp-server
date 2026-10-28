@@ -5,6 +5,11 @@ import { handleJsonRpc } from "../api/mcp.js";
 import { CHATGPT_WIDGET_MODEL_LINE, HEMMABO_ALL_WIDGET_URIS, HEMMABO_NATIVE_WIDGET_URI } from "../lib/apps-widget.js";
 import { CHATGPT_WIDGET_TOOL_NAMES, WIDGET_PAYLOAD_META_KEY } from "../lib/chatgpt-surface.js";
 import { BLOCKED_AGENT_CLAIMS } from "../lib/vrp.js";
+import { primeHostOwnedLists } from "../lib/host-owned-lists.js";
+
+// VRP Core §2: the verifier reads the Public Suffix List and ICANN's gTLD list;
+// these fetch mocks answer 404 for them, so the lists are seeded here.
+primeHostOwnedLists({ icannRules: ["com", "se", "si"], specification13Tlds: [] });
 
 // ADR 0020. A tool result outranks the server instructions, so on
 // /mcp/chatgpt a widget tool's result must not order the model to present
@@ -17,7 +22,8 @@ const CTX_FULL = { ...CTX_CHATGPT, surface: "full" as const };
 
 const PRESENTATION_ORDER = /VERBATIM|relay|introduce|quote/i;
 const IMAGE_URL = /https?:\/\/[^\s"]+?\.(?:jpe?g|png|webp|gif|avif)\b|\/property-images\//i;
-const DOMAIN = "stay.example.com";
+// A node is a host-owned domain (VRP §2): never a name under another domain.
+const DOMAIN = "stay-example.com";
 const PHOTO = "https://vfalgymbhyfqsyxkvpqg.supabase.co/storage/v1/object/public/property-images/properties/test/other/hero.jpg";
 
 type CallResult = {
