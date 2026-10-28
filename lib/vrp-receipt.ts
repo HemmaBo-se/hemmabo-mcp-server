@@ -152,6 +152,7 @@ export type VrpReceiptErrorCode =
   | "not_available"
   | "price_not_exact"
   | "direct_booking_url_missing"
+  | "direct_booking_url_not_node_url"
   // AP2 payment-layer (reused from lib/ap2.ts `reason`)
   | "mandate_expired"
   | "mandate_missing_amount"

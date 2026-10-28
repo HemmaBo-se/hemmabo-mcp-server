@@ -27,7 +27,7 @@ type ResourcesReadResult = { result?: { contents?: Array<{ uri: string; text?: s
 type ToolsListMetaResult = { result?: { tools?: Array<{ name: string; _meta?: Record<string, unknown> }> } };
 
 const NATIVE_URI = "ui://hemmabo/verified-stay-offer-native-v1.html";
-const V9_URI = "ui://hemmabo/verified-stay-offer-v10.html"; // the full surface's current template (v10 since 7.0.8)
+const V9_URI = "ui://hemmabo/verified-stay-offer-v11.html"; // the full surface's current template (v11 since 7.0.9)
 
 async function toolNames(ctx: typeof CTX_CHATGPT | typeof CTX_FULL): Promise<string[]> {
   const res = (await handleJsonRpc({ jsonrpc: "2.0", method: "tools/list", id: 1 }, ctx)) as unknown as ToolsListResult;
