@@ -211,10 +211,11 @@ export const RESOURCES = [buildWidgetResource(HEMMABO_CANONICAL_MCP_ENDPOINT)];
 export function readResource(
   uri: string,
   mcpEndpointUrl: string = HEMMABO_CANONICAL_MCP_ENDPOINT,
-  widgetDescription?: string
+  widgetDescription?: string,
+  claudeStableOrigin: boolean = false
 ): { contents: { uri: string; mimeType: string; text: string; _meta?: Record<string, unknown> }[] } | null {
   if (HEMMABO_ALL_WIDGET_URIS.includes(uri)) {
-    const meta = buildWidgetResourceMeta(mcpEndpointUrl, widgetDescription);
+    const meta = buildWidgetResourceMeta(mcpEndpointUrl, widgetDescription, { claudeStableOrigin });
     return {
       contents: [
         {
@@ -483,7 +484,12 @@ export async function handleJsonRpc(
 
     case "resources/read": {
       const uri = (params as { uri?: string })?.uri ?? "";
-      const result = readResource(uri, ctx.mcpEndpointUrl, surface === "chatgpt" ? CHATGPT_WIDGET_MODEL_LINE : undefined);
+      const result = readResource(
+        uri,
+        ctx.mcpEndpointUrl,
+        surface === "chatgpt" ? CHATGPT_WIDGET_MODEL_LINE : undefined,
+        surface === "chatgpt"
+      );
       if (!result) {
         return { jsonrpc: "2.0", id, error: { code: -32602, message: `Unknown resource URI: ${uri}` } };
       }

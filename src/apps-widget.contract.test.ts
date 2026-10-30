@@ -10,6 +10,9 @@ import {
   HEMMABO_LEGACY_WIDGET_URI,
   HEMMABO_WIDGET_MIME_TYPE,
   HEMMABO_WIDGET_URI,
+  HEMMABO_NATIVE_WIDGET_URI,
+  CHATGPT_WIDGET_MODEL_LINE,
+  buildNativeWidgetResource,
   claudeMcpAppDomain,
 } from "../lib/apps-widget.js";
 import { executeTool } from "../lib/tools.js";
@@ -26,9 +29,14 @@ describe("ChatGPT Apps verified stay widget", () => {
     assert.ok(resource, "verified stay offer widget must be listed");
     assert.equal(resource.mimeType, HEMMABO_WIDGET_MIME_TYPE);
     assert.equal(resource._meta.ui.prefersBorder, true);
-    assert.equal(resource._meta.ui.domain, HEMMABO_CLAUDE_WIDGET_DOMAIN);
-    assert.match(resource._meta.ui.domain, /\.claudemcpcontent\.com$/);
+    // /mcp (Claude, MCP Apps): no `ui.domain`. Claude checks that field against
+    // the SHA-256 of the exact connector URL the user typed and shows
+    // «ui.domain mismatch» instead of the card when it differs; the card needs
+    // no stable origin, so the host's default sandbox renders it for any
+    // spelling of the URL.
+    assert.equal("domain" in resource._meta.ui, false, "/mcp resource must not pin a Claude sandbox domain");
     assert.equal(claudeMcpAppDomain(HEMMABO_CANONICAL_MCP_ENDPOINT), HEMMABO_CLAUDE_WIDGET_DOMAIN);
+    assert.match(HEMMABO_CLAUDE_WIDGET_DOMAIN, /\.claudemcpcontent\.com$/);
     assert.notEqual(
       claudeMcpAppDomain("https://hemmabo-mcp-server.vercel.app/mcp"),
       HEMMABO_CLAUDE_WIDGET_DOMAIN,
@@ -41,6 +49,19 @@ describe("ChatGPT Apps verified stay widget", () => {
     assert.ok(resource._meta["openai/widgetCSP"]);
     assert.equal(exactDomainCount(resource._meta["openai/widgetCSP"].resource_domains, VILLA_AKERLYCKAN_SUPABASE_ORIGIN), 1);
     assert.ok(resource._meta["openai/widgetDescription"]);
+  });
+
+  it("the ChatGPT surface keeps `ui.domain` byte for byte; /mcp reads omit it", () => {
+    const native = buildNativeWidgetResource(HEMMABO_CANONICAL_MCP_ENDPOINT);
+    assert.equal(native._meta.ui.domain, HEMMABO_CLAUDE_WIDGET_DOMAIN, "/mcp/chatgpt resource keeps the reviewed bytes");
+    const chatgptRead = readResource(HEMMABO_NATIVE_WIDGET_URI, HEMMABO_CANONICAL_MCP_ENDPOINT, CHATGPT_WIDGET_MODEL_LINE, true)!;
+    assert.equal((chatgptRead.contents[0]._meta as any).ui.domain, HEMMABO_CLAUDE_WIDGET_DOMAIN);
+    for (const uri of HEMMABO_ALL_WIDGET_URIS) {
+      const full = readResource(uri)!;
+      assert.equal("domain" in (full.contents[0]._meta as any).ui, false, `${uri}: /mcp read must not pin a Claude sandbox domain`);
+      assert.equal((full.contents[0]._meta as any).ui.prefersBorder, true);
+      assert.ok((full.contents[0]._meta as any).ui.csp.resourceDomains.length > 0, `${uri}: CSP stays`);
+    }
   });
 
   it("widget CSP lists only exact HemmaBo hosts: no wildcard, no vercel.app, no node domain", () => {

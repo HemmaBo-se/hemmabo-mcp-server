@@ -101,7 +101,22 @@ const WIDGET_DESCRIPTION =
 export const CHATGPT_WIDGET_MODEL_LINE =
   "HemmaBo's widget shows this verified offer: the host's own photos, dates, guests, signed total and the booking button. Write at most two sentences. Do not repeat these details, and do not add images or a card of your own.";
 
-export function buildWidgetResourceMeta(mcpEndpointUrl: string, widgetDescription: string = WIDGET_DESCRIPTION) {
+/**
+ * `ui.domain` (the MCP Apps stable sandbox origin) is sent only to the
+ * ChatGPT surface, where it is inert, and left out on /mcp. Claude validates
+ * the field against the SHA-256 of the exact connector URL the user typed,
+ * scheme, path and trailing slash included, and shows «ui.domain mismatch»
+ * instead of the card when it differs (claude.com/docs/connectors/building/
+ * mcp-apps/troubleshooting, read 2026-10-30). This server cannot know that
+ * string; a card that needs no OAuth flow and makes no fetch of its own
+ * needs no stable origin, and the host's default per-conversation sandbox
+ * renders it for every URL spelling.
+ */
+export function buildWidgetResourceMeta(
+  mcpEndpointUrl: string,
+  widgetDescription: string = WIDGET_DESCRIPTION,
+  options: { claudeStableOrigin?: boolean } = {}
+) {
   const widgetOrigin = chatgptWidgetOriginFromMcpEndpoint(mcpEndpointUrl);
   const claudeDomain = claudeMcpAppDomain(mcpEndpointUrl);
 
@@ -116,13 +131,13 @@ export function buildWidgetResourceMeta(mcpEndpointUrl: string, widgetDescriptio
     },
     ui: {
       prefersBorder: true,
-      domain: claudeDomain,
+      ...(options.claudeStableOrigin ? { domain: claudeDomain } : {}),
       csp: {
         connectDomains: [...WIDGET_CONNECT_DOMAINS],
         resourceDomains: [...WIDGET_RESOURCE_DOMAINS],
       },
     },
-  } as const;
+  };
 }
 
 export const HEMMABO_WIDGET_RESOURCE_META = buildWidgetResourceMeta(HEMMABO_CANONICAL_MCP_ENDPOINT);
@@ -155,7 +170,8 @@ export function buildNativeWidgetResource(mcpEndpointUrl: string) {
     description:
       "ChatGPT Apps SDK widget that renders a host-domain verified stay offer with live availability, final price, and the signed direct host-domain booking URL, styled to ChatGPT's system look per the Apps design guidelines.",
     mimeType: HEMMABO_WIDGET_MIME_TYPE,
-    _meta: buildWidgetResourceMeta(mcpEndpointUrl, CHATGPT_WIDGET_MODEL_LINE),
+    // /mcp/chatgpt keeps the bytes OpenAI reviewed, `ui.domain` included.
+    _meta: buildWidgetResourceMeta(mcpEndpointUrl, CHATGPT_WIDGET_MODEL_LINE, { claudeStableOrigin: true }),
   };
 }
 
