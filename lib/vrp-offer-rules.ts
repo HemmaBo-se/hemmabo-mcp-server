@@ -42,7 +42,8 @@ export type OfferRuleCode =
   | "check_in_in_past"
   | "invalid_language"
   | "asked_stay_unknown"
-  | "request_mismatch";
+  | "request_mismatch"
+  | "clock_unusable";
 
 /** The stay the agent asked the offer endpoint for (Core §4). */
 export type AskedStay = { check_in: string; check_out: string; guests: number };
@@ -63,6 +64,7 @@ export const OFFER_RULE_TEXT: Record<OfferRuleCode, { section: string; text: str
   invalid_language: { section: "§5", text: "request.language is not a language tag" },
   asked_stay_unknown: { section: "§7", text: "the stay asked for is not known to the verifier" },
   request_mismatch: { section: "§7", text: "the signed request is not the dates and guest count asked for" },
+  clock_unusable: { section: "§6, §8", text: "the verifier's clock could not be read, so freshness and the dates cannot be judged" },
 };
 
 const DAY_MS = 86_400_000;
@@ -171,10 +173,14 @@ export function requestReasons(payload: Payload, clock: number, asked: AskedStay
 
 /**
  * The reasons an offer is not quotable under the offer rules (§5, §6, §7); an
- * empty list when it meets them. `now` is the verifier's clock in ms; `asked`
- * is the stay the agent asked for, or null when the verifier does not know it.
- * Same result, same order, as the VRP offer-rules vectors.
+ * empty list when it meets them. `now` is the verifier's clock in ms (a clock
+ * that cannot be read gives `clock_unusable`); `asked` is the stay the agent
+ * asked for, or null when the verifier does not know it. Same result, same
+ * order, as the VRP offer-rules vectors.
  */
 export function checkOfferRules(payload: Payload, { now, asked }: { now: number; asked: AskedStay | null }): OfferRuleCode[] {
+  // Every rule but the forms of the dates depends on the clock; without a
+  // usable one nothing can be judged, and an empty list would read as a pass.
+  if (typeof now !== "number" || !Number.isFinite(now)) return ["clock_unusable"];
   return [...lifetimeReasons(payload, now), ...requestReasons(payload, now, asked)];
 }
