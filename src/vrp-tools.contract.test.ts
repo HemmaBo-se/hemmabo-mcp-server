@@ -68,13 +68,13 @@ describe("VRP MCP tools", () => {
             { claim: "pets_dogs", state: "affirmed", verified_at: null },
             { claim: "pets_cats", state: "negated", verified_at: null },
             { claim: "smoking_outdoor", state: "affirmed", verified_at: null },
-            { claim: "piano", state: "negated", verified_at: "2026-07-08" },
-            { claim: "blackout_curtains", state: "affirmed", verified_at: "2026-07-08" },
+            { claim: "piano", state: "negated", verified_at: "2027-07-08" },
+            { claim: "blackout_curtains", state: "affirmed", verified_at: "2027-07-08" },
             { claim: "air_conditioning", state: "negated", verified_at: null },
             // W5: the host's starred "Det lilla extra" (starred only on
             // affirmed rows per the editor's write rule). A starred NEGATED
             // row must never surface (defensive — the editor forbids it).
-            { claim: "hot_tub", state: "affirmed", verified_at: "2026-07-08", starred: true },
+            { claim: "hot_tub", state: "affirmed", verified_at: "2027-07-08", starred: true },
             { claim: "ev_charging", state: "affirmed", verified_at: null, starred: true },
             { claim: "sauna", state: "negated", verified_at: null, starred: true },
           ],
@@ -138,13 +138,13 @@ describe("VRP MCP tools", () => {
             { claim: "pets_dogs", state: "affirmed", verified_at: null },
             { claim: "pets_cats", state: "negated", verified_at: null },
             { claim: "smoking_outdoor", state: "affirmed", verified_at: null },
-            { claim: "piano", state: "negated", verified_at: "2026-07-08" },
-            { claim: "blackout_curtains", state: "affirmed", verified_at: "2026-07-08" },
+            { claim: "piano", state: "negated", verified_at: "2027-07-08" },
+            { claim: "blackout_curtains", state: "affirmed", verified_at: "2027-07-08" },
             { claim: "air_conditioning", state: "negated", verified_at: null },
             // W5: the host's starred "Det lilla extra" (starred only on
             // affirmed rows per the editor's write rule). A starred NEGATED
             // row must never surface (defensive — the editor forbids it).
-            { claim: "hot_tub", state: "affirmed", verified_at: "2026-07-08", starred: true },
+            { claim: "hot_tub", state: "affirmed", verified_at: "2027-07-08", starred: true },
             { claim: "ev_charging", state: "affirmed", verified_at: null, starred: true },
             { claim: "sauna", state: "negated", verified_at: null, starred: true },
           ],
@@ -193,10 +193,10 @@ describe("VRP MCP tools", () => {
       canonical_domain: "villaakerlyckan.se",
       node_id: "villaakerlyckan.se",
       generated_at: new Date().toISOString(),
-      valid_until: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      valid_until: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
       request: {
-        check_in: "2026-07-01",
-        check_out: "2026-07-08",
+        check_in: "2027-07-01",
+        check_out: "2027-07-08",
         nights: 7,
         guests: 4,
       },
@@ -223,7 +223,7 @@ describe("VRP MCP tools", () => {
         no_add_on_fees: true,
         package_applied: null,
         breakdown: [
-          { date: "2026-07-01", day_of_week: "Wed", nightly_rate: 21000 },
+          { date: "2027-07-01", day_of_week: "Thu", nightly_rate: 21000 },
         ],
         adjustments: [
           {
@@ -297,13 +297,13 @@ describe("VRP MCP tools", () => {
             { claim: "pets_dogs", state: "affirmed", verified_at: null },
             { claim: "pets_cats", state: "negated", verified_at: null },
             { claim: "smoking_outdoor", state: "affirmed", verified_at: null },
-            { claim: "piano", state: "negated", verified_at: "2026-07-08" },
-            { claim: "blackout_curtains", state: "affirmed", verified_at: "2026-07-08" },
+            { claim: "piano", state: "negated", verified_at: "2027-07-08" },
+            { claim: "blackout_curtains", state: "affirmed", verified_at: "2027-07-08" },
             { claim: "air_conditioning", state: "negated", verified_at: null },
             // W5: the host's starred "Det lilla extra" (starred only on
             // affirmed rows per the editor's write rule). A starred NEGATED
             // row must never surface (defensive — the editor forbids it).
-            { claim: "hot_tub", state: "affirmed", verified_at: "2026-07-08", starred: true },
+            { claim: "hot_tub", state: "affirmed", verified_at: "2027-07-08", starred: true },
             { claim: "ev_charging", state: "affirmed", verified_at: null, starred: true },
             { claim: "sauna", state: "negated", verified_at: null, starred: true },
           ],
@@ -328,8 +328,8 @@ describe("VRP MCP tools", () => {
         return jsonResponse({ keys: [jwk] });
       }
       if (url.pathname === "/api/verified-stay-offer") {
-        assert.equal(url.searchParams.get("check_in"), "2026-07-01");
-        assert.equal(url.searchParams.get("check_out"), "2026-07-08");
+        assert.equal(url.searchParams.get("check_in"), "2027-07-01");
+        assert.equal(url.searchParams.get("check_out"), "2027-07-08");
         assert.equal(url.searchParams.get("guests"), "4");
         return jsonResponse({
           kind: "signed_verified_stay_offer",
@@ -348,8 +348,8 @@ describe("VRP MCP tools", () => {
 
     const result = await executeTool("vrp_get_verified_stay_offer", {
       domain: "villaakerlyckan.se",
-      checkIn: "2026-07-01",
-      checkOut: "2026-07-08",
+      checkIn: "2027-07-01",
+      checkOut: "2027-07-08",
       guests: 4,
     }, clients);
 
@@ -360,8 +360,8 @@ describe("VRP MCP tools", () => {
     assert.equal(parsed.payload_matches_offer, true);
     assert.equal(parsed.fresh, true);
     // Output echoes the canonical camelCase date params (not snake_case).
-    assert.equal(parsed.checkIn, "2026-07-01");
-    assert.equal(parsed.checkOut, "2026-07-08");
+    assert.equal(parsed.checkIn, "2027-07-01");
+    assert.equal(parsed.checkOut, "2027-07-08");
     assert.equal(result._meta?.["openai/outputTemplate"], HEMMABO_WIDGET_URI);
     assert.deepEqual(result._meta?.ui, { resourceUri: HEMMABO_WIDGET_URI });
     assert.equal(result._meta?.signed_verified_stay_offer, jws);
@@ -493,15 +493,15 @@ describe("VRP MCP tools", () => {
     // for both input forms.
     const legacy = await executeTool("vrp_get_verified_stay_offer", {
       domain: "villaakerlyckan.se",
-      check_in: "2026-07-01",
-      check_out: "2026-07-08",
+      check_in: "2027-07-01",
+      check_out: "2027-07-08",
       guests: 4,
     }, clients);
     assert.equal(legacy.isError, undefined);
     const legacyParsed = JSON.parse(legacy.content[0].text);
     assert.equal(legacyParsed.verified, true);
-    assert.equal(legacyParsed.checkIn, "2026-07-01");
-    assert.equal(legacyParsed.checkOut, "2026-07-08");
+    assert.equal(legacyParsed.checkIn, "2027-07-01");
+    assert.equal(legacyParsed.checkOut, "2027-07-08");
   });
 
   it("vrp_get_verified_stay_offer localizes the amenity row and echoes the requested language (2026-07-26 fix)", async () => {
@@ -522,7 +522,9 @@ describe("VRP MCP tools", () => {
       canonical_domain: "villaakerlyckan.se",
       node_id: "villaakerlyckan.se",
       generated_at: new Date().toISOString(),
-      valid_until: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      valid_until: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      // Core §5, §7: the signed stay is the stay asked for below.
+      request: { check_in: "2027-11-03", check_out: "2027-11-04", guests: 6 },
       property: { id: "prop-test", name: "Villa Åkerlyckan", domain: "villaakerlyckan.se" },
       availability: { available: true, source: "official_host_domain", reason: null },
       price: { currency: "SEK", total: 3060, public_total: 3060, agent_total: 3060, exact: true, no_add_on_fees: true, package_applied: null, breakdown: [], adjustments: [], reconciliation: { nightly_subtotal: 3060, adjustments_total: 0, computed_total: 3060, matches_quoted_total: true } },
@@ -567,8 +569,8 @@ describe("VRP MCP tools", () => {
 
     const result = await executeTool("vrp_get_verified_stay_offer", {
       domain: "villaakerlyckan.se",
-      checkIn: "2026-11-03",
-      checkOut: "2026-11-04",
+      checkIn: "2027-11-03",
+      checkOut: "2027-11-04",
       guests: 6,
       language: "sv",
     }, clients);
@@ -588,8 +590,8 @@ describe("VRP MCP tools", () => {
     // this fix must never change output for existing callers.
     const englishResult = await executeTool("vrp_get_verified_stay_offer", {
       domain: "villaakerlyckan.se",
-      checkIn: "2026-11-03",
-      checkOut: "2026-11-04",
+      checkIn: "2027-11-03",
+      checkOut: "2027-11-04",
       guests: 6,
     }, clients);
     assert.equal(englishResult.isError, undefined);
@@ -620,7 +622,9 @@ describe("VRP MCP tools", () => {
       canonical_domain: "villaakerlyckan.se",
       node_id: "villaakerlyckan.se",
       generated_at: new Date().toISOString(),
-      valid_until: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      valid_until: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      // Core §5, §7: the signed stay is the stay asked for below.
+      request: { check_in: "2027-11-03", check_out: "2027-11-04", guests: 6 },
       property: { id: "prop-test", name: "Villa Åkerlyckan", domain: "villaakerlyckan.se" },
       availability: { available: true, source: "official_host_domain", reason: null },
       price: { currency: "SEK", total: 3060, public_total: 3060, agent_total: 3060, exact: true, no_add_on_fees: true, package_applied: null, breakdown: [], adjustments: [], reconciliation: { nightly_subtotal: 3060, adjustments_total: 0, computed_total: 3060, matches_quoted_total: true } },
@@ -655,8 +659,8 @@ describe("VRP MCP tools", () => {
 
     const englishResult = await executeTool("vrp_get_verified_stay_offer", {
       domain: "villaakerlyckan.se",
-      checkIn: "2026-11-03",
-      checkOut: "2026-11-04",
+      checkIn: "2027-11-03",
+      checkOut: "2027-11-04",
       guests: 6,
       language: "en",
     }, clients);
@@ -679,8 +683,8 @@ describe("VRP MCP tools", () => {
     // byte-for-byte — this fix must never change output for existing callers.
     const noLangResult = await executeTool("vrp_get_verified_stay_offer", {
       domain: "villaakerlyckan.se",
-      checkIn: "2026-11-03",
-      checkOut: "2026-11-04",
+      checkIn: "2027-11-03",
+      checkOut: "2027-11-04",
       guests: 6,
     }, clients);
     const noLangParsed = JSON.parse(noLangResult.content[0].text);
@@ -712,7 +716,7 @@ describe("VRP MCP tools", () => {
         canonical_domain: "apartmamatevz.si",
         node_id: "apartmamatevz.si",
         generated_at: new Date().toISOString(),
-        valid_until: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        valid_until: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
         request: { check_in: "2027-03-10", check_out: "2027-03-13", guests: 2, nights: 3 },
         property: { name: "Apartma A1 – terasa", domain: "apartmamatevz.si" },
         availability: { available: true, source: "official_host_domain" },
@@ -803,7 +807,9 @@ describe("VRP MCP tools", () => {
       canonical_domain: "villaakerlyckan.se",
       node_id: "villaakerlyckan.se",
       generated_at: new Date().toISOString(),
-      valid_until: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      valid_until: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      // Core §5, §7: the signed stay is the stay asked for below.
+      request: { check_in: "2027-05-22", check_out: "2027-05-24", guests: 6 },
       availability: {
         available: false,
         source: "official_host_domain",
@@ -856,8 +862,8 @@ describe("VRP MCP tools", () => {
 
     const result = await executeTool("vrp_get_verified_stay_offer", {
       domain: "villaakerlyckan.se",
-      check_in: "2026-05-22",
-      check_out: "2026-05-24",
+      check_in: "2027-05-22",
+      check_out: "2027-05-24",
       guests: 6,
     }, clients);
 

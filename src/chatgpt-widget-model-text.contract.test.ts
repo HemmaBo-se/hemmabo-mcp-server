@@ -57,7 +57,7 @@ function mockHostNode(): void {
     canonical_domain: DOMAIN,
     node_id: DOMAIN,
     generated_at: new Date().toISOString(),
-    valid_until: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    valid_until: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
     request: { check_in: "2027-02-14", check_out: "2027-02-16", nights: 2, guests: 2 },
     property: { id: "prop-test", name: "Test Stay", domain: DOMAIN },
     availability: { available: true, source: "official_host_domain", reason: null },

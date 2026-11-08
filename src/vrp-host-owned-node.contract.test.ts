@@ -87,7 +87,9 @@ function mockNode({ domain, offerDomain = domain, discoveryRedirect = [], jwksRe
     canonical_domain: offerDomain,
     node_id: offerDomain,
     generated_at: new Date().toISOString(),
-    valid_until: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    valid_until: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    // Core §5, §7: the signed stay is the stay asked for below.
+    request: { check_in: "2027-12-04", check_out: "2027-12-06", guests: 2 },
     availability: { available: true, source: "official_host_domain", reason: null },
     price: { currency: "SEK", total: 6000, exact: true, package_applied: null },
     agent_permission: { may_quote_as_official_direct_offer: true },
@@ -135,7 +137,7 @@ async function verifyNode(domain: string) {
 }
 
 async function getOffer(domain: string) {
-  const result = await executeTool("vrp_get_verified_stay_offer", { domain, check_in: "2026-12-04", check_out: "2026-12-06", guests: 2 }, clients);
+  const result = await executeTool("vrp_get_verified_stay_offer", { domain, check_in: "2027-12-04", check_out: "2027-12-06", guests: 2 }, clients);
   return { result, parsed: JSON.parse(result.content[0].text) };
 }
 

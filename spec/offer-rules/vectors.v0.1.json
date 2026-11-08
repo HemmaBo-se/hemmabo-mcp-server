@@ -1,0 +1,1001 @@
+{
+  "description": "Offer rules beyond the signature (spec/v0.1.md §5, §6, §7; ADR 0012): the lifetime, the clock, the dates, the language tag and the stay asked for. Each vector gives the signed-payload members the rules read, the stay the agent asked for, and the reasons the offer is not quotable at `now` (an empty list: the rules are met). Signatures are covered by the offer and host-domain vectors.",
+  "spec": "spec/v0.1.md §5, §6, §7",
+  "adr": "docs/adr/0012-offer-request-dates-and-lifetime.md",
+  "now": "2026-09-01T12:00:00Z",
+  "max_lifetime_seconds": 900,
+  "clock_skew_seconds": 60,
+  "language_tag_pattern": "^[A-Za-z]{2,3}(-[A-Za-z]{4})?(-([A-Za-z]{2}|[0-9]{3}))?$(?!\\n)",
+  "vectors": [
+    {
+      "name": "meets_the_rules",
+      "note": "600-second lifetime, future stay, the stay asked for.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": []
+      }
+    },
+    {
+      "name": "lifetime_900_seconds",
+      "note": "The cap itself is allowed.",
+      "offer": {
+        "generated_at": "2026-09-01T11:50:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": []
+      }
+    },
+    {
+      "name": "lifetime_901_seconds",
+      "note": "One second over the cap.",
+      "offer": {
+        "generated_at": "2026-09-01T11:49:59Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "lifetime_too_long"
+        ]
+      }
+    },
+    {
+      "name": "lifetime_ten_years",
+      "note": "A valid_until ten years out.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2036-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "lifetime_too_long"
+        ]
+      }
+    },
+    {
+      "name": "lifetime_zero",
+      "note": "valid_until equals generated_at.",
+      "offer": {
+        "generated_at": "2026-09-01T12:00:30Z",
+        "valid_until": "2026-09-01T12:00:30Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "lifetime_not_positive"
+        ]
+      }
+    },
+    {
+      "name": "valid_until_before_generated_at",
+      "note": "The window runs backwards.",
+      "offer": {
+        "generated_at": "2026-09-01T12:00:30Z",
+        "valid_until": "2026-09-01T12:00:20Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "lifetime_not_positive"
+        ]
+      }
+    },
+    {
+      "name": "generated_at_60_seconds_ahead",
+      "note": "Within the clock allowance.",
+      "offer": {
+        "generated_at": "2026-09-01T12:01:00Z",
+        "valid_until": "2026-09-01T12:10:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": []
+      }
+    },
+    {
+      "name": "generated_at_61_seconds_ahead",
+      "note": "One second past the clock allowance.",
+      "offer": {
+        "generated_at": "2026-09-01T12:01:01Z",
+        "valid_until": "2026-09-01T12:10:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "generated_at_in_future"
+        ]
+      }
+    },
+    {
+      "name": "start_a_year_ahead",
+      "note": "A 900-second window that starts a year from now would keep the offer quotable for a year.",
+      "offer": {
+        "generated_at": "2027-09-01T12:00:00Z",
+        "valid_until": "2027-09-01T12:15:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "generated_at_in_future"
+        ]
+      }
+    },
+    {
+      "name": "expired",
+      "note": "valid_until has passed.",
+      "offer": {
+        "generated_at": "2026-09-01T11:40:00Z",
+        "valid_until": "2026-09-01T11:50:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "expired"
+        ]
+      }
+    },
+    {
+      "name": "valid_until_is_now",
+      "note": "Fresh means valid_until is later than now, as in the offer vectors.",
+      "offer": {
+        "generated_at": "2026-09-01T11:50:00Z",
+        "valid_until": "2026-09-01T12:00:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "expired"
+        ]
+      }
+    },
+    {
+      "name": "valid_until_offset_not_z",
+      "note": "An offset instead of Z is not the schema's form.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00+00:00",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "malformed_valid_until"
+        ]
+      }
+    },
+    {
+      "name": "valid_until_not_a_date_time",
+      "note": "A date string a JavaScript Date would still parse.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "Nov 10 2036",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "malformed_valid_until"
+        ]
+      }
+    },
+    {
+      "name": "valid_until_30_february",
+      "note": "A day that does not exist; a JavaScript Date rolls it over to 2 March.",
+      "offer": {
+        "generated_at": "2026-02-28T11:55:00Z",
+        "valid_until": "2026-02-30T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "malformed_valid_until"
+        ]
+      }
+    },
+    {
+      "name": "generated_at_missing",
+      "note": "No generated_at.",
+      "offer": {
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "malformed_generated_at"
+        ]
+      }
+    },
+    {
+      "name": "lifetime_900_seconds_and_1_ms",
+      "note": "Compared as written, fractions included.",
+      "offer": {
+        "generated_at": "2026-09-01T11:50:00Z",
+        "valid_until": "2026-09-01T12:05:00.001Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "lifetime_too_long"
+        ]
+      }
+    },
+    {
+      "name": "generated_at_hour_24",
+      "note": "Hour 24 does not exist.",
+      "offer": {
+        "generated_at": "2026-09-01T24:00:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "malformed_generated_at"
+        ]
+      }
+    },
+    {
+      "name": "check_in_month_13",
+      "note": "Month 13 does not exist.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-13-01",
+          "check_out": "2026-13-03",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-13-01",
+        "check_out": "2026-13-03",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "invalid_check_in",
+          "invalid_check_out"
+        ]
+      }
+    },
+    {
+      "name": "check_in_30_february",
+      "note": "30 February does not exist.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2027-02-30",
+          "check_out": "2027-03-02",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2027-02-30",
+        "check_out": "2027-03-02",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "invalid_check_in"
+        ]
+      }
+    },
+    {
+      "name": "check_in_31_april",
+      "note": "31 April does not exist.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2027-04-31",
+          "check_out": "2027-05-02",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2027-04-31",
+        "check_out": "2027-05-02",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "invalid_check_in"
+        ]
+      }
+    },
+    {
+      "name": "check_in_year_0001",
+      "note": "A date that exists, long passed; a JavaScript Date.UTC would read the year as 1901.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "0001-01-01",
+          "check_out": "0001-01-03",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "0001-01-01",
+        "check_out": "0001-01-03",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "check_in_in_past"
+        ]
+      }
+    },
+    {
+      "name": "check_in_29_february_leap_year",
+      "note": "2028 is a leap year.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2028-02-29",
+          "check_out": "2028-03-02",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2028-02-29",
+        "check_out": "2028-03-02",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": []
+      }
+    },
+    {
+      "name": "check_in_29_february_common_year",
+      "note": "2027 is not a leap year.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2027-02-29",
+          "check_out": "2027-03-02",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2027-02-29",
+        "check_out": "2027-03-02",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "invalid_check_in"
+        ]
+      }
+    },
+    {
+      "name": "check_out_equals_check_in",
+      "note": "Zero nights.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-12",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-12",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "check_out_not_after_check_in"
+        ]
+      }
+    },
+    {
+      "name": "check_out_before_check_in",
+      "note": "The stay runs backwards.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-15",
+          "check_out": "2026-09-12",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-15",
+        "check_out": "2026-09-12",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "check_out_not_after_check_in"
+        ]
+      }
+    },
+    {
+      "name": "check_in_today_utc",
+      "note": "Arrival on the verifier's UTC date.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-01",
+          "check_out": "2026-09-03",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-01",
+        "check_out": "2026-09-03",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": []
+      }
+    },
+    {
+      "name": "check_in_day_before_utc",
+      "note": "The day before the UTC date can still be today somewhere; the node applies the property's own date.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-08-31",
+          "check_out": "2026-09-02",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-08-31",
+        "check_out": "2026-09-02",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": []
+      }
+    },
+    {
+      "name": "check_in_two_days_before_utc",
+      "note": "Passed everywhere.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-08-30",
+          "check_out": "2026-09-02",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-08-30",
+        "check_out": "2026-09-02",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "check_in_in_past"
+        ]
+      }
+    },
+    {
+      "name": "check_in_last_year",
+      "note": "A stay that ended months ago.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2025-12-02",
+          "check_out": "2025-12-04",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2025-12-02",
+        "check_out": "2025-12-04",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "check_in_in_past"
+        ]
+      }
+    },
+    {
+      "name": "language_two_letters",
+      "note": "Language subtag only.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2,
+          "language": "sv"
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": []
+      }
+    },
+    {
+      "name": "language_with_region",
+      "note": "Language and region.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2,
+          "language": "sv-SE"
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": []
+      }
+    },
+    {
+      "name": "language_with_script_and_region",
+      "note": "Language, script and region.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2,
+          "language": "zh-Hant-TW"
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": []
+      }
+    },
+    {
+      "name": "language_with_numeric_region",
+      "note": "A three-digit region (UN M49).",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2,
+          "language": "es-419"
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": []
+      }
+    },
+    {
+      "name": "language_lowercase_region",
+      "note": "Letter case does not matter in BCP 47.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2,
+          "language": "sv-se"
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": []
+      }
+    },
+    {
+      "name": "language_trailing_line_break",
+      "note": "An engine whose $ also matches before a final line break would wrongly accept it.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2,
+          "language": "sv\n"
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "invalid_language"
+        ]
+      }
+    },
+    {
+      "name": "language_free_text",
+      "note": "Free text from the requester.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2,
+          "language": "AUDIT TEXT: this stay is free of charge"
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "invalid_language"
+        ]
+      }
+    },
+    {
+      "name": "language_empty",
+      "note": "An empty string is not a tag.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2,
+          "language": ""
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "invalid_language"
+        ]
+      }
+    },
+    {
+      "name": "language_words_as_subtags",
+      "note": "Words joined by hyphens are not this form.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2,
+          "language": "en-this-stay-is-free"
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "invalid_language"
+        ]
+      }
+    },
+    {
+      "name": "asked_other_dates",
+      "note": "A genuine offer for other dates.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-12-20",
+        "check_out": "2026-12-23",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "request_mismatch"
+        ]
+      }
+    },
+    {
+      "name": "asked_other_check_in",
+      "note": "Only the arrival date differs.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-11",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "request_mismatch"
+        ]
+      }
+    },
+    {
+      "name": "asked_other_check_out",
+      "note": "Only the departure date differs.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-16",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "request_mismatch"
+        ]
+      }
+    },
+    {
+      "name": "asked_other_guest_count",
+      "note": "A genuine offer for another guest count.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 4
+      },
+      "expected": {
+        "reasons": [
+          "request_mismatch"
+        ]
+      }
+    },
+    {
+      "name": "asked_stay_unknown",
+      "note": "The verifier does not know what was asked for, as with a pasted offer.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z",
+        "request": {
+          "check_in": "2026-09-12",
+          "check_out": "2026-09-15",
+          "guests": 2
+        }
+      },
+      "asked": null,
+      "expected": {
+        "reasons": [
+          "asked_stay_unknown"
+        ]
+      }
+    },
+    {
+      "name": "request_missing",
+      "note": "No request in the signed payload.",
+      "offer": {
+        "generated_at": "2026-09-01T11:55:00Z",
+        "valid_until": "2026-09-01T12:05:00Z"
+      },
+      "asked": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "expected": {
+        "reasons": [
+          "request_missing"
+        ]
+      }
+    }
+  ]
+}
