@@ -51,7 +51,9 @@ async function offerWithBooking(
     canonical_domain: DOMAIN,
     node_id: DOMAIN,
     generated_at: new Date().toISOString(),
-    valid_until: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    valid_until: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    // Core §5, §7: the signed stay is the stay asked for below.
+    request: { check_in: "2027-12-04", check_out: "2027-12-06", guests: 2 },
     availability: { available: true, source: "official_host_domain", reason: null },
     price: { currency: "SEK", total: 6000, exact: true, package_applied: null },
     agent_permission: { may_quote_as_official_direct_offer: true },
@@ -87,8 +89,8 @@ async function offerWithBooking(
 
   const result = await executeTool("vrp_get_verified_stay_offer", {
     domain: DOMAIN,
-    check_in: "2026-12-04",
-    check_out: "2026-12-06",
+    check_in: "2027-12-04",
+    check_out: "2027-12-06",
     guests: 2,
   }, clients);
   assert.equal(result.isError, undefined);

@@ -9,6 +9,7 @@ import {
   guestCurrencyForLanguage,
 } from "./fx-display.js";
 import type { ToolResult } from "./tools-base.js";
+import { checkOfferRules, parseDate, OFFER_RULE_TEXT, type OfferRuleCode } from "./vrp-offer-rules.js";
 
 export const VRP_PROTOCOL = "vacation-rental-protocol";
 export const VRP_PROTOCOL_VERSION = "0.1";
@@ -112,8 +113,23 @@ function toolOk(value: JsonRecord, meta?: Record<string, unknown>): ToolResult {
   };
 }
 
-function toolError(message: string): ToolResult {
-  return { content: [{ type: "text", text: JSON.stringify({ error: message }) }], isError: true };
+function toolError(message: string, detail?: JsonRecord): ToolResult {
+  return { content: [{ type: "text", text: JSON.stringify({ error: message, ...(detail ?? {}) }) }], isError: true };
+}
+
+/**
+ * Core §5–§7 broken by a signed offer whose signature verified. The error says
+ * so: a valid signature is not permission to quote (§7), and an offer that
+ * fails these rules is unknown (§9), so nothing of it is presented (§8).
+ */
+export class OfferRuleViolation extends Error {
+  readonly reasons: readonly OfferRuleCode[];
+  constructor(reasons: readonly OfferRuleCode[]) {
+    const named = reasons.map((code) => `${code} (Core ${OFFER_RULE_TEXT[code].section}: ${OFFER_RULE_TEXT[code].text})`);
+    super(`Signature valid, but the signed offer is not quoteable: ${named.join("; ")}. Nothing of it may be presented (Core §8).`);
+    this.name = "OfferRuleViolation";
+    this.reasons = reasons;
+  }
 }
 
 function requirePresentArgs(args: Record<string, unknown>, keys: readonly string[]): void {
@@ -139,6 +155,8 @@ function requireIntegerArg(args: Record<string, unknown>, key: string): number {
 
 function validateDateArg(value: string, key: string): void {
   if (!ISO_DATE_RE.test(value)) throw new Error(`${key} must be YYYY-MM-DD`);
+  // Core §5: a date that exists in the calendar (RFC 3339 full-date).
+  if (Number.isNaN(parseDate(value))) throw new Error(`${key} must be a date that exists in the calendar (YYYY-MM-DD)`);
 }
 
 function normalizeVrpDomain(input: string): string {
@@ -339,54 +357,40 @@ function extractOfferPayload(payload: JsonRecord): JsonRecord {
   return asRecord(payload.offer) ?? payload;
 }
 
-function validUntilFrom(offer: JsonRecord, response: JsonRecord): string | null {
-  return stringValue(offer.valid_until) ?? stringValue(response.valid_until);
+// Core §5, §7, §8, §9: every quoteable fact is read from the VERIFIED signed
+// payload and nowhere else. A member missing there is missing (unknown, §9),
+// whatever the unsigned part of the response says: an unsigned value never
+// supplies or overrides a signed one.
+function mayQuoteOfficialOffer(offer: JsonRecord): boolean {
+  return asRecord(offer.agent_permission)?.may_quote_as_official_direct_offer === true;
 }
 
-function mayQuoteOfficialOffer(offer: JsonRecord, response: JsonRecord): boolean {
-  const permission = asRecord(offer.agent_permission) ?? asRecord(response.agent_permission);
-  return permission?.may_quote_as_official_direct_offer === true;
+function priceRecordFrom(offer: JsonRecord): JsonRecord | null {
+  return asRecord(offer.price);
 }
 
-function availabilityRecordFrom(offer: JsonRecord, response: JsonRecord): JsonRecord | null {
-  return asRecord(offer.availability) ?? asRecord(response.availability);
+// Core §7, §9: `availability.available` explicitly true in the signed payload;
+// false, absent, another type or a legacy string is not available.
+function offerAvailable(offer: JsonRecord): boolean {
+  return asRecord(offer.availability)?.available === true;
 }
 
-function priceRecordFrom(offer: JsonRecord, response: JsonRecord): JsonRecord | null {
-  return asRecord(offer.price) ?? asRecord(response.price);
+function availabilityReason(offer: JsonRecord): string | null {
+  return stringValue(asRecord(offer.availability)?.reason);
 }
 
-function offerAvailable(offer: JsonRecord, response: JsonRecord): boolean {
-  const availability = availabilityRecordFrom(offer, response);
-  const signedBoolean = booleanValue(availability?.available);
-  if (signedBoolean !== null) return signedBoolean;
-  const legacy = stringValue(offer.availability) ?? stringValue(response.availability);
-  return legacy === "available";
-}
-
-function availabilityReason(offer: JsonRecord, response: JsonRecord): string | null {
-  const availability = availabilityRecordFrom(offer, response);
-  return stringValue(availability?.reason);
-}
-
-function exactPrice(offer: JsonRecord, response: JsonRecord): boolean {
-  const price = priceRecordFrom(offer, response);
+// Core §7: `price.exact` is true in the signed payload, explicitly. An amount
+// is not exactness: a signed total without `exact: true` is not a final total.
+function exactPrice(offer: JsonRecord): boolean {
+  const price = priceRecordFrom(offer);
   // Defense in depth: a signed `reconciliation` block that explicitly fails to
   // reconcile (Σ breakdown + Σ adjustments !== total) can never back an exact
-  // quote, regardless of what `exact` claims. Absent/legacy offers (no
-  // reconciliation) fall through to the signed `exact` flag unchanged.
+  // quote, regardless of what `exact` claims.
   const reconciliation = asRecord(price?.reconciliation);
   if (reconciliation && booleanValue(reconciliation.matches_quoted_total) === false) {
     return false;
   }
-  const signedExact = booleanValue(price?.exact) ?? booleanValue(price?.price_is_exact);
-  if (signedExact !== null) return signedExact;
-  return (
-    numberValue(price?.total) !== null ||
-    numberValue(price?.public_total) !== null ||
-    numberValue(price?.agent_total) !== null ||
-    numberValue(offer.total_price) !== null
-  );
+  return price?.exact === true;
 }
 
 // A signed amount in minor units (`price.minor_unit: true`, the form the
@@ -417,8 +421,8 @@ function majorUnitsIn(value: unknown, fields: readonly string[], minorUnit: bool
 // _meta.offer, and the summary says its unit explicitly (`minor_unit: false`).
 // Measured 2026-10-26: apartmamatevz.si signs 29100 EUR cents with
 // minor_unit: true, and the app said "Direct host-domain total: 29100 EUR".
-function priceSummary(offer: JsonRecord, response: JsonRecord): JsonRecord {
-  const price = priceRecordFrom(offer, response);
+function priceSummary(offer: JsonRecord): JsonRecord {
+  const price = priceRecordFrom(offer);
   const minorUnit = booleanValue(price?.minor_unit) === true;
   const publicTotal =
     majorUnits(numberValue(price?.public_total) ?? numberValue(price?.total), minorUnit) ??
@@ -436,7 +440,7 @@ function priceSummary(offer: JsonRecord, response: JsonRecord): JsonRecord {
     public_total: publicTotal,
     agent_total: agentTotal,
     minor_unit: false,
-    exact: exactPrice(offer, response),
+    exact: exactPrice(offer),
     no_add_on_fees: booleanValue(price?.no_add_on_fees),
     package_applied: price?.package_applied ?? null,
     breakdown: Array.isArray(price?.breakdown)
@@ -832,15 +836,14 @@ function quoteBlockedReason(
 
 function buildAgentQuoteView(
   offer: JsonRecord,
-  response: JsonRecord,
   validUntil: string | null,
   discovery: JsonRecord,
   domain: string,
   language?: string,
 ): JsonRecord {
-  const mayQuote = mayQuoteOfficialOffer(offer, response);
-  const available = offerAvailable(offer, response);
-  const price = priceSummary(offer, response);
+  const mayQuote = mayQuoteOfficialOffer(offer);
+  const available = offerAvailable(offer);
+  const price = priceSummary(offer);
   const signedBookingUrl = signedBookingUrlFrom(offer);
   const directBookingUrl = signedBookingUrl && isNodeUrl(signedBookingUrl, domain) ? signedBookingUrl : null;
   const priceExact = price.exact === true;
@@ -876,9 +879,10 @@ function buildAgentQuoteView(
     official_offer_summary: {
       property: summaryProperty,
       available,
-      availability_reason: availabilityReason(offer, response),
+      availability_reason: availabilityReason(offer),
       price,
       direct_booking_url: directBookingUrl,
+      generated_at: stringValue(offer.generated_at),
       valid_until: validUntil,
       bookable: safeToQuote,
       source_authority: sourceAuthoritySummary(offer),
@@ -1033,11 +1037,21 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
   const payloadMatchesOffer = responseOffer ? stableStringify(responseOffer) === stableStringify(offer) : true;
   if (!payloadMatchesOffer) throw new Error("Signed payload does not match returned offer");
 
-  const validUntil = validUntilFrom(offer, response);
-  const fresh = Boolean(validUntil && Date.parse(validUntil) > Date.now());
-  if (!fresh) throw new Error("verified_stay_offer is expired or missing valid_until");
+  // Core §5, §6, §7, §8: the signed lifetime (generated_at and valid_until
+  // UTC date-times ending in Z, a positive window of at most 900 seconds, not
+  // started more than 60 seconds in the future, not passed) and the signed
+  // stay (dates that exist and have not passed, check_out after check_in, a
+  // language tag when present, and exactly the dates and guest count this
+  // call asked for). Read from the SIGNED payload only. Any failure leaves the
+  // offer unknown (§9): nothing of it is presented (§8).
+  const ruleReasons = checkOfferRules(offer, {
+    now: Date.now(),
+    asked: { check_in: checkIn, check_out: checkOut, guests },
+  });
+  if (ruleReasons.length > 0) throw new OfferRuleViolation(ruleReasons);
+  const validUntil = stringValue(offer.valid_until);
 
-  const quoteView = buildAgentQuoteView(offer, response, validUntil, node.discovery, node.domain, language ?? undefined);
+  const quoteView = buildAgentQuoteView(offer, validUntil, node.discovery, node.domain, language ?? undefined);
   const hostAlternatives = asRecord(response.host_alternatives);
   const agentNextStep = buildAgentNextStep(hostAlternatives);
 
@@ -1102,6 +1116,17 @@ export async function executeVrpTool(name: string, args: Record<string, unknown>
         return toolError(`Unknown VRP tool: ${name}`);
     }
   } catch (error) {
+    if (error instanceof OfferRuleViolation) {
+      // The signature verified; the offer still may not be quoted. Both facts
+      // are stated, so a client never reads "valid signature" as "quoteable".
+      return toolError(error.message, {
+        code: error.reasons[0],
+        reasons: [...error.reasons],
+        signature_valid: true,
+        safe_to_quote: false,
+        quote_status: "not_quoteable",
+      });
+    }
     return toolError(error instanceof Error ? error.message : String(error));
   }
 }
