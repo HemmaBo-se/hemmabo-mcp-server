@@ -254,14 +254,30 @@ async function verifyVacationRentalNode(domainInput: string): Promise<VerifiedNo
   if (discovery.protocol !== VRP_PROTOCOL) {
     throw new Error(`Unsupported protocol: ${String(discovery.protocol)}`);
   }
-  const version = stringValue(discovery.protocol_version) ?? stringValue(discovery.version);
+  // Core §2:38 and §7:516: the document itself MUST declare
+  // `protocol_version: "0.1"`. The pre-0.1 member `version` is not a
+  // substitute, and nothing is filled in for the node (§8, fail closed).
+  const version = stringValue(discovery.protocol_version);
+  if (version === null) {
+    throw new Error(
+      'Discovery document declares no protocol_version: a VRP node MUST declare protocol_version "0.1" (VRP §2, §7); the pre-0.1 member "version" is not a substitute'
+    );
+  }
   if (version !== VRP_PROTOCOL_VERSION) {
-    throw new Error(`Unsupported VRP version: ${String(version)}`);
+    throw new Error(`Unsupported VRP version: ${version}`);
   }
 
-  const declaredDomain = normalizeVrpDomain(
-    stringValue(discovery.canonical_domain) ?? stringValue(discovery.domain) ?? domain
-  );
+  // Core §2:39 and §7:514: the document MUST name the host-owned domain it is
+  // served from in `canonical_domain`, and that name must equal the domain
+  // being verified. Neither the pre-0.1 member `domain` nor the fetched
+  // domain stands in for a missing value (§8, fail closed).
+  const declaredRaw = stringValue(discovery.canonical_domain);
+  if (declaredRaw === null) {
+    throw new Error(
+      'Discovery document declares no canonical_domain: it MUST name the host-owned domain it is served from (VRP §2, §7); the pre-0.1 member "domain" is not a substitute'
+    );
+  }
+  const declaredDomain = normalizeVrpDomain(declaredRaw);
   if (declaredDomain !== domain) {
     throw new Error(`Discovery canonical_domain mismatch: expected ${domain}, got ${declaredDomain}`);
   }
