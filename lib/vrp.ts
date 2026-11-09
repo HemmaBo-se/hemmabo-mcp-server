@@ -255,31 +255,36 @@ async function verifyVacationRentalNode(domainInput: string): Promise<VerifiedNo
     throw new Error(`Unsupported protocol: ${String(discovery.protocol)}`);
   }
   // Core §2:38 and §7:516: the document itself MUST declare
-  // `protocol_version: "0.1"`. The pre-0.1 member `version` is not a
-  // substitute, and nothing is filled in for the node (§8, fail closed).
-  const version = stringValue(discovery.protocol_version);
-  if (version === null) {
+  // `protocol_version: "0.1"`, as that exact string. The pre-0.1 member
+  // `version` is not a substitute, and nothing is filled in for the node
+  // (§8, fail closed). The value is compared as written, not trimmed.
+  const version = discovery.protocol_version;
+  if (typeof version !== "string" || version.trim().length === 0) {
     throw new Error(
       'Discovery document declares no protocol_version: a VRP node MUST declare protocol_version "0.1" (VRP §2, §7); the pre-0.1 member "version" is not a substitute'
     );
   }
   if (version !== VRP_PROTOCOL_VERSION) {
-    throw new Error(`Unsupported VRP version: ${version}`);
+    throw new Error(`Unsupported VRP version: ${JSON.stringify(version)}`);
   }
 
-  // Core §2:39 and §7:514: the document MUST name the host-owned domain it is
-  // served from in `canonical_domain`, and that name must equal the domain
-  // being verified. Neither the pre-0.1 member `domain` nor the fetched
-  // domain stands in for a missing value (§8, fail closed).
-  const declaredRaw = stringValue(discovery.canonical_domain);
-  if (declaredRaw === null) {
+  // Core §2:39, §2:46 (host-owned domain, items 1–2) and §7:514: the document
+  // MUST name, in `canonical_domain`, the host-owned domain it is served from,
+  // as that exact string: lowercase ASCII, no trailing dot, no scheme, path,
+  // port or `www.`. The value is compared as written and is NOT normalized
+  // first, so `www.node.example`, `NODE.EXAMPLE`, `node.example.` or a URL are
+  // refused even though each names the same host. Neither the pre-0.1 member
+  // `domain` nor the fetched domain stands in for a missing value (§8).
+  const declaredRaw = discovery.canonical_domain;
+  if (typeof declaredRaw !== "string" || declaredRaw.trim().length === 0) {
     throw new Error(
       'Discovery document declares no canonical_domain: it MUST name the host-owned domain it is served from (VRP §2, §7); the pre-0.1 member "domain" is not a substitute'
     );
   }
-  const declaredDomain = normalizeVrpDomain(declaredRaw);
-  if (declaredDomain !== domain) {
-    throw new Error(`Discovery canonical_domain mismatch: expected ${domain}, got ${declaredDomain}`);
+  if (declaredRaw !== domain) {
+    throw new Error(
+      `Discovery canonical_domain mismatch: expected ${domain}, got ${JSON.stringify(declaredRaw)} (VRP §2: the value must be the host-owned domain itself, lowercase, with no trailing dot, scheme, path, port or www.)`
+    );
   }
 
   const endpoints = asRecord(discovery.endpoints);

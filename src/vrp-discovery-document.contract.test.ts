@@ -178,11 +178,34 @@ describe("Core §2 and §7: the discovery document declares protocol_version and
 
   it("still refuses a protocol_version other than 0.1", async () => {
     const served = serveNode(discoveryDocument({ protocol_version: "0.2" }));
-    await assertRefusedAtDiscovery(served, /Unsupported VRP version: 0\.2/);
+    await assertRefusedAtDiscovery(served, /Unsupported VRP version: "0\.2"/);
   });
 
   it("still refuses a canonical_domain that names another domain", async () => {
     const served = serveNode(discoveryDocument({ canonical_domain: "other.example" }));
-    await assertRefusedAtDiscovery(served, /canonical_domain mismatch: expected node\.example, got other\.example/);
+    await assertRefusedAtDiscovery(served, /canonical_domain mismatch: expected node\.example, got "other\.example"/);
+  });
+
+  // §2 host-owned domain, items 1–2: the document's value is the canonical
+  // domain itself, compared as written. Each of these names the same host and
+  // was accepted at 213c52f, where the value was normalized before the check
+  // (reproduced by the independent reviewer on 2026-11-09).
+  for (const value of ["www.node.example", "NODE.EXAMPLE", "node.example.", "https://node.example/path", " node.example", "node.example\n"]) {
+    it(`refuses canonical_domain ${JSON.stringify(value)}: not the canonical domain as written (§2 items 1–2)`, async () => {
+      const served = serveNode(discoveryDocument({ canonical_domain: value }));
+      await assertRefusedAtDiscovery(served, /canonical_domain mismatch: expected node\.example, got "/);
+    });
+  }
+
+  for (const value of [" 0.1", "0.1 ", "0.1\n", "0.10"]) {
+    it(`refuses protocol_version ${JSON.stringify(value)}: not "0.1" as written (§2:38)`, async () => {
+      const served = serveNode(discoveryDocument({ protocol_version: value }));
+      await assertRefusedAtDiscovery(served, /Unsupported VRP version: "/);
+    });
+  }
+
+  it("refuses a canonical_domain that is not a string", async () => {
+    const served = serveNode(discoveryDocument({ canonical_domain: ["node.example"] }));
+    await assertRefusedAtDiscovery(served, /declares no canonical_domain/);
   });
 });
