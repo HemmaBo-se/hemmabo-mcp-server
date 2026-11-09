@@ -1,0 +1,21 @@
+{
+  "repository": "https://github.com/vacationrentalprotocol/vrp-spec",
+  "commit": "df3b9f6715009e26f24f38a43f95d4dc7d30ad3e",
+  "path": "schemas/",
+  "license": "CC0-1.0",
+  "note": "Byte-for-byte copies, used by the tests to check that a positive fixture is schema-valid. Update by copying the files at a new commit and changing this file; never edit a copy.",
+  "files": {
+    "discovery-v0.1.schema.json": {
+      "git_blob": "3725ae60c7b3bc0f964fa2f9f0d3288ccf04550d",
+      "sha256": "79f2b082e933d77a8498d1a62ebd214d127586fe7c58028e0d55907465bda8bf"
+    },
+    "jwks-v0.1.schema.json": {
+      "git_blob": "1592d163901bb119d2e4d548b591356bca64964e",
+      "sha256": "6fda9f5e716fc3da164778fb8a3038511beb36c326136e0ae2d9f9391663dc27"
+    },
+    "verified-stay-offer-v0.1.schema.json": {
+      "git_blob": "c83cc00127483c016593fe036c5777cc6d18185d",
+      "sha256": "dfb6e16bf4748096a910ff19136ac4de6ada24a367a3e48fca752de9bbea71d9"
+    }
+  }
+}

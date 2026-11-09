@@ -9,14 +9,42 @@
 // official. Reproduced by the independent reviewer on 2026-11-09 (Node 22,
 // signed test offers). These cases pin the fail-closed behaviour (§8) and
 // that a conformant node still verifies.
+//
+// "Conformant" is itself tested: the control's discovery document, JWKS,
+// response envelope and decoded signed payload are checked against the VRP
+// v0.1 schemas vendored under spec/schemas/ at a pinned vrp-spec commit
+// (spec/schemas/SOURCE.json; its hashes are tested in
+// vrp-signed-offer-domain.contract.test.ts). Until this was added the control
+// lacked jwks_url, property.property_id, price.minor_unit and a required
+// agent_permission member, and passed all the same.
 
 import { afterEach, beforeEach, describe, it, mock } from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign, type KeyObject } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { Ajv2020 } from "ajv/dist/2020.js";
+import addFormatsModule from "ajv-formats";
 import { executeTool } from "../lib/tools.js";
 import { primeHostOwnedLists } from "../lib/host-owned-lists.js";
 
 type Json = Record<string, unknown>;
+
+const SCHEMA_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..", "spec/schemas");
+const readSchema = (name: string) => JSON.parse(readFileSync(resolve(SCHEMA_DIR, name), "utf8")) as Json;
+// No coercion, no defaults, nothing removed: invalid test data must stay invalid.
+const ajv = new Ajv2020({ allErrors: true, strict: false, coerceTypes: false, useDefaults: false, removeAdditional: false });
+(addFormatsModule as unknown as (a: Ajv2020) => Ajv2020)(ajv);
+const validators = {
+  discovery: ajv.compile(readSchema("discovery-v0.1.schema.json")),
+  jwks: ajv.compile(readSchema("jwks-v0.1.schema.json")),
+  offer: ajv.compile(readSchema("verified-stay-offer-v0.1.schema.json")),
+};
+function assertSchemaValid(kind: keyof typeof validators, value: unknown): void {
+  const validate = validators[kind];
+  assert.equal(validate(value), true, `${kind} is not schema-valid: ${JSON.stringify(validate.errors)}`);
+}
 
 const LISTS = { icannRules: ["example", "se"], specification13Tlds: [] };
 const clients = { supabase: null as never, reader: null as never };
@@ -40,7 +68,7 @@ function compactJws(payload: Json, privateKey: KeyObject): string {
   return `${signingInput}.${b64url(sign(null, Buffer.from(signingInput), privateKey))}`;
 }
 
-/** A production-shaped, fully quoteable signed payload for STAY, fresh at NOW. */
+/** A schema-valid, fully quoteable signed payload for STAY, fresh at NOW. */
 function signedOffer(): Json {
   return {
     kind: "verified_stay_offer",
@@ -50,11 +78,14 @@ function signedOffer(): Json {
     generated_at: iso(NOW - 60_000),
     valid_until: iso(NOW + 600_000),
     request: { ...STAY },
-    property: { id: "p1", name: "Example Stay", domain: DOMAIN },
+    property: { property_id: "p1", name: "Example Stay", domain: DOMAIN },
     availability: { available: true, source: "official_host_domain", reason: null },
-    price: { currency: "EUR", total: 900, public_total: 900, agent_total: 900, exact: true, no_add_on_fees: true, package_applied: null },
+    price: { currency: "EUR", public_total: 900, agent_total: 900, minor_unit: false, exact: true },
     booking: { direct_booking_url: `https://${DOMAIN}/book?offer=t1` },
-    agent_permission: { may_quote_as_official_direct_offer: true },
+    agent_permission: {
+      may_quote_as_official_direct_offer: true,
+      must_not_claim_ota_comparison_without_signed_ota_price: true,
+    },
   };
 }
 
@@ -64,7 +95,7 @@ function discoveryDocument(overrides: Json = {}, remove: string[] = []): Json {
     protocol: "vacation-rental-protocol",
     protocol_version: "0.1",
     canonical_domain: DOMAIN,
-    jwks_uri: `https://${DOMAIN}/.well-known/jwks.json`,
+    jwks_url: `https://${DOMAIN}/.well-known/jwks.json`,
     verified_stay_offer_endpoint: `https://${DOMAIN}/api/verified-stay-offer`,
     ...overrides,
   };
@@ -72,7 +103,7 @@ function discoveryDocument(overrides: Json = {}, remove: string[] = []): Json {
   return doc;
 }
 
-type Served = { fetches: string[] };
+type Served = { fetches: string[]; jwks: Json; envelope: Json; signed: Json };
 
 /** Serve a node with the given discovery document; its JWKS signs a fully quoteable offer. */
 function serveNode(discovery: Json): Served {
@@ -80,20 +111,22 @@ function serveNode(discovery: Json): Served {
   const jwk = { ...(publicKey.export({ format: "jwk" }) as Json), kid: "node-key", alg: "EdDSA", use: "sig" };
   const offer = signedOffer();
   const jws = compactJws(offer, privateKey);
-  const served: Served = { fetches: [] };
+  const jwks = { keys: [jwk] };
+  const envelope: Json = {
+    kind: "signed_verified_stay_offer",
+    protocol_version: "0.1",
+    offer,
+    signature: { format: "jws_compact", alg: "EdDSA", kid: "node-key", jws },
+  };
+  // What the node really signed, decoded from the JWS itself.
+  const signed = JSON.parse(Buffer.from(jws.split(".")[1], "base64url").toString("utf8")) as Json;
+  const served: Served = { fetches: [], jwks, envelope, signed };
   mock.method(globalThis, "fetch", async (input: string | URL | Request) => {
     const url = new URL(String(input));
     served.fetches.push(url.pathname);
     if (url.pathname === "/.well-known/vacation-rental.json") return jsonResponse(discovery);
-    if (url.pathname === "/.well-known/jwks.json") return jsonResponse({ keys: [jwk] });
-    if (url.pathname === "/api/verified-stay-offer") {
-      return jsonResponse({
-        kind: "signed_verified_stay_offer",
-        protocol_version: "0.1",
-        offer,
-        signature: { format: "jws_compact", alg: "EdDSA", kid: "node-key", jws },
-      });
-    }
+    if (url.pathname === "/.well-known/jwks.json") return jsonResponse(jwks);
+    if (url.pathname === "/api/verified-stay-offer") return jsonResponse(envelope);
     return new Response("not found", { status: 404 });
   });
   return served;
@@ -138,7 +171,12 @@ describe("Core §2 and §7: the discovery document declares protocol_version and
   });
 
   it("a conformant discovery document still verifies and the signed offer is quoteable", async () => {
-    const served = serveNode(discoveryDocument());
+    const discovery = discoveryDocument();
+    const served = serveNode(discovery);
+    assertSchemaValid("discovery", discovery);
+    assertSchemaValid("jwks", served.jwks);
+    assertSchemaValid("offer", served.envelope);
+    assertSchemaValid("offer", { ...served.envelope, offer: served.signed });
     const { result, parsed } = await callOffer();
     assert.equal(result.isError, undefined, String(parsed.error));
     assert.equal(parsed.verified, true);

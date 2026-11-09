@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vacationrentalprotocol.com/schemas/discovery-v0.1.schema.json",
+  "title": "VRP Discovery Document v0.1",
+  "description": "Minimum machine-readable discovery contract for a host-owned VRP node. This schema is an interoperability aid, not a registry or trust authority.",
+  "type": "object",
+  "required": [
+    "protocol",
+    "protocol_version",
+    "canonical_domain",
+    "jwks_url",
+    "verified_stay_offer_endpoint"
+  ],
+  "properties": {
+    "protocol": {
+      "const": "vacation-rental-protocol"
+    },
+    "protocol_version": {
+      "const": "0.1"
+    },
+    "canonical_domain": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]*[a-z0-9]$"
+    },
+    "node_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "jwks_url": {
+      "type": "string",
+      "pattern": "^https://\\S+/.well-known/jwks\\.json$"
+    },
+    "verified_stay_offer_endpoint": {
+      "type": "string",
+      "pattern": "^https://\\S+$"
+    },
+    "capabilities": {
+      "type": "object",
+      "properties": {
+        "signed_verified_stay_offer": {
+          "type": "boolean"
+        },
+        "live_availability": {
+          "type": "boolean"
+        },
+        "exact_total_price": {
+          "type": "boolean"
+        },
+        "direct_booking_url": {
+          "type": "boolean"
+        }
+      }
+    },
+    "operator": {
+      "type": "object",
+      "description": "Who operates the node and holds its signing key, so an agent can reason about exactly what a valid signature guarantees.",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string",
+          "description": "The operator's relationship to the node, e.g. 'infrastructure_provider' (a platform runs the node on the host's behalf) or 'self' (the host runs their own node)."
+        },
+        "key_custody": {
+          "enum": [
+            "platform",
+            "self"
+          ],
+          "description": "Who holds the node's Ed25519 signing key. 'platform': the operator holds and operates the key on the host's behalf — offers are signed under the host's domain identity and remain independently verifiable against jwks_url, but the host does not hold the key itself. 'self': the host self-custodies their own signing key. Absent = unspecified; a verifier MUST NOT assume self-custody."
+        }
+      }
+    },
+    "endpoints": {
+      "type": "object"
+    },
+    "structure_declarations": {
+      "type": "object",
+      "description": "Falsifiable node structure declarations (structure-declarations-v0.1). Keys are lowercase snake_case declaration keys; absent key = Unknown.",
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "value",
+          "class",
+          "verify"
+        ],
+        "properties": {
+          "value": {
+            "type": [
+              "boolean",
+              "number",
+              "string"
+            ]
+          },
+          "class": {
+            "enum": [
+              "verifiable",
+              "attested",
+              "reputational"
+            ]
+          },
+          "verify": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

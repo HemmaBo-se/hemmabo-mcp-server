@@ -1049,9 +1049,14 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
   // Core §7 (ADR 0009): the signed offer names the domain it was fetched from.
   // A valid signature over an offer naming another domain is that node's
   // signature, not that other domain's offer.
-  const offerDomainRaw = stringValue(offer.canonical_domain);
-  if (!offerDomainRaw) throw new Error("Signed offer has no canonical_domain (VRP §5)");
-  if (normalizeVrpDomain(offerDomainRaw) !== node.domain) {
+  // The signed value is compared as written (§2 host-owned domain, items 1–2:
+  // lowercase, no trailing dot, its own registrable domain, so never a URL,
+  // never `www.`): nothing is trimmed, lowercased or stripped for the node.
+  const offerDomainRaw = offer.canonical_domain;
+  if (typeof offerDomainRaw !== "string" || offerDomainRaw.length === 0) {
+    throw new Error("Signed offer has no canonical_domain (VRP §5)");
+  }
+  if (offerDomainRaw !== node.domain) {
     throw new Error(`Signed offer names ${offerDomainRaw}, not ${node.domain} it was fetched from: not this node's offer (VRP §7)`);
   }
   const responseOffer = asRecord(response.offer);
