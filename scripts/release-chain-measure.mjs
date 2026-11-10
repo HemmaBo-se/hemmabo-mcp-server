@@ -12,7 +12,8 @@
  * and what to do about each one. .github/workflows/release-chain.yml runs it
  * on every release and keeps the result in one issue per version.
  *
- * Run: node scripts/release-chain-measure.mjs [--version X.Y.Z] [--wait MIN] [--out DIR]
+ * Run (after `npm ci`: the catalog readers use the acorn parser):
+ *   node scripts/release-chain-measure.mjs [--version X.Y.Z] [--wait MIN] [--out DIR]
  *   --version  the version to measure; default: package.json
  *   --wait     poll the automatic rows (production, npm, MCP Registry) for up
  *              to MIN minutes before the final reading; default 0
@@ -20,10 +21,16 @@
  * Exit 1 when an automatic row is not at the version after the wait. Catalog
  * rows never fail the run: they are measured and reported, and their fix is a
  * hand step with a direct link.
+ *
+ * A catalog page is read three ways, each reported on its own: reachable,
+ * tools, version (scripts/release-chain-catalog.mjs). The row is ✅ only when
+ * all three hold; a page that states an older version is ❌, and a page that
+ * states no version is ❓, never ✅.
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
+import { checkGlamaConnector, checkGlamaServer, checkMcpso, has } from "./release-chain-catalog.mjs";
 
 const args = process.argv.slice(2);
 const opt = (name, fallback) => {
@@ -94,42 +101,12 @@ function retiredToolNames() {
 }
 
 /**
- * The page without its script bodies: a catalog page's script data names
- * every tool it has ever known, and only the readable text counts. A scan,
- * not a regex, so any case and any spacing of the tags is handled. The
- * result is measured, never rendered or executed.
- */
-function withoutScripts(html) {
-  const lower = html.toLowerCase();
-  let out = "";
-  let i = 0;
-  for (;;) {
-    const open = lower.indexOf("<script", i);
-    if (open === -1) return out + html.slice(i);
-    out += html.slice(i, open);
-    const close = lower.indexOf("</script", open);
-    if (close === -1) return out;
-    const end = lower.indexOf(">", close);
-    i = end === -1 ? lower.length : end + 1;
-  }
-}
-
-/** The page's readable text: scripts and tags dropped, whitespace folded. */
-const visible = (html) => withoutScripts(html).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-// A name counts only as a whole token: `get_verified_stay_offer` (retired) is
-// a substring of `vrp_get_verified_stay_offer` (current), and a substring test
-// reported the Glama server page and mcp.so as listing the retired name from
-// 7.0.5 on, when neither did (measured 2026-10-26: zero whole-token matches).
-const has = (text, needle) =>
-  new RegExp(`(?<![A-Za-z0-9_])${needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9_])`).test(text);
-const missing = (text, names) => names.filter((n) => !has(text, n));
-const present = (text, names) => names.filter((n) => has(text, n));
-
-/**
  * Every surface. kind: "auto" rows follow the release by machine and fail the
  * run when they are not at the version; "catalog" rows are measured and
  * reported, their fix is a hand step; "manual" rows cannot be measured and are
- * a checkbox in the issue.
+ * a checkbox in the issue. A check returns ok: true (✅), false (❌) or
+ * "unknown" (❓: the page does not state a version, so it is not counted as
+ * at the version).
  */
 const ROWS = [
   {
@@ -190,12 +167,7 @@ const ROWS = [
     who: "Glama reads the MCP Registry; nothing to do by hand",
     hand: false,
     async check(ctx) {
-      const { status, text } = await http(LINKS.glamaConnector);
-      const page = visible(text);
-      // The connector's changelog records the 6.0.0 rename, so retired names
-      // are expected there; the tool list is what must be current.
-      const gone = missing(page, ctx.toolNames);
-      return { ok: status === 200 && gone.length === 0, detail: status !== 200 ? `HTTP ${status}` : `${gone.length ? `missing ${gone.join(", ")}` : "all tools"} (the page shows no version)` };
+      return checkGlamaConnector(await http(LINKS.glamaConnector), ctx);
     },
   },
   {
@@ -204,13 +176,7 @@ const ROWS = [
     kind: "catalog",
     who: `Glama builds the repo. Green build + GitHub release = Auto-Release. Red or stale: [Repository → Sync Server](${LINKS.glamaRepository}), then [Dockerfile → Build & Release](${LINKS.glamaDockerfile}) with an empty pinned SHA`,
     async check(ctx) {
-      const { status, text } = await http(LINKS.glamaServer);
-      const page = visible(text);
-      const from = page.indexOf("Available Tools");
-      const list = from === -1 ? "" : page.slice(from, page.indexOf("Tool Schema Changelog", from) === -1 ? from + 6000 : page.indexOf("Tool Schema Changelog", from));
-      const gone = missing(list, ctx.toolNames);
-      const old = present(list, ctx.retiredNames);
-      return { ok: status === 200 && from !== -1 && gone.length === 0 && old.length === 0, detail: status !== 200 ? `HTTP ${status}` : from === -1 ? "no tool list" : `${gone.length ? `missing ${gone.join(", ")}` : "all tools"}${old.length ? `; retired names listed: ${old.join(", ")}` : ""}` };
+      return checkGlamaServer(await http(LINKS.glamaServer), ctx);
     },
   },
   {
@@ -249,13 +215,9 @@ const ROWS = [
     id: "mcpso",
     label: `[mcp.so](${LINKS.mcpso})`,
     kind: "catalog",
-    who: `only mcp.so can rescan: [support ticket](${LINKS.mcpsoTickets}) and support@mcp.so`,
+    who: `the owner account: signed in, **Fetch tools** on [the page](${LINKS.mcpso}) rescans the tool list (done 2026-10-15); whether it also updates the version is not measured. Otherwise mcp.so: [support ticket](${LINKS.mcpsoTickets}) and support@mcp.so`,
     async check(ctx) {
-      const { status, text } = await http(LINKS.mcpso);
-      const page = visible(text);
-      const gone = missing(page, ctx.toolNames);
-      const old = present(page, ctx.retiredNames);
-      return { ok: status === 200 && gone.length === 0 && old.length === 0, detail: status !== 200 ? `HTTP ${status}` : `${gone.length ? `missing ${gone.join(", ")}` : "all tools"}${old.length ? `; retired names listed: ${old.join(", ")}` : ""}` };
+      return checkMcpso(await http(LINKS.mcpso), ctx);
     },
   },
   {
@@ -298,7 +260,7 @@ async function measure(rows, ctx) {
   return out;
 }
 
-const ctx = { toolNames: [], retiredNames: retiredToolNames() };
+const ctx = { toolNames: [], retiredNames: retiredToolNames(), version: VERSION };
 const autoRows = ROWS.filter((r) => r.kind === "auto");
 const started = Date.now();
 let autoResult = await measure(autoRows, ctx);
@@ -311,7 +273,7 @@ const rest = await measure(ROWS.filter((r) => r.kind !== "auto"), ctx);
 const results = [...autoResult, ...rest];
 
 const measuredAt = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-const mark = (r) => (r.ok === null ? "🖐" : r.ok ? "✅" : "❌");
+const mark = (r) => (r.ok === null ? "🖐" : r.ok === true ? "✅" : r.ok === "unknown" ? "❓" : "❌");
 const run = process.env.GITHUB_SERVER_URL && process.env.GITHUB_RUN_ID
   ? ` · [run](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`
   : "";
@@ -319,7 +281,7 @@ const title = `Release v${VERSION}: the chain`;
 const lines = [
   `## ${title}`,
   "",
-  `Every surface that agents and directories read, measured at ${measuredAt}${run}. [Release](${LINKS.release}). A release is done when every row is ✅ and every hand step is ticked.`,
+  `Every surface that agents and directories read, measured at ${measuredAt}${run}. [Release](${LINKS.release}). A release is done when every row is ✅ and every hand step is ticked. ❓ means the page does not state a version: it is not counted as at ${VERSION}.`,
   "",
   "| Surface | At " + VERSION + " | Measured | Who changes it, and where |",
   "|---|---|---|---|",
@@ -327,7 +289,7 @@ const lines = [
   "",
   "### Hand steps (tick here)",
   ...results.filter((r) => r.kind === "manual").map((r) => `- [ ] ${r.label}: ${r.who}`),
-  ...results.filter((r) => r.kind === "catalog" && r.ok === false && r.hand !== false).map((r) => `- [ ] ${r.label}: ${r.who}`),
+  ...results.filter((r) => r.kind === "catalog" && r.ok !== true && r.hand !== false).map((r) => `- [ ] ${r.label}: ${r.who}`),
   "",
   "Re-measure after a hand step: Actions → **Release chain** → Run workflow (version " + VERSION + "), or locally `node scripts/release-chain-measure.mjs --version " + VERSION + "`.",
 ];
@@ -338,7 +300,7 @@ if (OUT_DIR) {
   mkdirSync(OUT_DIR, { recursive: true });
   writeFileSync(join(OUT_DIR, "report.md"), report);
   writeFileSync(join(OUT_DIR, "title.txt"), title + "\n");
-  writeFileSync(join(OUT_DIR, "report.json"), JSON.stringify({ version: VERSION, measuredAt, rows: results.map(({ id, kind, ok, detail }) => ({ id, kind, ok, detail })) }, null, 2) + "\n");
+  writeFileSync(join(OUT_DIR, "report.json"), JSON.stringify({ version: VERSION, measuredAt, rows: results.map(({ id, kind, ok, detail, reachable, tools, version }) => ({ id, kind, ok, detail, ...(version === undefined ? {} : { reachable, tools, version }) })) }, null, 2) + "\n");
 }
 
 const stuck = results.filter((r) => r.kind === "auto" && !r.ok);

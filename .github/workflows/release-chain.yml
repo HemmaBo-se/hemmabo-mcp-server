@@ -38,6 +38,11 @@ jobs:
         with:
           node-version: "20"
 
+      # The catalog readers parse page scripts with acorn (devDependency):
+      # scripts/release-chain-catalog.mjs. Locked versions, no install scripts.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
       - name: Measure every surface (waits up to 15 min for npm and the MCP Registry)
         id: measure
         env:

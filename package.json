@@ -73,6 +73,8 @@
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
+    "acorn": "^8.19.0",
+    "parse5": "^8.1.1",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3"
   },
