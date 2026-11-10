@@ -28,6 +28,13 @@
 // green. The lexer is gone. The outer reading is now the syntax tree of an
 // established parser (acorn): the call and the member are nodes of that tree,
 // and a script the parser does not accept contributes nothing.
+//
+// Fifth round, the reviewer at 4eda1a0: the hand-written scan of the HTML took
+// text inside another attribute for the script's type, and <scripture> for a
+// script; and because the syntax tree was searched whole, a complete record
+// inside a function that is never called counted as the listing's. The HTML is
+// now read by an established parser (parse5), and the data is read only where
+// the page starts itself up, by a named path from the top of the program.
 // The counterexamples below are synthetic edits of the fixtures.
 
 import { describe, it } from "node:test";
@@ -46,10 +53,9 @@ type Catalog = {
   glamaServerVersions(html: string): string[];
   mcpsoVersions(html: string): string[];
   mcpsoProbes(html: string): { version: string; checkedAt: string | null }[];
-  scriptBodies(html: string): string[];
   scriptElements(html: string): { type: string; body: string }[];
-  enqueuedChunks(html: string): string[];
-  memberStrings(html: string, name: string): string[];
+  glamaBootstrapChunks(html: string): string[];
+  mcpsoQualityDetails(html: string): string[];
   versionVerdict(found: string[], wanted: string): { state: string; detail: string };
   visible(html: string): string;
   missing(text: string, names: string[]): string[];
@@ -116,40 +122,42 @@ const NOT_CODE: [string, (body: string) => string][] = [
   ["a template literal nested in a template literal", (body) => `const s = \`a \${\`${body}\`} b\`;`],
   ["a string after return", (body) => `function f(){return '${body}';}`],
   ["a program the parser does not accept", (body) => `${body} var = ;`],
+  // The reviewer's reproduction at 4eda1a0, and its neighbours: code that is declared and never run.
+  ["a function that is declared and never called", (body) => `function unusedExample() {\n${body}\n}`],
+  ["an arrow function that is assigned and never called", (body) => `const example = () => { ${body} };`],
+  ["a function expression that is assigned and never called", (body) => `var example = function () { ${body} };`],
+  ["a method of an object that is never used", (body) => `var examples = { show() { ${body} } };`],
+  ["a class method that is never used", (body) => `class Example { show() { ${body} } }`],
+  ["a branch that is never taken", (body) => `if (false) { ${body} }`],
+  ["a block after a return in a function", (body) => `function f() { return; ${body} }`],
+  ["a labelled block", (body) => `archive: { ${body} }`],
+  ["the right side of &&", (body) => `false && (${body.replace(/;$/, "")});`],
+  ["a sequence after another expression", (body) => `0, ${body}`],
+  ["an immediately invoked function around it", (body) => `(function () { ${body} })();`],
 ];
-/** The reviewer's two reproductions at e90603d, and their neighbours: text that only looks like the member. */
-const LOOKS_LIKE_A_MEMBER: [string, string][] = [
-  ["a nested template literal", 'const s = `a ${`qualityDetails:"x"`} b`;'],
-  ["a regular expression after return", 'function f(){return /qualityDetails:"x"/;}'],
-  ["a regular expression after typeof, in a condition, after a brace", 'var a = typeof /qualityDetails:"x"/; if (a) /qualityDetails:"x"/.test(a); {/qualityDetails:"x"/}'],
-  ["a regular expression with a class holding a slash", 'var r = /[/]qualityDetails:"x"/;'],
-  ["a template literal", 'var s = `qualityDetails:"x"`;'],
-  ["a tagged template", 'var s = tag`qualityDetails:"x"`;'],
-  ["a template literal three levels deep", 'var s = `${`${`qualityDetails:"x"`}`}`;'],
-  ["a string holding a comment end and the member", 'var s = "*/ qualityDetails:\\"x\\"";'],
-  ["a block comment holding a string start", '/* " */ var s = 1; /* qualityDetails:"x" */'],
-  ["a label and a string statement", 'qualityDetails:"x";'],
-  ["a computed key", 'var o = {["qualityDetails"]:"x"};'],
-  ["a shorthand and a method", 'var qualityDetails = "x"; var o = {qualityDetails, m(){ return 1; }};'],
-  ["a getter", 'var o = {get qualityDetails(){ return "x"; }};'],
-  ["a class field", 'class C { qualityDetails = "x"; }'],
-  ["an assignment, not an object member", 'var o = {}; o.qualityDetails = "x";'],
-  ["a default parameter", 'function f(qualityDetails = "x"){}'],
-  ["a member whose value is a template literal", 'var o = {qualityDetails:`x`};'],
-  ["a member whose value is a concatenation", 'var o = {qualityDetails:"x"+""};'],
+/** The reviewer's reproduction at 4eda1a0, and its neighbours: an opening tag that is not a JavaScript script element. */
+const NOT_A_SCRIPT: [string, string, string][] = [
+  ["text inside another attribute is not the type", `<script data-note=" type='text/javascript'" type="application/json">`, "</script>"],
+  ["the first type attribute is the element's type", `<script type="application/json" type="text/javascript">`, "</script>"],
+  ["a quoted > in an attribute does not end the tag", `<script data-x="a>b" type="application/json">`, "</script>"],
+  ["an unquoted data type", `<script type=application/json>`, "</script>"],
+  ["upper case does not change the type", `<SCRIPT TYPE="APPLICATION/JSON">`, "</SCRIPT>"],
+  ["<scripture> is not <script>", `<scripture>`, "</scripture>"],
+  ["<script-data> is not <script>", `<script-data>`, "</script-data>"],
+  ["a script inside a <template> is inert", `<template><script>`, "</script></template>"],
+  ["a script inside a <textarea> is text", `<textarea><script>`, "</script></textarea>"],
+  ["a script inside a <title> is text", `<title><script>`, "</script></title>"],
+  ["a script inside an <svg> is not an HTML script", `<svg><script>`, "</script></svg>"],
 ];
-/** Text that only looks like the page-data call. */
-const LOOKS_LIKE_THE_CALL: [string, string][] = [
-  ["a nested template literal", 'const s = `a ${`streamController.enqueue("x")`} b`;'],
-  ["a regular expression after return", 'function f(){return /streamController.enqueue("x")/;}'],
-  ["an optional call", 'streamController?.enqueue("x"); streamController.enqueue?.("x");'],
-  ["a computed property", 'streamController["enqueue"]("x");'],
-  ["two arguments, no argument", 'streamController.enqueue("x", 1); streamController.enqueue();'],
-  ["a template literal argument", 'streamController.enqueue(`x`);'],
-  ["a concatenated argument", 'streamController.enqueue("x"+"");'],
-  ["another receiver", 'streamControllers.enqueue("x"); a.streamController.b.enqueue("x"); enqueue("x");'],
-  ["a new expression", 'new streamController.enqueue("x");'],
-];
+/** The page with its one script element's opening and closing tags replaced. */
+function scriptTagsAs(text: string, open: string, close: string): string {
+  const start = text.indexOf("<script");
+  const bodyStart = text.indexOf(">", start) + 1;
+  const end = text.indexOf("</script>");
+  assert.ok(start !== -1 && end > bodyStart);
+  return text.slice(0, start) + open + text.slice(bodyStart, end) + close + text.slice(end + "</script>".length);
+}
+
 const page = (text: string, status = 200): Page => ({ status, text });
 
 /** Never ✅: not at the version, whatever else the page says. */
@@ -251,14 +259,22 @@ describe("release chain: a catalog page is not at the version unless it says so"
     for (const [where, wrap] of NOT_CODE) {
       it(`page data inside ${where} is not read: unknown`, () => {
         const text = scriptBodyAs(at714(GLAMA), wrap);
-        assert.deepEqual(catalog.enqueuedChunks(text), []);
+        assert.deepEqual(catalog.glamaBootstrapChunks(text), []);
+        assertNotGreen(catalog.checkGlamaServer(page(text), ctx("7.0.14")), "unknown");
+      });
+    }
+
+    for (const [what, open, close] of NOT_A_SCRIPT) {
+      it(`${what}: the page data is not read, unknown`, () => {
+        const text = scriptTagsAs(at714(GLAMA), open, close);
+        assert.deepEqual(catalog.glamaBootstrapChunks(text), []);
         assertNotGreen(catalog.checkGlamaServer(page(text), ctx("7.0.14")), "unknown");
       });
     }
 
     it("page data that sits only in an HTML comment is not read: unknown", () => {
       const text = scriptInComment(at714(GLAMA));
-      assert.deepEqual(catalog.scriptBodies(text), []);
+      assert.deepEqual(catalog.scriptElements(text), []);
       assertNotGreen(catalog.checkGlamaServer(page(text), ctx("7.0.14")), "unknown");
     });
 
@@ -375,7 +391,7 @@ describe("release chain: a catalog page is not at the version unless it says so"
     for (const [where, wrap] of NOT_CODE) {
       it(`script data inside ${where} is not read: unknown`, () => {
         const text = scriptBodyAs(at714(MCPSO), wrap);
-        assert.deepEqual(catalog.memberStrings(text, "qualityDetails"), []);
+        assert.deepEqual(catalog.mcpsoQualityDetails(text), []);
         assertNotGreen(catalog.checkMcpso(page(text), ctx("7.0.14")), "unknown");
       });
     }
@@ -390,8 +406,68 @@ describe("release chain: a catalog page is not at the version unless it says so"
       // which would end the literal, are written \/. This builds test input; it sanitizes nothing.
       const asRegex = member.replace("7.0.12", "7.0.14").split("/").join("\\/");
       const text = swap(MCPSO, MCPSO.slice(MCPSO.indexOf("<script"), MCPSO.indexOf("</script>")), `<script>function f(){return /${asRegex}/;}`);
-      assert.deepEqual(catalog.memberStrings(text, "qualityDetails"), []);
+      assert.deepEqual(catalog.mcpsoQualityDetails(text), []);
       assertNotGreen(catalog.checkMcpso(page(text), ctx("7.0.14")), "unknown");
+    });
+
+    for (const [what, open, close] of NOT_A_SCRIPT) {
+      it(`${what}: the script data is not read, unknown`, () => {
+        const text = scriptTagsAs(at714(MCPSO), open, close);
+        assert.deepEqual(catalog.mcpsoQualityDetails(text), []);
+        assertNotGreen(catalog.checkMcpso(page(text), ctx("7.0.14")), "unknown");
+      });
+    }
+
+    it("an unreadable current record and a complete 7.0.14 record in an archive function that is never called: unknown", () => {
+      // The reviewer's practical consequence at 4eda1a0: the row was green from the archive record.
+      const open = MCPSO.indexOf(">", MCPSO.indexOf("<script")) + 1;
+      const close = MCPSO.indexOf("</script>");
+      const current = MCPSO.slice(open, close);
+      const unreadable = swap(current, 'qualityDetails:"{', 'qualityDetails:"not json {');
+      const archive = `function archivedListing() { ${swap(current, "7.0.12", "7.0.14")} }`;
+      const text = `${MCPSO.slice(0, open)}${unreadable};\n${archive}${MCPSO.slice(close)}`;
+      assert.equal(catalog.mcpsoQualityDetails(text).length, 1, "only the page's own record is on the path");
+      assertNotGreen(catalog.checkMcpso(page(text), ctx("7.0.14")), "unknown");
+    });
+
+    it("a stale current record stays stale next to a 7.0.14 record in a function that is never called", () => {
+      const open = MCPSO.indexOf(">", MCPSO.indexOf("<script")) + 1;
+      const close = MCPSO.indexOf("</script>");
+      const current = MCPSO.slice(open, close);
+      const text = `${MCPSO.slice(0, open)}${current};\nfunction archivedListing() { ${swap(current, "7.0.12", "7.0.14")} }${MCPSO.slice(close)}`;
+      const r = catalog.checkMcpso(page(text), ctx("7.0.14"));
+      assert.equal(r.ok, false);
+      assert.equal(r.version, "stale");
+    });
+
+    it("the record of another listing in the same router data (another slug) is not this server's: unknown", () => {
+      const text = swap(at714(MCPSO), 'slug:"hemmabo-mcp-server"', 'slug:"another-mcp-server"');
+      assertNotGreen(catalog.checkMcpso(page(text), ctx("7.0.14")), "unknown");
+    });
+
+    it("a broken link anywhere on the path from the router gives no version: unknown", () => {
+      for (const [from, to] of [
+        ["$_TSR.router=", "$_TSR.archivedRouter="],
+        ["$_TSR.router=", "$_OLD.router="],
+        ["$_TSR.router=", "var router="],
+        ["{matches:", "{previousMatches:"],
+        ["{l:", "{previousLoaderData:"],
+        ["{server:", "{previousServer:"],
+        ['slug:"hemmabo-mcp-server"', 'previousSlug:"hemmabo-mcp-server"'],
+        ['slug:"hemmabo-mcp-server"', "slug:`hemmabo-mcp-server`"],
+        ["qualityDetails:", "[`qualityDetails`]:"],
+        ["($R=>", "(async $R=>"],
+        ['})($R["tsr"])', "})"],
+      ] as const) {
+        assertNotGreen(catalog.checkMcpso(page(swap(at714(MCPSO), from, to)), ctx("7.0.14")), "unknown");
+      }
+    });
+
+    it("a record written twice, or a slug written twice, is unknown", () => {
+      const twice = swap(at714(MCPSO), ",sortOrder:0", ',qualityDetails:"{}",sortOrder:0');
+      assertNotGreen(catalog.checkMcpso(page(twice), ctx("7.0.14")), "unknown");
+      const slugs = swap(at714(MCPSO), 'slug:"hemmabo-mcp-server"', 'slug:"another-mcp-server",slug:"hemmabo-mcp-server"');
+      assertNotGreen(catalog.checkMcpso(page(slugs), ctx("7.0.14")), "unknown");
     });
 
     it("script data that sits only in an HTML comment is not read: unknown", () => {
@@ -438,71 +514,114 @@ describe("release chain: a catalog page is not at the version unless it says so"
     });
   });
 
-  describe("the outer reading: the syntax tree, not the text", () => {
-    const html = (body: string, attributes = "") => `<html><body><script${attributes}>${body}</script></body></html>`;
-
-    for (const [what, body] of LOOKS_LIKE_A_MEMBER) {
-      it(`${what} is not a member named qualityDetails`, () => {
-        assert.deepEqual(catalog.memberStrings(html(body), "qualityDetails"), []);
-      });
-    }
-
-    for (const [what, body] of LOOKS_LIKE_THE_CALL) {
-      it(`${what} is not the call streamController.enqueue("…")`, () => {
-        assert.deepEqual(catalog.enqueuedChunks(html(body)), []);
-      });
-    }
-
-    it("reads the member where it is one: plain, quoted key, nested, inside a function, inside ${…} of a template", () => {
-      assert.deepEqual(catalog.memberStrings(html('var o = {qualityDetails:"a"};'), "qualityDetails"), ["a"]);
-      assert.deepEqual(catalog.memberStrings(html('var o = {"qualityDetails":"b"};'), "qualityDetails"), ["b"]);
-      assert.deepEqual(catalog.memberStrings(html('x = [{y:{qualityDetails:"c"}}];'), "qualityDetails"), ["c"]);
-      assert.deepEqual(catalog.memberStrings(html('function f(){return {qualityDetails:"d"};}'), "qualityDetails"), ["d"]);
-      assert.deepEqual(catalog.memberStrings(html('var s = `${ {qualityDetails:"e"}.qualityDetails }`;'), "qualityDetails"), ["e"]);
-    });
-
-    it("reads the call where it is one, with the string as the language decodes it", () => {
-      assert.deepEqual(catalog.enqueuedChunks(html('streamController.enqueue("a");')), ["a"]);
-      assert.deepEqual(catalog.enqueuedChunks(html('window.ctx.streamController.enqueue("b\\"c");')), ['b"c']);
-      assert.deepEqual(catalog.enqueuedChunks(html("streamController.enqueue('d\\x41');")), ["dA"]);
-    });
-
-    it("a script the parser does not accept contributes nothing; the page's other scripts are still read", () => {
-      const page = `<script>var o = {qualityDetails:"bad"}; var = ;</script><script>var p = {qualityDetails:"good"};</script>`;
-      assert.deepEqual(catalog.memberStrings(page, "qualityDetails"), ["good"]);
-    });
-
-    it("a data block is not JavaScript: application/json and ld+json are not parsed as code", () => {
-      for (const type of ["application/json", "application/ld+json", "text/template", "text/plain"]) {
-        assert.deepEqual(catalog.memberStrings(html('var o = {qualityDetails:"x"};', ` type="${type}"`), "qualityDetails"), [], type);
-      }
-      assert.deepEqual(catalog.memberStrings(html('var o = {qualityDetails:"x"};', ' type="text/javascript"'), "qualityDetails"), ["x"]);
-      assert.deepEqual(catalog.memberStrings(html('export const o = {qualityDetails:"y"};', ' type="module"'), "qualityDetails"), ["y"]);
-      assert.deepEqual(catalog.memberStrings(html('export const o = {qualityDetails:"z"};'), "qualityDetails"), [], "export is not a classic script");
-    });
-
-    it("scriptElements gives each script's type and body, and skips scripts inside HTML comments", () => {
-      const page = `<script type="Module">a</script><!-- <script>b</script> --><SCRIPT class=x TYPE='application/json'>c</SCRIPT><script>d`;
-      assert.deepEqual(catalog.scriptElements(page), [
+  describe("the page: an HTML parser says what a script element is", () => {
+    it("scriptElements gives each script element's own type and text, in document order", () => {
+      const doc = `<script type="Module">a</script><!-- <script>b</script> --><SCRIPT class=x TYPE='application/json'>c</SCRIPT><scripture>d</scripture><script data-note=" type='text/javascript'" type="application/ld+json">e</script><script>f`;
+      assert.deepEqual(catalog.scriptElements(doc), [
         { type: "module", body: "a" },
         { type: "application/json", body: "c" },
-        { type: "", body: "d" },
+        { type: "application/ld+json", body: "e" },
+        { type: "", body: "f" },
       ]);
+    });
+
+    it("a script's text ends at </script>, also when the text holds a quote or a comment start", () => {
+      assert.deepEqual(catalog.scriptElements(`<script>var s = "<!-- x";</script><p>after</p>`), [{ type: "", body: 'var s = "<!-- x";' }]);
+    });
+
+    it("the readable text leaves out scripts, styles, noscript, templates and comments, and decodes entities", () => {
+      const doc = `<p>one &amp; two</p><script>hidden_a</script><style>hidden_b</style><noscript>hidden_c</noscript><template><p>hidden_d</p></template><!-- hidden_e --><p>three</p>`;
+      const text = catalog.visible(doc);
+      assert.match(text, /one & two/);
+      assert.match(text, /three/);
+      for (const hidden of ["hidden_a", "hidden_b", "hidden_c", "hidden_d", "hidden_e"]) assert.equal(text.includes(hidden), false, hidden);
     });
   });
 
-  describe("memberStrings: the member by its exact name", () => {
-    const html = (body: string) => `<html><body><script>${body}</script></body></html>`;
+  describe("the bootstrap: the data is read where the page starts itself up, by a named path", () => {
+    const html = (body: string, attributes = "") => `<html><body><script${attributes}>${body}</script></body></html>`;
+    const CALL = 'window.__reactRouterContext.streamController.enqueue("x")';
+    const router = (server: string) => `$_TSR.router=($R=>$R[0]={matches:$R[1]=[$R[2]={l:$R[3]={server:$R[4]=${server}}}]})($R["tsr"]);`;
+    const SERVER = '{slug:"hemmabo-mcp-server",qualityDetails:"x"}';
 
-    it("reads a member whose name holds a $ and nothing that merely resembles it", () => {
-      assert.deepEqual(catalog.memberStrings(html('x={$data:"a",xdata:"b",$data2:"c"}'), "$data"), ["a"]);
-      assert.deepEqual(catalog.memberStrings(html('x={a$b:"1",ab:"2",aXb:"3"}'), "a$b"), ["1"]);
+    it("Glama: the call is read as a top-level statement, once per statement, the string as the language decodes it", () => {
+      assert.deepEqual(catalog.glamaBootstrapChunks(html(`${CALL};`)), ["x"]);
+      assert.deepEqual(catalog.glamaBootstrapChunks(html(`var a = 1; ${CALL}; ${CALL.replace('"x"', '"b\\"c"')}; ${CALL.replace('"x"', "'d\\x41'")};`)), ["x", 'b"c', "dA"]);
     });
 
-    it("a name that is not an identifier reads nothing, whatever it would mean as a pattern", () => {
-      for (const name of ["quality.Details", "qualityDetails|probe", "quality\\Details", ".*", "", "a b", "1abc"]) {
-        assert.deepEqual(catalog.memberStrings(html('x={qualityDetails:"a",probe:"b",qualityXDetails:"c"}'), name), [], JSON.stringify(name));
+    for (const [what, body] of [
+      ["inside a function that is declared", `function f(){ ${CALL}; }`],
+      ["inside an immediately invoked function", `(function(){ ${CALL}; })();`],
+      ["inside a branch", `if (true) { ${CALL}; }`],
+      ["as an argument", `log(${CALL});`],
+      ["assigned to a variable", `var r = ${CALL};`],
+      ["after a comma", `0, ${CALL};`],
+      ["after &&", `true && ${CALL};`],
+      ["awaited or negated", `void ${CALL}; !${CALL};`],
+      ["another receiver", 'streamController.enqueue("x"); self.__reactRouterContext.streamController.enqueue("x"); window.ctx.streamController.enqueue("x"); window.__reactRouterContext.archive.streamController.enqueue("x");'],
+      ["another method", 'window.__reactRouterContext.streamController.enqueueLater("x"); window.__reactRouterContext.streamController.close("x");'],
+      ["an optional or computed step", 'window.__reactRouterContext.streamController?.enqueue("x"); window.__reactRouterContext.streamController.enqueue?.("x"); window.__reactRouterContext.streamController["enqueue"]("x"); window["__reactRouterContext"].streamController.enqueue("x");'],
+      ["two arguments, no argument", 'window.__reactRouterContext.streamController.enqueue("x", 1); window.__reactRouterContext.streamController.enqueue();'],
+      ["an argument that is not a string literal", 'window.__reactRouterContext.streamController.enqueue(`x`); window.__reactRouterContext.streamController.enqueue("x"+""); window.__reactRouterContext.streamController.enqueue(x);'],
+      ["a new expression", 'new window.__reactRouterContext.streamController.enqueue("x");'],
+      ["text in a template literal or a regular expression", "const s = `a ${`" + CALL + "`} b`; function f(){return /window.__reactRouterContext.streamController.enqueue\\(\"x\"\\)/;}"],
+    ] as const) {
+      it(`Glama: the call ${what} is not the page's bootstrap`, () => {
+        assert.deepEqual(catalog.glamaBootstrapChunks(html(body)), []);
+      });
+    }
+
+    it("mcp.so: the record is read on the path, with or without the serializer's wrappers, with quoted keys, in any match", () => {
+      assert.deepEqual(catalog.mcpsoQualityDetails(html(router(SERVER))), ["x"]);
+      assert.deepEqual(catalog.mcpsoQualityDetails(html('$_TSR.router=($R=>({matches:[{l:{server:{"slug":"hemmabo-mcp-server","qualityDetails":"y"}}}]}))($R["tsr"]);')), ["y"]);
+      assert.deepEqual(
+        catalog.mcpsoQualityDetails(html('$_TSR.router=($R=>$R[0]={matches:[{id:"root"},{l:{other:1}},{l:{server:{slug:"hemmabo-mcp-server",qualityDetails:"z"}}}]})($R["tsr"]);')),
+        ["z"],
+      );
+    });
+
+    for (const [what, body] of [
+      ["a nested template literal", 'const s = `a ${`qualityDetails:"x"`} b`;'],
+      ["a regular expression after return", 'function f(){return /qualityDetails:"x"/;}'],
+      ["a bare object with the member, off the path", 'var o = {slug:"hemmabo-mcp-server",qualityDetails:"x"};'],
+      ["the whole router inside a declared function", `function unusedExample(){ ${router(SERVER)} }`],
+      ["the router assigned to another name", router(SERVER).replace("$_TSR.router=", "$_TSR.routerExample=")],
+      ["the router assigned through a computed name", router(SERVER).replace("$_TSR.router=", '$_TSR["router"]=')],
+      ["the router under another object", router(SERVER).replace("$_TSR.router=", "archive.$_TSR.router=")],
+      ["a compound assignment", router(SERVER).replace("$_TSR.router=", "$_TSR.router||=")],
+      ["the arrow function not invoked", '$_TSR.router=$R=>$R[0]={matches:[{l:{server:{slug:"hemmabo-mcp-server",qualityDetails:"x"}}}]};'],
+      ["a function expression instead of the arrow", '$_TSR.router=(function($R){return {matches:[{l:{server:{slug:"hemmabo-mcp-server",qualityDetails:"x"}}}]}})($R["tsr"]);'],
+      ["an arrow with a block body", '$_TSR.router=($R=>{return {matches:[{l:{server:{slug:"hemmabo-mcp-server",qualityDetails:"x"}}}]}})($R["tsr"]);'],
+      ["matches that is not an array", '$_TSR.router=($R=>({matches:{l:{server:{slug:"hemmabo-mcp-server",qualityDetails:"x"}}}}))($R["tsr"]);'],
+      ["a server one level deeper", '$_TSR.router=($R=>({matches:[{l:{data:{server:{slug:"hemmabo-mcp-server",qualityDetails:"x"}}}}]}))($R["tsr"]);'],
+      ["a server directly in the match", '$_TSR.router=($R=>({matches:[{server:{slug:"hemmabo-mcp-server",qualityDetails:"x"}}]}))($R["tsr"]);'],
+      ["a record without slug", router('{qualityDetails:"x"}')],
+      ["a record with another slug", router('{slug:"another-mcp-server",qualityDetails:"x"}')],
+      ["a slug that is not a string literal", router('{slug:"hemmabo-"+"mcp-server",qualityDetails:"x"}')],
+      ["a computed key", router('{slug:"hemmabo-mcp-server",["qualityDetails"]:"x"}')],
+      ["a shorthand, a method, a getter", `var qualityDetails = "x"; ${router('{slug:"hemmabo-mcp-server",qualityDetails}')} ${router('{slug:"hemmabo-mcp-server",qualityDetails(){return "x"}}')} ${router('{slug:"hemmabo-mcp-server",get qualityDetails(){return "x"}}')}`],
+      ["a spread", router('{slug:"hemmabo-mcp-server",...{qualityDetails:"x"}}')],
+      ["a value that is a template literal or a concatenation", `${router('{slug:"hemmabo-mcp-server",qualityDetails:`x`}')} ${router('{slug:"hemmabo-mcp-server",qualityDetails:"x"+""}')}`],
+      ["a member written twice", router('{slug:"hemmabo-mcp-server",qualityDetails:"x",qualityDetails:"y"}')],
+      ["a similarly named member", router('{slug:"hemmabo-mcp-server",previous_qualityDetails:"x",qualityDetails2:"x",$qualityDetails:"x"}')],
+    ] as const) {
+      it(`mcp.so: ${what} is not the listing's qualityDetails`, () => {
+        assert.deepEqual(catalog.mcpsoQualityDetails(html(body)), []);
+      });
+    }
+
+    it("a script the parser does not accept contributes nothing; the page's other scripts are still read", () => {
+      const doc = `<script>${router(SERVER)} var = ;</script><script>${router('{slug:"hemmabo-mcp-server",qualityDetails:"good"}')}</script>`;
+      assert.deepEqual(catalog.mcpsoQualityDetails(doc), ["good"]);
+    });
+
+    it("a data block is not JavaScript: only script elements a browser runs are parsed", () => {
+      for (const type of ["application/json", "application/ld+json", "text/template", "text/plain", "importmap", "speculationrules"]) {
+        assert.deepEqual(catalog.mcpsoQualityDetails(html(router(SERVER), ` type="${type}"`)), [], type);
       }
+      assert.deepEqual(catalog.mcpsoQualityDetails(html(router(SERVER), ' type="text/javascript"')), ["x"]);
+      assert.deepEqual(catalog.mcpsoQualityDetails(html(router(SERVER), ' type="module"')), ["x"]);
+      assert.deepEqual(catalog.mcpsoQualityDetails(html(`export const a = 1; ${router(SERVER)}`)), [], "export is not a classic script");
     });
   });
 
