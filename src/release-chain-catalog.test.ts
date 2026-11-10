@@ -384,7 +384,11 @@ describe("release chain: a catalog page is not at the version unless it says so"
       // The reviewer's consequence at e90603d, built from the fixture's own member text.
       const member = MCPSO.slice(MCPSO.indexOf("qualityDetails:"), MCPSO.indexOf(",sortOrder:0"));
       assert.ok(member.startsWith('qualityDetails:"{'));
-      const asRegex = member.replace("7.0.12", "7.0.14").replace(/\//g, "\\/");
+      // The member's own text as the pattern of a regular-expression literal. Its backslashes
+      // stay as they are on purpose (in a pattern, \" is the character "), so that the text is
+      // the very text that was misread as a member at e90603d; only the slashes of the URL,
+      // which would end the literal, are written \/. This builds test input; it sanitizes nothing.
+      const asRegex = member.replace("7.0.12", "7.0.14").split("/").join("\\/");
       const text = swap(MCPSO, MCPSO.slice(MCPSO.indexOf("<script"), MCPSO.indexOf("</script>")), `<script>function f(){return /${asRegex}/;}`);
       assert.deepEqual(catalog.memberStrings(text, "qualityDetails"), []);
       assertNotGreen(catalog.checkMcpso(page(text), ctx("7.0.14")), "unknown");
