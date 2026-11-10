@@ -1,0 +1,534 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vacationrentalprotocol.com/schemas/verified-stay-offer-v0.1.schema.json",
+  "title": "VRP Signed Verified Stay Offer v0.1",
+  "description": "Structural schema for a host-domain signed verified stay offer envelope. It validates payload shape; cryptographic JWS verification is covered by separate conformance vectors. 2026-06-22: reconciled with the reference-node runtime — the rich fields a real node emits (price breakdown, calendar freshness, host's-own alternatives, verification pointer, etc.) are now described here as OPTIONAL, so the schema matches the offer agents actually consume. No previously-required field changed; this is additive. The non-conformant runtime field `confidence` is intentionally NOT added (it is removed at the source — bookability is expressed by agent_permission.may_quote_as_official_direct_offer + availability; signature trust is the verifier's three-state result, not an offer-asserted value).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "protocol_version",
+    "offer",
+    "signature"
+  ],
+  "properties": {
+    "kind": {
+      "const": "signed_verified_stay_offer"
+    },
+    "protocol_version": {
+      "const": "0.1"
+    },
+    "offer": {
+      "$ref": "#/$defs/offerPayload"
+    },
+    "signature": {
+      "$ref": "#/$defs/signatureEnvelope"
+    },
+    "verification": {
+      "type": "object",
+      "description": "Optional, envelope-level. Convenience pointer for an agent to resolve the host-domain JWKS and record when it verified. Not part of the signed offer.",
+      "additionalProperties": false,
+      "required": [
+        "jwks_url"
+      ],
+      "properties": {
+        "jwks_url": { "$ref": "#/$defs/httpsUrl" },
+        "verified_at": { "$ref": "#/$defs/dateTime" }
+      }
+    },
+    "host_alternatives": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "Optional, envelope-level. When the requested window is not bookable, the node MAY surface its OWN nearest open windows so an agent never dead-ends. Never a comparison to another property.",
+      "additionalProperties": false,
+      "properties": {
+        "note": { "type": "string" },
+        "shorten_to": { "$ref": "#/$defs/altWindow" },
+        "next_available": { "$ref": "#/$defs/altWindow" }
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "description": "Optional, envelope-level VRP receipt: a verifiable booking record carrying independently signed attestations (offer + transport layers), each checkable against the host's own domain. Provenance only — never approval, a score, or a condition for the stay to be real.",
+      "additionalProperties": false,
+      "required": [ "vrp_receipt_version", "subject", "issuer", "attestations" ],
+      "properties": {
+        "vrp_receipt_version": { "type": "string" },
+        "subject": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "property_id": { "type": "string" },
+            "canonical_domain": { "type": "string" },
+            "check_in": { "$ref": "#/$defs/date" },
+            "check_out": { "$ref": "#/$defs/date" },
+            "guests": { "type": "integer" },
+            "offer_id": { "type": "string" }
+          }
+        },
+        "issuer": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "node_id": { "type": "string" },
+            "jwks_url": { "type": "string" }
+          }
+        },
+        "attestations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [ "layer", "signature" ],
+            "properties": {
+              "layer": { "type": "string" },
+              "source": { "type": "string" },
+              "signature": { "type": "string" },
+              "ref": { "type": "string" },
+              "valid_from": { "$ref": "#/$defs/dateTime" },
+              "valid_until": { "$ref": "#/$defs/dateTime" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "date": {
+      "type": "string",
+      "description": "A calendar date, YYYY-MM-DD (RFC 3339 full-date). The pattern stops impossible months and days; that the date exists (no 30 February) is a runtime rule (spec §5).",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$(?!\\n)"
+    },
+    "dateTime": {
+      "type": "string",
+      "description": "A UTC date-time ending in Z (RFC 3339 date-time). That the instant exists is a runtime rule (spec §5).",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]+)?Z$(?!\\n)"
+    },
+    "httpsUrl": {
+      "type": "string",
+      "pattern": "^https://\\S+$"
+    },
+    "compactJws": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$"
+    },
+    "altWindow": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "check_in": { "$ref": "#/$defs/date" },
+        "check_out": { "$ref": "#/$defs/date" },
+        "nights": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "offerPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "protocol_version",
+        "canonical_domain",
+        "node_id",
+        "generated_at",
+        "valid_until",
+        "request",
+        "property",
+        "availability",
+        "price",
+        "booking",
+        "agent_permission"
+      ],
+      "properties": {
+        "kind": {
+          "const": "verified_stay_offer"
+        },
+        "protocol_version": {
+          "const": "0.1"
+        },
+        "canonical_domain": {
+          "type": "string",
+          "minLength": 1
+        },
+        "node_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "generated_at": {
+          "$ref": "#/$defs/dateTime"
+        },
+        "valid_until": {
+          "$ref": "#/$defs/dateTime"
+        },
+        "canonical": {
+          "type": "boolean",
+          "description": "Optional. true asserts this domain is the canonical source for the property."
+        },
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "check_in",
+            "check_out",
+            "guests"
+          ],
+          "properties": {
+            "check_in": {
+              "$ref": "#/$defs/date"
+            },
+            "check_out": {
+              "$ref": "#/$defs/date"
+            },
+            "guests": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "check_in_weekday": { "type": "string" },
+            "check_out_weekday": { "type": "string" },
+            "nights": { "type": "integer", "minimum": 1 },
+            "language": {
+              "type": "string",
+              "description": "Optional. A BCP 47 language tag: language subtag, optional script subtag, optional region subtag (spec §5). Echoed from the request; never a statement by the host.",
+              "pattern": "^[A-Za-z]{2,3}(-[A-Za-z]{4})?(-([A-Za-z]{2}|[0-9]{3}))?$(?!\\n)"
+            }
+          }
+        },
+        "property": {
+          "type": "object",
+          "required": [
+            "property_id"
+          ],
+          "properties": {
+            "property_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Optional runtime alias of property_id; some node code keeps this for buildEnvelope() compatibility. property_id is canonical."
+            },
+            "name": {
+              "type": "string"
+            },
+            "url": {
+              "$ref": "#/$defs/httpsUrl"
+            },
+            "domain": { "type": "string" },
+            "city": { "type": [ "string", "null" ] },
+            "country": { "type": [ "string", "null" ] }
+          }
+        },
+        "availability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "available",
+            "source"
+          ],
+          "properties": {
+            "available": {
+              "type": "boolean"
+            },
+            "source": {
+              "const": "official_host_domain"
+            },
+            "reason": {
+              "type": [ "string", "null" ]
+            },
+            "checked_at": {
+              "$ref": "#/$defs/dateTime"
+            },
+            "calendar_freshness": {
+              "type": "object",
+              "description": "Optional. Freshness of the node's calendar imports at quote time, so an agent can judge how recently availability was synced.",
+              "additionalProperties": false,
+              "properties": {
+                "checked_at": { "$ref": "#/$defs/dateTime" },
+                "max_age_minutes": { "type": "integer", "minimum": 0 },
+                "active_import_count": { "type": "integer", "minimum": 0 },
+                "checked_sources": { "type": "array", "items": { "type": "string" } },
+                "stale_sources": { "type": "array", "items": { "type": "string" } },
+                "error_sources": { "type": "array", "items": { "type": "string" } },
+                "latest_synced_at": { "type": [ "string", "null" ] },
+                "safe": { "type": "boolean" },
+                "reason": { "type": [ "string", "null" ] }
+              }
+            }
+          }
+        },
+        "capacity": {
+          "type": "object",
+          "description": "Optional. Requested vs maximum guest capacity for the offer.",
+          "additionalProperties": false,
+          "properties": {
+            "requested_guests": { "type": "integer", "minimum": 1 },
+            "max_guests": { "type": [ "integer", "null" ], "minimum": 0 },
+            "fits": { "type": "boolean" }
+          }
+        },
+        "price": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "currency",
+            "public_total",
+            "agent_total",
+            "minor_unit",
+            "exact"
+          ],
+          "properties": {
+            "currency": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}$"
+            },
+            "public_total": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "agent_total": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "total": {
+              "type": [ "integer", "null" ],
+              "minimum": 0,
+              "description": "Optional alias of public_total (the website total). Agents SHOULD quote agent_total as the direct total."
+            },
+            "minor_unit": {
+              "type": "boolean"
+            },
+            "exact": {
+              "type": "boolean"
+            },
+            "no_add_on_fees": {
+              "type": "boolean",
+              "description": "Optional. true asserts the quoted total has no add-on booking, service, or cleaning fees — the displayed price is the total price paid. The node's own fee structure, not an OTA comparison."
+            },
+            "ota_comparison_total": {
+              "type": [ "integer", "null" ],
+              "minimum": 0,
+              "description": "Optional. Null unless a signed OTA price is present; agents must not synthesize an OTA comparison."
+            },
+            "ota_comparison_source": {
+              "type": [ "string", "null" ]
+            },
+            "checked_at": {
+              "$ref": "#/$defs/dateTime"
+            },
+            "package_applied": {
+              "type": [ "string", "null" ]
+            },
+            "breakdown": {
+              "type": [ "array", "null" ],
+              "description": "Optional. Per-night price breakdown for the quoted stay.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "date": { "$ref": "#/$defs/date" },
+                  "day_of_week": { "type": "string" },
+                  "is_weekend": { "type": "boolean" },
+                  "season_type": { "type": "string" },
+                  "season_name": { "type": [ "string", "null" ] },
+                  "nightly_rate": { "type": "integer", "minimum": 0 },
+                  "weekday": { "type": "string" }
+                }
+              }
+            },
+            "adjustments": {
+              "type": "array",
+              "description": "Optional. Neutral, signed line items that turn the rack breakdown into the quoted total (e.g. a week/two-week package rate). amount MAY be negative — a package rate lowers the rack subtotal. Never a discount/savings/OTA-comparison label.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [ "code", "label", "amount", "scope" ],
+                "properties": {
+                  "code": { "type": "string" },
+                  "label": { "type": "string" },
+                  "amount": { "type": "integer" },
+                  "scope": { "type": "string", "enum": [ "stay", "night" ] }
+                }
+              }
+            },
+            "reconciliation": {
+              "type": [ "object", "null" ],
+              "description": "Optional, machine-checkable: Σ breakdown.nightly_rate + Σ adjustments.amount === total. null when the offer is not priced (not bookable). Lets a verifier re-check the offer math.",
+              "additionalProperties": false,
+              "properties": {
+                "nightly_subtotal": { "type": "integer" },
+                "adjustments_total": { "type": "integer" },
+                "computed_total": { "type": "integer" },
+                "matches_quoted_total": { "type": "boolean" }
+              }
+            }
+          }
+        },
+        "booking": {
+          "type": "object",
+          "description": "Direct booking facts for the offer. See spec/v0.1.md §5.1. The booking URL host MUST be on the offer's canonical_domain and the URL SHOULD encode the quoted stay via checkIn/checkOut/guests query parameters; those runtime rules are not expressible structurally here.",
+          "additionalProperties": false,
+          "required": [
+            "direct_booking_url"
+          ],
+          "properties": {
+            "direct_booking_url": {
+              "description": "Absolute https URL the agent routes the user to. Its integrity derives from being a signed field inside the JWS offer (no separate URL signature). Actionable only while the offer's valid_until holds. See spec/v0.1.md §5.1.",
+              "$ref": "#/$defs/httpsUrl"
+            },
+            "offer_id": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Optional. Stable id binding the quote to checkout (see checkout_binding)."
+            },
+            "checkout_binding": {
+              "type": "string",
+              "description": "Optional. How checkout is bound to this offer, e.g. \"offer_id\"."
+            },
+            "payment_options": {
+              "type": "array",
+              "items": { "type": "object" },
+              "description": "RESERVED / experimental — a name placeholder for a future OPTIONAL agent-native payment-rail binding (e.g. x402). Its shape, settlement, refund handling, and reconciliation are intentionally NOT defined in VRP v0.1 and MAY change. Fiat via direct_booking_url is the only defined payment path in v0.1: a node SHOULD omit this field and rely on direct_booking_url, and an agent MUST NOT treat its presence as a defined, honorable payment path. Two invariants will hold whenever the binding is defined: the payee is the host's own (never an intermediary, OTA, or HemmaBo), and rails MUST NOT gate discovery, verification, or offer retrieval. See spec/v0.1.md §5.2."
+            }
+          }
+        },
+        "rules": {
+          "type": "object",
+          "description": "Optional. Stay rules surfaced with the offer.",
+          "additionalProperties": false,
+          "properties": {
+            "pets": { "type": [ "string", "null" ] },
+            "pets_label": { "type": [ "string", "null" ] },
+            "check_in_time": { "type": [ "string", "null" ] },
+            "check_out_time": { "type": [ "string", "null" ] },
+            "minimum_guest_age": {
+              "type": [ "integer", "null" ],
+              "minimum": 0,
+              "description": "Optional. The host's required minimum guest age, signed inside the offer so a booking that binds this JWS proves the age requirement in force at booking time. null = the host published none (unknown — never assume 'no minimum'). See ADR 2026-07-24 villkorssymmetrin."
+            },
+            "refund_schedule": {
+              "type": [ "array", "null" ],
+              "description": "Optional. The node's cancellation refund terms as a computable schedule, signed inside the offer. Each row: the guest receives refund_percent of the paid total when cancelling at least hours_before_checkin whole hours before the check-in moment. Evaluation is a pure predicate: sort rows by hours_before_checkin descending, compute floor((check-in moment − cancellation time) / 1 hour), and the FIRST row whose threshold is ≤ that value applies; no matching row (including cancellation after the check-in moment) means 0 %. Flooring makes fractional boundaries resolve in the node's favour and MUST NOT be re-derived with other rounding. An EMPTY array means no refund at any point; an ABSENT or null field means the node has not published computable terms (unknown — an agent MUST NOT invent a refund promise). Nodes MUST relay these rows verbatim to guests, never re-labelled into named tiers. See spec/v0.1.md §5.3.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [ "hours_before_checkin", "refund_percent" ],
+                "properties": {
+                  "hours_before_checkin": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Whole hours before the check-in moment at which this row starts applying."
+                  },
+                  "refund_percent": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Refund percentage of the paid total when this row matches."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "terms": {
+          "type": "object",
+          "description": "Optional. The host's explicit yes/no terms, signed inside the offer (class 'verifiable', vrp-spec §5.4). Lifts policy nos (pets/smoking), included/not-included services, from class 'attested' so a booking that binds this JWS proves them — both the host's nos (cats not allowed, guest cleans) and the guest's yeses (breakfast included). STRICT tri-state: a key appears in exactly one list when host-attested; an unknown (no ledger row) appears in NO list — absence is never a signed no. See ADR 2026-07-24 villkorssymmetrin.",
+          "additionalProperties": false,
+          "properties": {
+            "policy_claims": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "The host's explicit yes/no policy answers (pets/smoking claim keys only). affirmed = allowed, negated = not allowed. A key absent from both is UNKNOWN.",
+              "properties": {
+                "affirmed": { "type": "array", "items": { "type": "string" } },
+                "negated": { "type": "array", "items": { "type": "string" } }
+              }
+            },
+            "service_included": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Affirmed service claim keys — what IS prepared/included on arrival (e.g. linens_included, breakfast_included)."
+            },
+            "service_not_included": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Negated service claim keys — 'bring your own' (linens/towels not included, breakfast not included, final_cleaning_included negated = the guest cleans). A negated service claim means NOT INCLUDED, never 'does not exist'."
+            }
+          }
+        },
+        "agent_permission": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "may_quote_as_official_direct_offer",
+            "must_not_claim_ota_comparison_without_signed_ota_price"
+          ],
+          "properties": {
+            "may_quote_as_official_direct_offer": {
+              "type": "boolean"
+            },
+            "must_not_claim_ota_comparison_without_signed_ota_price": {
+              "type": "boolean"
+            },
+            "must_not_invent_discounts": {
+              "type": "boolean",
+              "description": "Optional agent guardrail. true forbids an agent from inventing or applying discounts not present in the signed offer."
+            },
+            "wording": {
+              "type": "string",
+              "description": "Optional. Suggested wording an agent may use when citing the offer, e.g. \"official host-domain verified offer\"."
+            }
+          }
+        },
+        "source_authority": {
+          "type": "object",
+          "description": "Optional. Host-verified direct-source identity, signed inside the offer so an agent can verify (not just read) that the node is the official direct source at 0% commission — a claim a reselling marketplace cannot sign.",
+          "additionalProperties": false,
+          "properties": {
+            "model": { "const": "host_verified_direct_source" },
+            "is_official_source_for_property": { "type": "boolean" },
+            "intermediary": { "const": "none" },
+            "payment_recipient": { "const": "host" },
+            "booking_model": { "const": "direct_with_host" },
+            "booking_commission_pct": { "type": "integer", "const": 0 }
+          }
+        }
+      }
+    },
+    "signatureEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "alg",
+        "kid",
+        "jws"
+      ],
+      "properties": {
+        "format": {
+          "const": "jws_compact"
+        },
+        "alg": {
+          "const": "EdDSA"
+        },
+        "kid": {
+          "type": "string",
+          "minLength": 1
+        },
+        "jws": {
+          "$ref": "#/$defs/compactJws"
+        }
+      }
+    }
+  }
+}

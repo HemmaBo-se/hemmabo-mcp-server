@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vacationrentalprotocol.com/schemas/jwks-v0.1.schema.json",
+  "title": "VRP JWKS v0.1",
+  "description": "Minimum JWKS profile for VRP host-domain Ed25519 verification keys. This schema does not create a central key issuer or registry.",
+  "type": "object",
+  "required": [
+    "keys"
+  ],
+  "properties": {
+    "keys": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "kty",
+          "crv",
+          "kid",
+          "alg",
+          "x"
+        ],
+        "properties": {
+          "kty": {
+            "const": "OKP"
+          },
+          "crv": {
+            "const": "Ed25519"
+          },
+          "kid": {
+            "type": "string",
+            "minLength": 1
+          },
+          "use": {
+            "const": "sig"
+          },
+          "alg": {
+            "const": "EdDSA"
+          },
+          "key_ops": {
+            "type": "array",
+            "contains": {
+              "const": "verify"
+            }
+          },
+          "x": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$"
+          }
+        }
+      }
+    }
+  }
+}

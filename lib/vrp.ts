@@ -254,16 +254,37 @@ async function verifyVacationRentalNode(domainInput: string): Promise<VerifiedNo
   if (discovery.protocol !== VRP_PROTOCOL) {
     throw new Error(`Unsupported protocol: ${String(discovery.protocol)}`);
   }
-  const version = stringValue(discovery.protocol_version) ?? stringValue(discovery.version);
+  // Core §2:38 and §7:516: the document itself MUST declare
+  // `protocol_version: "0.1"`, as that exact string. The pre-0.1 member
+  // `version` is not a substitute, and nothing is filled in for the node
+  // (§8, fail closed). The value is compared as written, not trimmed.
+  const version = discovery.protocol_version;
+  if (typeof version !== "string" || version.trim().length === 0) {
+    throw new Error(
+      'Discovery document declares no protocol_version: a VRP node MUST declare protocol_version "0.1" (VRP §2, §7); the pre-0.1 member "version" is not a substitute'
+    );
+  }
   if (version !== VRP_PROTOCOL_VERSION) {
-    throw new Error(`Unsupported VRP version: ${String(version)}`);
+    throw new Error(`Unsupported VRP version: ${JSON.stringify(version)}`);
   }
 
-  const declaredDomain = normalizeVrpDomain(
-    stringValue(discovery.canonical_domain) ?? stringValue(discovery.domain) ?? domain
-  );
-  if (declaredDomain !== domain) {
-    throw new Error(`Discovery canonical_domain mismatch: expected ${domain}, got ${declaredDomain}`);
+  // Core §2:39, §2:46 (host-owned domain, items 1–2) and §7:514: the document
+  // MUST name, in `canonical_domain`, the host-owned domain it is served from,
+  // as that exact string: lowercase ASCII, no trailing dot, no scheme, path,
+  // port or `www.`. The value is compared as written and is NOT normalized
+  // first, so `www.node.example`, `NODE.EXAMPLE`, `node.example.` or a URL are
+  // refused even though each names the same host. Neither the pre-0.1 member
+  // `domain` nor the fetched domain stands in for a missing value (§8).
+  const declaredRaw = discovery.canonical_domain;
+  if (typeof declaredRaw !== "string" || declaredRaw.trim().length === 0) {
+    throw new Error(
+      'Discovery document declares no canonical_domain: it MUST name the host-owned domain it is served from (VRP §2, §7); the pre-0.1 member "domain" is not a substitute'
+    );
+  }
+  if (declaredRaw !== domain) {
+    throw new Error(
+      `Discovery canonical_domain mismatch: expected ${domain}, got ${JSON.stringify(declaredRaw)} (VRP §2: the value must be the host-owned domain itself, lowercase, with no trailing dot, scheme, path, port or www.)`
+    );
   }
 
   const endpoints = asRecord(discovery.endpoints);
@@ -1028,9 +1049,14 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
   // Core §7 (ADR 0009): the signed offer names the domain it was fetched from.
   // A valid signature over an offer naming another domain is that node's
   // signature, not that other domain's offer.
-  const offerDomainRaw = stringValue(offer.canonical_domain);
-  if (!offerDomainRaw) throw new Error("Signed offer has no canonical_domain (VRP §5)");
-  if (normalizeVrpDomain(offerDomainRaw) !== node.domain) {
+  // The signed value is compared as written (§2 host-owned domain, items 1–2:
+  // lowercase, no trailing dot, its own registrable domain, so never a URL,
+  // never `www.`): nothing is trimmed, lowercased or stripped for the node.
+  const offerDomainRaw = offer.canonical_domain;
+  if (typeof offerDomainRaw !== "string" || offerDomainRaw.length === 0) {
+    throw new Error("Signed offer has no canonical_domain (VRP §5)");
+  }
+  if (offerDomainRaw !== node.domain) {
     throw new Error(`Signed offer names ${offerDomainRaw}, not ${node.domain} it was fetched from: not this node's offer (VRP §7)`);
   }
   const responseOffer = asRecord(response.offer);
