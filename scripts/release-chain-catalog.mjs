@@ -42,7 +42,7 @@
  * string, a template literal or a regular expression, a function that is
  * merely declared, a script element that is not JavaScript.
  *
- * Found by the independent reviewer in five rounds. 13b9fc7: the version was
+ * Found by the independent reviewer, round by round. 13b9fc7: the version was
  * matched as text across the whole page. fdb3f86: any record in Glama's array
  * counted; `previous_qualityDetails:` matched; a commented-out script body
  * was read. e90603d: a hand-written lexer let a nested template literal and a
@@ -52,10 +52,15 @@
  * so a complete record inside a function that is never called counted.
  * a339f1a: a later entry in an object literal (a spread, a computed key, a
  * getter) could replace a member that had been read; a second assignment to
- * the router was ignored.
+ * the router was ignored. c09fec4: a direct write to `$_TSR` after the
+ * start-up statement was seen only as an assignment expression, and the
+ * holder was not recognised under a quoted key; a declaration, `delete`,
+ * `++` and a `for` variable passed.
  * The lessons: do not write a parser; do not search where a path can be
- * followed; and when anything on the page could change what the path says,
- * the answer is unknown.
+ * followed; and a second mention of the router, a direct write to its holder
+ * or an uncertain entry in an object on the path makes the answer unknown.
+ * That is not everything that could change the value: a change through
+ * another name for the same object or through a call is not modelled.
  */
 import { parse as parseScript } from "acorn";
 import { parse as parseHtml } from "parse5";
@@ -302,10 +307,20 @@ function* syntaxNodes(node) {
   }
 }
 
-/** `$_TSR` as the page's scripts name it: the bare name, or the name on another object (`self.$_TSR`). */
-const isRouterHolder = (node) =>
-  (node?.type === "Identifier" && node.name === "$_TSR") ||
-  (node?.type === "MemberExpression" && !node.computed && node.property?.type === "Identifier" && node.property.name === "$_TSR");
+/** A node without the wrapper an optional chain puts around it (`a?.b`). */
+const unchained = (node) => (node?.type === "ChainExpression" ? node.expression : node);
+
+/**
+ * `$_TSR` as a page's scripts can name it directly: the bare name, or the
+ * name as a member of another object, written plainly (`self.$_TSR`) or as a
+ * quoted key (`self["$_TSR"]`).
+ */
+const isRouterHolder = (given) => {
+  const node = unchained(given);
+  if (node?.type === "Identifier") return node.name === "$_TSR";
+  if (node?.type !== "MemberExpression") return false;
+  return node.computed ? stringLiteral(node.property) === "$_TSR" : node.property?.type === "Identifier" && node.property.name === "$_TSR";
+};
 
 /** A member access that is, or could be, the router: `$_TSR.router`, `$_TSR["router"]`, `$_TSR[anything]`. */
 const mentionsRouter = (node) =>
@@ -313,7 +328,7 @@ const mentionsRouter = (node) =>
   isRouterHolder(node.object) &&
   (node.computed ? stringLiteral(node.property) === undefined || node.property.value === "router" : node.property?.type === "Identifier" && node.property.name === "router");
 
-/** The targets an assignment's left side writes to, through any destructuring. */
+/** The targets a binding or assignment pattern writes to, through any destructuring. */
 function* assignmentTargets(pattern) {
   if (!pattern) return;
   if (pattern.type === "ObjectPattern") for (const entry of pattern.properties) yield* assignmentTargets(entry.type === "RestElement" ? entry.argument : entry.value);
@@ -324,38 +339,68 @@ function* assignmentTargets(pattern) {
 }
 
 /**
- * The one statement that starts mcp.so's router, when it is the only thing on
- * the page that can decide what the router holds; otherwise undefined.
+ * What a node writes to directly, in each form the language has for it: an
+ * assignment (any operator), a declaration (`var`, `let`, `const`, a function,
+ * a class), `++`/`--`, `delete`, and the variable of a `for … in`/`for … of`.
+ */
+function* writeTargets(node) {
+  if (node.type === "AssignmentExpression") yield* assignmentTargets(node.left);
+  else if (node.type === "VariableDeclarator") yield* assignmentTargets(node.id);
+  else if (node.type === "UpdateExpression") yield node.argument;
+  else if (node.type === "UnaryExpression" && node.operator === "delete") yield node.argument;
+  else if ((node.type === "ForInStatement" || node.type === "ForOfStatement") && node.left.type !== "VariableDeclaration") yield* assignmentTargets(node.left);
+  else if ((node.type === "FunctionDeclaration" || node.type === "ClassDeclaration") && node.id) yield node.id;
+}
+
+const writesHolder = (node) => [...writeTargets(node)].some(isRouterHolder);
+
+/**
+ * The one statement that starts mcp.so's router, when no script on the page
+ * names the router a second time or writes directly to its holder afterwards;
+ * otherwise undefined.
  *
- * The page names its router exactly once, as the target of that statement.
  * Decided before anything is read from it:
  *  - the page's scripts mention the router (`$_TSR.router`, also through
- *    `self.$_TSR` or a computed key) exactly once, and that mention is the
- *    left side of a top-level `$_TSR.router = …` statement. A second
- *    mention, wherever it stands and whatever it does (a second assignment,
- *    a write under the router, a write inside a function), is unknown;
- *  - `$_TSR` itself is written only by top-level statements that come before
- *    that statement (its definition). A write to it afterwards, or inside a
- *    function, could replace the router: unknown.
+ *    `self.$_TSR`, a quoted key or a computed key) exactly once, and that
+ *    mention is the left side of a top-level `$_TSR.router = …` statement. A
+ *    second mention, wherever it stands and whatever it does (a second
+ *    assignment, a write under the router, a mere read), is unknown. That is
+ *    stricter than needed for a read, on purpose;
+ *  - `$_TSR` itself is written, in any of the direct forms of writeTargets,
+ *    only by its definition: a top-level assignment or declaration that
+ *    comes before that statement, and what stands inside that definition
+ *    (the real page's definition deletes `self.$_TSR` in one of its own
+ *    methods). A direct write to it afterwards, or in a function or a branch
+ *    of its own, could replace the router: unknown.
+ *
+ * Not modelled: a change through another name for the same object or through
+ * a call (`const t = $_TSR; t.router = {}`, `Object.assign($_TSR, {router})`,
+ * `self[key] = {}`). The reading is static; such a page reads as its
+ * start-up statement says.
  */
 function routerBootstrap(programs) {
   let mentions = 0;
   let bootstrap;
-  const holderWrites = [];
+  const definitions = [];
+  const writes = [];
   programs.forEach((program, index) => {
-    const topLevel = new Set(topLevelExpressions(program));
+    for (const statement of program.body) {
+      const defines =
+        (statement.type === "ExpressionStatement" && statement.expression.type === "AssignmentExpression" && writesHolder(statement.expression)) ||
+        (statement.type === "VariableDeclaration" && statement.declarations.some(writesHolder));
+      if (defines) definitions.push({ index, start: statement.start, end: statement.end });
+      const expression = statement.type === "ExpressionStatement" ? statement.expression : undefined;
+      if (expression?.type === "AssignmentExpression" && expression.operator === "=" && sameChain(expression.left, ["$_TSR", "router"])) bootstrap = { index, node: expression };
+    }
     for (const node of syntaxNodes(program)) {
       if (mentionsRouter(node)) mentions += 1;
-      if (node.type !== "AssignmentExpression") continue;
-      if (topLevel.has(node) && node.operator === "=" && sameChain(node.left, ["$_TSR", "router"])) bootstrap = { index, node };
-      for (const target of assignmentTargets(node.left)) {
-        if (isRouterHolder(target)) holderWrites.push({ index, start: node.start, topLevel: topLevel.has(node) });
-      }
+      if (writesHolder(node)) writes.push({ index, start: node.start, end: node.end });
     }
   });
   if (mentions !== 1 || bootstrap === undefined) return undefined;
-  const before = (write) => write.index < bootstrap.index || (write.index === bootstrap.index && write.start < bootstrap.node.start);
-  if (!holderWrites.every((write) => write.topLevel && before(write))) return undefined;
+  const before = (range) => range.index < bootstrap.index || (range.index === bootstrap.index && range.end <= bootstrap.node.start);
+  const within = (write) => definitions.some((definition) => before(definition) && definition.index === write.index && definition.start <= write.start && write.end <= definition.end);
+  if (!writes.every(within)) return undefined;
   return bootstrap.node;
 }
 
@@ -369,15 +414,15 @@ function routerBootstrap(programs) {
  * The same members anywhere else (a function that is declared and never
  * called, another statement, another server's record) are not on the path.
  *
- * Nothing is read when the path is not the only thing that can decide the
- * value: when the page's scripts mention the router more than once, or write
- * to `$_TSR` after the router is started or inside a function; when an
+ * Nothing is read when the page's scripts mention the router more than once,
+ * or write directly to `$_TSR` outside its definition before the router is
+ * started; when an
  * object on the path holds a spread or a computed key, or spells a member
  * twice in any form; when the list of matches holds a spread or a hole; when
  * two records carry this listing's slug.
  */
 export function mcpsoQualityDetails(html) {
-  // Decided before anything is read: is this the only thing that says what the router holds?
+  // Decided before anything is read: one mention of the router, no direct write to its holder afterwards.
   const expression = routerBootstrap(scriptPrograms(html));
   if (expression === undefined) return [];
   const call = expression.right;

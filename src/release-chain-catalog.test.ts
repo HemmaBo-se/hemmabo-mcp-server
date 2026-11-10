@@ -39,8 +39,14 @@
 // Sixth round, the reviewer at a339f1a: a later entry in the object literal
 // (a spread, a computed key, a getter) could replace a member that had been
 // read, because such entries were filtered out before duplicates were counted;
-// and a second assignment to the router was ignored. Now anything on the page
-// that could change what the path says makes the answer unknown.
+// and a second assignment to the router was ignored.
+//
+// Seventh round, the reviewer at c09fec4: a direct write to `$_TSR` after the
+// start-up statement was seen only as an assignment expression, and the
+// holder was not recognised under a quoted key. Now a second mention of the
+// router, a direct write to its holder outside its definition, or an
+// uncertain entry in an object on the path makes the answer unknown. A change
+// through another name for the same object or through a call is not modelled.
 // The counterexamples below are synthetic edits of the fixtures.
 
 import { describe, it } from "node:test";
@@ -500,6 +506,92 @@ describe("release chain: a catalog page is not at the version unless it says so"
       // A write that is not a top-level statement can run at any time: unknown, wherever it stands.
       for (const hidden of ["function reset(){ self.$_TSR = {}; }", "if (window.x) $_TSR = {};", "var f = () => ($_TSR = {});"]) {
         assertNotGreen(catalog.checkMcpso(page(before(hidden)), ctx("7.0.14")), "unknown");
+      }
+    });
+
+    it("a direct write to $_TSR after the router is started is unknown in every form the language has for it", () => {
+      // The reviewer's finding at c09fec4: the first eight gave ok: true, version "current".
+      const close = MCPSO.indexOf("</script>");
+      for (const write of [
+        "var $_TSR = {};",
+        "var {x: $_TSR} = {x:{}};",
+        'self["$_TSR"] = {};',
+        'self["$_TSR"].router = {};',
+        "delete self.$_TSR;",
+        "$_TSR++;",
+        "for ($_TSR of [{}]) {}",
+        "for ($_TSR in {x:1}) {}",
+        "let $_TSR = {};",
+        "const $_TSR = {};",
+        "var [$_TSR] = [{}];",
+        "var $_TSR;",
+        "function $_TSR() {}",
+        "class $_TSR {}",
+        "--$_TSR;",
+        "self.$_TSR--;",
+        "delete $_TSR;",
+        'delete self["$_TSR"];',
+        "delete self?.$_TSR;",
+        'window["$_TSR"] ||= {};',
+        '[self["$_TSR"]] = [{}];',
+        "for (self.$_TSR of [{}]) {}",
+        'for (self["$_TSR"] in {x:1}) {}',
+        "for (var $_TSR of [{}]) {}",
+        "for ([$_TSR] of [[{}]]) {}",
+        "function later() { delete self.$_TSR; }",
+        "if (window.x) { var $_TSR = {}; }",
+      ]) {
+        const sameScript = `${at714(MCPSO).slice(0, close)};\n${write}${at714(MCPSO).slice(close)}`;
+        const laterScript = at714(MCPSO).replace("</body>", `<script>${write}</script></body>`);
+        for (const text of [sameScript, laterScript]) {
+          assert.deepEqual(catalog.mcpsoQualityDetails(text), [], write);
+          assertNotGreen(catalog.checkMcpso(page(text), ctx("7.0.14")), "unknown");
+        }
+      }
+    });
+
+    it("a direct write to $_TSR before the router is started is its definition only as a top-level assignment or declaration", () => {
+      const before = (first: string) => at714(MCPSO).replace("<script", `<script>${first}</script><script`);
+      // The real page's own definition, shortened: one of its methods deletes the holder once the page has hydrated.
+      const real = "self.$_TSR={h(){this.hydrated=!0,this.c()},c(){if(this.hydrated){const e=()=>{self.$_TSR?.hydrated&&(delete self.$_TSR,delete self.$R.tsr)};e()}},buffer:[]};";
+      for (const definition of [real, "var $_TSR = {};", "let $_TSR = {};", 'self["$_TSR"] = {};', "var {x: $_TSR} = {x:{}};"]) {
+        assert.equal(catalog.checkMcpso(page(before(definition)), ctx("7.0.14")).ok, true, definition);
+      }
+      // Not a definition: not an assignment or a declaration, or not a top-level statement.
+      for (const other of [
+        "delete self.$_TSR;",
+        "$_TSR++;",
+        "for ($_TSR of [{}]) {}",
+        "function $_TSR() {}",
+        "class $_TSR {}",
+        "function reset() { delete self.$_TSR; }",
+        "function reset() { var $_TSR = {}; }",
+        "if (window.x) { var $_TSR = {}; }",
+        'var f = () => delete self["$_TSR"];',
+      ]) {
+        assertNotGreen(catalog.checkMcpso(page(before(other)), ctx("7.0.14")), "unknown");
+      }
+    });
+
+    it("the holder used without being written or the router named does not disturb the reading; a mere read of the router does", () => {
+      const close = MCPSO.indexOf("</script>");
+      const after = (second: string) => `${at714(MCPSO).slice(0, close)};\n${second}${at714(MCPSO).slice(close)}`;
+      // As the real page does right after starting the router.
+      for (const use of ["$_TSR.e();", "self.$_TSR?.hydrated;", "use($_TSR);"]) {
+        assert.equal(catalog.checkMcpso(page(after(use)), ctx("7.0.14")).ok, true, use);
+      }
+      // Stricter than needed, on purpose: the router is to be named once.
+      for (const read of ["void $_TSR.router;", 'self["$_TSR"].router;']) {
+        assertNotGreen(catalog.checkMcpso(page(after(read)), ctx("7.0.14")), "unknown");
+      }
+    });
+
+    it("not modelled, and read as the start-up statement says: a change through another name or through a call", () => {
+      // Stated as a limitation, pinned here so that it is not mistaken for a guarantee.
+      const close = MCPSO.indexOf("</script>");
+      for (const change of ["Object.assign($_TSR, {router: {}});", "const t = $_TSR; t.router = {};", "const k = '$_TSR'; self[k] = {};"]) {
+        const text = `${at714(MCPSO).slice(0, close)};\n${change}${at714(MCPSO).slice(close)}`;
+        assert.equal(catalog.checkMcpso(page(text), ctx("7.0.14")).ok, true, change);
       }
     });
 
