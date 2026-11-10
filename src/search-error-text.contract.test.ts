@@ -25,6 +25,8 @@ function failingClients(): ToolClients {
     select: () => query,
     eq: () => query,
     gte: () => query,
+    order: () => query,
+    range: () => query,
     then: (resolve: (value: unknown) => unknown) =>
       Promise.resolve({ data: null, error: { message: DB_MESSAGE, code: "42P01" } }).then(resolve),
   };

@@ -248,6 +248,13 @@ function searchClients(): ToolClients {
       not: () => query,
       order: () => query,
       limit: () => query,
+      // One range of the rows the query would return (the search reads to the end, range by range).
+      range: (from: number, to: number) => ({
+        then: (resolve: (value: unknown) => unknown) =>
+          query.then((res: any) =>
+            resolve(Array.isArray(res?.data) ? { ...res, data: res.data.slice(from, to + 1) } : res),
+          ),
+      }),
       maybeSingle: () => { singleMode = true; return query; },
       single: () => { singleMode = true; return query; },
       then: (resolve: (value: unknown) => unknown) => {

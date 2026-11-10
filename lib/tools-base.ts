@@ -25,6 +25,7 @@ import {
   calendarFreshnessUnavailablePayload,
   type CalendarFreshnessResult,
 } from "./ical-freshness.js";
+import { ID_BATCH, readAllInOrder } from "./read-all.js";
 import { normalizeCountryToIso } from "./geo-directional-core.js";
 import {
   canonicalAmenityClaimKey,
@@ -332,22 +333,31 @@ async function readPropertyClaims(
 ): Promise<{ byId: Map<string, PropertyClaims>; failed: boolean }> {
   const byId = new Map<string, PropertyClaims>();
   if (propertyIds.length === 0) return { byId, failed: false };
-  let data: unknown;
-  try {
-    const res = await client
-      .from("property_attested_claims")
-      .select("property_id, claim_key, state")
-      .in("property_id", propertyIds);
-    if (res.error) {
-      console.error("[search] property claims query error:", res.error.message);
-      return { byId, failed: true };
+  // Every row, because a missing row changes the answer: an unread affirmed
+  // row turns a yes into unknown, an unread contradicting alias row turns an
+  // unknown into a yes (review of 1d76fbe: one unpaged query, 100 nodes with
+  // 11 claims each gave 90 matches). Ids in batches; each batch in the
+  // table's unique order (property_id, claim_key), range by range to its end.
+  const ids = Array.from(new Set(propertyIds)).sort();
+  const data: Array<Record<string, unknown>> = [];
+  for (let start = 0; start < ids.length; start += ID_BATCH) {
+    const batch = ids.slice(start, start + ID_BATCH);
+    const read = await readAllInOrder<Record<string, unknown>>((from, to) =>
+      client
+        .from("property_attested_claims")
+        .select("property_id, claim_key, state")
+        .in("property_id", batch)
+        .order("property_id", { ascending: true })
+        .order("claim_key", { ascending: true })
+        .range(from, to),
+    );
+    if (read.failed) {
+      console.error("[search] property claims query error:", read.message);
+      return { byId: new Map<string, PropertyClaims>(), failed: true };
     }
-    data = res.data;
-  } catch (e) {
-    console.error("[search] property claims query threw:", e instanceof Error ? e.message : String(e));
-    return { byId, failed: true };
+    data.push(...read.rows);
   }
-  for (const r of (data ?? []) as Array<Record<string, unknown>>) {
+  for (const r of data) {
     const pid = typeof r.property_id === "string" ? r.property_id : null;
     const key = typeof r.claim_key === "string" ? r.claim_key : null;
     if (!pid || !key) continue;
@@ -830,19 +840,26 @@ export async function executeTool(
       const orderErr = validateDateOrder(checkIn, checkOut);
       if (orderErr) return { content: [{ type: "text", text: JSON.stringify({ error: orderErr }) }], isError: true };
 
-      let query = reader
-        .from("properties")
-        .select("id, name, domain, region, city, country, latitude, longitude, max_guests, currency, property_type, direct_booking_discount, min_nights, buffer_nights_before, buffer_nights_after")
-        .eq("published", true)
-        .gte("max_guests", guests);
-
-      const { data: properties, error } = await query;
-      if (error) {
+      // Every published node that fits the party, read to its end in one
+      // fixed order. One unpaged query is cut by the server's row cap, and
+      // the nodes outside it would never be considered.
+      const propertiesRead = await readAllInOrder<SearchPropertyRow>((from, to) =>
+        reader
+          .from("properties")
+          .select("id, name, domain, region, city, country, latitude, longitude, max_guests, currency, property_type, direct_booking_discount, min_nights, buffer_nights_before, buffer_nights_after")
+          .eq("published", true)
+          .gte("max_guests", guests)
+          .order("name", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to),
+      );
+      if (propertiesRead.failed) {
         // The database's own error text stays in the log; the caller gets a
         // plain sentence (the message named table and column internals).
-        console.error("[search] properties query error:", error.message);
+        console.error("[search] properties query error:", propertiesRead.message);
         return toolError("Property search is temporarily unavailable. Try again shortly.");
       }
+      const properties = propertiesRead.rows;
 
       const locationMatches = (properties ?? []).filter((prop: SearchPropertyRow) =>
         propertyMatchesLocation(prop, region, country)

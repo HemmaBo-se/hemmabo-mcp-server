@@ -38,7 +38,8 @@ type Row = Record<string, unknown>;
 const LAKEVIEW = { id: "11111111-1111-4111-8111-111111111111", name: "Lakeview Home", domain: "lakeviewhome.se" };
 const VILLA = { id: "22222222-2222-4222-8222-222222222222", name: "Villa Åkerlyckan", domain: "villaakerlyckan.se" };
 
-type Fixture = { properties: Row[]; claims: Row[]; detected: Row[]; claimsError: boolean };
+/** `rowCap`: the most rows the database returns per request (PostgREST max-rows). */
+type Fixture = { properties: Row[]; claims: Row[]; detected: Row[]; claimsError: boolean; rowCap?: number };
 
 function propertyRow(p: { id: string; name: string; domain: string }): Row {
   return {
@@ -103,6 +104,7 @@ function makeClients(): ToolClients {
   const makeQuery = (table: string) => {
     const ops: Array<(r: Row) => boolean> = [];
     let single = false;
+    let window: [number, number] | null = null;
     const query: any = {
       select: () => query,
       eq: (c: string, v: unknown) => (ops.push((r) => r[c] === v), query),
@@ -117,6 +119,9 @@ function makeClients(): ToolClients {
       not: () => query,
       order: () => query,
       limit: () => query,
+      // One range of the rows the query would return (the search reads to
+      // the end, range by range), never more than the server's row cap.
+      range: (from: number, to: number) => ((window = [from, to]), query),
       maybeSingle: () => ((single = true), query),
       single: () => ((single = true), query),
       insert: () => query,
@@ -124,7 +129,12 @@ function makeClients(): ToolClients {
         if (table === "property_attested_claims" && fixture.claimsError) {
           return Promise.resolve({ data: null, error: { message: "permission denied" } }).then(resolve);
         }
-        const data = rowsOf(table).filter((r) => ops.every((op) => op(r)));
+        // The server's row cap cuts every answer, ranged or not: an
+        // unpaged query silently gets only the first `rowCap` rows.
+        const all = rowsOf(table).filter((r) => ops.every((op) => op(r)));
+        const cap = fixture.rowCap ?? Infinity;
+        const [from, to] = window ?? [0, Infinity];
+        const data = all.slice(from, Math.min(to + 1, from + cap));
         return Promise.resolve(single ? { data: data[0] ?? null, error: null } : { data, error: null }).then(resolve);
       },
     };
@@ -272,6 +282,48 @@ describe("required amenities in hemmabo_search_properties", () => {
     const { json } = await search({ guests: 7, amenities: ["hot_tub"] });
     assert.deepEqual(json.unavailableMatches, []);
     assert.match(json.agentGuidance, /No published property matched the location and capacity/);
+  });
+});
+
+describe("the whole decision basis is read, whatever the server's row cap (review of 1d76fbe)", () => {
+  const nodes = (count: number) =>
+    Array.from({ length: count }, (_, i) => {
+      const n = String(i).padStart(4, "0");
+      return { id: `44444444-4444-4444-8444-44444444${n}`, name: `Node ${n}`, domain: `node${n}.example` };
+    });
+
+  it("100 nodes with 11 claims each under a 1 000-row cap: all 100 match (before: 90)", async () => {
+    const many = nodes(100);
+    const keys = ["a_a", "b_b", "c_c", "d_d", "e_e", "f_f", "g_g", "h_h", "i_i", "j_j", "sauna"];
+    fixture.properties = many.map(propertyRow);
+    fixture.claims = many.flatMap((p) => keys.map((k) => ({ property_id: p.id, claim_key: k, state: "affirmed" })));
+    fixture.rowCap = 1000;
+    const { json } = await search({ amenities: ["sauna"] });
+    assert.equal(json.unavailableMatches.length, 100);
+    assert.deepEqual(names(json.unavailableMatches), many.map((p) => p.name));
+  });
+
+  it("1 001 published nodes with an affirmed hot tub under a 1 000-row cap: all 1 001 are considered", async () => {
+    const many = nodes(1001);
+    fixture.properties = many.map(propertyRow);
+    fixture.claims = many.map((p) => ({ property_id: p.id, claim_key: "hot_tub", state: "affirmed" }));
+    fixture.rowCap = 1000;
+    const { json } = await search({ amenities: ["hot_tub"] });
+    assert.equal(json.unavailableMatches.length, 1001);
+  });
+
+  it("a contradicting alias row beyond the cap is still read: the node is unknown, not a match", async () => {
+    const filler = Array.from({ length: 1200 }, (_, i) => ({
+      property_id: LAKEVIEW.id, claim_key: `c_${String(i).padStart(4, "0")}`, state: "affirmed",
+    }));
+    fixture.claims = [
+      { property_id: LAKEVIEW.id, claim_key: "bbq", state: "affirmed" },
+      ...filler,
+      { property_id: LAKEVIEW.id, claim_key: "grill", state: "negated" },
+    ];
+    fixture.rowCap = 1000;
+    const { json } = await search({ amenities: ["grill"] });
+    assert.deepEqual(json.unavailableMatches, []);
   });
 });
 
