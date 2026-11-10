@@ -133,21 +133,54 @@ async function callOffer() {
 const NODE_FETCHES = ["/.well-known/vacation-rental.json", "/.well-known/jwks.json", "/api/verified-stay-offer"];
 const OFFER_KEYS = ["official_offer_summary", "agent_citation", "agent_guardrails", "direct_booking_url", "price", "verified", "safe_to_quote", "payload_matches_offer", "fresh"];
 
-/** The offer is refused after it was fetched and its signature read; nothing of it is presented. */
+/**
+ * The offer is refused after it was fetched and its signature read; nothing of
+ * it is presented in any part of the result: not in the text the model reads,
+ * not in `structuredContent`, not in `_meta` (which the widget reads).
+ */
 async function assertRefused(served: Served) {
   const { result, parsed } = await callOffer();
   assert.equal(result.isError, true, `expected a refusal, got ${JSON.stringify(parsed).slice(0, 200)}`);
   assert.equal(typeof parsed.error, "string");
   assert.deepEqual(served.fetches, NODE_FETCHES);
   for (const key of OFFER_KEYS) assert.equal(key in parsed, false, `${key} must not be presented`);
-  assert.equal(JSON.stringify(parsed).includes("/book?offer=t1"), false, "the signed booking URL must not be presented");
+
+  // structuredContent carries the error and nothing else.
+  assert.deepEqual(result.structuredContent, { error: parsed.error });
+
+  // _meta carries neither the signed offer nor its payload.
+  const meta = (result._meta ?? {}) as Json;
+  for (const key of ["signed_verified_stay_offer", "offer", ...OFFER_KEYS]) {
+    assert.equal(key in meta, false, `_meta.${key} must not be presented`);
+  }
+
+  // No booking URL, JWS, price, property or stay anywhere in the whole result.
+  const everything = JSON.stringify(result);
+  const jws = (served.envelope.signature as Json).jws as string;
+  for (const [what, value] of [
+    ["the signed booking URL", "/book?offer=t1"],
+    ["the JWS", jws],
+    ["the JWS payload", jws.split(".")[1]],
+    ["the property name", "Example Stay"],
+    ["the price", '"agent_total"'],
+    ["the price", '"public_total"'],
+    ["the stay", STAY.check_in],
+    ["the stay", STAY.check_out],
+  ] as const) {
+    assert.equal(everything.includes(value), false, `${what} must not appear anywhere in the result`);
+  }
 }
 
-async function assertQuoteable(served: Served) {
+/** The served discovery document, JWKS, envelope and decoded signed payload are schema-valid. */
+function assertServedNodeSchemaValid(served: Served) {
   assertSchemaValid("discovery", served.discovery);
   assertSchemaValid("jwks", served.jwks);
   assertSchemaValid("offer", served.envelope);
   assertSchemaValid("offer", { ...served.envelope, offer: served.signed });
+}
+
+async function assertQuoteable(served: Served) {
+  assertServedNodeSchemaValid(served);
   const { result, parsed } = await callOffer();
   assert.equal(result.isError, undefined, String(parsed.error));
   assert.equal(parsed.verified, true);
@@ -198,6 +231,7 @@ describe("Core §7:520: the signed canonical_domain is the fetched domain, as wr
 
   it("control: the agent's own domain argument is still normalized (https://WWW.Node.Example/ names node.example)", async () => {
     const served = serveNode();
+    assertServedNodeSchemaValid(served);
     const result = await executeTool("vrp_get_verified_stay_offer", { ...ARGS, domain: "https://WWW.Node.Example/" }, clients);
     const parsed = JSON.parse(result.content[0].text) as Json;
     assert.equal(result.isError, undefined, String(parsed.error));
