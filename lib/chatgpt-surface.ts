@@ -50,7 +50,7 @@ function offerForModel(full: JsonRecord): JsonRecord {
     },
     facts: {
       ...pick(property, ["amenities", "starred_amenities"]),
-      ...pick(summary, ["policy_claims", "stay_details", "refund_schedule", "terms", "minimum_guest_age"]),
+      ...pick(summary, ["policy_claims", "amenity_claims", "stay_details", "refund_schedule", "terms", "minimum_guest_age"]),
       ...pick(record(summary?.source_authority), ["payment_recipient", "booking_model"]),
     },
     ...pick(full, ["agent_next_step"]),

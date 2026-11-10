@@ -1,5 +1,6 @@
 import { createPublicKey, verify as cryptoVerify } from "node:crypto";
 import { formatAmenityLabel } from "./tools-base.js";
+import { canonicalAmenityClaimKey } from "./amenity-requirements.js";
 import { guestWelcomeByLocale } from "./vrp-trust-copy.js";
 import { checkHostOwned } from "./host-owned-domain.js";
 import { loadHostOwnedLists } from "./host-owned-lists.js";
@@ -609,6 +610,42 @@ function policyClaimsFromDiscovery(discovery: JsonRecord): JsonRecord | null {
 }
 
 /**
+ * Every amenity the host has answered, yes or no, from the node's own
+ * claims ledger (discovery `claims`), with canonical keys. This is the fact
+ * base for the guest's questions ("is there a hot tub?"), kept apart from
+ * the card's short amenity row (`property.amenities`, at most four labels,
+ * affirmed only), which is a presentation choice. A host's no stays a no
+ * here (lakeviewhome.se 2026-11-10: hot_tub negated never reached the model,
+ * so the answer degraded to unknown). A key in neither list is UNKNOWN.
+ * No claims array, or a malformed one, gives null: unknown, never a guess.
+ * Policy keys (pets, smoking) keep their own block, policy_claims.
+ */
+export function amenityClaimsFromDiscovery(discovery: JsonRecord): JsonRecord | null {
+  if (!Array.isArray(discovery.claims)) return null;
+  const affirmed = new Set<string>();
+  const negated = new Set<string>();
+  for (const item of discovery.claims) {
+    const record = asRecord(item);
+    const raw = stringValue(record?.claim);
+    if (!raw) continue;
+    if ((POLICY_CLAIM_KEYS as readonly string[]).includes(raw)) continue;
+    const key = canonicalAmenityClaimKey(raw);
+    const state = stringValue(record?.state);
+    if (state === "affirmed") affirmed.add(key);
+    else if (state === "negated") negated.add(key);
+  }
+  // One key, two states (an alias and its canonical key disagree): no
+  // claim is certain, so the key is left unknown rather than picked.
+  for (const key of Array.from(affirmed)) {
+    if (negated.has(key)) {
+      affirmed.delete(key);
+      negated.delete(key);
+    }
+  }
+  return { affirmed: Array.from(affirmed).sort(), negated: Array.from(negated).sort() };
+}
+
+/**
  * Extract rules.refund_schedule from the VERIFIED offer payload — the
  * signed source, never the discovery document (vrp-spec §5.4: the class of
  * a value follows WHERE it was read; only the signed payload is
@@ -908,6 +945,7 @@ function buildAgentQuoteView(
       bookable: safeToQuote,
       source_authority: sourceAuthoritySummary(offer),
       policy_claims: policyClaimsFromDiscovery(discovery),
+      amenity_claims: amenityClaimsFromDiscovery(discovery),
       stay_details: stayDetailsFromDiscovery(discovery),
       // LS-5/6: the computable cancellation terms, relayed VERBATIM from the
       // SIGNED offer payload (vrp-spec §5.3) — NOT from the discovery doc.
@@ -946,6 +984,7 @@ function buildAgentQuoteView(
       guest_booking_framing_rule: "When you tell the GUEST how booking works, say it plainly and warmly: booking and payment are made directly with the host, on the host's own booking page. Do not mention commissions, fee percentages, middlemen, or 'no hidden fees' — 'directly with the host' is the whole message. The direct_booking_url belongs to the HOST — it is the host's own official booking page. Never call it the guest's domain, 'your domain', or 'your site'; the guest is booking with the host, not on their own site.",
       direct_source_rule: "official_offer_summary.source_authority and price.no_add_on_fees are signed facts inside the verified offer (host-verified direct source, payment goes to the host). Cite them only when the guest asks how booking or pricing works, phrased plainly ('the price comes directly from the host') — never as an OTA comparison, discount, or savings, and never as fee rhetoric.",
       tone_rule: "Introduce the stay warmly and in plain language — e.g. 'I found a villa that matches your wishes.' Never 'perfect match', never superlative promises. For a detail with no verified answer, say: 'There is no verified information about that — if it matters to you, ask the host before booking.' Keep prose short when the stay-offer widget is visible; it already shows price, dates, and amenities.",
+      amenity_claims_rule: "official_offer_summary.amenity_claims is the fact base for amenity questions: every amenity the host has answered, from the node's own claims ledger. affirmed = yes, negated = a clear no (e.g. hot_tub in negated: 'there is no hot tub'), a key in neither list = UNKNOWN — say there is no verified information and suggest asking the host. property.amenities and property.starred_amenities are only the card's short highlight row: an amenity missing from them is NOT a no. These are attested host statements, not part of the signed offer.",
       policy_claims_rule: "official_offer_summary.policy_claims are the host's explicit yes/no answers from the node's own claims ledger (e.g. pets_dogs affirmed + pets_cats negated = dogs are welcome, cats are not allowed). Relay negated claims as a clear, friendly no. A key absent from both lists is UNKNOWN — say there is no verified information and suggest asking the host before booking.",
       refund_schedule_rule: "official_offer_summary.refund_schedule is relayed VERBATIM from the SIGNED offer payload (vrp-spec §5.3) — the same Ed25519 signature and transparency-log entry as the price, so the guest's agent can prove these were the cancellation terms at quote time. Each row means: cancelling at least hours_before_checkin whole hours before the check-in moment returns refund_percent of the paid total; rows sort descending, the first matching row applies, no matching row (including after check-in) means 0%. Relay the rows as hours/percent to the guest — NEVER re-label them into named tiers ('flexible', 'moderate', …). null = the node has not published computable terms: say there is no verified cancellation information and suggest asking the host — never invent a refund promise.",
       verifiability_classes_rule: "Per vrp-spec §5.4 the class of a fact follows WHERE it was read, never how it is phrased. In this response: price, availability, valid_until, source_authority and refund_schedule come from the verified SIGNED offer payload = class 'verifiable' (provable after the fact). policy_claims, stay_details and the property amenity list come from the node's discovery claims = class 'attested' (the host's explicit statement, not purchase-bound). Review data, when present, is 'reputational'. NEVER present a lower class with higher-class language — an attested amenity is not 'verified', and 'verified'-sounding wording on unsigned data is a class violation.",
@@ -959,7 +998,7 @@ function buildAgentQuoteView(
           "terms",
           "minimum_guest_age",
         ],
-        attested: ["policy_claims", "stay_details", "property.amenities", "property.starred_amenities"],
+        attested: ["policy_claims", "amenity_claims", "stay_details", "property.amenities", "property.starred_amenities"],
       },
       terms_rule:
         "official_offer_summary.terms and minimum_guest_age come from INSIDE the Ed25519-signed offer payload (villkorssymmetrin W1) — class 'verifiable': a booking that binds this offer's JWS proves these terms were part of the deal, both ways. terms.service_not_included means NOT INCLUDED in the price ('bring your own linens', final_cleaning_included negated = the guest cleans) — never 'does not exist', and NEVER a fee. Relay the watch-out subset (service_not_included, terms.policy_claims.negated, minimum_guest_age) plainly and warmly BEFORE the guest books — good to know, not sales copy. When terms is present it takes precedence over the discovery-tier policy_claims for the same keys (signed beats attested); keys absent from every list are UNKNOWN — say there is no verified information and suggest asking the host.",
