@@ -409,6 +409,21 @@ describe("release chain: a catalog page is not at the version unless it says so"
     });
   });
 
+  describe("memberStrings: the member by its exact name", () => {
+    const html = (body: string) => `<html><body><script>${body}</script></body></html>`;
+
+    it("reads a member whose name holds a $ and nothing that merely resembles it", () => {
+      assert.deepEqual(catalog.memberStrings(html('x={$data:"a",xdata:"b",$data2:"c"}'), "$data"), ["a"]);
+      assert.deepEqual(catalog.memberStrings(html('x={a$b:"1",ab:"2",aXb:"3"}'), "a$b"), ["1"]);
+    });
+
+    it("a name that is not an identifier reads nothing, whatever it would mean as a pattern", () => {
+      for (const name of ["quality.Details", "qualityDetails|probe", "quality\\Details", ".*", "", "a b", "1abc"]) {
+        assert.deepEqual(catalog.memberStrings(html('x={qualityDetails:"a",probe:"b",qualityXDetails:"c"}'), name), [], JSON.stringify(name));
+      }
+    });
+  });
+
   describe("versionVerdict", () => {
     it("current only on exactly one stated version equal to the wanted one", () => {
       assert.equal(catalog.versionVerdict(["7.0.14"], "7.0.14").state, "current");

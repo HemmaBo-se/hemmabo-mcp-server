@@ -61,8 +61,9 @@ export const visible = (html) => withoutScripts(html).replace(/<!--[\s\S]*?-->/g
 // a substring of `vrp_get_verified_stay_offer` (current), and a substring test
 // reported the Glama server page and mcp.so as listing the retired name from
 // 7.0.5 on, when neither did (measured 2026-10-26: zero whole-token matches).
-export const has = (text, needle) =>
-  new RegExp(`(?<![A-Za-z0-9_])${needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9_])`).test(text);
+/** A string as a literal in a regular expression: every metacharacter escaped, the backslash included. */
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+export const has = (text, needle) => new RegExp(`(?<![A-Za-z0-9_])${escapeRegExp(needle)}(?![A-Za-z0-9_])`).test(text);
 export const missing = (text, names) => names.filter((n) => !has(text, n));
 export const present = (text, names) => names.filter((n) => has(text, n));
 
@@ -249,7 +250,7 @@ export function enqueuedChunks(html) {
 export function memberStrings(html, name) {
   if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name)) return [];
   const out = [];
-  const member = new RegExp(`(?<![A-Za-z0-9_$.])${name.replace(/\$/g, "\\$")}\\s*:\\s*${MARK}(\\d+)${MARK}`, "g");
+  const member = new RegExp(`(?<![A-Za-z0-9_$.])${escapeRegExp(name)}\\s*:\\s*${MARK}(\\d+)${MARK}`, "g");
   for (const body of scriptBodies(html)) {
     const { code, strings } = maskScript(body);
     for (const m of code.matchAll(member)) {
