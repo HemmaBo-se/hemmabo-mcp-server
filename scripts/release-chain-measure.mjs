@@ -12,7 +12,8 @@
  * and what to do about each one. .github/workflows/release-chain.yml runs it
  * on every release and keeps the result in one issue per version.
  *
- * Run: node scripts/release-chain-measure.mjs [--version X.Y.Z] [--wait MIN] [--out DIR]
+ * Run (after `npm ci`: the catalog readers use the acorn parser):
+ *   node scripts/release-chain-measure.mjs [--version X.Y.Z] [--wait MIN] [--out DIR]
  *   --version  the version to measure; default: package.json
  *   --wait     poll the automatic rows (production, npm, MCP Registry) for up
  *              to MIN minutes before the final reading; default 0

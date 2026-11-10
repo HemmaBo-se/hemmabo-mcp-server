@@ -20,8 +20,14 @@
 // `archivedRepository` was still green); `previous_qualityDetails:` matched
 // the prefix `qualityDetails:`; and a script body wrapped in a JavaScript
 // comment was still read. The Glama version is now followed from the page
-// data's root through the page's own mcpServer, and the outer reading
-// separates script code from comments and from the contents of strings.
+// data's root through the page's own mcpServer.
+//
+// Fourth round, the reviewer at e90603d: the hand-written lexer that was to
+// tell code from comments and strings let a nested template literal and a
+// regular expression after `return` through as code, and both gave a false
+// green. The lexer is gone. The outer reading is now the syntax tree of an
+// established parser (acorn): the call and the member are nodes of that tree,
+// and a script the parser does not accept contributes nothing.
 // The counterexamples below are synthetic edits of the fixtures.
 
 import { describe, it } from "node:test";
@@ -41,7 +47,7 @@ type Catalog = {
   mcpsoVersions(html: string): string[];
   mcpsoProbes(html: string): { version: string; checkedAt: string | null }[];
   scriptBodies(html: string): string[];
-  maskScript(body: string): { code: string; strings: string[] };
+  scriptElements(html: string): { type: string; body: string }[];
   enqueuedChunks(html: string): string[];
   memberStrings(html: string, name: string): string[];
   versionVerdict(found: string[], wanted: string): { state: string; detail: string };
@@ -107,6 +113,42 @@ const NOT_CODE: [string, (body: string) => string][] = [
   ["a single-quoted string", (body) => `var s = '${body}';`],
   ["a template literal", (body) => `var s = \`${body}\`;`],
   ["a legacy <!-- line comment", (body) => `<!-- ${body}`],
+  ["a template literal nested in a template literal", (body) => `const s = \`a \${\`${body}\`} b\`;`],
+  ["a string after return", (body) => `function f(){return '${body}';}`],
+  ["a program the parser does not accept", (body) => `${body} var = ;`],
+];
+/** The reviewer's two reproductions at e90603d, and their neighbours: text that only looks like the member. */
+const LOOKS_LIKE_A_MEMBER: [string, string][] = [
+  ["a nested template literal", 'const s = `a ${`qualityDetails:"x"`} b`;'],
+  ["a regular expression after return", 'function f(){return /qualityDetails:"x"/;}'],
+  ["a regular expression after typeof, in a condition, after a brace", 'var a = typeof /qualityDetails:"x"/; if (a) /qualityDetails:"x"/.test(a); {/qualityDetails:"x"/}'],
+  ["a regular expression with a class holding a slash", 'var r = /[/]qualityDetails:"x"/;'],
+  ["a template literal", 'var s = `qualityDetails:"x"`;'],
+  ["a tagged template", 'var s = tag`qualityDetails:"x"`;'],
+  ["a template literal three levels deep", 'var s = `${`${`qualityDetails:"x"`}`}`;'],
+  ["a string holding a comment end and the member", 'var s = "*/ qualityDetails:\\"x\\"";'],
+  ["a block comment holding a string start", '/* " */ var s = 1; /* qualityDetails:"x" */'],
+  ["a label and a string statement", 'qualityDetails:"x";'],
+  ["a computed key", 'var o = {["qualityDetails"]:"x"};'],
+  ["a shorthand and a method", 'var qualityDetails = "x"; var o = {qualityDetails, m(){ return 1; }};'],
+  ["a getter", 'var o = {get qualityDetails(){ return "x"; }};'],
+  ["a class field", 'class C { qualityDetails = "x"; }'],
+  ["an assignment, not an object member", 'var o = {}; o.qualityDetails = "x";'],
+  ["a default parameter", 'function f(qualityDetails = "x"){}'],
+  ["a member whose value is a template literal", 'var o = {qualityDetails:`x`};'],
+  ["a member whose value is a concatenation", 'var o = {qualityDetails:"x"+""};'],
+];
+/** Text that only looks like the page-data call. */
+const LOOKS_LIKE_THE_CALL: [string, string][] = [
+  ["a nested template literal", 'const s = `a ${`streamController.enqueue("x")`} b`;'],
+  ["a regular expression after return", 'function f(){return /streamController.enqueue("x")/;}'],
+  ["an optional call", 'streamController?.enqueue("x"); streamController.enqueue?.("x");'],
+  ["a computed property", 'streamController["enqueue"]("x");'],
+  ["two arguments, no argument", 'streamController.enqueue("x", 1); streamController.enqueue();'],
+  ["a template literal argument", 'streamController.enqueue(`x`);'],
+  ["a concatenated argument", 'streamController.enqueue("x"+"");'],
+  ["another receiver", 'streamControllers.enqueue("x"); a.streamController.b.enqueue("x"); enqueue("x");'],
+  ["a new expression", 'new streamController.enqueue("x");'],
 ];
 const page = (text: string, status = 200): Page => ({ status, text });
 
@@ -338,6 +380,16 @@ describe("release chain: a catalog page is not at the version unless it says so"
       });
     }
 
+    it("a complete 7.0.14 probe that is only text in a regular expression after return is not read: unknown", () => {
+      // The reviewer's consequence at e90603d, built from the fixture's own member text.
+      const member = MCPSO.slice(MCPSO.indexOf("qualityDetails:"), MCPSO.indexOf(",sortOrder:0"));
+      assert.ok(member.startsWith('qualityDetails:"{'));
+      const asRegex = member.replace("7.0.12", "7.0.14").replace(/\//g, "\\/");
+      const text = swap(MCPSO, MCPSO.slice(MCPSO.indexOf("<script"), MCPSO.indexOf("</script>")), `<script>function f(){return /${asRegex}/;}`);
+      assert.deepEqual(catalog.memberStrings(text, "qualityDetails"), []);
+      assertNotGreen(catalog.checkMcpso(page(text), ctx("7.0.14")), "unknown");
+    });
+
     it("script data that sits only in an HTML comment is not read: unknown", () => {
       assertNotGreen(catalog.checkMcpso(page(scriptInComment(at714(MCPSO))), ctx("7.0.14")), "unknown");
     });
@@ -382,30 +434,56 @@ describe("release chain: a catalog page is not at the version unless it says so"
     });
   });
 
-  describe("maskScript: script code apart from comments and strings", () => {
-    const codeOf = (body: string) => catalog.maskScript(body).code.replace(/\u0001\d+\u0001/g, "S").replace(/\s+/g, " ").trim();
+  describe("the outer reading: the syntax tree, not the text", () => {
+    const html = (body: string, attributes = "") => `<html><body><script${attributes}>${body}</script></body></html>`;
 
-    it("drops comments and replaces every literal by a marker", () => {
-      assert.equal(codeOf('a = "x"; // b = "y"\nc = 1; /* d = "z" */ e = \'w\';'), "a = S; c = 1; e = S;");
-      assert.deepEqual(catalog.maskScript('a = "x"; /* "y" */ b = `t ${1}`;').strings, ['"x"', "`t ${1}`"]);
+    for (const [what, body] of LOOKS_LIKE_A_MEMBER) {
+      it(`${what} is not a member named qualityDetails`, () => {
+        assert.deepEqual(catalog.memberStrings(html(body), "qualityDetails"), []);
+      });
+    }
+
+    for (const [what, body] of LOOKS_LIKE_THE_CALL) {
+      it(`${what} is not the call streamController.enqueue("…")`, () => {
+        assert.deepEqual(catalog.enqueuedChunks(html(body)), []);
+      });
+    }
+
+    it("reads the member where it is one: plain, quoted key, nested, inside a function, inside ${…} of a template", () => {
+      assert.deepEqual(catalog.memberStrings(html('var o = {qualityDetails:"a"};'), "qualityDetails"), ["a"]);
+      assert.deepEqual(catalog.memberStrings(html('var o = {"qualityDetails":"b"};'), "qualityDetails"), ["b"]);
+      assert.deepEqual(catalog.memberStrings(html('x = [{y:{qualityDetails:"c"}}];'), "qualityDetails"), ["c"]);
+      assert.deepEqual(catalog.memberStrings(html('function f(){return {qualityDetails:"d"};}'), "qualityDetails"), ["d"]);
+      assert.deepEqual(catalog.memberStrings(html('var s = `${ {qualityDetails:"e"}.qualityDetails }`;'), "qualityDetails"), ["e"]);
     });
 
-    it("comment markers inside a string are part of the string, and quotes inside a comment are part of the comment", () => {
-      assert.equal(codeOf('a = "/* not a comment */"; b = "// neither"; c = 2;'), "a = S; b = S; c = 2;");
-      assert.equal(codeOf("a = 1; /* it's \"quoted\" */ b = 2;"), "a = 1; b = 2;");
+    it("reads the call where it is one, with the string as the language decodes it", () => {
+      assert.deepEqual(catalog.enqueuedChunks(html('streamController.enqueue("a");')), ["a"]);
+      assert.deepEqual(catalog.enqueuedChunks(html('window.ctx.streamController.enqueue("b\\"c");')), ['b"c']);
+      assert.deepEqual(catalog.enqueuedChunks(html("streamController.enqueue('d\\x41');")), ["dA"]);
     });
 
-    it("an escaped quote does not end a string", () => {
-      assert.deepEqual(catalog.maskScript('a = "x\\"y"; b = 1;').strings, ['"x\\"y"']);
+    it("a script the parser does not accept contributes nothing; the page's other scripts are still read", () => {
+      const page = `<script>var o = {qualityDetails:"bad"}; var = ;</script><script>var p = {qualityDetails:"good"};</script>`;
+      assert.deepEqual(catalog.memberStrings(page, "qualityDetails"), ["good"]);
     });
 
-    it("a regular expression with a quote in it is one literal; a division is not", () => {
-      assert.equal(codeOf('a = /"/.test(s); b = 6 / 2; c = "x";'), "a = S.test(s); b = 6 / 2; c = S;");
+    it("a data block is not JavaScript: application/json and ld+json are not parsed as code", () => {
+      for (const type of ["application/json", "application/ld+json", "text/template", "text/plain"]) {
+        assert.deepEqual(catalog.memberStrings(html('var o = {qualityDetails:"x"};', ` type="${type}"`), "qualityDetails"), [], type);
+      }
+      assert.deepEqual(catalog.memberStrings(html('var o = {qualityDetails:"x"};', ' type="text/javascript"'), "qualityDetails"), ["x"]);
+      assert.deepEqual(catalog.memberStrings(html('export const o = {qualityDetails:"y"};', ' type="module"'), "qualityDetails"), ["y"]);
+      assert.deepEqual(catalog.memberStrings(html('export const o = {qualityDetails:"z"};'), "qualityDetails"), [], "export is not a classic script");
     });
 
-    it("an unterminated string or comment cuts the reading there", () => {
-      assert.equal(codeOf('a = 1; /* b = "x"; c = 2;'), "a = 1;");
-      assert.equal(codeOf('a = 1; b = "x; c = 2;'), "a = 1; b =");
+    it("scriptElements gives each script's type and body, and skips scripts inside HTML comments", () => {
+      const page = `<script type="Module">a</script><!-- <script>b</script> --><SCRIPT class=x TYPE='application/json'>c</SCRIPT><script>d`;
+      assert.deepEqual(catalog.scriptElements(page), [
+        { type: "module", body: "a" },
+        { type: "application/json", body: "c" },
+        { type: "", body: "d" },
+      ]);
     });
   });
 
