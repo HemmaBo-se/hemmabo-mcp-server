@@ -50,8 +50,12 @@
  * scan of the HTML took text inside another attribute for the script's type
  * and took <scripture> for a script; and the syntax tree was searched whole,
  * so a complete record inside a function that is never called counted.
- * The lesson each time was the same: do not write a parser, and do not search
- * where a path can be followed.
+ * a339f1a: a later entry in an object literal (a spread, a computed key, a
+ * getter) could replace a member that had been read; a second assignment to
+ * the router was ignored.
+ * The lessons: do not write a parser; do not search where a path can be
+ * followed; and when anything on the page could change what the path says,
+ * the answer is unknown.
  */
 import { parse as parseScript } from "acorn";
 import { parse as parseHtml } from "parse5";
@@ -198,10 +202,12 @@ export function glamaBootstrapChunks(html) {
  * no entry is read because it merely exists in the array. A record the page's
  * server does not point to, a `version` under another member
  * (`archivedRelease`), another repository, or a broken link anywhere in the
- * chain, gives no version.
+ * chain, gives no version. So does a second page-data table on the page.
  */
 export function glamaServerVersions(html) {
-  const found = [];
+  // The chunks that are a page-data table: a JSON array whose root names `loaderData`.
+  // A stream may carry further chunks that are not tables; those are not page data.
+  const tables = [];
   for (const chunk of glamaBootstrapChunks(html)) {
     let table;
     try {
@@ -209,7 +215,15 @@ export function glamaServerVersions(html) {
     } catch {
       continue;
     }
-    if (!Array.isArray(table)) continue;
+    if (!Array.isArray(table) || !isRecord(table[0])) continue;
+    const namesLoaderData = Object.keys(table[0]).some((key) => /^_\d+$/.test(key) && table[Number(key.slice(1))] === "loaderData");
+    if (namesLoaderData) tables.push(table);
+  }
+  // One table. A second one, whatever it holds, means the first is no longer
+  // known to be what the page ends up with: unknown.
+  if (tables.length !== 1) return [];
+  const found = [];
+  for (const table of tables) {
     const at = (ref) => (Number.isInteger(ref) && ref >= 0 ? table[ref] : undefined);
     // The members of a serialized object as [name, value] pairs.
     const members = (object) =>
@@ -251,16 +265,98 @@ function assigned(node) {
 }
 
 /**
- * The value of the member named `name`, exactly, in an object literal: one
- * plain property (not computed, not shorthand, not a method, not a getter, not
- * a spread). Absent, or written twice: undefined.
+ * The value of the member named `name`, exactly, in an object literal.
+ *
+ * An object literal says what a member is only when nothing in it can
+ * replace that member unseen. So, in this order:
+ *  1. A spread (`...x`) or a computed key (`[k]: v`) anywhere in the object
+ *     makes every member of it uncertain: undefined.
+ *  2. Every entry that spells `name` is counted, whatever its form (a plain
+ *     property, a shorthand, a method, a getter, a setter). Not exactly one:
+ *     undefined. A later entry replaces an earlier one, so two are never read
+ *     as the first.
+ *  3. The one entry must be a plain property (`name: value`): otherwise
+ *     undefined.
  */
 function property(object, name) {
   if (object?.type !== "ObjectExpression") return undefined;
-  const hits = object.properties.filter(
-    (entry) => entry.type === "Property" && entry.kind === "init" && !entry.method && !entry.shorthand && writtenName(entry.key, entry.computed) === name,
-  );
-  return hits.length === 1 ? assigned(hits[0].value) : undefined;
+  if (object.properties.some((entry) => entry.type !== "Property" || entry.computed)) return undefined;
+  const hits = object.properties.filter((entry) => writtenName(entry.key, false) === name);
+  if (hits.length !== 1) return undefined;
+  const [entry] = hits;
+  if (entry.kind !== "init" || entry.method || entry.shorthand) return undefined;
+  return assigned(entry.value);
+}
+
+/** Every node of a syntax tree, depth first. */
+function* syntaxNodes(node) {
+  if (!node || typeof node !== "object") return;
+  if (Array.isArray(node)) {
+    for (const child of node) yield* syntaxNodes(child);
+    return;
+  }
+  if (typeof node.type === "string") yield node;
+  for (const [key, value] of Object.entries(node)) {
+    if (key === "type" || key === "start" || key === "end") continue;
+    if (value && typeof value === "object") yield* syntaxNodes(value);
+  }
+}
+
+/** `$_TSR` as the page's scripts name it: the bare name, or the name on another object (`self.$_TSR`). */
+const isRouterHolder = (node) =>
+  (node?.type === "Identifier" && node.name === "$_TSR") ||
+  (node?.type === "MemberExpression" && !node.computed && node.property?.type === "Identifier" && node.property.name === "$_TSR");
+
+/** A member access that is, or could be, the router: `$_TSR.router`, `$_TSR["router"]`, `$_TSR[anything]`. */
+const mentionsRouter = (node) =>
+  node?.type === "MemberExpression" &&
+  isRouterHolder(node.object) &&
+  (node.computed ? stringLiteral(node.property) === undefined || node.property.value === "router" : node.property?.type === "Identifier" && node.property.name === "router");
+
+/** The targets an assignment's left side writes to, through any destructuring. */
+function* assignmentTargets(pattern) {
+  if (!pattern) return;
+  if (pattern.type === "ObjectPattern") for (const entry of pattern.properties) yield* assignmentTargets(entry.type === "RestElement" ? entry.argument : entry.value);
+  else if (pattern.type === "ArrayPattern") for (const element of pattern.elements) yield* assignmentTargets(element);
+  else if (pattern.type === "AssignmentPattern") yield* assignmentTargets(pattern.left);
+  else if (pattern.type === "RestElement") yield* assignmentTargets(pattern.argument);
+  else yield pattern;
+}
+
+/**
+ * The one statement that starts mcp.so's router, when it is the only thing on
+ * the page that can decide what the router holds; otherwise undefined.
+ *
+ * The page names its router exactly once, as the target of that statement.
+ * Decided before anything is read from it:
+ *  - the page's scripts mention the router (`$_TSR.router`, also through
+ *    `self.$_TSR` or a computed key) exactly once, and that mention is the
+ *    left side of a top-level `$_TSR.router = …` statement. A second
+ *    mention, wherever it stands and whatever it does (a second assignment,
+ *    a write under the router, a write inside a function), is unknown;
+ *  - `$_TSR` itself is written only by top-level statements that come before
+ *    that statement (its definition). A write to it afterwards, or inside a
+ *    function, could replace the router: unknown.
+ */
+function routerBootstrap(programs) {
+  let mentions = 0;
+  let bootstrap;
+  const holderWrites = [];
+  programs.forEach((program, index) => {
+    const topLevel = new Set(topLevelExpressions(program));
+    for (const node of syntaxNodes(program)) {
+      if (mentionsRouter(node)) mentions += 1;
+      if (node.type !== "AssignmentExpression") continue;
+      if (topLevel.has(node) && node.operator === "=" && sameChain(node.left, ["$_TSR", "router"])) bootstrap = { index, node };
+      for (const target of assignmentTargets(node.left)) {
+        if (isRouterHolder(target)) holderWrites.push({ index, start: node.start, topLevel: topLevel.has(node) });
+      }
+    }
+  });
+  if (mentions !== 1 || bootstrap === undefined) return undefined;
+  const before = (write) => write.index < bootstrap.index || (write.index === bootstrap.index && write.start < bootstrap.node.start);
+  if (!holderWrites.every((write) => write.topLevel && before(write))) return undefined;
+  return bootstrap.node;
 }
 
 /**
@@ -272,28 +368,35 @@ function property(object, name) {
  * whose `slug` is hemmabo-mcp-server → `qualityDetails`, a string literal.
  * The same members anywhere else (a function that is declared and never
  * called, another statement, another server's record) are not on the path.
+ *
+ * Nothing is read when the path is not the only thing that can decide the
+ * value: when the page's scripts mention the router more than once, or write
+ * to `$_TSR` after the router is started or inside a function; when an
+ * object on the path holds a spread or a computed key, or spells a member
+ * twice in any form; when the list of matches holds a spread or a hole; when
+ * two records carry this listing's slug.
  */
 export function mcpsoQualityDetails(html) {
-  const out = [];
-  for (const program of scriptPrograms(html)) {
-    for (const expression of topLevelExpressions(program)) {
-      if (expression.type !== "AssignmentExpression" || expression.operator !== "=") continue;
-      if (!sameChain(expression.left, ["$_TSR", "router"])) continue;
-      const call = expression.right;
-      if (call?.type !== "CallExpression" || call.optional) continue;
-      const builder = call.callee;
-      if (builder?.type !== "ArrowFunctionExpression" || builder.async || !builder.expression) continue;
-      const matches = property(assigned(builder.body), "matches");
-      if (matches?.type !== "ArrayExpression") continue;
-      for (const element of matches.elements) {
-        const server = property(property(assigned(element), "l"), "server");
-        if (stringLiteral(property(server, "slug")) !== MCPSO_SLUG) continue;
-        const value = stringLiteral(property(server, "qualityDetails"));
-        if (value !== undefined) out.push(value);
-      }
-    }
+  // Decided before anything is read: is this the only thing that says what the router holds?
+  const expression = routerBootstrap(scriptPrograms(html));
+  if (expression === undefined) return [];
+  const call = expression.right;
+  if (call?.type !== "CallExpression" || call.optional) return [];
+  const builder = call.callee;
+  if (builder?.type !== "ArrowFunctionExpression" || builder.async || !builder.expression) return [];
+  const matches = property(assigned(builder.body), "matches");
+  if (matches?.type !== "ArrayExpression") return [];
+  // A hole or a spread in the list of matches hides what the list holds.
+  if (matches.elements.some((element) => element === null || element.type === "SpreadElement")) return [];
+  const records = [];
+  for (const element of matches.elements) {
+    const server = property(property(assigned(element), "l"), "server");
+    if (stringLiteral(property(server, "slug")) === MCPSO_SLUG) records.push(server);
   }
-  return out;
+  // One record for this listing. Two, also when only one of them is readable, is unknown.
+  if (records.length !== 1) return [];
+  const value = stringLiteral(property(records[0], "qualityDetails"));
+  return value === undefined ? [] : [value];
 }
 
 /**

@@ -35,6 +35,12 @@
 // inside a function that is never called counted as the listing's. The HTML is
 // now read by an established parser (parse5), and the data is read only where
 // the page starts itself up, by a named path from the top of the program.
+//
+// Sixth round, the reviewer at a339f1a: a later entry in the object literal
+// (a spread, a computed key, a getter) could replace a member that had been
+// read, because such entries were filtered out before duplicates were counted;
+// and a second assignment to the router was ignored. Now anything on the page
+// that could change what the path says makes the answer unknown.
 // The counterexamples below are synthetic edits of the fixtures.
 
 import { describe, it } from "node:test";
@@ -298,13 +304,28 @@ describe("release chain: a catalog page is not at the version unless it says so"
       assert.equal(r.version, "stale");
     });
 
-    it("two records for this repository with different versions are unknown, even when one is the wanted one", () => {
+    it("a second page-data table on the page is unknown, whatever it holds", () => {
       const script = GLAMA.slice(GLAMA.indexOf("<script"), GLAMA.indexOf("</script>") + "</script>".length);
-      const text = GLAMA.replace("</body>", `${at714(script)}</body>`);
-      assert.deepEqual(catalog.glamaServerVersions(text), ["7.0.12", "7.0.14"]);
-      const r = catalog.checkGlamaServer(page(text), ctx("7.0.14"));
-      assert.equal(r.ok, "unknown");
-      assert.match(r.detail, /version unclear, the page states 7\.0\.12 and 7\.0\.14/);
+      const withSecond = (second: string) => at714(GLAMA).replace("</body>", `${second}</body>`);
+      for (const [what, second] of [
+        ["the same table again", at714(script)],
+        ["a table with an older version", script],
+        ["a table for another server", swap(at714(script), '\\"slug\\",\\"hemmabo-mcp-server\\"', '\\"slug\\",\\"another-mcp-server\\"')],
+        ["a table with no server at all", '<script>window.__reactRouterContext.streamController.enqueue("[{\\"_1\\":2},\\"loaderData\\",{}]");</script>'],
+        ["a second table in the same script", script.replace("</script>", script.slice(script.indexOf(">") + 1))],
+      ] as const) {
+        const text = withSecond(second);
+        assert.deepEqual(catalog.glamaServerVersions(text), [], what);
+        assertNotGreen(catalog.checkGlamaServer(page(text), ctx("7.0.14")), "unknown");
+      }
+    });
+
+    it("a further stream chunk that is not a page-data table does not disturb the reading", () => {
+      for (const chunk of ['"P5:[\\"late\\"]\\n"', '"[1,2,3]"', '"not json"', '"[{\\"_1\\":2},\\"other\\",{}]"']) {
+        const text = at714(GLAMA).replace("</body>", `<script>window.__reactRouterContext.streamController.enqueue(${chunk});</script></body>`);
+        assert.deepEqual(catalog.glamaServerVersions(text), ["7.0.14"], chunk);
+        assert.equal(catalog.checkGlamaServer(page(text), ctx("7.0.14")).ok, true);
+      }
     });
 
     it("page data that cannot be decoded is unknown", () => {
@@ -426,18 +447,123 @@ describe("release chain: a catalog page is not at the version unless it says so"
       const unreadable = swap(current, 'qualityDetails:"{', 'qualityDetails:"not json {');
       const archive = `function archivedListing() { ${swap(current, "7.0.12", "7.0.14")} }`;
       const text = `${MCPSO.slice(0, open)}${unreadable};\n${archive}${MCPSO.slice(close)}`;
-      assert.equal(catalog.mcpsoQualityDetails(text).length, 1, "only the page's own record is on the path");
+      assert.deepEqual(catalog.mcpsoQualityDetails(text), []);
       assertNotGreen(catalog.checkMcpso(page(text), ctx("7.0.14")), "unknown");
     });
 
-    it("a stale current record stays stale next to a 7.0.14 record in a function that is never called", () => {
+    it("a second write to the router anywhere on the page is unknown, whatever it holds", () => {
+      // The reviewer's finding at a339f1a: a second assignment was ignored and the row stayed green.
       const open = MCPSO.indexOf(">", MCPSO.indexOf("<script")) + 1;
       const close = MCPSO.indexOf("</script>");
-      const current = MCPSO.slice(open, close);
-      const text = `${MCPSO.slice(0, open)}${current};\nfunction archivedListing() { ${swap(current, "7.0.12", "7.0.14")} }${MCPSO.slice(close)}`;
-      const r = catalog.checkMcpso(page(text), ctx("7.0.14"));
-      assert.equal(r.ok, false);
-      assert.equal(r.version, "stale");
+      const current = at714(MCPSO).slice(open, close);
+      for (const [what, second] of [
+        ["an empty router", "$_TSR.router = {};"],
+        ["the same router again", `${current};`],
+        ["a router with an unreadable record", `${swap(current, 'qualityDetails:"{', 'qualityDetails:"not json {')};`],
+        ["a router for another listing", `${swap(current, 'slug:"hemmabo-mcp-server"', 'slug:"another-mcp-server"')};`],
+        ["a router with an older version", `${swap(current, "7.0.14", "7.0.12")};`],
+        ["a write inside a function", `function later(){ ${current}; }`],
+        ["a write under the router", "$_TSR.router.matches = [];"],
+        ["a write deep under the router", "$_TSR.router.matches[1].l.server = {};"],
+        ["a compound write", "$_TSR.router ||= {};"],
+        ["a write in a condition", "if (window.x) $_TSR.router = null;"],
+        ["a write as a default value", "function f(a = ($_TSR.router = {})) {}"],
+      ] as const) {
+        const sameScript = `${at714(MCPSO).slice(0, close)};\n${second}${at714(MCPSO).slice(close)}`;
+        const otherScript = at714(MCPSO).replace("</body>", `<script>${second}</script></body>`);
+        const before = at714(MCPSO).replace("<script", `<script>${second}</script><script`);
+        for (const text of [sameScript, otherScript, before]) {
+          assert.deepEqual(catalog.mcpsoQualityDetails(text), [], what);
+          assertNotGreen(catalog.checkMcpso(page(text), ctx("7.0.14")), "unknown");
+        }
+      }
+    });
+
+    it("a write to $_TSR itself is its definition only as a top-level statement before the router is started", () => {
+      const close = MCPSO.indexOf("</script>");
+      const after = (second: string) => [
+        `${at714(MCPSO).slice(0, close)};\n${second}${at714(MCPSO).slice(close)}`,
+        at714(MCPSO).replace("</body>", `<script>${second}</script></body>`),
+      ];
+      const before = (first: string) => at714(MCPSO).replace("<script", `<script>${first}</script><script`);
+      for (const write of ["$_TSR = {};", "self.$_TSR = {};", "window.$_TSR = {router: {}};", "[$_TSR] = [{}];", "({a: self.$_TSR} = {a: {}});"]) {
+        for (const text of after(write)) {
+          assert.deepEqual(catalog.mcpsoQualityDetails(text), [], write);
+          assertNotGreen(catalog.checkMcpso(page(text), ctx("7.0.14")), "unknown");
+        }
+      }
+      // As the real page does: `self.$_TSR = {…}` first, then the router.
+      for (const definition of ["self.$_TSR = {h(){}, e(){}};", "$_TSR = {};"]) {
+        const r = catalog.checkMcpso(page(before(definition)), ctx("7.0.14"));
+        assert.equal(r.ok, true, definition);
+      }
+      // A write that is not a top-level statement can run at any time: unknown, wherever it stands.
+      for (const hidden of ["function reset(){ self.$_TSR = {}; }", "if (window.x) $_TSR = {};", "var f = () => ($_TSR = {});"]) {
+        assertNotGreen(catalog.checkMcpso(page(before(hidden)), ctx("7.0.14")), "unknown");
+      }
+    });
+
+    it("the router named through another form is still a second mention: unknown", () => {
+      const close = MCPSO.indexOf("</script>");
+      for (const mention of ['$_TSR["router"] = {};', "self.$_TSR.router = {};", "$_TSR[key] = {};", "var r = $_TSR.router;", "use($_TSR.router);", "delete $_TSR.router;", "[$_TSR.router] = [{}];"]) {
+        const text = `${at714(MCPSO).slice(0, close)};\n${mention}${at714(MCPSO).slice(close)}`;
+        assert.deepEqual(catalog.mcpsoQualityDetails(text), [], mention);
+        assertNotGreen(catalog.checkMcpso(page(text), ctx("7.0.14")), "unknown");
+      }
+    });
+
+    it("an entry that could replace a member on the path makes it unknown: spread, computed key, getter, setter, method, shorthand", () => {
+      // The reviewer's finding at a339f1a: a later entry replaced the value and the row stayed green.
+      const member = MCPSO.slice(MCPSO.indexOf("qualityDetails:"), MCPSO.indexOf(",sortOrder:0"));
+      const OLD = member.slice("qualityDetails:".length);
+      assert.ok(OLD.startsWith('"{') && OLD.includes("7.0.12"));
+      for (const [what, extra] of [
+        ["a spread after", `...{qualityDetails:${OLD}}`],
+        ["a computed key after", `["qualityDetails"]:${OLD}`],
+        ["a getter after", `get qualityDetails(){return ${OLD};}`],
+        ["a setter after", "set qualityDetails(v){}"],
+        ["a method after", `qualityDetails(){return ${OLD};}`],
+        ["a plain duplicate after", `qualityDetails:${OLD}`],
+        ["a quoted duplicate after", `"qualityDetails":${OLD}`],
+        ["a spread of an unknown object", "...extra"],
+        ["a computed key of an unknown name", "[key]:1"],
+        ["a spread that could replace the slug", '...{slug:"other-server"}'],
+        ["a computed slug", '["slug"]:"other-server"'],
+        ["a getter for the slug", 'get slug(){return "other-server";}'],
+      ] as const) {
+        const after = swap(at714(MCPSO), ",sortOrder:0", `,${extra},sortOrder:0`);
+        const first = swap(at714(MCPSO), "{id:", `{${extra},id:`);
+        for (const text of [after, first]) {
+          assert.deepEqual(catalog.mcpsoQualityDetails(text), [], what);
+          assertNotGreen(catalog.checkMcpso(page(text), ctx("7.0.14")), "unknown");
+        }
+      }
+    });
+
+    it("the same uncertainty higher up the path is unknown too: in the router, a match, the loader data, the list of matches", () => {
+      for (const [from, to] of [
+        ["{matches:", "{...base,matches:"],
+        ["{matches:", "{[name]:1,matches:"],
+        ["{matches:", "{get matches(){return [];},matches:"],
+        ["{l:", "{...base,l:"],
+        ["{l:", "{l:{},l:"],
+        ["{server:", "{...base,server:"],
+        ["{server:", "{server:{},server:"],
+        ["=[$R[24]=", "=[...more,$R[24]="],
+        ["=[$R[24]=", "=[,$R[24]="],
+      ] as const) {
+        assertNotGreen(catalog.checkMcpso(page(swap(at714(MCPSO), from, to)), ctx("7.0.14")), "unknown");
+      }
+    });
+
+    it("two records for this listing in the router are unknown, also when only one is readable", () => {
+      const server = MCPSO.slice(MCPSO.indexOf("{id:"), MCPSO.indexOf("}}}]})"));
+      assert.ok(server.endsWith("sortOrder:0"));
+      for (const second of [`${server}}`, `${swap(server, 'qualityDetails:"{', 'qualityDetails:"not json {')}}`, '{slug:"hemmabo-mcp-server"}']) {
+        const text = swap(at714(MCPSO), "}}}]})", `}}},{l:{server:${second}}}]})`);
+        assert.deepEqual(catalog.mcpsoQualityDetails(text), []);
+        assertNotGreen(catalog.checkMcpso(page(text), ctx("7.0.14")), "unknown");
+      }
     });
 
     it("the record of another listing in the same router data (another slug) is not this server's: unknown", () => {
