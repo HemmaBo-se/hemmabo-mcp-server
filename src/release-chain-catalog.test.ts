@@ -13,8 +13,16 @@
 // `archivedRelease`, a `previous_serverVersion`, another server's probe or a
 // fragment in an HTML comment was read as this server's version and could turn
 // the row green. The version now counts only when it is bound to this
-// server's own record; everything else is unknown. The counterexamples below
-// are synthetic edits of the fixtures.
+// server's own record; everything else is unknown.
+//
+// Third round, the reviewer at fdb3f86: any record in Glama's array counted,
+// whether or not the page's own server pointed to it (`repository` renamed to
+// `archivedRepository` was still green); `previous_qualityDetails:` matched
+// the prefix `qualityDetails:`; and a script body wrapped in a JavaScript
+// comment was still read. The Glama version is now followed from the page
+// data's root through the page's own mcpServer, and the outer reading
+// separates script code from comments and from the contents of strings.
+// The counterexamples below are synthetic edits of the fixtures.
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
@@ -33,6 +41,9 @@ type Catalog = {
   mcpsoVersions(html: string): string[];
   mcpsoProbes(html: string): { version: string; checkedAt: string | null }[];
   scriptBodies(html: string): string[];
+  maskScript(body: string): { code: string; strings: string[] };
+  enqueuedChunks(html: string): string[];
+  memberStrings(html: string, name: string): string[];
   versionVerdict(found: string[], wanted: string): { state: string; detail: string };
   visible(html: string): string;
   missing(text: string, names: string[]): string[];
@@ -78,6 +89,25 @@ function scriptInComment(text: string): string {
   assert.ok(open !== -1 && close > open);
   return `${text.slice(0, open)}<!-- ${text.slice(open, close)} -->${text.slice(close)}`;
 }
+/** The page with the body of its one <script> element rewritten by `wrap`. */
+function scriptBodyAs(text: string, wrap: (body: string) => string): string {
+  const open = text.indexOf(">", text.indexOf("<script")) + 1;
+  const close = text.indexOf("</script>");
+  assert.ok(open > 0 && close > open);
+  const body = text.slice(open, close);
+  assert.equal(body.includes("\n"), false, "the fixture's script body is one line");
+  assert.equal(body.includes("'") || body.includes("`") || body.includes("*/"), false, "the wrappers below must not be closed by the body");
+  return text.slice(0, open) + wrap(body) + text.slice(close);
+}
+/** Every way the same script text can sit on the page without being data in its code. */
+const NOT_CODE: [string, (body: string) => string][] = [
+  ["a JavaScript block comment", (body) => `/* ${body} */`],
+  ["a JavaScript line comment", (body) => `// ${body}`],
+  ["a block comment after real code", (body) => `var a = 1; /* ${body} */ var b = 2;`],
+  ["a single-quoted string", (body) => `var s = '${body}';`],
+  ["a template literal", (body) => `var s = \`${body}\`;`],
+  ["a legacy <!-- line comment", (body) => `<!-- ${body}`],
+];
 const page = (text: string, status = 200): Page => ({ status, text });
 
 /** Never ✅: not at the version, whatever else the page says. */
@@ -131,6 +161,58 @@ describe("release chain: a catalog page is not at the version unless it says so"
       assertNotGreen(catalog.checkGlamaServer(page(swap(at714(GLAMA), '\\"latestRelease\\"', '\\"latestReleaseCandidate\\"')), ctx("7.0.14")), "unknown");
       assertNotGreen(catalog.checkGlamaServer(page(swap(at714(GLAMA), '\\"version\\"', '\\"versionLabel\\"')), ctx("7.0.14")), "unknown");
     });
+
+    it("a record the page's server does not point to is not the page's release: unknown", () => {
+      // The reviewer's counterexample at fdb3f86: the record is still in the array, with 7.0.14.
+      const text = swap(at714(GLAMA), '\\"repository\\"', '\\"archivedRepository\\"');
+      assert.deepEqual(catalog.glamaServerVersions(text), []);
+      assertNotGreen(catalog.checkGlamaServer(page(text), ctx("7.0.14")), "unknown");
+    });
+
+    it("a broken link anywhere in the chain from the root gives no version: unknown", () => {
+      for (const [from, to] of [
+        ['\\"loaderData\\"', '\\"staleLoaderData\\"'],
+        ['\\"mcpServer\\"', '\\"previousMcpServer\\"'],
+        ['\\"githubRepository\\"', '\\"formerGithubRepository\\"'],
+        ['[{\\"_1\\":2}', '[{\\"_1\\":-5}'],
+        ['{\\"_7\\":8,\\"_9\\":10}', '{\\"_7\\":8,\\"_9\\":999}'],
+      ]) {
+        assertNotGreen(catalog.checkGlamaServer(page(swap(at714(GLAMA), from, to)), ctx("7.0.14")), "unknown");
+      }
+    });
+
+    it("the release of another server's page data (another slug) is not this server's: unknown", () => {
+      const text = swap(at714(GLAMA), '\\"slug\\",\\"hemmabo-mcp-server\\"', '\\"slug\\",\\"another-mcp-server\\"');
+      assertNotGreen(catalog.checkGlamaServer(page(text), ctx("7.0.14")), "unknown");
+    });
+
+    it("an entry appended to the array, bound to nothing, does not count", () => {
+      // A complete repository record with 7.0.14 that nothing points to, next to the bound 7.0.12.
+      const extra = ',{\\"_13\\":26,\\"_17\\":18},{\\"_15\\":27},\\"7.0.14\\"]"';
+      const text = swap(GLAMA, ']");</script>', `${extra.slice(0, -2)}]");</script>`);
+      assert.deepEqual(catalog.glamaServerVersions(text), ["7.0.12"]);
+      const r = catalog.checkGlamaServer(page(text), ctx("7.0.14"));
+      assert.equal(r.ok, false);
+      assert.equal(r.version, "stale");
+    });
+
+    it("a call that is not streamController.enqueue is not the page data: unknown", () => {
+      for (const [from, to] of [
+        ["streamController.enqueue(", "streamController.enqueueLater("],
+        ["streamController.enqueue(", "previousStreamController.enqueue("],
+        ["streamController.enqueue(", "streamController.archive.enqueue("],
+      ]) {
+        assertNotGreen(catalog.checkGlamaServer(page(swap(at714(GLAMA), from, to)), ctx("7.0.14")), "unknown");
+      }
+    });
+
+    for (const [where, wrap] of NOT_CODE) {
+      it(`page data inside ${where} is not read: unknown`, () => {
+        const text = scriptBodyAs(at714(GLAMA), wrap);
+        assert.deepEqual(catalog.enqueuedChunks(text), []);
+        assertNotGreen(catalog.checkGlamaServer(page(text), ctx("7.0.14")), "unknown");
+      });
+    }
 
     it("page data that sits only in an HTML comment is not read: unknown", () => {
       const text = scriptInComment(at714(GLAMA));
@@ -239,6 +321,23 @@ describe("release chain: a catalog page is not at the version unless it says so"
       assertNotGreen(catalog.checkMcpso(page(swap(at714(MCPSO), '\\"probe\\"', '\\"previousProbe\\"')), ctx("7.0.14")), "unknown");
     });
 
+    it("previous_qualityDetails is not qualityDetails, nor is any other name that ends the same: unknown", () => {
+      // The reviewer's counterexample at fdb3f86, and its neighbours.
+      for (const name of ["previous_qualityDetails:", "previousqualityDetails:", "$qualityDetails:", "old.qualityDetails:", "qualityDetails2:", "qualityDetailsOld:"]) {
+        const text = swap(at714(MCPSO), "qualityDetails:", name);
+        assert.deepEqual(catalog.mcpsoVersions(text), [], name);
+        assertNotGreen(catalog.checkMcpso(page(text), ctx("7.0.14")), "unknown");
+      }
+    });
+
+    for (const [where, wrap] of NOT_CODE) {
+      it(`script data inside ${where} is not read: unknown`, () => {
+        const text = scriptBodyAs(at714(MCPSO), wrap);
+        assert.deepEqual(catalog.memberStrings(text, "qualityDetails"), []);
+        assertNotGreen(catalog.checkMcpso(page(text), ctx("7.0.14")), "unknown");
+      });
+    }
+
     it("script data that sits only in an HTML comment is not read: unknown", () => {
       assertNotGreen(catalog.checkMcpso(page(scriptInComment(at714(MCPSO))), ctx("7.0.14")), "unknown");
     });
@@ -280,6 +379,33 @@ describe("release chain: a catalog page is not at the version unless it says so"
       assert.equal(r.ok, "unknown");
       assert.equal(r.tools, true);
       assert.equal(r.version, "unknown");
+    });
+  });
+
+  describe("maskScript: script code apart from comments and strings", () => {
+    const codeOf = (body: string) => catalog.maskScript(body).code.replace(/\u0001\d+\u0001/g, "S").replace(/\s+/g, " ").trim();
+
+    it("drops comments and replaces every literal by a marker", () => {
+      assert.equal(codeOf('a = "x"; // b = "y"\nc = 1; /* d = "z" */ e = \'w\';'), "a = S; c = 1; e = S;");
+      assert.deepEqual(catalog.maskScript('a = "x"; /* "y" */ b = `t ${1}`;').strings, ['"x"', "`t ${1}`"]);
+    });
+
+    it("comment markers inside a string are part of the string, and quotes inside a comment are part of the comment", () => {
+      assert.equal(codeOf('a = "/* not a comment */"; b = "// neither"; c = 2;'), "a = S; b = S; c = 2;");
+      assert.equal(codeOf("a = 1; /* it's \"quoted\" */ b = 2;"), "a = 1; b = 2;");
+    });
+
+    it("an escaped quote does not end a string", () => {
+      assert.deepEqual(catalog.maskScript('a = "x\\"y"; b = 1;').strings, ['"x\\"y"']);
+    });
+
+    it("a regular expression with a quote in it is one literal; a division is not", () => {
+      assert.equal(codeOf('a = /"/.test(s); b = 6 / 2; c = "x";'), "a = S.test(s); b = 6 / 2; c = S;");
+    });
+
+    it("an unterminated string or comment cuts the reading there", () => {
+      assert.equal(codeOf('a = 1; /* b = "x"; c = 2;'), "a = 1;");
+      assert.equal(codeOf('a = 1; b = "x; c = 2;'), "a = 1; b =");
     });
   });
 

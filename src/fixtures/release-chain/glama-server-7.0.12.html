@@ -1,9 +1,10 @@
 <!doctype html>
 <!-- Excerpt of https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server, fetched 2026-11-10T08:22:53Z (HTTP 200).
-     Kept: the headings that bound the tool list and the six tool names in the page's order; and, from the
-     page's serialized data (one flat JSON array in streamController.enqueue), the repository record with
-     latestRelease.version and githubRepository.fullName, name and defaultBranch: the same members and values,
-     in the page's own serialization, re-indexed because the rest of the 1 884-entry array is dropped.
+     Kept: the headings that bound the tool list and the six tool names in the order of the page; and, from the
+     page data (one flat JSON array in streamController.enqueue), the chain that binds the release to the page:
+     root, loaderData, the index route, mcpServer with its slug, repository with inspectable, latestRelease and its
+     version, and githubRepository with defaultBranch, fullName and name. The same member names and values, in the
+     serialization of the page, re-indexed because the rest of the 1 884-entry array is dropped.
      Test data for src/release-chain-catalog.test.ts. -->
 <html><body>
 <h2>Available Tools</h2><p>6 tools</p>
@@ -16,5 +17,5 @@
 <li><span>vrp_verify_node</span></li>
 </ul>
 <h2>Tool Schema Changelog</h2>
-<script>window.__reactRouterContext.streamController.enqueue("[{\"_1\":2},\"repository\",{\"_15\":16,\"_3\":4,\"_7\":8},\"latestRelease\",{\"_5\":6},\"version\",\"7.0.12\",\"githubRepository\",{\"_13\":14,\"_9\":10,\"_11\":12},\"fullName\",\"HemmaBo-se/hemmabo-mcp-server\",\"name\",\"hemmabo-mcp-server\",\"defaultBranch\",\"main\",\"inspectable\",true]");</script>
+<script>window.__reactRouterContext.streamController.enqueue("[{\"_1\":2},\"loaderData\",{\"_3\":4},\"routes/_public/mcp/servers/~namespace/~slug/_pages/_index/_route\",{\"_5\":6},\"mcpServer\",{\"_7\":8,\"_9\":10},\"slug\",\"hemmabo-mcp-server\",\"repository\",{\"_11\":12,\"_13\":14,\"_17\":18},\"inspectable\",true,\"latestRelease\",{\"_15\":16},\"version\",\"7.0.12\",\"githubRepository\",{\"_19\":20,\"_21\":22,\"_23\":24},\"defaultBranch\",\"main\",\"fullName\",\"HemmaBo-se/hemmabo-mcp-server\",\"name\",\"hemmabo-mcp-server\"]");</script>
 </body></html>
