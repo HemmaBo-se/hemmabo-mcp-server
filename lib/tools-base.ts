@@ -26,7 +26,12 @@ import {
   type CalendarFreshnessResult,
 } from "./ical-freshness.js";
 import { normalizeCountryToIso } from "./geo-directional-core.js";
-import { meetsAmenityRequirements, parseAmenityRequirements, requiredAmenityFacts } from "./amenity-requirements.js";
+import {
+  canonicalAmenityClaimKey,
+  meetsAmenityConditions,
+  parseAmenityRequirements,
+  requiredAmenityFacts,
+} from "./amenity-requirements.js";
 import { resolveDirectionalTarget, propertyResolvesToRegion } from "./geo-directional-query.js";
 
 export interface ToolClients {
@@ -351,9 +356,23 @@ async function readPropertyClaims(
       entry = { affirmed: new Set<string>(), negated: new Set<string>(), known: new Set<string>() };
       byId.set(pid, entry);
     }
-    entry.known.add(key);
-    if (r.state === "affirmed") entry.affirmed.add(key);
-    if (r.state === "negated") entry.negated.add(key);
+    // Canonical key (bbq → grill), as the web core and the offer view read
+    // it, so a requirement and a claim always meet under one name.
+    const canonical = canonicalAmenityClaimKey(key);
+    entry.known.add(canonical);
+    if (r.state === "affirmed") entry.affirmed.add(canonical);
+    if (r.state === "negated") entry.negated.add(canonical);
+  }
+  // A key the node states both ways (an alias row and its canonical row
+  // disagree) is neither a yes nor a no: unknown. It stays in `known`, so
+  // the stale boolean mirror is not consulted for it either.
+  for (const entry of byId.values()) {
+    for (const k of Array.from(entry.affirmed)) {
+      if (entry.negated.has(k)) {
+        entry.affirmed.delete(k);
+        entry.negated.delete(k);
+      }
+    }
   }
   return { byId, failed: false };
 }
@@ -798,6 +817,14 @@ export async function executeTool(
       const amenityParse = parseAmenityRequirements(args.amenities);
       if (!amenityParse.ok) return toolError(amenityParse.error);
       const requiredAmenities = amenityParse.required;
+      const excludedParse = parseAmenityRequirements(args.excludedAmenities);
+      if (!excludedParse.ok) return toolError(excludedParse.error.replace(/^amenities/, "excludedAmenities"));
+      const excludedAmenities = excludedParse.required;
+      const contradictory = requiredAmenities.filter((k) => excludedAmenities.includes(k));
+      if (contradictory.length > 0) {
+        return toolError(`An amenity cannot be both required and excluded: ${contradictory.join(", ")}.`);
+      }
+      const conditionKeys = [...requiredAmenities, ...excludedAmenities].sort();
       const dateErr = validateDates(checkIn, checkOut);
       if (dateErr) return { content: [{ type: "text", text: JSON.stringify({ error: dateErr }) }], isError: true };
       const orderErr = validateDateOrder(checkIn, checkOut);
@@ -827,19 +854,19 @@ export async function executeTool(
       // search instead of guessing in either direction.
       let claimsById: Map<string, PropertyClaims> | undefined;
       let matchedProperties = locationMatches;
-      if (requiredAmenities.length > 0) {
+      if (conditionKeys.length > 0) {
         const read = await readPropertyClaims(supabase, locationMatches.map((p) => p.id));
         if (read.failed) {
           return toolError("The host-declared amenities cannot be read right now, so the required amenities cannot be checked. Try again shortly.");
         }
         claimsById = read.byId;
         matchedProperties = locationMatches.filter((p) =>
-          meetsAmenityRequirements(claimsById!.get(p.id), requiredAmenities),
+          meetsAmenityConditions(claimsById!.get(p.id), requiredAmenities, excludedAmenities),
         );
       }
       const amenityFactsOf = (propertyId: string) =>
-        requiredAmenities.length > 0
-          ? { amenityFacts: requiredAmenityFacts(claimsById?.get(propertyId), requiredAmenities) }
+        conditionKeys.length > 0
+          ? { amenityFacts: requiredAmenityFacts(claimsById?.get(propertyId), conditionKeys) }
           : {};
       // Discovery signals: one prefetch for all matched properties (service-role — the flags
       // are public, shown on the property page, so they must reach anonymous agent calls too).
@@ -972,11 +999,12 @@ export async function executeTool(
             checkIn,
             checkOut,
             guests,
-            ...(requiredAmenities.length > 0
+            ...(conditionKeys.length > 0
               ? {
                   amenities: requiredAmenities,
+                  ...(excludedAmenities.length > 0 ? { excludedAmenities } : {}),
                   amenityRequirement: {
-                    rule: "A property matches only when the host has declared every required amenity (affirmed). A host's no and an unanswered amenity are not a match.",
+                    rule: "A property matches only when the host has declared every required amenity (affirmed) and has declared every excluded amenity absent (negated). An unanswered amenity matches neither: it is not a confirmed yes and not a confirmed no.",
                     nodesWithoutConfirmedAmenities: locationMatches.length - matchedProperties.length,
                   },
                 }
@@ -991,8 +1019,8 @@ export async function executeTool(
                   ? "Requested dates are unavailable. Offer the alternativeDates for the matched property instead of ending the conversation."
                   : matchedProperties.length > 0
                     ? "Matching properties were found, but the requested dates are unavailable and the host node offered no next available window. Ask whether the guest can change month or guest count."
-                    : requiredAmenities.length > 0 && locationMatches.length > 0
-                      ? "No property in this location and capacity has a host-declared yes for every required amenity. Say so plainly; do not suggest a property that lacks it. Ask whether the guest can drop a requirement or widen the destination."
+                    : conditionKeys.length > 0 && locationMatches.length > 0
+                      ? "No property in this location and capacity has a host-declared yes for every required amenity (and a host-declared no for every excluded one). Say so plainly; do not suggest a property that lacks it. Ask whether the guest can drop a requirement or widen the destination."
                       : "No published property matched the location and capacity. Ask for a broader destination or fewer guests.",
             signalsGuidance: "Each property's `signals` are host-declared, language-independent discovery flags (amenities / policies / suitability / setting, plus bestForOccasions / targetAudience) for matching requests like dog-friendly, hot tub, crib, or hen party. They are canonical keys — ALWAYS render them as translated human labels in the user's language and NEVER show the raw keys, parenthesized identifiers, or internal field names to the user. `policies_negated` and `amenities_negated` list the host's EXPLICIT NOs (e.g. pets_cats there means cats are not allowed, hot_tub in amenities_negated means there is no hot tub) — relay those as a clear, friendly no. When the search carried required `amenities`, each property's `amenityFacts` gives the host's state for exactly those: affirmed = yes, negated = no, unknown = not answered. For anything absent from both lists the answer is UNKNOWN, not 'no': say something like 'There is no verified information about that — if it matters to you, ask the host before booking', never machine-speak like 'not flagged in the data'. Treat flags as match signals, not verified guarantees: the signed verified-stay-offer and the property's own page are authoritative. Never describe internal data-layer differences (e.g. signals vs the signed offer's amenity list) to the guest. Tone: warm and plain — say the stay 'matches your wishes', never call it a 'perfect match', and never mention commissions, fee percentages, or 'no hidden fees'; simply say booking and payment are made directly with the host.",
           }, null, 2),

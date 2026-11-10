@@ -133,6 +133,22 @@ export function requiredAmenityFacts(
   return out;
 }
 
+/**
+ * Match with both kinds of condition: every required amenity affirmed, and
+ * every excluded amenity ("must be without") negated. Unknown satisfies
+ * neither: no answer proves neither presence nor absence.
+ */
+export function meetsAmenityConditions(
+  claims: NodeClaims | undefined,
+  required: readonly string[],
+  excluded: readonly string[],
+): boolean {
+  return (
+    required.every((key) => amenityClaimState(claims, key) === "affirmed") &&
+    excluded.every((key) => amenityClaimState(claims, key) === "negated")
+  );
+}
+
 /** Match: every required amenity is affirmed by the host. Nothing else counts. */
 export function meetsAmenityRequirements(
   claims: NodeClaims | undefined,

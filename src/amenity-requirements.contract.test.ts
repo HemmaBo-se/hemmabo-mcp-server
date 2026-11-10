@@ -275,6 +275,60 @@ describe("required amenities in hemmabo_search_properties", () => {
   });
 });
 
+describe("claim rows are read under their canonical key (review of becbbfe)", () => {
+  it("an alias row meets the canonical requirement: bbq affirmed matches grill", async () => {
+    fixture.claims.push({ property_id: LAKEVIEW.id, claim_key: "bbq", state: "affirmed" });
+    for (const amenities of [["grill"], ["bbq"]]) {
+      const { json } = await search({ amenities });
+      assert.deepEqual(names(json.unavailableMatches), ["Lakeview Home"], JSON.stringify(amenities));
+      assert.deepEqual(json.unavailableMatches[0].amenityFacts, { grill: "affirmed" });
+    }
+  });
+
+  it("an alias and its canonical key that disagree are unknown, in either order: no match", async () => {
+    for (const rows of [
+      [["grill", "affirmed"], ["bbq", "negated"]],
+      [["bbq", "negated"], ["grill", "affirmed"]],
+      [["bbq", "affirmed"], ["grill", "negated"]],
+    ]) {
+      fixture = productionFixture();
+      for (const [claim_key, state] of rows) fixture.claims.push({ property_id: VILLA.id, claim_key, state });
+      const { json } = await search({ amenities: ["grill"] });
+      assert.deepEqual(json.unavailableMatches, [], JSON.stringify(rows));
+      const without = await search({ excludedAmenities: ["grill"] });
+      assert.deepEqual(without.json.unavailableMatches, [], JSON.stringify(rows));
+    }
+  });
+});
+
+describe("must be without: only a host-declared no matches", () => {
+  it("without a hot tub returns Lakeview only; the villa has one", async () => {
+    const { json } = await search({ excludedAmenities: ["hot_tub"] });
+    assert.deepEqual(names(json.unavailableMatches), ["Lakeview Home"]);
+    assert.deepEqual(json.unavailableMatches[0].amenityFacts, { hot_tub: "negated" });
+    assert.deepEqual(json.excludedAmenities, ["hot_tub"]);
+    assert.deepEqual(nodeCalls, [LAKEVIEW.domain]);
+  });
+
+  it("unknown does not prove absence: a node that never answered is not a match", async () => {
+    const { json } = await search({ excludedAmenities: ["pool"] });
+    assert.deepEqual(json.unavailableMatches, []);
+  });
+
+  it("combines with a requirement, and refuses a contradiction", async () => {
+    const both = await search({ amenities: ["wifi"], excludedAmenities: ["sauna"] });
+    assert.deepEqual(names(both.json.unavailableMatches), ["Lakeview Home", "Villa Åkerlyckan"]);
+    const clash = await search({ amenities: ["hot_tub"], excludedAmenities: ["jacuzzi"] });
+    assert.equal(clash.isError, true);
+  });
+
+  it("a failed claims read is an error here too", async () => {
+    fixture.claimsError = true;
+    const { isError } = await search({ excludedAmenities: ["hot_tub"] });
+    assert.equal(isError, true);
+  });
+});
+
 describe("the requirement helpers", () => {
   it("normalize to one canonical claim key", () => {
     assert.equal(normalizeAmenityRequirement("hot_tub"), "hot_tub");

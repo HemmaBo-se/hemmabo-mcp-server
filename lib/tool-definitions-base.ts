@@ -191,7 +191,14 @@ const AMENITIES = {
   type: "array" as const,
   items: { type: "string" as const },
   description:
-    "Optional. Amenities the guest REQUIRES, as canonical names, e.g. ['hot_tub'] for 'with a hot tub' / 'med spabad', ['sauna'], ['pool'], ['wifi'], ['fireplace'], ['ev_charging']. A property matches only when its host has declared every one of them (affirmed); a host's no or an unanswered amenity is not a match. Put an amenity here only when the guest wants it — 'without a hot tub' / 'utan spabad' is NOT a hot-tub requirement, so leave hot_tub out. Omit for no amenity requirement.",
+    "Optional. Amenities the guest REQUIRES, as canonical names, e.g. ['hot_tub'] for 'with a hot tub' / 'med spabad', ['sauna'], ['pool'], ['wifi'], ['fireplace'], ['ev_charging']. A property matches only when its host has declared every one of them (affirmed); a host's no or an unanswered amenity is not a match. Put an amenity here only when the guest wants it — 'without a hot tub' / 'utan spabad' is NOT a hot-tub requirement (see excludedAmenities), and 'sauna or pool' is not a requirement for both: ask which. Omit for no amenity requirement.",
+} satisfies JsonSchemaField;
+
+const EXCLUDED_AMENITIES = {
+  type: "array" as const,
+  items: { type: "string" as const },
+  description:
+    "Optional. Amenities the stay MUST BE WITHOUT, as canonical names, e.g. ['hot_tub'] for 'it must not have a hot tub'. A property matches only when its host has declared the amenity absent (negated); an unanswered amenity is not a match, because no answer does not prove absence. Use only when the guest requires the absence. 'A hot tub is not needed' / 'spabad är inget krav' is NO condition at all: leave the amenity out of both lists. If the guest's wording is ambiguous, ask before filtering.",
 } satisfies JsonSchemaField;
 
 // ── Property output object (shared between search tools) ─────────
@@ -241,6 +248,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         checkIn: F.checkIn,
         checkOut: F.checkOut,
         amenities: AMENITIES,
+        excludedAmenities: EXCLUDED_AMENITIES,
       },
       required: ["guests", "checkIn", "checkOut"],
       additionalProperties: false,
