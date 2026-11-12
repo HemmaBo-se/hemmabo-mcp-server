@@ -187,6 +187,20 @@ const COUNTRY = {
     "Country name to filter by (e.g. 'Sweden', 'Italy', 'Morocco'). Partial case-insensitive match against the country field. Optional — omit both region and country and the search spans every published property.",
 } satisfies JsonSchemaField;
 
+const AMENITIES = {
+  type: "array" as const,
+  items: { type: "string" as const },
+  description:
+    "Optional. Amenities the guest REQUIRES, as canonical names, e.g. ['hot_tub'] for 'with a hot tub' / 'med spabad', ['sauna'], ['pool'], ['wifi'], ['fireplace'], ['ev_charging']. A property matches only when its host has declared every one of them (affirmed); a host's no or an unanswered amenity is not a match. Put an amenity here only when the guest wants it — 'without a hot tub' / 'utan spabad' is NOT a hot-tub requirement (see excludedAmenities), and 'sauna or pool' is not a requirement for both: ask which. Omit for no amenity requirement.",
+} satisfies JsonSchemaField;
+
+const EXCLUDED_AMENITIES = {
+  type: "array" as const,
+  items: { type: "string" as const },
+  description:
+    "Optional. Amenities the stay MUST BE WITHOUT, as canonical names, e.g. ['hot_tub'] for 'it must not have a hot tub'. A property matches only when its host has declared the amenity absent (negated); an unanswered amenity is not a match, because no answer does not prove absence. Use only when the guest requires the absence. 'A hot tub is not needed' / 'spabad är inget krav' is NO condition at all: leave the amenity out of both lists. If the guest's wording is ambiguous, ask before filtering.",
+} satisfies JsonSchemaField;
+
 // ── Property output object (shared between search tools) ─────────
 
 const PROPERTY_LISTING_ITEM: JsonSchemaField = {
@@ -203,9 +217,14 @@ const PROPERTY_LISTING_ITEM: JsonSchemaField = {
     propertyType: { type: "string", description: "Property type classification." },
     nights: { type: "integer", description: "Number of nights between check-in and check-out." },
     available: { type: "boolean", description: "Always true in search results because unavailable properties are filtered out." },
+    amenityFacts: {
+      type: "object",
+      description: "Present when the search carried required amenities: the host's declared state for each of them — 'affirmed' (yes), 'negated' (no) or 'unknown' (the host has not answered).",
+      additionalProperties: { type: "string", enum: ["affirmed", "negated", "unknown"] },
+    },
     signals: {
       type: "object",
-      description: "Optional. Host-declared canonical discovery flags for matching requests like dog-friendly, hot tub, crib, or hen party. Grouped: amenities / policies / suitability / setting (arrays of canonical English keys, e.g. 'allows_dogs', 'has_hot_tub', 'crib_available', 'bachelorette_party_friendly') plus bestForOccasions / targetAudience, plus policies_negated: the host's EXPLICIT NOs from the claims ledger (e.g. 'pets_cats' there means cats are not allowed — relay as a clear, friendly no). Canonical keys — render them in the user's language. Match signals, not verified guarantees: the signed verified-stay-offer and the property page are authoritative; absence of a flag from both the affirmed groups and policies_negated means UNKNOWN, not 'no' — recommend asking the host.",
+      description: "Optional. Host-declared canonical discovery flags for matching requests like dog-friendly, hot tub, crib, or hen party. Grouped: amenities / policies / suitability / setting (arrays of canonical English keys, e.g. 'allows_dogs', 'has_hot_tub', 'crib_available', 'bachelorette_party_friendly') plus bestForOccasions / targetAudience, plus policies_negated and amenities_negated: the host's EXPLICIT NOs from the claims ledger (e.g. 'pets_cats' there means cats are not allowed, 'hot_tub' in amenities_negated means there is no hot tub — relay as a clear, friendly no). Canonical keys — render them in the user's language. Match signals, not verified guarantees: the signed verified-stay-offer and the property page are authoritative; absence of a flag from both the affirmed groups and the negated lists means UNKNOWN, not 'no' — recommend asking the host.",
       additionalProperties: true,
     },
   },
@@ -219,7 +238,7 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
   {
     name: "hemmabo_search_properties",
     description:
-      "Search available vacation rental properties by location and travel dates. Use when the user wants to find or browse places to stay. Discovery only, and price-free: call vrp_get_verified_stay_offer with the host domain and same dates before the final answer so the client can render the verified stay offer widget; the price and the signed booking link come only from that offer. Do NOT use when the user already has a propertyId or host domain. Returns propertyId, host domain, the host's booking_url, live availability and capacity. Parameters combine as one filter with guests and the checkIn/checkOut range (checkIn strictly before checkOut): region matches broadly against region, city, and country names, while country matches the country field alone — omit both and the search spans every published property. Capacity misses are excluded; date-unavailable matches return separately in unavailableMatches with up to three alternative windows. Booking and payment happen only on the host's own domain, at the signed direct_booking_url. The agent never books, pays, cancels or changes a booking.",
+      "Search available vacation rental properties by location and travel dates. Use when the user wants to find or browse places to stay. Discovery only, and price-free: call vrp_get_verified_stay_offer with the host domain and same dates before the final answer so the client can render the verified stay offer widget; the price and the signed booking link come only from that offer. Do NOT use when the user already has a propertyId or host domain. Returns propertyId, host domain, the host's booking_url, live availability and capacity. Parameters combine as one filter with guests and the checkIn/checkOut range (checkIn strictly before checkOut): region matches broadly against region, city, and country names, while country matches the country field alone — omit both and the search spans every published property. Required amenities (amenities) are a match condition decided by the host's own declaration: only a declared yes matches, and each result then carries amenityFacts for exactly those amenities. Capacity misses are excluded; date-unavailable matches return separately in unavailableMatches with up to three alternative windows. Booking and payment happen only on the host's own domain, at the signed direct_booking_url. The agent never books, pays, cancels or changes a booking.",
     inputSchema: {
       type: "object",
       properties: {
@@ -228,6 +247,8 @@ export const TOOL_SPECS: readonly ToolSpec[] = [
         guests: F.guests,
         checkIn: F.checkIn,
         checkOut: F.checkOut,
+        amenities: AMENITIES,
+        excludedAmenities: EXCLUDED_AMENITIES,
       },
       required: ["guests", "checkIn", "checkOut"],
       additionalProperties: false,
