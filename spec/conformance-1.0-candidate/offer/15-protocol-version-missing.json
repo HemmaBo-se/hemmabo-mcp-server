@@ -1,0 +1,70 @@
+{
+  "name": "protocol_version_missing",
+  "description": "A correctly signed offer whose signed payload declares no protocol_version, while the unsigned envelope beside it says \"1.0\". Only the signed payload counts (1.0 §5, §7): the offer is unknown (§9), a verifier reports missing_protocol_version and never quotes it. Nothing is filled in for the node (§8).",
+  "clock": "2026-06-02T12:05:00Z",
+  "jwks": {
+    "keys": [
+      {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "kid": "example-host.invalid-test-vector-2026",
+        "use": "sig",
+        "alg": "EdDSA",
+        "key_ops": [
+          "verify"
+        ],
+        "x": "8R0pcKv0FNVbtVUQg8hjC6qKPHEG-34D2pGt_yHOKeY"
+      }
+    ]
+  },
+  "input": {
+    "kind": "signed_verified_stay_offer",
+    "protocol_version": "1.0",
+    "offer": {
+      "kind": "verified_stay_offer",
+      "canonical_domain": "example-host.invalid",
+      "node_id": "example-host.invalid",
+      "generated_at": "2026-06-02T12:00:00Z",
+      "valid_until": "2026-06-02T12:10:00Z",
+      "request": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "property": {
+        "property_id": "example-property",
+        "name": "Example Host Stay",
+        "url": "https://example-host.invalid/"
+      },
+      "availability": {
+        "available": true,
+        "source": "official_host_domain"
+      },
+      "price": {
+        "currency": "EUR",
+        "public_total": 123400,
+        "agent_total": 123400,
+        "minor_unit": true,
+        "exact": true
+      },
+      "booking": {
+        "direct_booking_url": "https://example-host.invalid/book?offer_id=test-vector"
+      },
+      "agent_permission": {
+        "may_quote_as_official_direct_offer": true,
+        "must_not_claim_ota_comparison_without_signed_ota_price": true
+      }
+    },
+    "signature": {
+      "format": "jws_compact",
+      "alg": "EdDSA",
+      "kid": "example-host.invalid-test-vector-2026",
+      "jws": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImV4YW1wbGUtaG9zdC5pbnZhbGlkLXRlc3QtdmVjdG9yLTIwMjYifQ.eyJraW5kIjoidmVyaWZpZWRfc3RheV9vZmZlciIsImNhbm9uaWNhbF9kb21haW4iOiJleGFtcGxlLWhvc3QuaW52YWxpZCIsIm5vZGVfaWQiOiJleGFtcGxlLWhvc3QuaW52YWxpZCIsImdlbmVyYXRlZF9hdCI6IjIwMjYtMDYtMDJUMTI6MDA6MDBaIiwidmFsaWRfdW50aWwiOiIyMDI2LTA2LTAyVDEyOjEwOjAwWiIsInJlcXVlc3QiOnsiY2hlY2tfaW4iOiIyMDI2LTA5LTEyIiwiY2hlY2tfb3V0IjoiMjAyNi0wOS0xNSIsImd1ZXN0cyI6Mn0sInByb3BlcnR5Ijp7InByb3BlcnR5X2lkIjoiZXhhbXBsZS1wcm9wZXJ0eSIsIm5hbWUiOiJFeGFtcGxlIEhvc3QgU3RheSIsInVybCI6Imh0dHBzOi8vZXhhbXBsZS1ob3N0LmludmFsaWQvIn0sImF2YWlsYWJpbGl0eSI6eyJhdmFpbGFibGUiOnRydWUsInNvdXJjZSI6Im9mZmljaWFsX2hvc3RfZG9tYWluIn0sInByaWNlIjp7ImN1cnJlbmN5IjoiRVVSIiwicHVibGljX3RvdGFsIjoxMjM0MDAsImFnZW50X3RvdGFsIjoxMjM0MDAsIm1pbm9yX3VuaXQiOnRydWUsImV4YWN0Ijp0cnVlfSwiYm9va2luZyI6eyJkaXJlY3RfYm9va2luZ191cmwiOiJodHRwczovL2V4YW1wbGUtaG9zdC5pbnZhbGlkL2Jvb2s_b2ZmZXJfaWQ9dGVzdC12ZWN0b3IifSwiYWdlbnRfcGVybWlzc2lvbiI6eyJtYXlfcXVvdGVfYXNfb2ZmaWNpYWxfZGlyZWN0X29mZmVyIjp0cnVlLCJtdXN0X25vdF9jbGFpbV9vdGFfY29tcGFyaXNvbl93aXRob3V0X3NpZ25lZF9vdGFfcHJpY2UiOnRydWV9fQ.Db6oz8DUPRft8ClyMFWwMZaeTv82gcWMs0WjVdf4MOsuZr13MQRve5gNvL7q6YTtP-eYu-6GXeSzpBETsK6yAA"
+    }
+  },
+  "expected": {
+    "verified": false,
+    "reason": "missing_protocol_version",
+    "fresh": null
+  }
+}

@@ -15,6 +15,27 @@ import { checkOfferRules, parseDate, OFFER_RULE_TEXT, type OfferRuleCode } from 
 export const VRP_PROTOCOL = "vacation-rental-protocol";
 export const VRP_PROTOCOL_VERSION = "0.1";
 export const VRP_JWS_ALG = "EdDSA";
+/**
+ * VRP 1.0 candidate (vrp-spec ADR 0013, ADR 0017; not adopted): `"1.0"` and
+ * `"0.1"` name the same wire format, and `Ed25519` (RFC 9864) and `EdDSA`
+ * (RFC 8037) name the same signing operation in a JWS protected header. Each
+ * value is compared as written. A discovery document and a signed offer each
+ * declare their own version; the two are checked separately.
+ */
+export const VRP_PROTOCOL_VERSIONS: readonly string[] = ["1.0", "0.1"];
+export const VRP_JWS_ALGS: readonly string[] = ["Ed25519", "EdDSA"];
+
+/**
+ * A declared `protocol_version`: null when it is a known version as written,
+ * else why not. Absent is `missing`; any other value of any type (`"0.2"`,
+ * `" 1.0"`, `1`, `null`, a list) is `unsupported`. Nothing is trimmed and
+ * nothing is filled in for the node (§8, fail closed).
+ */
+export function declaredVersionProblem(value: unknown): "missing" | "unsupported" | null {
+  if (value === undefined) return "missing";
+  if (typeof value !== "string" || !VRP_PROTOCOL_VERSIONS.includes(value)) return "unsupported";
+  return null;
+}
 export const VRP_FETCH_TIMEOUT_MS = 8_000;
 /** Core §2: a fetch MAY follow a redirect only to a node URL; this bounds the chain. */
 export const VRP_MAX_REDIRECTS = 3;
@@ -228,7 +249,11 @@ function firstEd25519Key(jwks: JsonRecord): JsonRecord {
   const keys = Array.isArray(jwks.keys) ? jwks.keys : [];
   const key = keys.find((candidate) => {
     const record = asRecord(candidate);
-    return record?.kty === "OKP" && record?.crv === "Ed25519" && (!record.alg || record.alg === VRP_JWS_ALG);
+    return (
+      record?.kty === "OKP" &&
+      record?.crv === "Ed25519" &&
+      (!record.alg || (typeof record.alg === "string" && VRP_JWS_ALGS.includes(record.alg)))
+    );
   });
   const record = asRecord(key);
   if (!record) throw new Error("JWKS does not contain an Ed25519 OKP signing key");
@@ -255,17 +280,20 @@ async function verifyVacationRentalNode(domainInput: string): Promise<VerifiedNo
   if (discovery.protocol !== VRP_PROTOCOL) {
     throw new Error(`Unsupported protocol: ${String(discovery.protocol)}`);
   }
-  // Core §2:38 and §7:516: the document itself MUST declare
-  // `protocol_version: "0.1"`, as that exact string. The pre-0.1 member
-  // `version` is not a substitute, and nothing is filled in for the node
-  // (§8, fail closed). The value is compared as written, not trimmed.
+  // Core §2 and §7: the document itself MUST declare `protocol_version`,
+  // `"1.0"` or `"0.1"` (1.0 candidate; v0.1 knows `"0.1"` only), as that exact
+  // string. The pre-0.1 member `version` is not a substitute, and nothing is
+  // filled in for the node (§8, fail closed). The value is compared as
+  // written, not trimmed. This is the discovery document's declaration only;
+  // the signed offer declares its own and is checked where it is verified.
   const version = discovery.protocol_version;
-  if (typeof version !== "string" || version.trim().length === 0) {
+  const versionProblem = declaredVersionProblem(version);
+  if (versionProblem === "missing") {
     throw new Error(
-      'Discovery document declares no protocol_version: a VRP node MUST declare protocol_version "0.1" (VRP §2, §7); the pre-0.1 member "version" is not a substitute'
+      'Discovery document declares no protocol_version: a VRP node MUST declare protocol_version "1.0" or "0.1" (VRP §2, §7); the pre-0.1 member "version" is not a substitute'
     );
   }
-  if (version !== VRP_PROTOCOL_VERSION) {
+  if (versionProblem === "unsupported") {
     throw new Error(`Unsupported VRP version: ${JSON.stringify(version)}`);
   }
 
@@ -324,13 +352,26 @@ function parseBase64urlJson(value: string): JsonRecord {
   return record;
 }
 
-export function verifyCompactJws(jws: string, jwks: JsonRecord): { header: JsonRecord; payload: JsonRecord; kid: string | null } {
+/**
+ * `options.algs`: the protected header `alg` names accepted, compared as
+ * written. The default is `EdDSA` alone, which is what the receipt and AP2
+ * mandate callers rely on; the signed stay offer passes both names of the one
+ * operation (VRP 1.0 candidate, ADR 0017).
+ */
+export function verifyCompactJws(
+  jws: string,
+  jwks: JsonRecord,
+  options: { algs?: readonly string[] } = {}
+): { header: JsonRecord; payload: JsonRecord; kid: string | null } {
   const parts = jws.split(".");
   if (parts.length !== 3) throw new Error("signed_verified_stay_offer must be compact JWS");
   const [encodedHeader, encodedPayload, encodedSignature] = parts;
   const header = parseBase64urlJson(encodedHeader);
   const payload = parseBase64urlJson(encodedPayload);
-  if (header.alg !== VRP_JWS_ALG) throw new Error(`Unsupported JWS alg: ${String(header.alg)}`);
+  const algs = options.algs ?? [VRP_JWS_ALG];
+  if (typeof header.alg !== "string" || !algs.includes(header.alg)) {
+    throw new Error(`Unsupported JWS alg: ${String(header.alg)}`);
+  }
 
   const keys = Array.isArray(jwks.keys) ? jwks.keys : [];
   const kid = stringValue(header.kid);
@@ -1044,12 +1085,14 @@ async function runVerifyNode(args: Record<string, unknown>): Promise<ToolResult>
     domain: node.domain,
     verified: true,
     protocol: VRP_PROTOCOL,
-    protocol_version: VRP_PROTOCOL_VERSION,
+    // The version the discovery document declares, as it declares it.
+    protocol_version: node.discovery.protocol_version,
     discovery_url: node.discoveryUrl,
     jwks_url: node.jwksUrl,
     verified_stay_offer_url: node.verifiedStayOfferUrl,
     signing: {
-      alg: VRP_JWS_ALG,
+      // The name the key carries; a key without one is an Ed25519 key all the same.
+      alg: stringValue(node.signingKey.alg) ?? VRP_JWS_ALG,
       kty: node.signingKey.kty,
       crv: node.signingKey.crv,
       kid: node.signingKey.kid ?? null,
@@ -1083,8 +1126,21 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
   const response = asRecord(await fetchJson(offerUrl.toString(), node.domain));
   if (!response) throw new Error("Offer response must be a JSON object");
   const signedOffer = extractSignedOffer(response);
-  const verified = verifyCompactJws(signedOffer, node.jwks);
+  const verified = verifyCompactJws(signedOffer, node.jwks, { algs: VRP_JWS_ALGS });
   const offer = extractOfferPayload(verified.payload);
+  // Core §5, §9 (1.0 candidate): the SIGNED offer declares its own
+  // `protocol_version`, `"1.0"` or `"0.1"` as written. It is a second
+  // declaration, separate from the discovery document's: a known version
+  // there does not repair an unknown or absent one here. The unsigned
+  // envelope's own `protocol_version` is not consulted. Any other value, or
+  // none, leaves the offer unknown: nothing of it is presented (§8).
+  const offerVersionProblem = declaredVersionProblem(offer.protocol_version);
+  if (offerVersionProblem === "missing") {
+    throw new Error('Signed offer declares no protocol_version: it MUST declare "1.0" or "0.1" (VRP §5, §9)');
+  }
+  if (offerVersionProblem === "unsupported") {
+    throw new Error(`Signed offer declares an unsupported VRP version: ${JSON.stringify(offer.protocol_version)} (VRP §5, §9)`);
+  }
   // Core §7 (ADR 0009): the signed offer names the domain it was fetched from.
   // A valid signature over an offer naming another domain is that node's
   // signature, not that other domain's offer.
@@ -1154,7 +1210,8 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
     ...(language ? { language } : {}),
     verified: true,
     signature: {
-      alg: VRP_JWS_ALG,
+      // The name the signed protected header carries: Ed25519 or EdDSA.
+      alg: verified.header.alg,
       kid: verified.kid,
       verified: true,
     },
