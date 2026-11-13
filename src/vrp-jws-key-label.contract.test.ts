@@ -1,5 +1,6 @@
-// Core v0.1 §3 and the JWKS schema: a VRP signing key is `kty: OKP`,
-// `crv: Ed25519` and names its `alg`, `EdDSA`. Until this correction the
+// Core §3 and the JWKS schema: a VRP signing key is `kty: OKP`,
+// `crv: Ed25519` and names its `alg`: `EdDSA` in v0.1, `Ed25519` or `EdDSA`
+// in the 1.0 candidate this branch follows. Until this correction the
 // signed stay offer was verified with whichever OKP/Ed25519 key carried the
 // JWS header's `kid`, whatever the key's own `alg` said: a key labelled with
 // another algorithm, or with none, verified an offer and the offer was quoted
@@ -132,7 +133,7 @@ describe("Core §3: the signed stay offer is verified only with a key labelled E
     assert.equal((parsed.agent_citation as Json).safe_to_quote_as_official_direct_offer, true);
   });
 
-  for (const alg of ["ES256", "RS256", "none", "eddsa", "ed25519", "Ed25519", "", null, 1]) {
+  for (const alg of ["ES256", "RS256", "none", "eddsa", "ed25519", "EDDSA", "", null, 1]) {
     it(`refuses an offer signed by a key labelled ${JSON.stringify(alg)}, beside a properly labelled key`, async () => {
       const good = generateKeyPairSync("ed25519");
       const mislabelled = generateKeyPairSync("ed25519");
@@ -144,6 +145,18 @@ describe("Core §3: the signed stay offer is verified only with a key labelled E
       await assertNotQuoted();
     });
   }
+
+  it("1.0 candidate: a key labelled Ed25519 is a VRP signing key too, and the offer is quoteable", async () => {
+    const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+    serveNode([publicJwk(publicKey, "node-key", "Ed25519")], privateKey, "node-key");
+    const { result, parsed } = await callOffer();
+    assert.equal(result.isError, undefined, String(parsed.error));
+    assert.equal(parsed.verified, true);
+    assert.equal((parsed.agent_citation as Json).safe_to_quote_as_official_direct_offer, true);
+    const node = await callVerifyNode();
+    assert.equal(node.result.isError, undefined, String(node.parsed.error));
+    assert.deepEqual(node.parsed.signing, { alg: "Ed25519", kty: "OKP", crv: "Ed25519", kid: "node-key" });
+  });
 
   it("refuses an offer signed by a key that names no alg", async () => {
     const { publicKey, privateKey } = generateKeyPairSync("ed25519");
@@ -189,7 +202,7 @@ describe("Core §3: a node is verified only when its JWKS holds a key labelled E
     assert.deepEqual(fetches, ["/.well-known/vacation-rental.json", "/.well-known/jwks.json"]);
   });
 
-  for (const alg of ["ES256", "RS256", "none", "eddsa", "ed25519", "Ed25519", "", null, 1, 0, false]) {
+  for (const alg of ["ES256", "RS256", "none", "eddsa", "ed25519", "EDDSA", "", null, 1, 0, false]) {
     it(`refuses a node whose only key is labelled ${JSON.stringify(alg)}`, async () => {
       const { publicKey, privateKey } = generateKeyPairSync("ed25519");
       serveNode([publicJwk(publicKey, "node-key", alg)], privateKey, "node-key");
