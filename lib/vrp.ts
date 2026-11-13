@@ -245,6 +245,13 @@ async function fetchJson(url: string, domain: string): Promise<unknown> {
   }
 }
 
+// §3 and the JWKS schema: a VRP signing key is `kty: OKP`, `crv: Ed25519`
+// and names its `alg`, `Ed25519` or `EdDSA` (1.0 candidate; v0.1 knows
+// `EdDSA` only), compared as written. A key that names another algorithm, an
+// empty one, or none is not a VRP signing key: a node whose JWKS holds no
+// other key is not verified, and nothing is filled in for it (§8, fail
+// closed). This is the same rule the signed stay offer is verified under
+// (`vrpSigningKey` in verifyCompactJws).
 function firstEd25519Key(jwks: JsonRecord): JsonRecord {
   const keys = Array.isArray(jwks.keys) ? jwks.keys : [];
   const key = keys.find((candidate) => {
@@ -252,11 +259,16 @@ function firstEd25519Key(jwks: JsonRecord): JsonRecord {
     return (
       record?.kty === "OKP" &&
       record?.crv === "Ed25519" &&
-      (!record.alg || (typeof record.alg === "string" && VRP_JWS_ALGS.includes(record.alg)))
+      typeof record.alg === "string" &&
+      VRP_JWS_ALGS.includes(record.alg)
     );
   });
   const record = asRecord(key);
-  if (!record) throw new Error("JWKS does not contain an Ed25519 OKP signing key");
+  if (!record) {
+    throw new Error(
+      `JWKS does not contain a VRP signing key: an OKP/Ed25519 key that names its alg ${VRP_JWS_ALGS.map((name) => `"${name}"`).join(" or ")} (VRP §3)`
+    );
+  }
   return record;
 }
 
@@ -357,11 +369,14 @@ function parseBase64urlJson(value: string): JsonRecord {
  * written. The default is `EdDSA` alone, which is what the receipt and AP2
  * mandate callers rely on; the signed stay offer passes both names of the one
  * operation (VRP 1.0 candidate, ADR 0017).
+ *
+ * `options.vrpSigningKey`: the key must itself name one of those algorithms
+ * (see the filter below). The signed stay offer turns it on.
  */
 export function verifyCompactJws(
   jws: string,
   jwks: JsonRecord,
-  options: { algs?: readonly string[] } = {}
+  options: { algs?: readonly string[]; vrpSigningKey?: boolean } = {}
 ): { header: JsonRecord; payload: JsonRecord; kid: string | null } {
   const parts = jws.split(".");
   if (parts.length !== 3) throw new Error("signed_verified_stay_offer must be compact JWS");
@@ -379,6 +394,18 @@ export function verifyCompactJws(
     .map((candidate) => asRecord(candidate))
     .filter((candidate): candidate is JsonRecord => Boolean(candidate))
     .filter((candidate) => candidate.kty === "OKP" && candidate.crv === "Ed25519")
+    // §3 and the JWKS schema: a VRP signing key names its `alg`, one of the
+    // accepted names (`EdDSA`; in the 1.0 candidate also `Ed25519`), compared
+    // as written. For a signed stay offer (`vrpSigningKey`) a key that is
+    // OKP/Ed25519 but labelled with another algorithm, or with none, is not a
+    // VRP signing key and is never tried, even when its `kid` matches (§8,
+    // fail closed). Other callers of this primitive (AP2 mandates, receipts)
+    // verify under their own key rules, where a JWK may omit `alg` (RFC 7517
+    // §4.4), and are unchanged.
+    .filter(
+      (candidate) =>
+        !options.vrpSigningKey || (typeof candidate.alg === "string" && algs.includes(candidate.alg))
+    )
     .filter((candidate) => !kid || candidate.kid === kid);
 
   if (candidates.length === 0) throw new Error("No matching Ed25519 key found for JWS kid");
@@ -1091,8 +1118,8 @@ async function runVerifyNode(args: Record<string, unknown>): Promise<ToolResult>
     jwks_url: node.jwksUrl,
     verified_stay_offer_url: node.verifiedStayOfferUrl,
     signing: {
-      // The name the key carries; a key without one is an Ed25519 key all the same.
-      alg: stringValue(node.signingKey.alg) ?? VRP_JWS_ALG,
+      // What the key itself declares; never a value filled in for the node.
+      alg: node.signingKey.alg,
       kty: node.signingKey.kty,
       crv: node.signingKey.crv,
       kid: node.signingKey.kid ?? null,
@@ -1126,7 +1153,7 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
   const response = asRecord(await fetchJson(offerUrl.toString(), node.domain));
   if (!response) throw new Error("Offer response must be a JSON object");
   const signedOffer = extractSignedOffer(response);
-  const verified = verifyCompactJws(signedOffer, node.jwks, { algs: VRP_JWS_ALGS });
+  const verified = verifyCompactJws(signedOffer, node.jwks, { algs: VRP_JWS_ALGS, vrpSigningKey: true });
   const offer = extractOfferPayload(verified.payload);
   // Core §5, §9 (1.0 candidate): the SIGNED offer declares its own
   // `protocol_version`, `"1.0"` or `"0.1"` as written. It is a second
