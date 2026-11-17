@@ -51,11 +51,12 @@ describe("ChatGPT Apps verified stay widget", () => {
     assert.ok(resource._meta["openai/widgetDescription"]);
   });
 
-  it("the ChatGPT surface keeps `ui.domain` byte for byte; /mcp reads omit it", () => {
+  it("the ChatGPT list and read agree on the HTTPS widget origin; /mcp omits ui.domain", () => {
     const native = buildNativeWidgetResource(HEMMABO_CANONICAL_MCP_ENDPOINT);
-    assert.equal(native._meta.ui.domain, HEMMABO_CLAUDE_WIDGET_DOMAIN, "/mcp/chatgpt resource keeps the reviewed bytes");
+    assert.equal(native._meta.ui.domain, HEMMABO_CHATGPT_WIDGET_DOMAIN);
+    assert.equal(native._meta.ui.domain, native._meta["openai/widgetDomain"]);
     const chatgptRead = readResource(HEMMABO_NATIVE_WIDGET_URI, HEMMABO_CANONICAL_MCP_ENDPOINT, CHATGPT_WIDGET_MODEL_LINE, true)!;
-    assert.equal((chatgptRead.contents[0]._meta as any).ui.domain, HEMMABO_CLAUDE_WIDGET_DOMAIN);
+    assert.equal((chatgptRead.contents[0]._meta as any).ui.domain, HEMMABO_CHATGPT_WIDGET_DOMAIN);
     for (const uri of HEMMABO_ALL_WIDGET_URIS) {
       const full = readResource(uri)!;
       assert.equal("domain" in (full.contents[0]._meta as any).ui, false, `${uri}: /mcp read must not pin a Claude sandbox domain`);

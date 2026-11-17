@@ -212,10 +212,10 @@ export function readResource(
   uri: string,
   mcpEndpointUrl: string = HEMMABO_CANONICAL_MCP_ENDPOINT,
   widgetDescription?: string,
-  claudeStableOrigin: boolean = false
+  chatgptSurface: boolean = false
 ): { contents: { uri: string; mimeType: string; text: string; _meta?: Record<string, unknown> }[] } | null {
   if (HEMMABO_ALL_WIDGET_URIS.includes(uri)) {
-    const meta = buildWidgetResourceMeta(mcpEndpointUrl, widgetDescription, { claudeStableOrigin });
+    const meta = buildWidgetResourceMeta(mcpEndpointUrl, widgetDescription, { chatgptSurface });
     return {
       contents: [
         {

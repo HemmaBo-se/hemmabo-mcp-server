@@ -300,6 +300,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
 <script>
   var rpcNextId = 1;
   var hostInitialized = false;
+  var initializeId;
   var TOOL_LABELS = [
     "Search", "Availability", "Similar", "Compare",
     "Host price", "Direct URL", "Host domain", "Stripe host",
@@ -699,11 +700,13 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     var message = event.data;
     if (!message || message.jsonrpc !== "2.0") return;
 
-    if (message.id && message.result && !hostInitialized) {
+    if (message.id === initializeId && message.result && !hostInitialized) {
       hostInitialized = true;
       postToHost({ jsonrpc: "2.0", method: "ui/notifications/initialized", params: {} });
-      var cached = getData();
-      if (cached) render(cached);
+      if (!hbLastData) {
+        var cached = getData();
+        if (cached) render(cached);
+      }
       return;
     }
 
@@ -721,13 +724,13 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
   }
 
   function bootWidget() {
+    initializeId = sendUiInitialize();
     var cached = getData();
     if (cached) {
       render(cached);
       return;
     }
     setLoading();
-    sendUiInitialize();
   }
 
   var hbLastData = null;
