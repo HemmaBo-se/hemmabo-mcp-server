@@ -26,7 +26,8 @@ type ResourcesListResult = { result?: { resources?: Array<{ uri: string }> } };
 type ResourcesReadResult = { result?: { contents?: Array<{ uri: string; text?: string }> } };
 type ToolsListMetaResult = { result?: { tools?: Array<{ name: string; _meta?: Record<string, unknown> }> } };
 
-const NATIVE_URI = "ui://hemmabo/verified-stay-offer-native-v1.html";
+const NATIVE_URI = "ui://hemmabo/verified-stay-offer-native-v2.html";
+const PREVIOUS_NATIVE_URI = "ui://hemmabo/verified-stay-offer-native-v1.html";
 const V9_URI = "ui://hemmabo/verified-stay-offer-v11.html"; // the full surface's current template (v11 since 7.0.9)
 
 async function toolNames(ctx: typeof CTX_CHATGPT | typeof CTX_FULL): Promise<string[]> {
@@ -155,6 +156,14 @@ describe("ChatGPT MCP surface", () => {
     const nativeText = read.result?.contents?.[0]?.text ?? "";
     assert.ok(nativeText.includes("hb-native-v1"), "native template must carry the design-guidelines style layer");
     assert.ok(nativeText.includes("<!DOCTYPE html>"), "native template must be complete HTML");
+
+    const previous = (await handleJsonRpc(
+      { jsonrpc: "2.0", method: "resources/read", id: 10, params: { uri: PREVIOUS_NATIVE_URI } },
+      CTX_CHATGPT,
+    )) as unknown as ResourcesReadResult;
+    const previousContent = previous.result?.contents?.[0];
+    assert.equal(previousContent?.uri, PREVIOUS_NATIVE_URI);
+    assert.equal(previousContent?.text, nativeText, "approved v1 references must still read the fixed native card");
 
     const readV9 = (await handleJsonRpc({ jsonrpc: "2.0", method: "resources/read", id: 9, params: { uri: V9_URI } }, CTX_FULL)) as unknown as ResourcesReadResult;
     assert.ok(!(readV9.result?.contents?.[0]?.text ?? "").includes("hb-native-v1"), "v9 must NOT carry the native layer — premium template byte-untouched");

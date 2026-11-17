@@ -42,6 +42,7 @@ import {
   HEMMABO_CANONICAL_MCP_ENDPOINT,
   HEMMABO_NATIVE_WIDGET_TOOL_META,
   HEMMABO_NATIVE_WIDGET_URI,
+  HEMMABO_NATIVE_WIDGET_URIS,
   HEMMABO_WIDGET_MIME_TYPE,
   buildNativeWidgetResource,
   buildWidgetResource,
@@ -224,7 +225,7 @@ export function readResource(
           // can fail strict clients even when the bytes are right.
           uri,
           mimeType: HEMMABO_WIDGET_MIME_TYPE,
-          text: uri === HEMMABO_NATIVE_WIDGET_URI
+          text: HEMMABO_NATIVE_WIDGET_URIS.includes(uri)
             ? VERIFIED_STAY_OFFER_NATIVE_HTML
             : VERIFIED_STAY_OFFER_HTML,
           _meta: meta as unknown as Record<string, unknown>,
