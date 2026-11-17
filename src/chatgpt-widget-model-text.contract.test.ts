@@ -177,6 +177,8 @@ describe("ChatGPT widget surface: what the model reads (ADR 0020)", () => {
     assert.equal(full.widget_media.images[0].url.startsWith(PHOTO), true);
     assert.ok(full.guest_welcome, "the widget payload is the unshaped result");
     assert.equal(result._meta?.["openai/outputTemplate"], HEMMABO_NATIVE_WIDGET_URI);
+    assert.equal(result._meta?.["ui/resourceUri"], HEMMABO_NATIVE_WIDGET_URI);
+    assert.deepEqual(result._meta?.ui, { resourceUri: HEMMABO_NATIVE_WIDGET_URI });
   });
 
   it("/mcp is not shaped", async () => {
