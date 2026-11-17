@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
 import { runInNewContext } from "node:vm";
+import { parseFragment } from "parse5";
 import { readResource } from "../api/mcp.js";
 import { HEMMABO_NATIVE_WIDGET_URI, HEMMABO_WIDGET_URI } from "../lib/apps-widget.js";
 
@@ -19,8 +20,10 @@ for (const delivery of ["preloaded", "late globals", "late tool-result", "Claude
   it(`initializes once and renders the stay offer with ${delivery}`, () => {
     const uri = delivery === "Claude tool-result" ? HEMMABO_WIDGET_URI : HEMMABO_NATIVE_WIDGET_URI;
     const html = readResource(uri)!.contents[0].text;
-    const script = html.match(/<script>([\s\S]*?)<\/script>/);
-    assert.ok(script);
+    const script = parseFragment(html).childNodes.find(node => node.nodeName === "script");
+    assert.ok(script && "childNodes" in script, "served widget must include its inline script");
+    const source = script.childNodes[0];
+    assert.ok(source && "value" in source, "inline script must contain JavaScript");
 
     const messages: Message[] = [];
     const window = Object.assign(new EventTarget(), {
@@ -38,7 +41,7 @@ for (const delivery of ["preloaded", "late globals", "late tool-result", "Claude
       assert.match(root.innerHTML, /id="bookLink"[^>]+href="https:\/\/villaakerlyckan\.se\/book\?guests=2"/);
     };
 
-    runInNewContext(script[1], { window, document, URL });
+    runInNewContext(source.value, { window, document, URL });
     if (delivery === "preloaded") assertCard();
     else assert.equal(root.innerHTML, "");
 
