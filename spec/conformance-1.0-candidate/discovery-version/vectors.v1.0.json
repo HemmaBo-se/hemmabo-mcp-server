@@ -1,0 +1,663 @@
+{
+  "kind": "vrp_discovery_version_vectors",
+  "version": "1.0-candidate",
+  "spec": "spec/v1.0.md §2, §5, §7, §9 (ADR 0013)",
+  "note": "discovery: one discovery document per case, with the reason a verifier reports for its declared protocol and protocol_version (null = accepted) and whether the document validates against schemas/discovery-v1.0.schema.json. pairs: a discovery document and a signed offer (compact JWS, signed with the test key of examples/conformance/jwks.v0.1.json) whose versions are declared separately.",
+  "jwks": {
+    "keys": [
+      {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "kid": "example-host.invalid-test-vector-2026",
+        "use": "sig",
+        "alg": "EdDSA",
+        "key_ops": [
+          "verify"
+        ],
+        "x": "8R0pcKv0FNVbtVUQg8hjC6qKPHEG-34D2pGt_yHOKeY"
+      }
+    ]
+  },
+  "discovery": [
+    {
+      "name": "version_1_0",
+      "note": "Declares \"1.0\".",
+      "document": {
+        "protocol": "vacation-rental-protocol",
+        "protocol_version": "1.0",
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "expected": {
+        "reason": null,
+        "schema_valid": true
+      }
+    },
+    {
+      "name": "version_0_1",
+      "note": "Declares \"0.1\": every v0.1 node, unchanged.",
+      "document": {
+        "protocol": "vacation-rental-protocol",
+        "protocol_version": "0.1",
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "expected": {
+        "reason": null,
+        "schema_valid": true
+      }
+    },
+    {
+      "name": "version_0_2",
+      "note": "A version that does not exist.",
+      "document": {
+        "protocol": "vacation-rental-protocol",
+        "protocol_version": "0.2",
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "expected": {
+        "reason": "unsupported_version",
+        "schema_valid": false
+      }
+    },
+    {
+      "name": "version_2_0",
+      "note": "A later MAJOR version is not 1.0.",
+      "document": {
+        "protocol": "vacation-rental-protocol",
+        "protocol_version": "2.0",
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "expected": {
+        "reason": "unsupported_version",
+        "schema_valid": false
+      }
+    },
+    {
+      "name": "version_1_0_0",
+      "note": "Three parts: not the string 1.0.",
+      "document": {
+        "protocol": "vacation-rental-protocol",
+        "protocol_version": "1.0.0",
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "expected": {
+        "reason": "unsupported_version",
+        "schema_valid": false
+      }
+    },
+    {
+      "name": "version_1",
+      "note": "One part: not the string 1.0.",
+      "document": {
+        "protocol": "vacation-rental-protocol",
+        "protocol_version": "1",
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "expected": {
+        "reason": "unsupported_version",
+        "schema_valid": false
+      }
+    },
+    {
+      "name": "version_v1_0",
+      "note": "A prefix: compared as written.",
+      "document": {
+        "protocol": "vacation-rental-protocol",
+        "protocol_version": "v1.0",
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "expected": {
+        "reason": "unsupported_version",
+        "schema_valid": false
+      }
+    },
+    {
+      "name": "version_leading_space",
+      "note": "White space is not trimmed.",
+      "document": {
+        "protocol": "vacation-rental-protocol",
+        "protocol_version": " 1.0",
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "expected": {
+        "reason": "unsupported_version",
+        "schema_valid": false
+      }
+    },
+    {
+      "name": "version_number_1",
+      "note": "A JSON number, not a string (1.0 is serialized as 1).",
+      "document": {
+        "protocol": "vacation-rental-protocol",
+        "protocol_version": 1,
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "expected": {
+        "reason": "unsupported_version",
+        "schema_valid": false
+      }
+    },
+    {
+      "name": "version_number_0_1",
+      "note": "A JSON number, not a string.",
+      "document": {
+        "protocol": "vacation-rental-protocol",
+        "protocol_version": 0.1,
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "expected": {
+        "reason": "unsupported_version",
+        "schema_valid": false
+      }
+    },
+    {
+      "name": "version_null",
+      "note": "null is a value, and not a known one.",
+      "document": {
+        "protocol": "vacation-rental-protocol",
+        "protocol_version": null,
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "expected": {
+        "reason": "unsupported_version",
+        "schema_valid": false
+      }
+    },
+    {
+      "name": "version_array",
+      "note": "A list of versions is not a version.",
+      "document": {
+        "protocol": "vacation-rental-protocol",
+        "protocol_version": [
+          "1.0",
+          "0.1"
+        ],
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "expected": {
+        "reason": "unsupported_version",
+        "schema_valid": false
+      }
+    },
+    {
+      "name": "version_absent",
+      "note": "No protocol_version member.",
+      "document": {
+        "protocol": "vacation-rental-protocol",
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "expected": {
+        "reason": "missing_protocol_version",
+        "schema_valid": false
+      }
+    },
+    {
+      "name": "version_absent_with_pre_0_1_member",
+      "note": "No protocol_version; the pre-0.1 member `version` is not a substitute.",
+      "document": {
+        "protocol": "vacation-rental-protocol",
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        },
+        "version": "0.1"
+      },
+      "expected": {
+        "reason": "missing_protocol_version",
+        "schema_valid": false
+      }
+    },
+    {
+      "name": "protocol_wrong",
+      "note": "A known version under another protocol name (§7).",
+      "document": {
+        "protocol": "vrp",
+        "protocol_version": "1.0",
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "expected": {
+        "reason": "unexpected_protocol",
+        "schema_valid": false
+      }
+    }
+  ],
+  "pairs": [
+    {
+      "name": "discovery_0_1_offer_0_1",
+      "note": "A v0.1 node, unchanged: still accepted.",
+      "discovery": {
+        "protocol": "vacation-rental-protocol",
+        "protocol_version": "0.1",
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "jws": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImV4YW1wbGUtaG9zdC5pbnZhbGlkLXRlc3QtdmVjdG9yLTIwMjYifQ.eyJraW5kIjoidmVyaWZpZWRfc3RheV9vZmZlciIsInByb3RvY29sX3ZlcnNpb24iOiIwLjEiLCJjYW5vbmljYWxfZG9tYWluIjoiZXhhbXBsZS1ob3N0LmludmFsaWQiLCJub2RlX2lkIjoiZXhhbXBsZS1ob3N0LmludmFsaWQiLCJnZW5lcmF0ZWRfYXQiOiIyMDI2LTA2LTAyVDEyOjAwOjAwWiIsInZhbGlkX3VudGlsIjoiMjAyNi0wNi0wMlQxMjoxMDowMFoiLCJyZXF1ZXN0Ijp7ImNoZWNrX2luIjoiMjAyNi0wOS0xMiIsImNoZWNrX291dCI6IjIwMjYtMDktMTUiLCJndWVzdHMiOjJ9LCJwcm9wZXJ0eSI6eyJwcm9wZXJ0eV9pZCI6ImV4YW1wbGUtcHJvcGVydHkiLCJuYW1lIjoiRXhhbXBsZSBIb3N0IFN0YXkiLCJ1cmwiOiJodHRwczovL2V4YW1wbGUtaG9zdC5pbnZhbGlkLyJ9LCJhdmFpbGFiaWxpdHkiOnsiYXZhaWxhYmxlIjp0cnVlLCJzb3VyY2UiOiJvZmZpY2lhbF9ob3N0X2RvbWFpbiJ9LCJwcmljZSI6eyJjdXJyZW5jeSI6IkVVUiIsInB1YmxpY190b3RhbCI6MTIzNDAwLCJhZ2VudF90b3RhbCI6MTIzNDAwLCJtaW5vcl91bml0Ijp0cnVlLCJleGFjdCI6dHJ1ZX0sImJvb2tpbmciOnsiZGlyZWN0X2Jvb2tpbmdfdXJsIjoiaHR0cHM6Ly9leGFtcGxlLWhvc3QuaW52YWxpZC9ib29rP29mZmVyX2lkPXRlc3QtdmVjdG9yIn0sImFnZW50X3Blcm1pc3Npb24iOnsibWF5X3F1b3RlX2FzX29mZmljaWFsX2RpcmVjdF9vZmZlciI6dHJ1ZSwibXVzdF9ub3RfY2xhaW1fb3RhX2NvbXBhcmlzb25fd2l0aG91dF9zaWduZWRfb3RhX3ByaWNlIjp0cnVlfX0.H7TpEL462nLg5UyhxO_c5WZLlQhHO_fGm-FaV5DCuJACKzTvmjVMa5un6sUxahXChsFdC39F2o7ZaQ7AsG6LDw",
+      "expected": {
+        "discovery_reason": null,
+        "offer_reason": null,
+        "version_accepted": true
+      }
+    },
+    {
+      "name": "discovery_1_0_offer_1_0",
+      "note": "Both declare 1.0.",
+      "discovery": {
+        "protocol": "vacation-rental-protocol",
+        "protocol_version": "1.0",
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "jws": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImV4YW1wbGUtaG9zdC5pbnZhbGlkLXRlc3QtdmVjdG9yLTIwMjYifQ.eyJraW5kIjoidmVyaWZpZWRfc3RheV9vZmZlciIsInByb3RvY29sX3ZlcnNpb24iOiIxLjAiLCJjYW5vbmljYWxfZG9tYWluIjoiZXhhbXBsZS1ob3N0LmludmFsaWQiLCJub2RlX2lkIjoiZXhhbXBsZS1ob3N0LmludmFsaWQiLCJnZW5lcmF0ZWRfYXQiOiIyMDI2LTA2LTAyVDEyOjAwOjAwWiIsInZhbGlkX3VudGlsIjoiMjAyNi0wNi0wMlQxMjoxMDowMFoiLCJyZXF1ZXN0Ijp7ImNoZWNrX2luIjoiMjAyNi0wOS0xMiIsImNoZWNrX291dCI6IjIwMjYtMDktMTUiLCJndWVzdHMiOjJ9LCJwcm9wZXJ0eSI6eyJwcm9wZXJ0eV9pZCI6ImV4YW1wbGUtcHJvcGVydHkiLCJuYW1lIjoiRXhhbXBsZSBIb3N0IFN0YXkiLCJ1cmwiOiJodHRwczovL2V4YW1wbGUtaG9zdC5pbnZhbGlkLyJ9LCJhdmFpbGFiaWxpdHkiOnsiYXZhaWxhYmxlIjp0cnVlLCJzb3VyY2UiOiJvZmZpY2lhbF9ob3N0X2RvbWFpbiJ9LCJwcmljZSI6eyJjdXJyZW5jeSI6IkVVUiIsInB1YmxpY190b3RhbCI6MTIzNDAwLCJhZ2VudF90b3RhbCI6MTIzNDAwLCJtaW5vcl91bml0Ijp0cnVlLCJleGFjdCI6dHJ1ZX0sImJvb2tpbmciOnsiZGlyZWN0X2Jvb2tpbmdfdXJsIjoiaHR0cHM6Ly9leGFtcGxlLWhvc3QuaW52YWxpZC9ib29rP29mZmVyX2lkPXRlc3QtdmVjdG9yIn0sImFnZW50X3Blcm1pc3Npb24iOnsibWF5X3F1b3RlX2FzX29mZmljaWFsX2RpcmVjdF9vZmZlciI6dHJ1ZSwibXVzdF9ub3RfY2xhaW1fb3RhX2NvbXBhcmlzb25fd2l0aG91dF9zaWduZWRfb3RhX3ByaWNlIjp0cnVlfX0.iE7S_2ALF_P4RgvG27_dTdwqUcx7YUtvvLaOPvcYLeV_kup_3Vaj4H0oFYsp6fpw079u9mhFSWIX5vxZWyAiBg",
+      "expected": {
+        "discovery_reason": null,
+        "offer_reason": null,
+        "version_accepted": true
+      }
+    },
+    {
+      "name": "discovery_1_0_offer_0_1",
+      "note": "The two declarations are independent; both values are known.",
+      "discovery": {
+        "protocol": "vacation-rental-protocol",
+        "protocol_version": "1.0",
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "jws": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImV4YW1wbGUtaG9zdC5pbnZhbGlkLXRlc3QtdmVjdG9yLTIwMjYifQ.eyJraW5kIjoidmVyaWZpZWRfc3RheV9vZmZlciIsInByb3RvY29sX3ZlcnNpb24iOiIwLjEiLCJjYW5vbmljYWxfZG9tYWluIjoiZXhhbXBsZS1ob3N0LmludmFsaWQiLCJub2RlX2lkIjoiZXhhbXBsZS1ob3N0LmludmFsaWQiLCJnZW5lcmF0ZWRfYXQiOiIyMDI2LTA2LTAyVDEyOjAwOjAwWiIsInZhbGlkX3VudGlsIjoiMjAyNi0wNi0wMlQxMjoxMDowMFoiLCJyZXF1ZXN0Ijp7ImNoZWNrX2luIjoiMjAyNi0wOS0xMiIsImNoZWNrX291dCI6IjIwMjYtMDktMTUiLCJndWVzdHMiOjJ9LCJwcm9wZXJ0eSI6eyJwcm9wZXJ0eV9pZCI6ImV4YW1wbGUtcHJvcGVydHkiLCJuYW1lIjoiRXhhbXBsZSBIb3N0IFN0YXkiLCJ1cmwiOiJodHRwczovL2V4YW1wbGUtaG9zdC5pbnZhbGlkLyJ9LCJhdmFpbGFiaWxpdHkiOnsiYXZhaWxhYmxlIjp0cnVlLCJzb3VyY2UiOiJvZmZpY2lhbF9ob3N0X2RvbWFpbiJ9LCJwcmljZSI6eyJjdXJyZW5jeSI6IkVVUiIsInB1YmxpY190b3RhbCI6MTIzNDAwLCJhZ2VudF90b3RhbCI6MTIzNDAwLCJtaW5vcl91bml0Ijp0cnVlLCJleGFjdCI6dHJ1ZX0sImJvb2tpbmciOnsiZGlyZWN0X2Jvb2tpbmdfdXJsIjoiaHR0cHM6Ly9leGFtcGxlLWhvc3QuaW52YWxpZC9ib29rP29mZmVyX2lkPXRlc3QtdmVjdG9yIn0sImFnZW50X3Blcm1pc3Npb24iOnsibWF5X3F1b3RlX2FzX29mZmljaWFsX2RpcmVjdF9vZmZlciI6dHJ1ZSwibXVzdF9ub3RfY2xhaW1fb3RhX2NvbXBhcmlzb25fd2l0aG91dF9zaWduZWRfb3RhX3ByaWNlIjp0cnVlfX0.H7TpEL462nLg5UyhxO_c5WZLlQhHO_fGm-FaV5DCuJACKzTvmjVMa5un6sUxahXChsFdC39F2o7ZaQ7AsG6LDw",
+      "expected": {
+        "discovery_reason": null,
+        "offer_reason": null,
+        "version_accepted": true
+      }
+    },
+    {
+      "name": "discovery_0_1_offer_1_0",
+      "note": "The two declarations are independent; both values are known.",
+      "discovery": {
+        "protocol": "vacation-rental-protocol",
+        "protocol_version": "0.1",
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "jws": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImV4YW1wbGUtaG9zdC5pbnZhbGlkLXRlc3QtdmVjdG9yLTIwMjYifQ.eyJraW5kIjoidmVyaWZpZWRfc3RheV9vZmZlciIsInByb3RvY29sX3ZlcnNpb24iOiIxLjAiLCJjYW5vbmljYWxfZG9tYWluIjoiZXhhbXBsZS1ob3N0LmludmFsaWQiLCJub2RlX2lkIjoiZXhhbXBsZS1ob3N0LmludmFsaWQiLCJnZW5lcmF0ZWRfYXQiOiIyMDI2LTA2LTAyVDEyOjAwOjAwWiIsInZhbGlkX3VudGlsIjoiMjAyNi0wNi0wMlQxMjoxMDowMFoiLCJyZXF1ZXN0Ijp7ImNoZWNrX2luIjoiMjAyNi0wOS0xMiIsImNoZWNrX291dCI6IjIwMjYtMDktMTUiLCJndWVzdHMiOjJ9LCJwcm9wZXJ0eSI6eyJwcm9wZXJ0eV9pZCI6ImV4YW1wbGUtcHJvcGVydHkiLCJuYW1lIjoiRXhhbXBsZSBIb3N0IFN0YXkiLCJ1cmwiOiJodHRwczovL2V4YW1wbGUtaG9zdC5pbnZhbGlkLyJ9LCJhdmFpbGFiaWxpdHkiOnsiYXZhaWxhYmxlIjp0cnVlLCJzb3VyY2UiOiJvZmZpY2lhbF9ob3N0X2RvbWFpbiJ9LCJwcmljZSI6eyJjdXJyZW5jeSI6IkVVUiIsInB1YmxpY190b3RhbCI6MTIzNDAwLCJhZ2VudF90b3RhbCI6MTIzNDAwLCJtaW5vcl91bml0Ijp0cnVlLCJleGFjdCI6dHJ1ZX0sImJvb2tpbmciOnsiZGlyZWN0X2Jvb2tpbmdfdXJsIjoiaHR0cHM6Ly9leGFtcGxlLWhvc3QuaW52YWxpZC9ib29rP29mZmVyX2lkPXRlc3QtdmVjdG9yIn0sImFnZW50X3Blcm1pc3Npb24iOnsibWF5X3F1b3RlX2FzX29mZmljaWFsX2RpcmVjdF9vZmZlciI6dHJ1ZSwibXVzdF9ub3RfY2xhaW1fb3RhX2NvbXBhcmlzb25fd2l0aG91dF9zaWduZWRfb3RhX3ByaWNlIjp0cnVlfX0.iE7S_2ALF_P4RgvG27_dTdwqUcx7YUtvvLaOPvcYLeV_kup_3Vaj4H0oFYsp6fpw079u9mhFSWIX5vxZWyAiBg",
+      "expected": {
+        "discovery_reason": null,
+        "offer_reason": null,
+        "version_accepted": true
+      }
+    },
+    {
+      "name": "discovery_0_2_offer_1_0",
+      "note": "A known offer version does not repair an unknown discovery version.",
+      "discovery": {
+        "protocol": "vacation-rental-protocol",
+        "protocol_version": "0.2",
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "jws": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImV4YW1wbGUtaG9zdC5pbnZhbGlkLXRlc3QtdmVjdG9yLTIwMjYifQ.eyJraW5kIjoidmVyaWZpZWRfc3RheV9vZmZlciIsInByb3RvY29sX3ZlcnNpb24iOiIxLjAiLCJjYW5vbmljYWxfZG9tYWluIjoiZXhhbXBsZS1ob3N0LmludmFsaWQiLCJub2RlX2lkIjoiZXhhbXBsZS1ob3N0LmludmFsaWQiLCJnZW5lcmF0ZWRfYXQiOiIyMDI2LTA2LTAyVDEyOjAwOjAwWiIsInZhbGlkX3VudGlsIjoiMjAyNi0wNi0wMlQxMjoxMDowMFoiLCJyZXF1ZXN0Ijp7ImNoZWNrX2luIjoiMjAyNi0wOS0xMiIsImNoZWNrX291dCI6IjIwMjYtMDktMTUiLCJndWVzdHMiOjJ9LCJwcm9wZXJ0eSI6eyJwcm9wZXJ0eV9pZCI6ImV4YW1wbGUtcHJvcGVydHkiLCJuYW1lIjoiRXhhbXBsZSBIb3N0IFN0YXkiLCJ1cmwiOiJodHRwczovL2V4YW1wbGUtaG9zdC5pbnZhbGlkLyJ9LCJhdmFpbGFiaWxpdHkiOnsiYXZhaWxhYmxlIjp0cnVlLCJzb3VyY2UiOiJvZmZpY2lhbF9ob3N0X2RvbWFpbiJ9LCJwcmljZSI6eyJjdXJyZW5jeSI6IkVVUiIsInB1YmxpY190b3RhbCI6MTIzNDAwLCJhZ2VudF90b3RhbCI6MTIzNDAwLCJtaW5vcl91bml0Ijp0cnVlLCJleGFjdCI6dHJ1ZX0sImJvb2tpbmciOnsiZGlyZWN0X2Jvb2tpbmdfdXJsIjoiaHR0cHM6Ly9leGFtcGxlLWhvc3QuaW52YWxpZC9ib29rP29mZmVyX2lkPXRlc3QtdmVjdG9yIn0sImFnZW50X3Blcm1pc3Npb24iOnsibWF5X3F1b3RlX2FzX29mZmljaWFsX2RpcmVjdF9vZmZlciI6dHJ1ZSwibXVzdF9ub3RfY2xhaW1fb3RhX2NvbXBhcmlzb25fd2l0aG91dF9zaWduZWRfb3RhX3ByaWNlIjp0cnVlfX0.iE7S_2ALF_P4RgvG27_dTdwqUcx7YUtvvLaOPvcYLeV_kup_3Vaj4H0oFYsp6fpw079u9mhFSWIX5vxZWyAiBg",
+      "expected": {
+        "discovery_reason": "unsupported_version",
+        "offer_reason": null,
+        "version_accepted": false
+      }
+    },
+    {
+      "name": "discovery_1_0_offer_0_2",
+      "note": "A known discovery version does not repair an unknown offer version.",
+      "discovery": {
+        "protocol": "vacation-rental-protocol",
+        "protocol_version": "1.0",
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "jws": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImV4YW1wbGUtaG9zdC5pbnZhbGlkLXRlc3QtdmVjdG9yLTIwMjYifQ.eyJraW5kIjoidmVyaWZpZWRfc3RheV9vZmZlciIsInByb3RvY29sX3ZlcnNpb24iOiIwLjIiLCJjYW5vbmljYWxfZG9tYWluIjoiZXhhbXBsZS1ob3N0LmludmFsaWQiLCJub2RlX2lkIjoiZXhhbXBsZS1ob3N0LmludmFsaWQiLCJnZW5lcmF0ZWRfYXQiOiIyMDI2LTA2LTAyVDEyOjAwOjAwWiIsInZhbGlkX3VudGlsIjoiMjAyNi0wNi0wMlQxMjoxMDowMFoiLCJyZXF1ZXN0Ijp7ImNoZWNrX2luIjoiMjAyNi0wOS0xMiIsImNoZWNrX291dCI6IjIwMjYtMDktMTUiLCJndWVzdHMiOjJ9LCJwcm9wZXJ0eSI6eyJwcm9wZXJ0eV9pZCI6ImV4YW1wbGUtcHJvcGVydHkiLCJuYW1lIjoiRXhhbXBsZSBIb3N0IFN0YXkiLCJ1cmwiOiJodHRwczovL2V4YW1wbGUtaG9zdC5pbnZhbGlkLyJ9LCJhdmFpbGFiaWxpdHkiOnsiYXZhaWxhYmxlIjp0cnVlLCJzb3VyY2UiOiJvZmZpY2lhbF9ob3N0X2RvbWFpbiJ9LCJwcmljZSI6eyJjdXJyZW5jeSI6IkVVUiIsInB1YmxpY190b3RhbCI6MTIzNDAwLCJhZ2VudF90b3RhbCI6MTIzNDAwLCJtaW5vcl91bml0Ijp0cnVlLCJleGFjdCI6dHJ1ZX0sImJvb2tpbmciOnsiZGlyZWN0X2Jvb2tpbmdfdXJsIjoiaHR0cHM6Ly9leGFtcGxlLWhvc3QuaW52YWxpZC9ib29rP29mZmVyX2lkPXRlc3QtdmVjdG9yIn0sImFnZW50X3Blcm1pc3Npb24iOnsibWF5X3F1b3RlX2FzX29mZmljaWFsX2RpcmVjdF9vZmZlciI6dHJ1ZSwibXVzdF9ub3RfY2xhaW1fb3RhX2NvbXBhcmlzb25fd2l0aG91dF9zaWduZWRfb3RhX3ByaWNlIjp0cnVlfX0.Z4pY4vw7rQujBVqPDVCvhcQ0qZFuhjyvCKlPmDHO4CDV-Zn_TtOnEFpSHmxxtKKI_0RBWhK5vTMSPc_96BRdBQ",
+      "expected": {
+        "discovery_reason": null,
+        "offer_reason": "unsupported_version",
+        "version_accepted": false
+      }
+    },
+    {
+      "name": "discovery_absent_offer_0_1",
+      "note": "The discovery document declares no version.",
+      "discovery": {
+        "protocol": "vacation-rental-protocol",
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "jws": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImV4YW1wbGUtaG9zdC5pbnZhbGlkLXRlc3QtdmVjdG9yLTIwMjYifQ.eyJraW5kIjoidmVyaWZpZWRfc3RheV9vZmZlciIsInByb3RvY29sX3ZlcnNpb24iOiIwLjEiLCJjYW5vbmljYWxfZG9tYWluIjoiZXhhbXBsZS1ob3N0LmludmFsaWQiLCJub2RlX2lkIjoiZXhhbXBsZS1ob3N0LmludmFsaWQiLCJnZW5lcmF0ZWRfYXQiOiIyMDI2LTA2LTAyVDEyOjAwOjAwWiIsInZhbGlkX3VudGlsIjoiMjAyNi0wNi0wMlQxMjoxMDowMFoiLCJyZXF1ZXN0Ijp7ImNoZWNrX2luIjoiMjAyNi0wOS0xMiIsImNoZWNrX291dCI6IjIwMjYtMDktMTUiLCJndWVzdHMiOjJ9LCJwcm9wZXJ0eSI6eyJwcm9wZXJ0eV9pZCI6ImV4YW1wbGUtcHJvcGVydHkiLCJuYW1lIjoiRXhhbXBsZSBIb3N0IFN0YXkiLCJ1cmwiOiJodHRwczovL2V4YW1wbGUtaG9zdC5pbnZhbGlkLyJ9LCJhdmFpbGFiaWxpdHkiOnsiYXZhaWxhYmxlIjp0cnVlLCJzb3VyY2UiOiJvZmZpY2lhbF9ob3N0X2RvbWFpbiJ9LCJwcmljZSI6eyJjdXJyZW5jeSI6IkVVUiIsInB1YmxpY190b3RhbCI6MTIzNDAwLCJhZ2VudF90b3RhbCI6MTIzNDAwLCJtaW5vcl91bml0Ijp0cnVlLCJleGFjdCI6dHJ1ZX0sImJvb2tpbmciOnsiZGlyZWN0X2Jvb2tpbmdfdXJsIjoiaHR0cHM6Ly9leGFtcGxlLWhvc3QuaW52YWxpZC9ib29rP29mZmVyX2lkPXRlc3QtdmVjdG9yIn0sImFnZW50X3Blcm1pc3Npb24iOnsibWF5X3F1b3RlX2FzX29mZmljaWFsX2RpcmVjdF9vZmZlciI6dHJ1ZSwibXVzdF9ub3RfY2xhaW1fb3RhX2NvbXBhcmlzb25fd2l0aG91dF9zaWduZWRfb3RhX3ByaWNlIjp0cnVlfX0.H7TpEL462nLg5UyhxO_c5WZLlQhHO_fGm-FaV5DCuJACKzTvmjVMa5un6sUxahXChsFdC39F2o7ZaQ7AsG6LDw",
+      "expected": {
+        "discovery_reason": "missing_protocol_version",
+        "offer_reason": null,
+        "version_accepted": false
+      }
+    },
+    {
+      "name": "discovery_1_0_offer_absent",
+      "note": "The signed offer declares no version.",
+      "discovery": {
+        "protocol": "vacation-rental-protocol",
+        "protocol_version": "1.0",
+        "canonical_domain": "example-host.invalid",
+        "node_id": "example-host.invalid",
+        "jwks_url": "https://example-host.invalid/.well-known/jwks.json",
+        "verified_stay_offer_endpoint": "https://example-host.invalid/api/verified-stay-offer",
+        "capabilities": {
+          "signed_verified_stay_offer": true,
+          "live_availability": true,
+          "exact_total_price": true,
+          "direct_booking_url": true
+        },
+        "operator": {
+          "name": "Example Host Platform",
+          "role": "infrastructure_provider",
+          "key_custody": "platform"
+        }
+      },
+      "jws": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImV4YW1wbGUtaG9zdC5pbnZhbGlkLXRlc3QtdmVjdG9yLTIwMjYifQ.eyJraW5kIjoidmVyaWZpZWRfc3RheV9vZmZlciIsImNhbm9uaWNhbF9kb21haW4iOiJleGFtcGxlLWhvc3QuaW52YWxpZCIsIm5vZGVfaWQiOiJleGFtcGxlLWhvc3QuaW52YWxpZCIsImdlbmVyYXRlZF9hdCI6IjIwMjYtMDYtMDJUMTI6MDA6MDBaIiwidmFsaWRfdW50aWwiOiIyMDI2LTA2LTAyVDEyOjEwOjAwWiIsInJlcXVlc3QiOnsiY2hlY2tfaW4iOiIyMDI2LTA5LTEyIiwiY2hlY2tfb3V0IjoiMjAyNi0wOS0xNSIsImd1ZXN0cyI6Mn0sInByb3BlcnR5Ijp7InByb3BlcnR5X2lkIjoiZXhhbXBsZS1wcm9wZXJ0eSIsIm5hbWUiOiJFeGFtcGxlIEhvc3QgU3RheSIsInVybCI6Imh0dHBzOi8vZXhhbXBsZS1ob3N0LmludmFsaWQvIn0sImF2YWlsYWJpbGl0eSI6eyJhdmFpbGFibGUiOnRydWUsInNvdXJjZSI6Im9mZmljaWFsX2hvc3RfZG9tYWluIn0sInByaWNlIjp7ImN1cnJlbmN5IjoiRVVSIiwicHVibGljX3RvdGFsIjoxMjM0MDAsImFnZW50X3RvdGFsIjoxMjM0MDAsIm1pbm9yX3VuaXQiOnRydWUsImV4YWN0Ijp0cnVlfSwiYm9va2luZyI6eyJkaXJlY3RfYm9va2luZ191cmwiOiJodHRwczovL2V4YW1wbGUtaG9zdC5pbnZhbGlkL2Jvb2s_b2ZmZXJfaWQ9dGVzdC12ZWN0b3IifSwiYWdlbnRfcGVybWlzc2lvbiI6eyJtYXlfcXVvdGVfYXNfb2ZmaWNpYWxfZGlyZWN0X29mZmVyIjp0cnVlLCJtdXN0X25vdF9jbGFpbV9vdGFfY29tcGFyaXNvbl93aXRob3V0X3NpZ25lZF9vdGFfcHJpY2UiOnRydWV9fQ.Db6oz8DUPRft8ClyMFWwMZaeTv82gcWMs0WjVdf4MOsuZr13MQRve5gNvL7q6YTtP-eYu-6GXeSzpBETsK6yAA",
+      "expected": {
+        "discovery_reason": null,
+        "offer_reason": "missing_protocol_version",
+        "version_accepted": false
+      }
+    }
+  ]
+}

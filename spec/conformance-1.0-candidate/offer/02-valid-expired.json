@@ -1,0 +1,71 @@
+{
+  "name": "valid_signature_expired_offer",
+  "description": "The same correctly signed offer, evaluated after offer.valid_until has passed. The signature still verifies (authenticity is not freshness) but the offer is stale and must not be quoted.",
+  "clock": "2026-06-02T13:00:00Z",
+  "jwks": {
+    "keys": [
+      {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "kid": "example-host.invalid-test-vector-2026",
+        "use": "sig",
+        "alg": "EdDSA",
+        "key_ops": [
+          "verify"
+        ],
+        "x": "8R0pcKv0FNVbtVUQg8hjC6qKPHEG-34D2pGt_yHOKeY"
+      }
+    ]
+  },
+  "input": {
+    "kind": "signed_verified_stay_offer",
+    "protocol_version": "0.1",
+    "offer": {
+      "kind": "verified_stay_offer",
+      "protocol_version": "0.1",
+      "canonical_domain": "example-host.invalid",
+      "node_id": "example-host.invalid",
+      "generated_at": "2026-06-02T12:00:00Z",
+      "valid_until": "2026-06-02T12:10:00Z",
+      "request": {
+        "check_in": "2026-09-12",
+        "check_out": "2026-09-15",
+        "guests": 2
+      },
+      "property": {
+        "property_id": "example-property",
+        "name": "Example Host Stay",
+        "url": "https://example-host.invalid/"
+      },
+      "availability": {
+        "available": true,
+        "source": "official_host_domain"
+      },
+      "price": {
+        "currency": "EUR",
+        "public_total": 123400,
+        "agent_total": 123400,
+        "minor_unit": true,
+        "exact": true
+      },
+      "booking": {
+        "direct_booking_url": "https://example-host.invalid/book?offer_id=test-vector"
+      },
+      "agent_permission": {
+        "may_quote_as_official_direct_offer": true,
+        "must_not_claim_ota_comparison_without_signed_ota_price": true
+      }
+    },
+    "signature": {
+      "format": "jws_compact",
+      "alg": "EdDSA",
+      "kid": "example-host.invalid-test-vector-2026",
+      "jws": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCIsImtpZCI6ImV4YW1wbGUtaG9zdC5pbnZhbGlkLXRlc3QtdmVjdG9yLTIwMjYifQ.eyJraW5kIjoidmVyaWZpZWRfc3RheV9vZmZlciIsInByb3RvY29sX3ZlcnNpb24iOiIwLjEiLCJjYW5vbmljYWxfZG9tYWluIjoiZXhhbXBsZS1ob3N0LmludmFsaWQiLCJub2RlX2lkIjoiZXhhbXBsZS1ob3N0LmludmFsaWQiLCJnZW5lcmF0ZWRfYXQiOiIyMDI2LTA2LTAyVDEyOjAwOjAwWiIsInZhbGlkX3VudGlsIjoiMjAyNi0wNi0wMlQxMjoxMDowMFoiLCJyZXF1ZXN0Ijp7ImNoZWNrX2luIjoiMjAyNi0wOS0xMiIsImNoZWNrX291dCI6IjIwMjYtMDktMTUiLCJndWVzdHMiOjJ9LCJwcm9wZXJ0eSI6eyJwcm9wZXJ0eV9pZCI6ImV4YW1wbGUtcHJvcGVydHkiLCJuYW1lIjoiRXhhbXBsZSBIb3N0IFN0YXkiLCJ1cmwiOiJodHRwczovL2V4YW1wbGUtaG9zdC5pbnZhbGlkLyJ9LCJhdmFpbGFiaWxpdHkiOnsiYXZhaWxhYmxlIjp0cnVlLCJzb3VyY2UiOiJvZmZpY2lhbF9ob3N0X2RvbWFpbiJ9LCJwcmljZSI6eyJjdXJyZW5jeSI6IkVVUiIsInB1YmxpY190b3RhbCI6MTIzNDAwLCJhZ2VudF90b3RhbCI6MTIzNDAwLCJtaW5vcl91bml0Ijp0cnVlLCJleGFjdCI6dHJ1ZX0sImJvb2tpbmciOnsiZGlyZWN0X2Jvb2tpbmdfdXJsIjoiaHR0cHM6Ly9leGFtcGxlLWhvc3QuaW52YWxpZC9ib29rP29mZmVyX2lkPXRlc3QtdmVjdG9yIn0sImFnZW50X3Blcm1pc3Npb24iOnsibWF5X3F1b3RlX2FzX29mZmljaWFsX2RpcmVjdF9vZmZlciI6dHJ1ZSwibXVzdF9ub3RfY2xhaW1fb3RhX2NvbXBhcmlzb25fd2l0aG91dF9zaWduZWRfb3RhX3ByaWNlIjp0cnVlfX0.H7TpEL462nLg5UyhxO_c5WZLlQhHO_fGm-FaV5DCuJACKzTvmjVMa5un6sUxahXChsFdC39F2o7ZaQ7AsG6LDw"
+    }
+  },
+  "expected": {
+    "verified": true,
+    "reason": null,
+    "fresh": false
+  }
+}
