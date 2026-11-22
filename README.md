@@ -10,7 +10,19 @@ Without a signed offer from the host’s domain, an agent has to take an interme
 - Quote the signed total and cancellation terms when the offer permits it, and cite the host’s domain.
 - Send the guest to the booking URL in the signed offer to book with the host.
 
+## Try it with Villa Åkerlyckan
+
+Connect your MCP client to `https://www.hemmabo.com/mcp`, then paste this prompt into the chat.
+
+```text
+Check villaakerlyckan.se for two guests from 8 to 12 March 2027. Verify the host’s signed stay offer. If it’s available and safe to quote, show the total, cancellation terms and booking link from the host’s domain.
+```
+
+## HemmaBo for hosts
+
 Vacation rental software. A signed stay offer on the host's own domain.
+
+Host subscription
 
 - $39 per property per month
 - Guests pay the host
@@ -110,7 +122,7 @@ Quotes are computed from the host's published property data at request time. Age
 
 For VRP offers, do not collect guest contact details in chat. Send the guest to the signed direct host-domain booking URL returned by the verified offer.
 
-## Setup
+## Setup for your own server instance
 
 ```bash
 npm install
