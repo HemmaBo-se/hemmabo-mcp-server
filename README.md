@@ -2,9 +2,9 @@
 
 [![Three screenshots from the recorded Villa Åkerlyckan demo: a guest asks for a stay, the agent verifies the host’s signed offer, and the result links to the host’s booking site.](./assets/readme/verified-stay-flow.jpg)](https://www.hemmabo.com/hemmabo-in-chatgpt.mp4)
 
-Independent vacation rental hosts need agents to verify the stay offers they publish on their own domains, so guests can book directly with them.
+Independent vacation rental hosts need agents to verify the stay offers they publish on their websites, so guests can book directly with them.
 
-- Fetch a VRP stay offer signed with Ed25519 on the host’s own domain.
+- Fetch an Ed25519-signed stay offer from the host’s website via VRP.
 - Verify the signature against that domain’s public keys and check offer freshness.
 - Send guests to the booking URL in the verified offer. Guests pay the host through the host’s own Stripe account.
 - Use HemmaBo as the reference MCP server for the [Vacation Rental Protocol](https://github.com/vacationrentalprotocol/vrp-spec).
