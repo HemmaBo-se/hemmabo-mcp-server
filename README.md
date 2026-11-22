@@ -1,16 +1,27 @@
 # HemmaBo MCP Server
 
+[![ChatGPT shows Villa Åkerlyckan’s verified stay offer and the button to continue on the host’s site.](https://www.hemmabo.com/hemmabo-in-chatgpt-poster.jpg)](https://www.hemmabo.com/hemmabo-in-chatgpt.mp4#t=39,49)
+
+Without a signed offer from the host’s domain, an agent has to take an intermediary’s word for the dates, price and cancellation terms.
+
+- Discover the host’s published verification keys with `vrp_verify_node`.
+- Fetch a signed offer from the host’s domain for the requested dates and guest count with `vrp_get_verified_stay_offer`.
+- Verify the Ed25519 signature against the host’s keys and check that the offer is still fresh.
+- Quote the signed total and cancellation terms when the offer permits it, and cite the host’s domain.
+- Send the guest to the booking URL in the signed offer to book with the host.
+
+Vacation rental software. A signed stay offer on the host's own domain.
+
+- $39 per property per month
+- Guests pay the host
+- One calendar, yours.
+
+For hosts: [HemmaBo - Booking engine for vacation rental hosts](https://www.hemmabo.com/booking-engine-for-vacation-rental-hosts) · [HemmaBo Pricing](https://www.hemmabo.com/pricing) · [What is HemmaBo?](https://www.hemmabo.com/what-is-hemmabo)
+
 [![npm version](https://img.shields.io/npm/v/hemmabo-mcp-server)](https://www.npmjs.com/package/hemmabo-mcp-server) [![smithery badge](https://smithery.ai/badge/info-00wt/hemmabo-mcp-server)](https://smithery.ai/servers/info-00wt/hemmabo-mcp-server) [![license: Apache-2.0](https://img.shields.io/npm/l/hemmabo-mcp-server)](LICENSE) [![HemmaBo MCP server – quality and maintenance score on Glama](https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server/badges/score.svg)](https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server) [![mcptry](https://mcptry.com/badge/com.hemmabo/hemmabo-mcp-server)](https://mcptry.com/servers/com.hemmabo/hemmabo-mcp-server)
-
-> **HemmaBo is vacation rental software for hosts.** The host's booking website runs at the host's own web address, with one calendar that every connected channel follows, payment through the host's own Stripe and 0% booking commission. Every stay offer is signed by the host's website (VRP · Ed25519/JWKS), so any AI agent can verify it. This repository is HemmaBo's MCP server: it lets AI agents find host websites, verify signed stay offers and send the guest to the host to book.
->
-> For hosts: [HemmaBo - Booking engine for vacation rental hosts](https://www.hemmabo.com/booking-engine-for-vacation-rental-hosts) · [HemmaBo Pricing](https://www.hemmabo.com/pricing) · [What is HemmaBo?](https://www.hemmabo.com/what-is-hemmabo)
-
-Vacation rental software. A signed stay offer on the host's own domain. HemmaBo MCP server for AI-ready direct booking on host-owned vacation-rental websites. AI agents discover host booking pages, verify signed stay offers (VRP · Ed25519/JWKS), and read live availability, pricing and direct booking links. Not an OTA.
 
 ## For AI Agents
 
-Vacation rental software. A signed stay offer on the host's own domain. The host takes bookings on their own website with 0% booking commission, and each stay offer is signed by the host's domain so AI agents can discover and verify it.
 Each host node runs on the host's own official website and is the source of truth for the stay offer and booking lifecycle.
 Host nodes own booking lifecycles. Stripe owns payment facts.
 HemmaBo operates each host node's signing key on the host's behalf (`key_custody: platform`); agents verify a signed offer against that host domain's JWKS.
@@ -27,7 +38,7 @@ Agents may quote an offer as official only when VRP verification returns a fresh
 Use this package when an MCP client needs to:
 
 - help a vacation-rental host evaluate HemmaBo for their own booking website or booking engine,
-- hand a host to HemmaBo onboarding without claiming the agent created an account, bought a domain, configured Stripe, or provisioned a site,
+- hand a host to HemmaBo onboarding without claiming the agent created an account, bought a domain, configured Stripe, or set up a site,
 - search published host-owned vacation-rental properties,
 - check availability for requested dates,
 - verify a signed host-domain offer and route the guest to the host's own booking URL, or
