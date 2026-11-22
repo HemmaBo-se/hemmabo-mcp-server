@@ -1,14 +1,14 @@
 # HemmaBo MCP Server
 
-[![ChatGPT shows Villa Åkerlyckan’s verified stay offer and the button to continue on the host’s site.](https://www.hemmabo.com/hemmabo-in-chatgpt-poster.jpg)](https://www.hemmabo.com/hemmabo-in-chatgpt.mp4#t=39,49)
+[![Three screenshots from the recorded Villa Åkerlyckan demo: a guest asks for a stay, the agent verifies the host’s signed offer, and the result links to the host’s booking site.](./assets/readme/verified-stay-flow.jpg)](https://www.hemmabo.com/hemmabo-in-chatgpt.mp4)
 
-Without a signed offer from the host’s domain, an agent has to take an intermediary’s word for the dates, price and cancellation terms.
+Independent vacation rental hosts need agents to verify the stay offers they publish on their websites, so guests can book directly with them.
 
-- Discover the host’s published verification keys with `vrp_verify_node`.
-- Fetch a signed offer from the host’s domain for the requested dates and guest count with `vrp_get_verified_stay_offer`.
-- Verify the Ed25519 signature against the host’s keys and check that the offer is still fresh.
-- Quote the signed total and cancellation terms when the offer permits it, and cite the host’s domain.
-- Send the guest to the booking URL in the signed offer to book with the host.
+- Fetch an Ed25519-signed stay offer from the host’s website via VRP.
+- Verify the signature against that domain’s public keys and check offer freshness.
+- Send guests to the booking URL in the verified offer. Guests pay the host through the host’s own Stripe account.
+- Use HemmaBo as the reference MCP server for the [Vacation Rental Protocol](https://github.com/vacationrentalprotocol/vrp-spec).
+- Try the live host node at [villaakerlyckan.se](https://villaakerlyckan.se/).
 
 ## Try it with Villa Åkerlyckan
 
