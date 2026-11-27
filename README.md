@@ -1,6 +1,15 @@
 # HemmaBo MCP Server
 
-[![Three screenshots from the recorded Villa Åkerlyckan demo: a guest asks for a stay, the agent verifies the host’s signed offer, and the result links to the host’s booking site.](./assets/readme/verified-stay-flow.jpg)](https://www.hemmabo.com/hemmabo-in-chatgpt.mp4)
+**An MCP server that lets a compatible AI agent verify a vacation rental host's signed stay offer and send the guest to the host to book.**
+
+[![npm version](https://img.shields.io/npm/v/hemmabo-mcp-server)](https://www.npmjs.com/package/hemmabo-mcp-server) [![MCP Registry version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fregistry.modelcontextprotocol.io%2Fv0%2Fservers%3Fsearch%3Dcom.hemmabo%2Fhemmabo-mcp-server%26version%3Dlatest&query=%24.servers%5B0%5D.server.version&label=MCP%20Registry&prefix=v)](https://registry.modelcontextprotocol.io/v0/servers?search=com.hemmabo/hemmabo-mcp-server&version=latest) [![CI](https://img.shields.io/github/actions/workflow/status/HemmaBo-se/hemmabo-mcp-server/ci.yml?branch=main&label=CI)](https://github.com/HemmaBo-se/hemmabo-mcp-server/actions/workflows/ci.yml) [![license: Apache-2.0](https://img.shields.io/npm/l/hemmabo-mcp-server)](LICENSE) [![HemmaBo MCP server – quality and maintenance score on Glama](https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server/badges/score.svg)](https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server) [![mcptry](https://mcptry.com/badge/com.hemmabo/hemmabo-mcp-server)](https://mcptry.com/servers/com.hemmabo/hemmabo-mcp-server)
+
+A host's website publishes a cryptographically signed stay offer. The server fetches the offer and checks its signature against the public key that website publishes, verifying its source and whether its signed details have changed. The guest books directly with the host and pays the host. 0% booking commission.
+
+- **Connect:** `https://www.hemmabo.com/mcp` (remote, nothing to install), or open the [HemmaBo app in ChatGPT](https://chatgpt.com/plugins/plugin_asdk_app_69fccc58e3088191a22cffe6fd5ad075).
+- **Open standard:** built on the [Vacation Rental Protocol (VRP)](https://vacationrentalprotocol.com). A host node is discovered at `/.well-known/vacation-rental.json` on the host's own website.
+
+[![Three screenshots from the recorded Villa Åkerlyckan demo: a guest asks for a stay, the agent verifies the host’s signed offer, and the result links to the host’s booking site.](https://raw.githubusercontent.com/HemmaBo-se/hemmabo-mcp-server/main/assets/readme/verified-stay-flow.jpg)](https://www.hemmabo.com/hemmabo-in-chatgpt.mp4)
 
 Independent vacation rental hosts need agents to verify the stay offers they publish on their websites, so guests can book directly with them.
 
@@ -30,14 +39,12 @@ Host subscription
 
 For hosts: [HemmaBo - Booking engine for vacation rental hosts](https://www.hemmabo.com/booking-engine-for-vacation-rental-hosts) · [HemmaBo Pricing](https://www.hemmabo.com/pricing) · [What is HemmaBo?](https://www.hemmabo.com/what-is-hemmabo)
 
-[![npm version](https://img.shields.io/npm/v/hemmabo-mcp-server)](https://www.npmjs.com/package/hemmabo-mcp-server) [![smithery badge](https://smithery.ai/badge/info-00wt/hemmabo-mcp-server)](https://smithery.ai/servers/info-00wt/hemmabo-mcp-server) [![license: Apache-2.0](https://img.shields.io/npm/l/hemmabo-mcp-server)](LICENSE) [![HemmaBo MCP server – quality and maintenance score on Glama](https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server/badges/score.svg)](https://glama.ai/mcp/servers/HemmaBo-se/hemmabo-mcp-server) [![mcptry](https://mcptry.com/badge/com.hemmabo/hemmabo-mcp-server)](https://mcptry.com/servers/com.hemmabo/hemmabo-mcp-server)
-
 ## For AI Agents
 
 Each host node runs on the host's own official website and is the source of truth for the stay offer and booking lifecycle.
 Host nodes own booking lifecycles. Stripe owns payment facts.
 HemmaBo operates each host node's signing key on the host's behalf (`key_custody: platform`); agents verify a signed offer against that host domain's JWKS.
-AI agents discover host nodes via agent-traversal (`/.well-known/agent-traversal.json`).
+AI agents discover a host node at `/.well-known/vacation-rental.json` on the host's own website (IANA Well-Known URIs, provisional), then follow its agent-traversal map (`/.well-known/agent-traversal.json`).
 HemmaBo + VRP, 6 runtime tools: 2 HemmaBo tools, 2 host onboarding tools, and 2 VRP verification tools.
 Host-domain signed verified stay offers.
 All six tools only read. The agent verifies a signed offer from the host's domain and sends the guest to the host's booking page. The agent never books, pays, cancels or changes a booking.
@@ -69,7 +76,7 @@ For VRP offers, the booking path is the signed direct booking URL on the host's 
 Related links:
 
 - Official site: https://www.hemmabo.com
-- Live reference host: https://www.villaakerlyckan.se
+- Live reference host: https://villaakerlyckan.se
 - VRP specification: https://vacationrentalprotocol.com
 - Package: https://www.npmjs.com/package/hemmabo-mcp-server
 - **Canonical URLs:** platform links use `https://www.hemmabo.com` (with www); see [ADR 0013](docs/adr/0013-canonical-urls-apex-vs-www.md).
@@ -89,6 +96,12 @@ Connect an MCP client to the hosted Streamable HTTP endpoint:
     }
   }
 }
+```
+
+In Claude Code:
+
+```bash
+claude mcp add --transport http hemmabo https://www.hemmabo.com/mcp
 ```
 
 > HemmaBo is a hosted, remote-only MCP server. Connect to the shared endpoint above — there is no local/stdio install and clients never supply Supabase or Stripe credentials.
