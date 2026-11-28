@@ -1,3 +1,4 @@
+import { offerStatusMessages } from "./offer-status.js";
 import { WIDGET_PAYLOAD_META_KEY } from "./chatgpt-surface.js";
 
 export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
@@ -314,6 +315,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       if (w.openai && w.openai.toolResponseMetadata) {
         var meta = w.openai.toolResponseMetadata;
         var full = meta.mcp_tool_result || meta.call_tool_result || meta;
+        if (full && full.isError) return errorPayload(full);
         if (full && full.structuredContent) return enrichData(full.structuredContent, full._meta || meta);
         if (full && full.content) return enrichData(parseContent(full.content), full._meta || meta);
       }
@@ -329,9 +331,20 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     // ADR 0020: on /mcp/chatgpt the model reads a short summary and the full
     // result reaches the widget only in _meta, also when a host message
     // carries the summary without it.
-    var sourceMeta = objectValue(meta) || objectValue(window.openai && window.openai.toolResponseMetadata);
-    var base = objectValue(sourceMeta && sourceMeta["${WIDGET_PAYLOAD_META_KEY}"]) || objectValue(data);
-    if (!base || !sourceMeta) return base || data;
+    var sourceMeta = objectValue(meta);
+    // The result being delivered decides. Metadata from an earlier offer
+    // must never turn an error or a blocked summary into a bookable stay.
+    var envelope = sourceMeta && (sourceMeta.mcp_tool_result || sourceMeta.call_tool_result || sourceMeta);
+    if (envelope && envelope.isError) return errorPayload(envelope);
+    if (!data || data.error || data.bookable === false || data.verified !== true || data.fresh !== true) return data;
+    var full = objectValue(sourceMeta && sourceMeta["${WIDGET_PAYLOAD_META_KEY}"]);
+    var fullSummary = full && full.official_offer_summary;
+    var base = fullSummary && fullSummary.bookable === true && data.bookable === true && full.domain === data.domain &&
+      full.checkIn === data.checkIn && full.checkOut === data.checkOut && full.guests === data.guests &&
+      fullSummary.valid_until === data.valid_until && fullSummary.direct_booking_url === data.direct_booking_url &&
+      fullSummary.price && data.price && fullSummary.price.total === data.price.total &&
+      fullSummary.price.currency === data.price.currency ? full : data;
+    if (!base || !sourceMeta || (base === data && !data.official_offer_summary)) return base || data;
     var enriched = Object.assign({}, base);
     if (!enriched.offer && sourceMeta.offer) enriched.offer = sourceMeta.offer;
     if (!enriched.signed_verified_stay_offer && sourceMeta.signed_verified_stay_offer) {
@@ -358,11 +371,6 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
 
   function asArray(value) {
     return Array.isArray(value) ? value : [];
-  }
-
-  function hostUrl(domain) {
-    if (!domain) return "";
-    return /^https?:\\/\\//.test(domain) ? domain : "https://" + domain;
   }
 
   function cleanDomain(value) {
@@ -542,20 +550,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       data.publicTotal,
       listing.publicTotal
     ]);
-    var available = summary.available;
-    if (available === undefined) available = data.available;
-    if (available === undefined) available = listing.available;
-    if (available === undefined) available = true;
-    // A verified offer's link is the summary's only: the server sets it when
-    // the signed URL is on the host's domain or its www. name, else null, and
-    // the card then opens the host's own domain. The raw offer's URL is never
-    // a fallback here.
-    var directUrl = data.official_offer_summary
-      ? (summary.direct_booking_url || hostUrl(cleanDomain(data.domain) || domain))
-      : ((offer.booking && (offer.booking.direct_booking_url || offer.booking.booking_url)) ||
-        data.paymentUrl ||
-        data.direct_booking_url ||
-        (domain ? hostUrl(domain) : ""));
+    var directUrl = (data.official_offer_summary || data).direct_booking_url;
     var images = [
       data.widget_media && data.widget_media.images,
       data.media && data.media.images,
@@ -569,11 +564,6 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       collectImagesFrom(images[i], imageList);
     }
     imageList = imageList.slice(0, 8);
-    var alternatives = asArray(data.alternativeDates);
-    if (!alternatives.length) alternatives = asArray(listing.alternativeDates);
-    if (!alternatives.length && asArray(data.unavailableMatches).length) {
-      alternatives = asArray(data.unavailableMatches[0].alternativeDates);
-    }
     return {
       name: property.name || listing.name || data.propertyName || titleFromDomain(domain),
       domain: domain,
@@ -588,13 +578,11 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       nights: data.nights || listing.nights || (offer.request && offer.request.nights) || nightsBetween(checkIn, checkOut),
       currency: currency,
       finalAmount: finalAmount,
-      available: available !== false,
       directUrl: directUrl,
       logo: property.logo_url || property.logo || listing.logo_url || (summary.property && summary.property.logo_url) || "",
       amenities: asArray(property.amenities).filter(function (a) { return typeof a === "string" && !!a; }).map(function (a) { return String(a).indexOf("_") === -1 ? a : a.split("_").join(" ").replace(/^./, function (c) { return c.toUpperCase(); }); }).slice(0, 4),
       image: imageList[0] || "",
       images: imageList,
-      alternatives: alternatives,
       // W5c villkorssymmetrin: the host's starred "Det lilla extra", the
       // SIGNED terms + minimum age (class verifiable, from the offer JWS via
       // the summary), the verbatim refund ladder, and stay times. All
@@ -614,9 +602,6 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       refund: Array.isArray(summary.refund_schedule) ? summary.refund_schedule : null,
       checkInTime: (summary.stay_details && typeof summary.stay_details.check_in_time === "string") ? summary.stay_details.check_in_time : "",
       checkOutTime: (summary.stay_details && typeof summary.stay_details.check_out_time === "string") ? summary.stay_details.check_out_time : "",
-      verified: data.verified === true || data.fresh === true || (data.signature && data.signature.verified === true),
-      bookable: summary.bookable !== false && available !== false,
-      requestedUnavailable: data.available === false || (asArray(data.unavailableMatches).length && !asArray(data.properties).length),
       // Display-only ≈ translation of the total into the guest's currency
       // (ADR 2026-08-06): an annotation beside the node-currency price —
       // never a replacement for it, never presented as exact. Absent field
@@ -673,10 +658,14 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     try { window.parent.postMessage(payload, "*"); } catch (e) {}
   }
 
+  function errorPayload(result) {
+    var body = objectValue(result.structuredContent) || parseContent(result.content) || {};
+    return { error: true, code: body.code, language: body.language };
+  }
+
   function applyToolPayload(params) {
     if (!params) return false;
-    var payload = params.structuredContent || parseContent(params.content);
-    if (!payload) return false;
+    var payload = params.isError ? errorPayload(params) : params.structuredContent || parseContent(params.content) || { error: true };
     render(enrichData(payload, params._meta));
     return true;
   }
@@ -734,6 +723,8 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
   }
 
   var hbLastData = null;
+  var expiryTimer;
+  var statusMessages = ${JSON.stringify(offerStatusMessages)};
   function currentDisplayMode() {
     try {
       if (window.openai && window.openai.displayMode) return window.openai.displayMode;
@@ -804,8 +795,6 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       nights: "nätter",
       guests: "gäster",
       upTo: "upp till",
-      unavailable: "Datumen är inte lediga hos värden.",
-      altReady: "Ett alternativt datumfönster visas nedan.",
       datesTbc: "Datum bekräftas",
       // W5c villkorssymmetrin — wording mirrors smart-stays
       // contracts/ts/booking-terms-email.ts (sv), pinned by contract test.
@@ -826,8 +815,6 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       nights: "nights",
       guests: "guests",
       upTo: "up to",
-      unavailable: "These dates aren't available at the host.",
-      altReady: "An alternative date window is shown below.",
       datesTbc: "Dates to confirm",
       goodToKnow: "Good to know",
       included: "What's included",
@@ -950,29 +937,30 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
 
   function render(data) {
     var root = document.getElementById("root");
+    clearTimeout(expiryTimer);
+    hbLastData = data;
     if (!data) {
       root.className = "loading";
       root.textContent = "Loading the offer…";
       return;
     }
-    hbLastData = data;
+    var summary = data.official_offer_summary || data;
+    var expires = Date.parse(summary.valid_until);
+    var remaining = expires - Date.now();
+    if (data.error || data.verified !== true || data.fresh !== true || summary.bookable !== true ||
+        !summary.direct_booking_url || !(remaining > 0)) {
+      var reason = data.code || data.blocked_reason || (data.agent_citation && data.agent_citation.blocked_reason);
+      if (remaining <= 0) reason = "expired";
+      var locale = String(data.language || hostLocaleSignal()).toLowerCase().split("-")[0];
+      var messages = Object.prototype.hasOwnProperty.call(statusMessages, locale) ? statusMessages[locale] : statusMessages.en;
+      root.className = "notice";
+      root.textContent = Object.prototype.hasOwnProperty.call(messages, reason) ? messages[reason] : messages.unknown;
+      return;
+    }
+    expiryTimer = setTimeout(function () { render(data); }, remaining);
     var offer = normalizeOffer(data);
     var T = widgetStrings(offer);
     var location = [offer.city, offer.region].filter(Boolean).join(" · ") || cleanDomain(offer.domain);
-    var notice = "";
-    if (!offer.available || offer.requestedUnavailable) {
-      notice = '<div class="notice">' + T.unavailable;
-      if (offer.alternatives.length) notice += " " + T.altReady;
-      notice += "</div>";
-      if (offer.alternatives.length) {
-        var alt = offer.alternatives[0];
-        offer.checkIn = alt.checkIn || alt.check_in || offer.checkIn;
-        offer.checkOut = alt.checkOut || alt.check_out || offer.checkOut;
-        offer.nights = alt.nights || nightsBetween(offer.checkIn, offer.checkOut);
-        offer.finalAmount = pickAmount([alt.finalTotal, alt.totalPrice, alt.gapTotal, alt.directBookingTotal, alt.federationTotal, alt.publicTotal, offer.finalAmount]);
-        offer.currency = alt.currency || offer.currency;
-      }
-    }
     var heroList = asArray(offer.images).length ? asArray(offer.images) : (offer.image ? [offer.image] : []);
     // W5c: the compact card carries the HOST'S starred "Det lilla extra"
     // when curated (max 8); the generic amenity row stays as fallback.
@@ -1012,7 +1000,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     if (offer.guests) dateBits.push(offer.guests + " " + T.guests);
     else if (offer.maxGuests) dateBits.push(T.upTo + " " + offer.maxGuests + " " + T.guests);
     var dateLine = dateBits.join(" · ");
-    var bookUrl = offer.directUrl || hostUrl(offer.domain);
+    var bookUrl = offer.directUrl;
     var verifyUrl = "https://vacationrentalprotocol.com/verify?domain=" + encodeURIComponent(cleanDomain(offer.domain) || "");
     var isFull = currentDisplayMode() === "fullscreen";
 
@@ -1083,7 +1071,6 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       root.innerHTML =
         '<div class="stage" style="max-width:520px;">' +
           '<div class="streak" aria-hidden="true"></div>' +
-          notice +
           '<div class="full-hero" id="photoBox">' + photoHtml + '</div>' +
           '<div class="letter" style="border-radius:0;min-height:0;">' +
             '<div class="paper">' +
@@ -1112,7 +1099,6 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
       root.innerHTML =
         '<div class="stage">' +
           '<div class="streak" aria-hidden="true"></div>' +
-          notice +
           '<div class="letter">' + letterInner + '</div>' +
           unfoldHtml + lipHtml + sealHtml +
         '</div>';
@@ -1121,6 +1107,11 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     var bookLink = document.getElementById("bookLink");
     if (bookLink) {
       bookLink.addEventListener("click", function (e) {
+        if (Date.now() >= expires) {
+          e.preventDefault();
+          render(data);
+          return;
+        }
         if (tryHostOpen(bookUrl)) e.preventDefault();
       });
     }
@@ -1201,7 +1192,7 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     if (globals.toolResponseMetadata) {
       var meta = globals.toolResponseMetadata;
       var full = meta.mcp_tool_result || meta.call_tool_result || meta;
-      render(full && enrichData(full.structuredContent || parseContent(full.content), full._meta || meta));
+      render(full && (full.isError ? errorPayload(full) : enrichData(full.structuredContent || parseContent(full.content), full._meta || meta)));
     }
   }, { passive: true });
 

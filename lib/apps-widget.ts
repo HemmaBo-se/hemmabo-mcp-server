@@ -41,15 +41,17 @@ export const HEMMABO_CHATGPT_WIDGET_DOMAIN = chatgptWidgetOriginFromMcpEndpoint(
 // extra" + cancellation line on the compact card; What's included / Good to
 // know / Terms groups in the unfolded view. URI bump = cache bust, same
 // pattern as every prior widget revision.
-export const HEMMABO_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v11.html";
+// v12 and native v3 retire the price and booking action on refusal or expiry.
+export const HEMMABO_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v12.html";
 // ChatGPT caches the HTML by resource URI. Advertise a new key for the fixed
 // startup handshake, and keep the published v1 URI readable for older scans.
-export const HEMMABO_NATIVE_WIDGET_URI = "ui://hemmabo/verified-stay-offer-native-v2.html";
+export const HEMMABO_NATIVE_WIDGET_URI = "ui://hemmabo/verified-stay-offer-native-v3.html";
 export const HEMMABO_NATIVE_WIDGET_URIS: readonly string[] = [
   HEMMABO_NATIVE_WIDGET_URI,
+  "ui://hemmabo/verified-stay-offer-native-v2.html",
   "ui://hemmabo/verified-stay-offer-native-v1.html",
 ];
-export const HEMMABO_PREVIOUS_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v10.html";
+export const HEMMABO_PREVIOUS_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v11.html";
 export const HEMMABO_V9_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v9.html";
 export const HEMMABO_V8_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v8.html";
 export const HEMMABO_V7_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v7.html";
@@ -73,6 +75,7 @@ export const HEMMABO_ALL_WIDGET_URIS: readonly string[] = [
   HEMMABO_WIDGET_URI,
   ...HEMMABO_NATIVE_WIDGET_URIS,
   HEMMABO_PREVIOUS_WIDGET_URI,
+  "ui://hemmabo/verified-stay-offer-v10.html",
   HEMMABO_V9_WIDGET_URI,
   HEMMABO_V8_WIDGET_URI,
   HEMMABO_V7_WIDGET_URI,
@@ -102,7 +105,7 @@ const WIDGET_DESCRIPTION =
 // line, and the widget resource describes itself with the same words, so the
 // model hears one voice: the widget presents the offer, the model does not.
 export const CHATGPT_WIDGET_MODEL_LINE =
-  "HemmaBo's widget shows this verified offer: the host's own photos, dates, guests, signed total and the booking button. Write at most two sentences. Do not repeat these details, and do not add images or a card of your own.";
+  "HemmaBo’s widget shows the host’s photos, signed total and booking button only for a current bookable offer. Otherwise it shows why a current offer is unavailable. Write at most two sentences. Do not repeat these details, and do not add images or a card of your own.";
 
 // ChatGPT expects the same HTTPS origin in the standard field and its
 // compatibility alias. Claude uses its default sandbox when ui.domain is absent.
@@ -153,7 +156,7 @@ export const HEMMABO_WIDGET_TOOL_META = {
   "ui/resourceUri": HEMMABO_WIDGET_URI,
   "openai/outputTemplate": HEMMABO_WIDGET_URI,
   "openai/toolInvocation/invoking": "Verifying the host-domain stay offer...",
-  "openai/toolInvocation/invoked": "Verified stay offer ready.",
+  "openai/toolInvocation/invoked": "Stay offer check complete.",
 } as const;
 
 export function buildNativeWidgetResource(mcpEndpointUrl: string) {

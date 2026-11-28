@@ -12,6 +12,9 @@ const offer = {
   price: { total: 11210, currency: "SEK" },
   language: "sv",
   verified: true,
+  fresh: true,
+  bookable: true,
+  valid_until: new Date(Date.now() + 600_000).toISOString(),
 };
 
 type Message = { method: string; id?: number };
@@ -41,7 +44,7 @@ for (const delivery of ["preloaded", "late globals", "late tool-result", "Claude
       assert.match(root.innerHTML, /id="bookLink"[^>]+href="https:\/\/villaakerlyckan\.se\/book\?guests=2"/);
     };
 
-    runInNewContext(source.value, { window, document, URL });
+    runInNewContext(source.value, { window, document, URL, setTimeout: () => 1, clearTimeout: () => {} });
     if (delivery === "preloaded") assertCard();
     else assert.equal(root.innerHTML, "");
 

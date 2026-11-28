@@ -10,6 +10,7 @@
  * /mcp is not shaped here: clients without a widget need the full result.
  */
 import { CHATGPT_WIDGET_MODEL_LINE } from "./apps-widget.js";
+import { offerStatusMessages } from "./offer-status.js";
 import type { ToolResult } from "./tools-base.js";
 
 /** _meta key that carries the full result to the widget on this surface. */
@@ -41,13 +42,12 @@ function offerForModel(full: JsonRecord): JsonRecord {
   const price = record(summary?.price);
   const blocked = record(full.agent_guardrails)?.blocked_claims;
   return {
-    ...pick(full, ["domain", "checkIn", "checkOut", "guests", "verified", "fresh", "signature"]),
+    ...pick(full, ["domain", "checkIn", "checkOut", "guests", "verified", "fresh", "signature", "language"]),
     property: pick(property, ["name", "city", "region", "country"]),
     ...pick(summary, ["available", "availability_reason", "bookable", "direct_booking_url", "valid_until"]),
-    price: {
-      ...pick(price, ["currency", "exact"]),
-      total: price?.agent_total ?? price?.total ?? null,
-    },
+    ...(summary?.bookable === true
+      ? { price: { ...pick(price, ["currency", "exact"]), total: price?.agent_total ?? price?.total ?? null } }
+      : { blocked_reason: record(full.agent_citation)?.blocked_reason }),
     facts: {
       ...pick(property, ["amenities", "starred_amenities"]),
       ...pick(summary, ["policy_claims", "amenity_claims", "stay_details", "refund_schedule", "terms", "minimum_guest_age"]),
@@ -101,10 +101,18 @@ export function shapeChatgptToolResult(toolName: string, result: ToolResult): To
 
   const modelView = WIDGET_TOOL_MODEL_VIEW[toolName];
   if (modelView) {
+    const summary = modelView(structured);
+    const reason = record(structured.agent_citation)?.blocked_reason;
+    const locale = String(structured.language ?? "").toLowerCase().split("-")[0];
+    const messages = Object.hasOwn(offerStatusMessages, locale)
+      ? offerStatusMessages[locale as keyof typeof offerStatusMessages] : offerStatusMessages.en;
+    const blockedMessage = typeof reason === "string" && Object.hasOwn(messages, reason)
+      ? messages[reason as keyof typeof messages] : messages.unknown;
+    const text = summary.bookable === true ? CHATGPT_WIDGET_MODEL_LINE : blockedMessage;
     return {
       ...result,
-      content: [{ type: "text", text: CHATGPT_WIDGET_MODEL_LINE }],
-      structuredContent: modelView(structured),
+      content: [{ type: "text", text }],
+      structuredContent: summary,
       _meta: { ...(result._meta ?? {}), [WIDGET_PAYLOAD_META_KEY]: structured },
     };
   }
