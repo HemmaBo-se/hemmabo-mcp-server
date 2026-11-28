@@ -115,13 +115,13 @@ function mockHostNode(overrides: Record<string, unknown> = {}): void {
   });
 }
 
-async function requestOffer(ctx: typeof CTX_CHATGPT | typeof CTX_FULL): Promise<CallResult> {
+async function requestOffer(ctx: typeof CTX_CHATGPT | typeof CTX_FULL, language?: string): Promise<CallResult> {
   const res = (await handleJsonRpc(
     {
       jsonrpc: "2.0",
       id: 1,
       method: "tools/call",
-      params: { name: "vrp_get_verified_stay_offer", arguments: { domain: DOMAIN, checkIn: "2027-02-14", checkOut: "2027-02-16", guests: 2 } },
+      params: { name: "vrp_get_verified_stay_offer", arguments: { domain: DOMAIN, checkIn: "2027-02-14", checkOut: "2027-02-16", guests: 2, ...(language ? { language } : {}) } },
     },
     ctx,
   )) as unknown as { result: CallResult };
@@ -240,6 +240,27 @@ describe("ChatGPT widget surface: what the model reads (ADR 0020)", () => {
   });
 });
 
+function openGuestCard(accepted: CallResult) {
+  const uri = String(accepted._meta?.["openai/outputTemplate"]);
+  const html = readResource(uri)!.contents[0].text;
+  const script = parseFragment(html).childNodes.find(node => node.nodeName === "script");
+  assert.ok(script && "childNodes" in script);
+  const source = script.childNodes[0];
+  assert.ok(source && "value" in source);
+  const window = Object.assign(new EventTarget(), {
+    openai: { toolResponseMetadata: accepted._meta },
+    parent: { postMessage() {} },
+  });
+  // textContent replaces child elements, including links, in a real DOM.
+  const root = { innerHTML: "", set textContent(s: string) { this.innerHTML = s; }, querySelectorAll: () => [] };
+  const document = { getElementById: (id: string) => id === "root" ? root : null };
+  runInNewContext(source.value, { window, document, URL, Date, setTimeout, clearTimeout });
+  const deliver = (result: Partial<CallResult>) => window.dispatchEvent(Object.assign(new Event("message"), {
+    data: { jsonrpc: "2.0", method: "ui/notifications/tool-result", params: result }, source: window.parent,
+  }));
+  return { root, deliver };
+}
+
 for (const ctx of [CTX_CHATGPT, CTX_FULL]) {
   it(ctx.surface + " only presents a current, bookable offer across consecutive results", async t => {
     const now = Date.UTC(2027, 1, 1);
@@ -247,23 +268,7 @@ for (const ctx of [CTX_CHATGPT, CTX_FULL]) {
     mockHostNode();
     const accepted = await requestOffer(ctx);
     assert.notEqual(accepted.isError, true, accepted.content[0].text);
-    const uri = String(accepted._meta?.["openai/outputTemplate"]);
-    const html = readResource(uri)!.contents[0].text;
-    const script = parseFragment(html).childNodes.find(node => node.nodeName === "script");
-    assert.ok(script && "childNodes" in script);
-    const source = script.childNodes[0];
-    assert.ok(source && "value" in source);
-    const window = Object.assign(new EventTarget(), {
-      openai: { toolResponseMetadata: accepted._meta },
-      parent: { postMessage() {} },
-    });
-    // textContent replaces child elements, including links, in a real DOM.
-    const root = { innerHTML: "", set textContent(s: string) { this.innerHTML = s; }, querySelectorAll: () => [] };
-    const document = { getElementById: (id: string) => id === "root" ? root : null };
-    runInNewContext(source.value, { window, document, URL, Date, setTimeout, clearTimeout });
-    const deliver = (result: Partial<CallResult>) => window.dispatchEvent(Object.assign(new Event("message"), {
-      data: { jsonrpc: "2.0", method: "ui/notifications/tool-result", params: result }, source: window.parent,
-    }));
+    const { deliver, root } = openGuestCard(accepted);
     const assertBlocked = (reason: RegExp) => {
       assert.match(root.innerHTML, reason);
       assert.doesNotMatch(root.innerHTML, /id="bookLink"|id="verifySeal"|900|href=/);
@@ -310,3 +315,60 @@ for (const ctx of [CTX_CHATGPT, CTX_FULL]) {
     assertBlocked(/could not be confirmed/i);
   });
 }
+
+for (const [currency, digits, signed, expected, minorUnit] of [
+  ["JPY", 0, 30000, 30000, true],
+  ["EUR", 2, 29150, 291.50, true],
+  ["KWD", 3, 12345, 12.345, true],
+  ["IQD", 3, 12345, 12.345, true],
+  ["CLF", 4, 12345, 1.2345, true],
+  ["SEK", 2, 250000, 250000, false],
+] as const) {
+  it(`both model views and served cards keep the signed ${currency} price`, async t => {
+    t.mock.timers.enable({ apis: ["Date", "setTimeout"], now: Date.UTC(2027, 1, 1) });
+    const divisor = minorUnit ? 10 ** digits : 1;
+    const price = {
+      currency, minor_unit: minorUnit, exact: true, agent_total: signed, total: signed, public_total: signed + 1,
+      breakdown: [{ nightly_rate: signed + 1 }],
+      adjustments: [{ amount: -1 }],
+      reconciliation: { nightly_subtotal: signed + 1, adjustments_total: -1, computed_total: signed, matches_quoted_total: true },
+    };
+    mockHostNode({ price });
+    const displayDigits = Number.isInteger(expected) ? 0 : digits;
+    const formatted = new Intl.NumberFormat("en-GB", {
+      style: "currency", currency, minimumFractionDigits: displayDigits, maximumFractionDigits: displayDigits,
+    }).format(expected);
+    for (const ctx of [CTX_CHATGPT, CTX_FULL]) {
+      const result = await requestOffer(ctx, "en");
+      assert.notEqual(result.isError, true, result.content[0].text);
+      assert.deepEqual((result._meta?.offer as { price: unknown }).price, price);
+      if (ctx.surface === "full") {
+        const full = JSON.parse(result.content[0].text);
+        const summary = full.official_offer_summary.price;
+        assert.equal(summary.total, expected);
+        assert.equal(summary.public_total, (signed + 1) / divisor);
+        assert.equal(summary.breakdown[0].nightly_rate, (signed + 1) / divisor);
+        assert.equal(summary.adjustments[0].amount, -1 / divisor);
+        assert.equal(summary.reconciliation.computed_total, expected);
+        assert.equal(summary.reconciliation.nightly_subtotal, (signed + 1) / divisor);
+        assert.equal(summary.reconciliation.adjustments_total, -1 / divisor);
+        assert.ok(full.agent_citation.agent_message.endsWith(formatted + "."));
+      } else {
+        assert.deepEqual(result.structuredContent?.price, { total: expected, currency, exact: true });
+      }
+      const { root, deliver } = openGuestCard(result);
+      deliver(result);
+      assert.ok(root.innerHTML.includes('class="price">' + formatted + '</span>'), formatted);
+    }
+  });
+}
+
+it("withholds the offer when a signed minor-unit amount has no defined denomination", async () => {
+  for (const currency of ["ZZZ", "XAU"]) {
+    mockHostNode({ price: { currency, minor_unit: true, total: 30000, exact: true } });
+    const result = await requestOffer(CTX_CHATGPT);
+    assert.equal(result.isError, true);
+    assert.match(result.content[0].text, /no known ISO 4217 minor unit/);
+    assert.doesNotMatch(result.content[0].text, /30000|book\?offer=/);
+  }
+});

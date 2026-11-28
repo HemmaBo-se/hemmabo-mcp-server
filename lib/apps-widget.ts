@@ -42,16 +42,18 @@ export const HEMMABO_CHATGPT_WIDGET_DOMAIN = chatgptWidgetOriginFromMcpEndpoint(
 // know / Terms groups in the unfolded view. URI bump = cache bust, same
 // pattern as every prior widget revision.
 // v12 and native v3 retire the price and booking action on refusal or expiry.
-export const HEMMABO_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v12.html";
+// v13 and native v4 display the normalized ISO 4217 amount.
+export const HEMMABO_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v13.html";
 // ChatGPT caches the HTML by resource URI. Advertise a new key for the fixed
 // startup handshake, and keep the published v1 URI readable for older scans.
-export const HEMMABO_NATIVE_WIDGET_URI = "ui://hemmabo/verified-stay-offer-native-v3.html";
+export const HEMMABO_NATIVE_WIDGET_URI = "ui://hemmabo/verified-stay-offer-native-v4.html";
 export const HEMMABO_NATIVE_WIDGET_URIS: readonly string[] = [
   HEMMABO_NATIVE_WIDGET_URI,
+  "ui://hemmabo/verified-stay-offer-native-v3.html",
   "ui://hemmabo/verified-stay-offer-native-v2.html",
   "ui://hemmabo/verified-stay-offer-native-v1.html",
 ];
-export const HEMMABO_PREVIOUS_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v11.html";
+export const HEMMABO_PREVIOUS_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v12.html";
 export const HEMMABO_V9_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v9.html";
 export const HEMMABO_V8_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v8.html";
 export const HEMMABO_V7_WIDGET_URI = "ui://hemmabo/verified-stay-offer-v7.html";
@@ -75,6 +77,7 @@ export const HEMMABO_ALL_WIDGET_URIS: readonly string[] = [
   HEMMABO_WIDGET_URI,
   ...HEMMABO_NATIVE_WIDGET_URIS,
   HEMMABO_PREVIOUS_WIDGET_URI,
+  "ui://hemmabo/verified-stay-offer-v11.html",
   "ui://hemmabo/verified-stay-offer-v10.html",
   HEMMABO_V9_WIDGET_URI,
   HEMMABO_V8_WIDGET_URI,

@@ -1,3 +1,4 @@
+import { currencyMinorDigits } from "./currency-minor-digits.js";
 import { offerStatusMessages } from "./offer-status.js";
 import { WIDGET_PAYLOAD_META_KEY } from "./chatgpt-surface.js";
 
@@ -444,26 +445,11 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     return formatDate(checkIn, lang) + " - " + formatDate(checkOut, lang);
   }
 
-  function pickAmount(values) {
-    for (var i = 0; i < values.length; i += 1) {
-      var n = Number(values[i]);
-      if (Number.isFinite(n) && n > 0) return n;
-    }
-    return null;
-  }
-
-  // A signed amount is in minor units only when the price record says so
-  // (price.minor_unit: true, e.g. 29100 = 291.00). The server's summary is
-  // always in whole units (minor_unit: false); the raw offer's price keeps
-  // the node's own flag. No guessing from the size of the number.
-  function normalizeAmount(n, minorUnit) {
-    if (n == null) return null;
-    return minorUnit === true ? Math.round(n) / 100 : n;
-  }
+  var currencyMinorDigits = ${JSON.stringify(currencyMinorDigits)};
 
   function money(amount, currency, lang) {
     if (amount == null) return "Final price pending";
-    var digits = Math.round(amount) === amount ? 0 : 2;
+    var digits = Number.isInteger(amount) ? 0 : (currencyMinorDigits[String(currency).toUpperCase()] ?? 2);
     var locale = localeForLanguage(lang);
     try {
       return new Intl.NumberFormat(locale, {
@@ -528,28 +514,15 @@ export const VERIFIED_STAY_OFFER_HTML = `<!DOCTYPE html>
     var listing = bestListing(data);
     var offer = data.offer || {};
     var summary = data.official_offer_summary || {};
-    var price = summary.price || offer.price || data.price || {};
+    // Both MCP surfaces expose the server-normalized total in major units.
+    var price = summary.price || data.price || {};
     var property = summary.property || offer.property || data.property || listing || {};
     var domain = cleanDomain(property.domain || listing.domain || data.propertyDomain || data.domain || offer.canonical_domain || offer.node_id || "");
     var checkIn = data.checkIn || data.check_in || offer.check_in || (offer.request && offer.request.check_in) || listing.checkIn || listing.check_in;
     var checkOut = data.checkOut || data.check_out || offer.check_out || (offer.request && offer.request.check_out) || listing.checkOut || listing.check_out;
     var guests = data.guests || offer.guests || (offer.request && offer.request.guests) || listing.guests;
     var currency = price.currency || data.currency || listing.currency || "SEK";
-    var signedAmount = normalizeAmount(pickAmount([price.agent_total, price.total]), price.minor_unit);
-    var finalAmount = signedAmount != null ? signedAmount : pickAmount([
-      data.finalTotal,
-      data.totalPrice,
-      data.gapTotal,
-      data.directBookingTotal,
-      data.federationTotal,
-      listing.finalTotal,
-      listing.totalPrice,
-      listing.gapTotal,
-      listing.directBookingTotal,
-      listing.federationTotal,
-      data.publicTotal,
-      listing.publicTotal
-    ]);
+    var finalAmount = Number.isFinite(price.total) ? price.total : null;
     var directUrl = (data.official_offer_summary || data).direct_booking_url;
     var images = [
       data.widget_media && data.widget_media.images,
