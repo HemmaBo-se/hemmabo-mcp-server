@@ -1,0 +1,59 @@
+{
+  "repository": "https://github.com/vacationrentalprotocol/vrp-spec",
+  "commit": "b81f85090b8a69825d5b19f035b9d415609364e5",
+  "pull_request": "https://github.com/vacationrentalprotocol/vrp-spec/pull/187",
+  "status": "VRP 1.0 candidate: a draft pull request, not adopted. These files may change with it.",
+  "path": "examples/conformance/",
+  "license": "CC0-1.0",
+  "note": "Byte-for-byte copies, used by src/vrp-1-0-candidate.contract.test.ts. Update by copying the files at a new commit and changing this file; never edit a copy.",
+  "files": {
+    "offer/01-valid-fresh.json": {
+      "sha256": "c07dc25be1ed9c9e3f0ce3d124a26afa9d05c25aa53760f74217f9df66a8b7a7"
+    },
+    "offer/02-valid-expired.json": {
+      "sha256": "e1018b1f907028ed6683eb81f6ebc553aa70dbb9c013af3b7b33c4b31c1e2602"
+    },
+    "offer/03-tampered-signature.json": {
+      "sha256": "a788fdefcb1672d826643ec1790cb1c6a73a2716a638bd16f250bd1473ef1f07"
+    },
+    "offer/04-unknown-kid.json": {
+      "sha256": "df99b02e0593e46ad0b19ce685b8b64945a33a642f75a74112011b0994adb95f"
+    },
+    "offer/05-wrong-key.json": {
+      "sha256": "ddcde66719e901d968c1078df660e5483ef1f7e6b0b587a0102a4f6924ec96df"
+    },
+    "offer/06-alg-ed25519-valid-fresh.json": {
+      "sha256": "ae9336ce1c1680cfcf59d87df14b11ea9dcbbb438b3cae472226f08de627a27a"
+    },
+    "offer/07-alg-unexpected.json": {
+      "sha256": "33a88ed5d1ad9471c215ede2dc1357fe1ae0aa77cb36679da548230fa4f8bb77"
+    },
+    "offer/08-protocol-version-1-0-valid-fresh.json": {
+      "sha256": "7b1c856984da863305aa0504645468309b0c4a2777df777b34861a5013726383"
+    },
+    "offer/09-protocol-version-unknown.json": {
+      "sha256": "90796b4ddab169793a2c3069d1c6f4d2a6c9fe354a78a2a8e9cb7c767a4b0d55"
+    },
+    "offer/10-alg-ed25519-protocol-version-0-1-valid-fresh.json": {
+      "sha256": "202eb81ca32f4cde72182737ced35f6e6bb2668a4aa7edf4800e49124158425c"
+    },
+    "offer/11-alg-ed25519-jwk-alg-ed25519-valid-fresh.json": {
+      "sha256": "ed84c0b412040352b55182df837b3f4698f4e47e6860a4f96f4a356fcd73ab70"
+    },
+    "offer/12-alg-eddsa-jwk-alg-ed25519-valid-fresh.json": {
+      "sha256": "70f2353be5ced19605a66786e8028209ed27f5e36663733ab79ea2847a9f43ef"
+    },
+    "offer/13-alg-none.json": {
+      "sha256": "4a9de8bcb2c6c1d7946c12b8e617f4635bf9dd92285be2cb8f90a2e55e748b75"
+    },
+    "offer/14-alg-wrong-case.json": {
+      "sha256": "5cde631adeba78c8f4de378f0279b7e8c4d3fca5cbdbeaef3a5c0fbec6733ab6"
+    },
+    "offer/15-protocol-version-missing.json": {
+      "sha256": "e95e6aad2b1c7278b0c3d314ab877266605e31127339d31e47510d6618c7284e"
+    },
+    "discovery-version/vectors.v1.0.json": {
+      "sha256": "5093d8b88dd9b8be028c3939a80f0a8510222a2ab30fc42423dad45cdcbdc316"
+    }
+  }
+}
