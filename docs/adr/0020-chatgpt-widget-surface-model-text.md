@@ -33,11 +33,10 @@ the component; `openai/widgetDescription` exists to reduce redundant narration.
 
 On `/mcp/chatgpt`, for every tool that renders a widget:
 
-1. `content` is one line, and the widget resource's `openai/widgetDescription`
-   is the same line (`CHATGPT_WIDGET_MODEL_LINE`, `lib/apps-widget.ts`):
-   «HemmaBo's widget shows this verified offer: the host's own photos, dates,
-   guests, signed total and the booking button. Write at most two sentences.
-   Do not repeat these details, and do not add images or a card of your own.»
+1. A current, bookable offer gives the model the single resource description
+   (`CHATGPT_WIDGET_MODEL_LINE`, `lib/apps-widget.ts`). A blocked offer gives
+   the reason in its place. The static resource description is conditional
+   because clients may load the widget for either outcome.
 2. `structuredContent` is a short summary for the guest's follow-up questions:
    verified, name and place, dates, guests, signed total, booking URL, facts
    (amenities, policy claims, stay details, refund schedule, terms, minimum
@@ -45,7 +44,7 @@ On `/mcp/chatgpt`, for every tool that renders a widget:
    quote, introduce or relay anything. `blocked_claims` stay: each one is a
    prohibition ("Do not …").
 3. The full result — photos, guest welcome, every rule — reaches the widget
-   only in `_meta["hemmabo/widget"]`. The widget reads it there first.
+   only in `_meta["hemmabo/widget"]`. The widget uses this metadata to enrich the matching current result. A refusal clears any previous card. The card stops displaying the total and booking action at signed expiry.
 4. A widget tool has a model view in `lib/chatgpt-surface.ts`
    (`WIDGET_TOOL_MODEL_VIEW`), or the contract test fails.
 

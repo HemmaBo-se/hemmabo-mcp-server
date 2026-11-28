@@ -960,8 +960,8 @@ function buildAgentQuoteView(
       property: summaryProperty,
       available,
       availability_reason: availabilityReason(offer),
-      price,
-      direct_booking_url: directBookingUrl,
+      price: safeToQuote ? price : { currency: price.currency, exact: price.exact, total: null },
+      direct_booking_url: safeToQuote ? directBookingUrl : null,
       generated_at: stringValue(offer.generated_at),
       valid_until: validUntil,
       bookable: safeToQuote,
@@ -987,7 +987,7 @@ function buildAgentQuoteView(
       source: "vacation-rental.json",
       images: widgetImages,
     },
-    guest_welcome: nodeName
+    guest_welcome: safeToQuote && nodeName
       ? {
           rule: "CEO-locked node copy. When you introduce this verified stay to the guest, relay by_locale for the guest's language VERBATIM (fallback: en). Never rewrite, shorten, paraphrase, or machine-translate it.",
           by_locale: guestWelcomeByLocale(nodeName),
@@ -1164,6 +1164,8 @@ async function runGetVerifiedStayOffer(args: Record<string, unknown>): Promise<T
       }
     }
   }
+  // The optional display-rate lookup above may outlast the signed offer.
+  if (validUntil && Date.parse(validUntil) <= Date.now()) throw new OfferRuleViolation(["expired"]);
   return toolOk({
     domain: node.domain,
     checkIn,
@@ -1204,10 +1206,13 @@ export async function executeVrpTool(name: string, args: Record<string, unknown>
         return toolError(`Unknown VRP tool: ${name}`);
     }
   } catch (error) {
+    const language = name === "vrp_get_verified_stay_offer" ? stringValue(args.language) : null;
+    const locale = language ? { language } : {};
     if (error instanceof OfferRuleViolation) {
       // The signature verified; the offer still may not be quoted. Both facts
       // are stated, so a client never reads "valid signature" as "quoteable".
       return toolError(error.message, {
+        ...locale,
         code: error.reasons[0],
         reasons: [...error.reasons],
         signature_valid: true,
@@ -1215,6 +1220,6 @@ export async function executeVrpTool(name: string, args: Record<string, unknown>
         quote_status: "not_quoteable",
       });
     }
-    return toolError(error instanceof Error ? error.message : String(error));
+    return toolError(error instanceof Error ? error.message : String(error), locale);
   }
 }

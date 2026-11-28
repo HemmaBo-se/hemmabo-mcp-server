@@ -1,7 +1,9 @@
 import { afterEach, describe, it, mock } from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign, type KeyObject } from "node:crypto";
-import { handleJsonRpc } from "../api/mcp.js";
+import { parseFragment } from "parse5";
+import { runInNewContext } from "node:vm";
+import { handleJsonRpc, readResource } from "../api/mcp.js";
 import { CHATGPT_WIDGET_MODEL_LINE, HEMMABO_ALL_WIDGET_URIS, HEMMABO_NATIVE_WIDGET_URI } from "../lib/apps-widget.js";
 import { CHATGPT_WIDGET_TOOL_NAMES, WIDGET_PAYLOAD_META_KEY } from "../lib/chatgpt-surface.js";
 import { BLOCKED_AGENT_CLAIMS } from "../lib/vrp.js";
@@ -9,7 +11,6 @@ import { primeHostOwnedLists } from "../lib/host-owned-lists.js";
 
 // VRP Core §2: the verifier reads the Public Suffix List and ICANN's gTLD list;
 // these fetch mocks answer 404 for them, so the lists are seeded here.
-primeHostOwnedLists({ icannRules: ["com", "se", "si"], specification13Tlds: [] });
 
 // ADR 0020. A tool result outranks the server instructions, so on
 // /mcp/chatgpt a widget tool's result must not order the model to present
@@ -48,7 +49,8 @@ function jsonResponse(value: unknown): Response {
 }
 
 /** A host node that signs one available two-night offer. */
-function mockHostNode(): void {
+function mockHostNode(overrides: Record<string, unknown> = {}): void {
+  primeHostOwnedLists({ icannRules: ["com", "se", "si"], specification13Tlds: [] });
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
   const jwk = { ...(publicKey.export({ format: "jwk" }) as Record<string, unknown>), kid: "test-key", alg: "EdDSA", use: "sig" };
   const offer = {
@@ -80,6 +82,7 @@ function mockHostNode(): void {
     rules: { pets: "allowed", refund_schedule: [{ hours_before_checkin: 24, refund_percent: 100 }], minimum_guest_age: 21 },
     terms: { policy_claims: { affirmed: ["pets_dogs"], negated: ["pets_cats"] }, service_included: ["wifi"], service_not_included: [] },
     agent_permission: { may_quote_as_official_direct_offer: true },
+    ...overrides,
   };
   const jws = compactJws(offer, privateKey);
   mock.method(globalThis, "fetch", async (input: string | URL | Request) => {
@@ -112,8 +115,7 @@ function mockHostNode(): void {
   });
 }
 
-async function callOffer(ctx: typeof CTX_CHATGPT | typeof CTX_FULL): Promise<CallResult> {
-  mockHostNode();
+async function requestOffer(ctx: typeof CTX_CHATGPT | typeof CTX_FULL): Promise<CallResult> {
   const res = (await handleJsonRpc(
     {
       jsonrpc: "2.0",
@@ -123,8 +125,14 @@ async function callOffer(ctx: typeof CTX_CHATGPT | typeof CTX_FULL): Promise<Cal
     },
     ctx,
   )) as unknown as { result: CallResult };
-  assert.notEqual(res.result.isError, true, res.result.content?.[0]?.text);
   return res.result;
+}
+
+async function callOffer(ctx: typeof CTX_CHATGPT | typeof CTX_FULL): Promise<CallResult> {
+  mockHostNode();
+  const result = await requestOffer(ctx);
+  assert.notEqual(result.isError, true, result.content?.[0]?.text);
+  return result;
 }
 
 /** Every string the model reads: content text, structuredContent keys and values. */
@@ -231,3 +239,74 @@ describe("ChatGPT widget surface: what the model reads (ADR 0020)", () => {
     }
   });
 });
+
+for (const ctx of [CTX_CHATGPT, CTX_FULL]) {
+  it(ctx.surface + " only presents a current, bookable offer across consecutive results", async t => {
+    const now = Date.UTC(2027, 1, 1);
+    t.mock.timers.enable({ apis: ["Date", "setTimeout"], now });
+    mockHostNode();
+    const accepted = await requestOffer(ctx);
+    assert.notEqual(accepted.isError, true, accepted.content[0].text);
+    const uri = String(accepted._meta?.["openai/outputTemplate"]);
+    const html = readResource(uri)!.contents[0].text;
+    const script = parseFragment(html).childNodes.find(node => node.nodeName === "script");
+    assert.ok(script && "childNodes" in script);
+    const source = script.childNodes[0];
+    assert.ok(source && "value" in source);
+    const window = Object.assign(new EventTarget(), {
+      openai: { toolResponseMetadata: accepted._meta },
+      parent: { postMessage() {} },
+    });
+    // textContent replaces child elements, including links, in a real DOM.
+    const root = { innerHTML: "", set textContent(s: string) { this.innerHTML = s; }, querySelectorAll: () => [] };
+    const document = { getElementById: (id: string) => id === "root" ? root : null };
+    runInNewContext(source.value, { window, document, URL, Date, setTimeout, clearTimeout });
+    const deliver = (result: Partial<CallResult>) => window.dispatchEvent(Object.assign(new Event("message"), {
+      data: { jsonrpc: "2.0", method: "ui/notifications/tool-result", params: result }, source: window.parent,
+    }));
+    const assertBlocked = (reason: RegExp) => {
+      assert.match(root.innerHTML, reason);
+      assert.doesNotMatch(root.innerHTML, /id="bookLink"|id="verifySeal"|900|href=/);
+    };
+    deliver(accepted);
+    assert.match(root.innerHTML, /id="verifySeal"/);
+    assert.match(root.innerHTML, /class="price">[^<]*900/);
+    assert.ok(root.innerHTML.includes('href="https://' + DOMAIN + '/book?offer=test"'));
+    t.mock.timers.tick(600_000);
+    assertBlocked(/expired/i);
+
+    const expired = await requestOffer(ctx);
+    assert.equal(expired.isError, true);
+    deliver(expired);
+    assertBlocked(/expired/i);
+    assert.doesNotMatch(expired.content[0].text, /900 EUR|book\?offer=test/);
+
+    mockHostNode();
+    const renewed = await requestOffer(ctx);
+    deliver(renewed);
+    assert.match(root.innerHTML, /id="bookLink"/);
+
+    for (const [override, reason] of [
+      [{ agent_permission: { may_quote_as_official_direct_offer: false } }, /not allowed/i],
+      [{ booking: {} }, /booking link/i],
+    ] as const) {
+      mockHostNode(override);
+      const denied = await requestOffer(ctx);
+      assert.notEqual(denied.isError, true);
+      assert.doesNotMatch(JSON.stringify([denied.content, denied.structuredContent]), /"total":900|book\?offer=test/);
+      const summary = (denied.structuredContent?.official_offer_summary ?? denied.structuredContent) as Record<string, unknown>;
+      assert.equal(summary.bookable, false);
+      assert.ok(summary.direct_booking_url == null);
+      assert.ok((summary.price as Record<string, unknown> | undefined)?.total == null);
+      if (ctx.surface === "chatgpt") assert.match(denied.content[0].text, reason);
+      deliver(denied);
+      assertBlocked(reason);
+      // Cached success metadata must not replace a newer refusal.
+      deliver({ ...denied, _meta: renewed._meta });
+      assertBlocked(reason);
+    }
+    deliver({ structuredContent: { ...renewed.structuredContent, official_offer_summary: undefined,
+      bookable: undefined, valid_until: new Date(Date.now() + 600_000).toISOString() }, _meta: renewed._meta });
+    assertBlocked(/could not be confirmed/i);
+  });
+}

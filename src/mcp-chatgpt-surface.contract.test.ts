@@ -26,9 +26,9 @@ type ResourcesListResult = { result?: { resources?: Array<{ uri: string }> } };
 type ResourcesReadResult = { result?: { contents?: Array<{ uri: string; text?: string }> } };
 type ToolsListMetaResult = { result?: { tools?: Array<{ name: string; _meta?: Record<string, unknown> }> } };
 
-const NATIVE_URI = "ui://hemmabo/verified-stay-offer-native-v2.html";
+const NATIVE_URI = "ui://hemmabo/verified-stay-offer-native-v3.html";
 const PREVIOUS_NATIVE_URI = "ui://hemmabo/verified-stay-offer-native-v1.html";
-const V9_URI = "ui://hemmabo/verified-stay-offer-v11.html"; // the full surface's current template (v11 since 7.0.9)
+const FULL_URI = "ui://hemmabo/verified-stay-offer-v12.html";
 
 async function toolNames(ctx: typeof CTX_CHATGPT | typeof CTX_FULL): Promise<string[]> {
   const res = (await handleJsonRpc({ jsonrpc: "2.0", method: "tools/list", id: 1 }, ctx)) as unknown as ToolsListResult;
@@ -150,7 +150,7 @@ describe("ChatGPT MCP surface", () => {
     assert.deepEqual((list.result?.resources ?? []).map((r) => r.uri), [NATIVE_URI], "ChatGPT resources/list must advertise exactly the native template");
 
     const full = (await handleJsonRpc({ jsonrpc: "2.0", method: "resources/list", id: 7 }, CTX_FULL)) as unknown as ResourcesListResult;
-    assert.deepEqual((full.result?.resources ?? []).map((r) => r.uri), [V9_URI], "full surface must keep advertising the premium template — /mcp is unchanged");
+    assert.deepEqual((full.result?.resources ?? []).map((r) => r.uri), [FULL_URI], "full surface must keep advertising the premium template — /mcp is unchanged");
 
     const read = (await handleJsonRpc({ jsonrpc: "2.0", method: "resources/read", id: 8, params: { uri: NATIVE_URI } }, CTX_CHATGPT)) as unknown as ResourcesReadResult;
     const nativeText = read.result?.contents?.[0]?.text ?? "";
@@ -165,7 +165,7 @@ describe("ChatGPT MCP surface", () => {
     assert.equal(previousContent?.uri, PREVIOUS_NATIVE_URI);
     assert.equal(previousContent?.text, nativeText, "approved v1 references must still read the fixed native card");
 
-    const readV9 = (await handleJsonRpc({ jsonrpc: "2.0", method: "resources/read", id: 9, params: { uri: V9_URI } }, CTX_FULL)) as unknown as ResourcesReadResult;
+    const readV9 = (await handleJsonRpc({ jsonrpc: "2.0", method: "resources/read", id: 9, params: { uri: FULL_URI } }, CTX_FULL)) as unknown as ResourcesReadResult;
     assert.ok(!(readV9.result?.contents?.[0]?.text ?? "").includes("hb-native-v1"), "v9 must NOT carry the native layer — premium template byte-untouched");
   });
 
@@ -180,7 +180,7 @@ describe("ChatGPT MCP surface", () => {
     assert.ok(/\.hbf, \.hbb \{ background: #c9a84c !important;/.test(nativeText), "native seal faces must be a solid gold fill (no gradient)");
 
     // The premium Claude/v9 surface keeps the animated coin, always visible.
-    const readV9 = (await handleJsonRpc({ jsonrpc: "2.0", method: "resources/read", id: 13, params: { uri: V9_URI } }, CTX_FULL)) as unknown as ResourcesReadResult;
+    const readV9 = (await handleJsonRpc({ jsonrpc: "2.0", method: "resources/read", id: 13, params: { uri: FULL_URI } }, CTX_FULL)) as unknown as ResourcesReadResult;
     const v9Text = readV9.result?.contents?.[0]?.text ?? "";
     assert.ok(!v9Text.includes(".unfold.open ~ .hbcoin"), "v9 must NOT gate the seal to the expanded view — premium coin stays as-is");
   });
@@ -217,6 +217,6 @@ describe("ChatGPT MCP surface", () => {
 
     const resFull = (await handleJsonRpc({ jsonrpc: "2.0", method: "tools/list", id: 11 }, CTX_FULL)) as unknown as ToolsListMetaResult;
     const offerFull = (resFull.result?.tools ?? []).find((t) => t.name === "vrp_get_verified_stay_offer");
-    assert.equal(offerFull?._meta?.["openai/outputTemplate"], V9_URI, "full-surface tools/list _meta must stay on the premium template — /mcp is unchanged");
+    assert.equal(offerFull?._meta?.["openai/outputTemplate"], FULL_URI, "full-surface tools/list _meta must stay on the premium template — /mcp is unchanged");
   });
 });
