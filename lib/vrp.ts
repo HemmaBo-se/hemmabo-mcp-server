@@ -1,3 +1,4 @@
+import { currencyMinorDigits } from "./currency-minor-digits.js";
 import { createPublicKey, verify as cryptoVerify } from "node:crypto";
 import { formatAmenityLabel } from "./tools-base.js";
 import { canonicalAmenityClaimKey } from "./amenity-requirements.js";
@@ -437,24 +438,21 @@ function exactPrice(offer: JsonRecord): boolean {
   return price?.exact === true;
 }
 
-// A signed amount in minor units (`price.minor_unit: true`, the form the
-// spec's implement page instructs: 120000 = 1200.00) becomes whole currency
-// units; `minor_unit: false` (the reference node: whole SEK) stays as signed.
-function majorUnits(value: number | null, minorUnit: boolean): number | null {
-  if (value === null) return null;
-  return minorUnit ? Math.round(value) / 100 : value;
+// A null divisor means the host already supplied major units. A divisor of
+// one still means the signed value must be an integer (for example, JPY).
+function majorUnits(value: number | null, divisor: number | null): number | null {
+  if (value === null || divisor === null) return value;
+  if (!Number.isSafeInteger(value)) throw new Error("The signed minor-unit amount must be a safe integer.");
+  return value / divisor;
 }
 
-// The same conversion on the named integer fields of a signed record (a
-// breakdown row, an adjustment line, the reconciliation block), so the
-// summary's lines and totals stay in one unit.
-function majorUnitsIn(value: unknown, fields: readonly string[], minorUnit: boolean): unknown {
+function majorUnitsIn(value: unknown, fields: readonly string[], divisor: number | null): unknown {
   const record = asRecord(value);
-  if (!record || !minorUnit) return value;
+  if (!record || divisor === null) return value;
   const out: JsonRecord = { ...record };
   for (const field of fields) {
     const amount = numberValue(record[field]);
-    if (amount !== null) out[field] = majorUnits(amount, minorUnit);
+    if (amount !== null) out[field] = majorUnits(amount, divisor);
   }
   return out;
 }
@@ -467,19 +465,25 @@ function majorUnitsIn(value: unknown, fields: readonly string[], minorUnit: bool
 // minor_unit: true, and the app said "Direct host-domain total: 29100 EUR".
 function priceSummary(offer: JsonRecord): JsonRecord {
   const price = priceRecordFrom(offer);
-  const minorUnit = booleanValue(price?.minor_unit) === true;
+  const currency = stringValue(price?.currency) ?? stringValue(offer.currency);
+  let divisor: number | null = null;
+  if (price?.minor_unit === true) {
+    const digits = currencyMinorDigits[currency?.toUpperCase() ?? ""];
+    if (digits === undefined) throw new Error("The signed currency has no known ISO 4217 minor unit.");
+    divisor = 10 ** digits;
+  }
   const publicTotal =
-    majorUnits(numberValue(price?.public_total) ?? numberValue(price?.total), minorUnit) ??
+    majorUnits(numberValue(price?.public_total) ?? numberValue(price?.total), divisor) ??
     numberValue(offer.total_price);
-  const agentTotal = majorUnits(numberValue(price?.agent_total), minorUnit);
+  const agentTotal = majorUnits(numberValue(price?.agent_total), divisor);
   // P5: `total` is the channel-resolved total the agent quotes — agent_total
   // when present, then the signed `total`, then public_total. Mirrors the
   // signed payload's `total` and the widget's agent_total-first preference, so
   // payload, widget, required_phrase and this summary all agree on one meaning.
   const resolvedTotal =
-    agentTotal ?? majorUnits(numberValue(price?.total), minorUnit) ?? publicTotal;
+    agentTotal ?? majorUnits(numberValue(price?.total), divisor) ?? publicTotal;
   return {
-    currency: stringValue(price?.currency) ?? stringValue(offer.currency) ?? null,
+    currency: currency ?? null,
     total: resolvedTotal,
     public_total: publicTotal,
     agent_total: agentTotal,
@@ -488,15 +492,15 @@ function priceSummary(offer: JsonRecord): JsonRecord {
     no_add_on_fees: booleanValue(price?.no_add_on_fees),
     package_applied: price?.package_applied ?? null,
     breakdown: Array.isArray(price?.breakdown)
-      ? price.breakdown.map((row: unknown) => majorUnitsIn(row, ["nightly_rate"], minorUnit))
+      ? price.breakdown.map((row: unknown) => majorUnitsIn(row, ["nightly_rate"], divisor))
       : null,
     // Pass through the signed neutral adjustment lines + reconciliation block
     // so an agent/verifier sees that Σ breakdown + Σ adjustments === total.
     adjustments: Array.isArray(price?.adjustments)
-      ? price.adjustments.map((line: unknown) => majorUnitsIn(line, ["amount"], minorUnit))
+      ? price.adjustments.map((line: unknown) => majorUnitsIn(line, ["amount"], divisor))
       : null,
     reconciliation:
-      asRecord(majorUnitsIn(price?.reconciliation, ["nightly_subtotal", "adjustments_total", "computed_total"], minorUnit)) ?? null,
+      asRecord(majorUnitsIn(price?.reconciliation, ["nightly_subtotal", "adjustments_total", "computed_total"], divisor)) ?? null,
   };
 }
 
@@ -832,10 +836,8 @@ function formatMoney(amount: unknown, currency: unknown, language?: string): str
   const numeric = numberValue(amount);
   if (numeric === null) return null;
   const currencyCode = stringValue(currency);
-  // Whole units print without decimals (unchanged for every existing node);
-  // a converted minor-unit amount with a fraction keeps its two decimals.
-  const fractionDigits = Number.isInteger(numeric) ? 0 : 2;
-  const plain = fractionDigits ? numeric.toFixed(2) : String(numeric);
+  const fractionDigits = Number.isInteger(numeric) ? 0 : (currencyMinorDigits[currencyCode?.toUpperCase() ?? ""] ?? 2);
+  const plain = numeric.toFixed(fractionDigits);
   if (!currencyCode) return plain;
   const locale = localeForLanguage(language);
   if (!locale) return `${plain} ${currencyCode}`;
